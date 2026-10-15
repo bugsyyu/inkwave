@@ -2777,3 +2777,33 @@ circle.iw-ico-cut { fill: var(--cut, #fff); }
 .iw-mode__zone { display: block; width: calc(var(--u) * 8); height: calc(var(--u) * 8); color: #fff; filter: drop-shadow(0 calc(var(--u) * .35) 0 var(--k)); }
 .iw-mode__zone svg { width: 100%; height: 100%; }
 .iw-mode--zones.is-focus .iw-mode__zone { animation: iw-mode-bob 1.2s ease-in-out infinite .25s; }
+
+/* ------------------------------------------------------------------ 关卡学习: the learn screen (menus.js _scr_learn) */
+.iw-btn--learn .iw-btn__label { letter-spacing: .04em; }
+.iw-learnsel__body { position: absolute; left: 50%; top: calc(var(--u) * 12); translate: -50% 0; width: min(calc(var(--u) * 76), calc(100vw - 32px)); display: flex; flex-direction: column; gap: calc(var(--u) * 1.2); }
+.iw-learnsel__panel { width: 100%; }
+.iw-learnsel__panel .iw-seg { min-width: calc(var(--u) * 40); }
+.iw-learnsel__day { font-size: var(--fs-m); min-height: 1.4em; }
+.iw-learnsel__forms { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(var(--u) * 1); }
+.iw-learnsel__form {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * .35);
+  min-height: calc(var(--u) * 11); padding: calc(var(--u) * 1) calc(var(--u) * .6); border-radius: calc(var(--u) * 1.4);
+  border: calc(var(--u) * .2) solid rgba(255, 255, 255, .22); background: rgba(21, 18, 28, .72); color: #fff;
+  font-family: inherit; cursor: pointer; rotate: var(--tilt, 0deg); transition: border-color .15s, background .15s, translate .15s var(--spring);
+}
+.iw-learnsel__form.is-focus, .iw-learnsel__form:hover { border-color: var(--a); translate: 0 calc(var(--u) * -.4); }
+.iw-learnsel__form.is-picked { background: rgba(var(--a-rgb), .22); border-color: var(--a); }
+.iw-learnsel__form.is-locked { opacity: .5; cursor: not-allowed; }
+.iw-learnsel__form.is-locked:hover { border-color: rgba(255, 255, 255, .3); translate: none; }
+.iw-learnsel__ficon { width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); color: var(--a); }
+.iw-learnsel__form.is-locked .iw-learnsel__ficon { color: #9a94ad; }
+.iw-learnsel__ficon svg { width: 100%; height: 100%; }
+.iw-learnsel__fname { font-size: calc(var(--u) * 1.9); }
+.iw-learnsel__fsub { font-size: var(--fs-xs); color: var(--muted); text-align: center; }
+.iw-learnsel__flock { position: absolute; right: calc(var(--u) * .6); top: calc(var(--u) * .6); width: calc(var(--u) * 1.6); height: calc(var(--u) * 1.6); color: #9a94ad; }
+.iw-learnsel__flock svg { width: 100%; height: 100%; }
+.iw-learnsel__start { display: flex; justify-content: center; margin-top: calc(var(--u) * .4); }
+@media (max-width: 640px) {
+  .iw-learnsel__forms { grid-template-columns: repeat(2, 1fr); }
+  .iw-learnsel__panel .iw-seg { min-width: 0; }
+}

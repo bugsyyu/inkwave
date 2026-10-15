@@ -38,6 +38,9 @@ export function chromePath() {
 export function gpuArgs(extra = []) {
   const args = ['--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'];
   if (process.platform === 'darwin') args.unshift('--use-angle=metal');
+  // Chrome refuses to start as root ("Running as root without --no-sandbox is not supported") — the case in a CI /
+  // dev container, which is also the one place the sandbox buys nothing. Only there; a user account keeps it.
+  if (process.platform !== 'win32' && typeof process.getuid === 'function' && process.getuid() === 0) args.push('--no-sandbox');
   return args.concat(extra);
 }
 

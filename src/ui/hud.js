@@ -34,6 +34,7 @@ import { WEAPONS, SPECIALS, TEAM_NAMES, SUB, PLAYER, MATCH, ZONES } from '../con
 import { on, G } from '../core/ctx.js';
 import { SFX } from '../audio/audio.js';
 import { BossHud } from './hud-boss.js';
+import { LearnHud } from './hud-learn.js';
 import { installBossAudio } from '../audio/bossAudio.js';
 import { bossEmblem, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
 
@@ -139,6 +140,7 @@ export class HUD {
     addEventListener('resize', this._onResize);
     this._bindBus();
     this.boss = new BossHud(this);
+    this.learn = new LearnHud(this);   // 关卡学习: the question layer (docs/LEARN.md §5)
     installBossAudio();   // boss-mode sfx + music director (idle outside boss matches)
   }
 

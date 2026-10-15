@@ -1,5 +1,6 @@
 // Scripted play-through for audits.
-// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900]
+// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900] [--touch]
+//   --touch: a phone — touch events, a coarse pointer and 2x pixels, so the game picks its on-screen controls
 // script: [{"wait":ms},{"down":"KeyW"},{"up":"KeyW"},{"press":"Space"},{"mouse":"down"|"up"},{"move":[dx,dy]},
 //          {"shot":"/path.png"},{"eval":"js"},{"evalFile":"/path.js"},{"log":"label"}]
 import puppeteer from 'puppeteer-core';
@@ -13,12 +14,13 @@ const raw = args[1];
 const steps = JSON.parse(existsSync(raw) ? readFileSync(raw, 'utf8') : raw);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const W = +opt('w', 1600), H = +opt('h', 900);
+const TOUCH = args.includes('--touch');
 
 const browser = await puppeteer.launch({
   executablePath: chromePath(),
   headless: 'new',
   args: gpuArgs([`--window-size=${W},${H}`]),
-  defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
+  defaultViewport: { width: W, height: H, deviceScaleFactor: TOUCH ? 2 : 1, isMobile: TOUCH, hasTouch: TOUCH },
 });
 // always take the browser down with us (an orphaned headless Chrome keeps spinning its WebGL loop at 100 % CPU)
 const kill = () => { try { browser.process()?.kill('SIGKILL'); } catch { /* gone */ } };
@@ -27,6 +29,9 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { kill(
 const watchdog = setTimeout(() => { console.log('play.mjs WATCHDOG — giving up'); kill(); process.exit(2); }, +(opt('timeout', 900)) * 1000);
 watchdog.unref?.();
 const page = await browser.newPage();
+// touch emulation alone leaves `(pointer: coarse)` false in headless Chrome, and that media query is half of what
+// src/core/touch.js uses to decide "this is a phone" — so a phone run also pins the setting the way a player would
+if (TOUCH) await page.evaluateOnNewDocument(() => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); v.touchControls = 'on'; localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } });
 const logs = [];
 page.on('console', (m) => { const t = m.type(); if (t === 'error' || t === 'warn' || t === 'warning' || process.env.ALLLOGS) logs.push(`[${t}] ${m.text()}`); });
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${(e.stack || '').split('\n').slice(0, 5).join('\n')}`));

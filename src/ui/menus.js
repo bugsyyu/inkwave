@@ -25,12 +25,13 @@ import {
 } from './menu-art.js';
 import { bossSilhouette, bossEmblem, BOSS_GLYPH, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
 import { WhatsNew } from './news.js';
+import { loadWeek } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
 
-const SCREENS = ['loading', 'title', 'main', 'mode', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
+const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
 const WIPES = new Set(['loading>title', 'title>main', 'results>main', 'pause>main', 'results>null', 'pause>title', 'online>lobby', 'lobby>online', 'lobby>main', 'results>lobby', 'pause>online']);
 // Pushes/pops between these get the light ink swipe (decorative — the swap itself is immediate).
-const LIGHT = new Set(['main', 'mode', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'online', 'lobby']);
+const LIGHT = new Set(['main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'online', 'lobby']);
 // ?netmock=1 → an offline stand-in for G.net (src/net/mock.js) so the online screens work without the relay
 const NETMOCK = typeof location !== 'undefined' && new URLSearchParams(location.search).get('netmock') === '1';
 // room codes (the session generates them from this set: no O/0, I/1)
@@ -158,6 +159,7 @@ const LOCKER_TABS = [
 ];
 const MENU_DESC = {
   play: 'Turf War or Zone Control 4 v 4 — or team up with the bots against HULLBREAKER in a Boss Battle',
+  learn: '雅思课程进游戏：一天的课是一关 — 走到门前答题，答对门开。先有解密闯关；道具赛、对抗赛、Boss 战稍后',
   online: 'Private rooms for up to 8 friends — create one or join with a room code',
   loadout: 'Choose your weapon, sub and special — or practice with it',
   locker: 'Choose your squidkid — tentacles, headgear, eyes, skin and outfit',
@@ -556,7 +558,7 @@ export class Menus {
     if (this._stack.length > 1) {
       this._sfx('ui_back');
       this.show(this._stack[this._stack.length - 2], { pop: true, back: true });
-    } else if (['mode', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'online'].includes(this.current)) {
+    } else if (['mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'online'].includes(this.current)) {
       this._sfx('ui_back'); // opened directly by the engine: fall back to the main menu
       this.show('main', { back: true });
     }
@@ -888,6 +890,8 @@ export class Menus {
       { id: 'play', label: 'PLAY', sub: 'Turf War · Zone Control · Boss Battle', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary', accept: () => this._go('mode'), sound: 'ui_confirm' },
       { id: 'online', label: 'ONLINE', sub: 'Play with friends · private rooms', icon: GLYPHS.online, cls: 'iw-btn--menu iw-btn--online', accept: () => this._go('online'), sound: 'ui_confirm',
         badge: h('span', { class: 'iw-btn__live' }, h('i'), 'LIVE') },
+      // 关卡学习 (docs/LEARN.md): her IELTS course, a day a level
+      { id: 'learn', label: '学习 · LEARN', sub: '解密闯关 · 雅思课程 第 1–3 周', icon: GLYPHS.pencil, cls: 'iw-btn--menu iw-btn--learn', accept: () => this._go('learn'), sound: 'ui_confirm' },
       { id: 'loadout', label: 'LOADOUT', icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: 'LOCKER', icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: 'SETTINGS', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
@@ -1025,6 +1029,80 @@ export class Menus {
       onFocus: (f) => { if (f && f._mode && f._mode !== el.dataset.mode) { el.dataset.mode = f._mode; setBg(f._mode); } },
       onNav: (dir) => this._graphNav(graph, dir),
     };
+  }
+
+  // ================================================================ SCREEN: learn (关卡学习: 选周 / 选天 / 选形式 → 开局)
+  // Chinese throughout (docs/LEARN.md §1.4): this is her side of the game. Only 解密闯关 can start in this slice; the
+  // other three forms sit greyed with their names so the shape of the thing is visible.
+  _scr_learn() {
+    const s = this._settings();
+    const st = this._learnPick || (this._learnPick = { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
+    const FORMS = [
+      { id: 'puzzle', name: '解密闯关', sub: '一个人 · 答对门开', icon: GLYPHS.key, on: true },
+      { id: 'race', name: '道具赛', sub: '稍后 · 答对拿道具', icon: GLYPHS.bolt, on: false },
+      { id: 'duel', name: '对抗赛', sub: '稍后 · 答题蓄墨', icon: GLYPHS.swords, on: false },
+      { id: 'boss', name: 'Boss 战', sub: '稍后 · 周考', icon: BOSS_GLYPH, on: false },
+    ];
+    const dayTitle = h('div', { class: 'iw-setup__desc iw-learnsel__day' }, '…');
+    const startSub = h('span');
+    const refresh = () => {
+      startSub.textContent = `第 ${st.week} 周 · 第 ${st.day} 天 · 解密闯关`;
+      dayTitle.textContent = '…';
+      const want = `${st.week}/${st.day}`;
+      loadWeek(st.week).then((w) => {
+        if (`${st.week}/${st.day}` !== want || !this._scr || this._scr.el !== el) return;
+        const d = (w.days || []).find((x) => x.d === st.day);
+        dayTitle.textContent = d ? `${d.title}${d.steps ? ` · ${d.steps.length} 步` : ''}` : `${w.title || ''} · 第 ${st.day} 天（内容桥接上后显示）`;
+        restartAnim(dayTitle, 'is-in');
+      }).catch(() => { dayTitle.textContent = '这一周的课还没接上'; });
+    };
+    const weekSeg = this._seg([[1, '第 1 周'], [2, '第 2 周'], [3, '第 3 周']], st.week, (v) => { st.week = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnWeek: v })); refresh(); });
+    const daySeg = this._seg([1, 2, 3, 4, 5, 6, 7].map((d) => [d, String(d)]), st.day, (v) => { st.day = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnDay: v })); refresh(); });
+    const weekRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), '周 · WEEK'), weekSeg.el);
+    this._bind(weekRow, { id: 'learn-week', type: 'row', adjust: weekSeg.adjust, accept: weekSeg.cycle });
+    const dayRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.sun }), '天 · DAY'), daySeg.el);
+    this._bind(dayRow, { id: 'learn-day', type: 'row', adjust: daySeg.adjust, accept: daySeg.cycle });
+    const forms = FORMS.map((f, i) => {
+      const b = h('button', { class: `iw-learnsel__form iw-in iw-in--pop${f.on ? ' is-on' : ' is-locked'}${st.kind === f.id ? ' is-picked' : ''}`, style: { '--tilt': `${[-1.2, 0.8, -0.8, 1.2][i]}deg` }, 'aria-disabled': f.on ? null : 'true' },
+        h('span', { class: 'iw-learnsel__ficon', html: f.icon }),
+        h('span', { class: 'iw-learnsel__fname iw-display' }, f.name),
+        h('span', { class: 'iw-learnsel__fsub' }, f.sub),
+        f.on ? null : h('span', { class: 'iw-learnsel__flock', html: GLYPHS.lock }));
+      this._fx(b, { tilt: 5 });
+      this._bind(b, { id: 'learn-form-' + f.id, accept: () => {
+        if (!f.on) { this._sfx('ui_error', 0.15); restartAnim(b, 'is-edge-r'); this.toast(`${f.name}还没做好 — 先玩解密闯关`); return; }
+        st.kind = f.id; forms.forEach((x) => x.classList.toggle('is-picked', x === b)); this._sfx('ui_toggle');
+      } });
+      return b;
+    });
+    const start = this._btn({ id: 'start', label: '开始', icon: GLYPHS.play, cls: 'iw-btn--start iw-in iw-in--pop', sound: 'ui_confirm', accept: () => this._startLearn(st) });
+    start.querySelector('.iw-btn__text').appendChild(h('span', { class: 'iw-btn__sub' }, startSub));
+    const panel = this._panel('iw-ss__match iw-learnsel__panel iw-in iw-in--up', weekRow, dayRow, dayTitle);
+    const el = h('div', { class: 'iw-screen iw-setup iw-learnsel' },
+      h('div', { class: 'iw-ss__scrim' }),
+      this._header('学习 · LEARN', { sub: '雅思课程进游戏 · 一天一关 · 选周、选天、选形式' }),
+      h('div', { class: 'iw-learnsel__body' },
+        panel,
+        h('div', { class: 'iw-learnsel__forms' }, forms),
+        h('div', { class: 'iw-learnsel__start' }, start)),
+      this._prompts([[['←', '→'], 'DPad', '改'], ['Enter', 'A', '选'], ['Esc', 'B', '返回']]));
+    refresh();
+    return { el, wrap: true, initial: start };
+  }
+
+  _startLearn(st) {
+    if (this._starting) return;
+    this._starting = true;
+    if (this._scr) {
+      this._scr.el.classList.add('is-launch');
+      this._burstAt(this._scr.el.querySelector('.iw-btn--start'), { count: 18, dist: 11, size: 1.4, ring: true });
+      this._sfx('splat_big');
+    }
+    this._runWipe(() => {
+      this._starting = false;
+      safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
+      if (this.current === 'learn') this.show(null, { instantLeave: true });
+    });
   }
 
   // ================================================================ SCREEN: setup (stage select)
@@ -3680,13 +3758,15 @@ export class Menus {
     const zoneMode = snap.mode === 'zones' && !!snap.zones;
     // online the match keeps running underneath this menu, and quitting leaves the room
     const online = !!(G.netm || (G.net && G.net.state === 'match'));
+    const learn = !!safeCall(() => this.api.isLearn && this.api.isLearn());   // 关卡学习: a level's pause reads in Chinese
     const items = [
-      { id: 'resume', label: online ? 'BACK TO THE MATCH' : 'RESUME', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--primary', accept: () => this._resume(), sound: null },
+      { id: 'resume', label: online ? 'BACK TO THE MATCH' : learn ? '继续' : 'RESUME', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--primary', accept: () => this._resume(), sound: null },
       { id: 'settings', label: 'SETTINGS', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
       { id: 'howto', label: 'HOW TO PLAY', icon: GLYPHS.question, cls: 'iw-btn--menu', accept: () => this._go('howto') },
-      { id: 'quit', label: online ? 'LEAVE ROOM' : 'QUIT MATCH', icon: online ? GLYPHS.exit : GLYPHS.close, cls: 'iw-btn--menu iw-btn--danger', accept: () => this._openModal({
-        title: online ? 'LEAVE ROOM?' : 'QUIT MATCH?', danger: true,
+      { id: 'quit', label: online ? 'LEAVE ROOM' : learn ? '离开这一关' : 'QUIT MATCH', icon: online ? GLYPHS.exit : GLYPHS.close, cls: 'iw-btn--menu iw-btn--danger', accept: () => this._openModal({
+        title: online ? 'LEAVE ROOM?' : learn ? '离开这一关？' : 'QUIT MATCH?', danger: true,
         text: online ? 'You’ll leave the match and the room — a bot takes over your squidkid for the team.'
+          : learn ? '回到菜单。已经答过的题都记下了，下次从头再走这一关。'
           : zoneMode ? 'You will leave this Zone Control match and head back to the lobby. It will not count.' : 'You will leave this Turf War and head back to the lobby. Your turf will not count.',
         buttons: [
           { label: 'KEEP PLAYING', accept: () => this._closeModal(), sound: null },
