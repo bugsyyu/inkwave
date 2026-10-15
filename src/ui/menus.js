@@ -1050,7 +1050,7 @@ export class Menus {
       dayTitle.textContent = '…';
       const want = `${st.week}/${st.day}`;
       loadWeek(st.week).then((w) => {
-        if (`${st.week}/${st.day}` !== want || !this._scr || this._scr.el !== el) return;
+        if (`${st.week}/${st.day}` !== want) return;   // (a stale answer for a pick she has already changed)
         const d = (w.days || []).find((x) => x.d === st.day);
         dayTitle.textContent = d ? `${d.title}${d.steps ? ` · ${d.steps.length} 步` : ''}` : `${w.title || ''} · 第 ${st.day} 天（内容桥接上后显示）`;
         restartAnim(dayTitle, 'is-in');
