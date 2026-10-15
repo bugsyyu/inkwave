@@ -1,0 +1,8 @@
+[
+  { "until": "window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.state === 'playing' && __inkwave.match.learn" },
+  { "wait": 800 },
+  { "eval": "JSON.stringify({ mode: __inkwave.match.mode, actors: __inkwave.match.actors.length, gates: __inkwave.match.learn.gates.length, hud: !!document.querySelector('.iw-learn.is-walk'), timer: document.querySelector('.iw-timer__txt') && document.querySelector('.iw-timer__txt').textContent })", "log": "boot" },
+  { "evalFile": "tools/learn/drive.js", "log": "drive" },
+  { "wait": 300 },
+  { "eval": "JSON.stringify({ state: __inkwave.match.state, phase: __inkwave.match.learn.phase, fps: __inkwave.fps })", "log": "after" }
+]

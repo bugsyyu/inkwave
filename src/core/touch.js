@@ -169,7 +169,7 @@ export class TouchControls {
 
   // ---- pointer handling ------------------------------------------------------------------------------------------
   _down(e) {
-    if (e.pointerType !== 'touch' || !this.input.touch.active || this.portrait) return;
+    if (e.pointerType !== 'touch' || !this.input.touch.active || (this.portrait && !G.match?.learn)) return;
     // The controls are invisible unless the layer is live, so they must be untouchable too — a hidden control that
     // still fires is how a tap lands on a button nobody can see (and, for the map latch, one that then gets wiped).
     if (!this.enabled) return;
@@ -288,13 +288,17 @@ export class TouchControls {
   // Gate: a live match with no menu open. Deliberately NOT match.controller.enabled — that clears when the local
   // player is splatted, which is exactly when the map (and super-jump planning) must still work.
   update() {
-    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !this.portrait;
+    // 关卡学习 (docs/LEARN.md): a level holds the match (`paused`, no menu) while a question is up, and then the controls
+    // must be off — a thumb on the card is not a stick. A level also plays in portrait (the card is made for it, and
+    // auto-walk stands in for the stick), so the gate stays down there.
+    const learn = !!G.match?.learn;
+    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !(this.portrait && !learn) && !G.match.paused;
     // Arm the portrait gate only when there is something unusable underneath it — a real menu screen or a match.
     // NOT the loading screen: that is where a player looks to see whether the game is coming up at all, and covering
     // it turns "still loading" into "broken" (which is exactly what an earlier version of this gate did). The title
     // screen is left alone too — it advances on a tap anywhere, which portrait does fine.
     const cur = G.menus?.current;
-    const armed = (G.mode === 'match' && !!G.match) || (!!cur && cur !== 'loading' && cur !== 'title');
+    const armed = (G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title');
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.
     if (armed !== this._armed) { this._armed = armed; this.rotateEl?.classList.toggle('is-armed', armed); }

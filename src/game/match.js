@@ -8,6 +8,7 @@ import { Actor } from './actor.js';
 import { BotBrain } from './bots.js';
 import { PlayerController } from './player.js';
 import { BossMode, BOSS_MODE } from '../boss/bossMode.js';
+import { LearnFlow } from '../learn/flow.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
@@ -16,8 +17,12 @@ export class Match {
     this.opts = opts;          // { duration, difficulty, attract, practice, playerName, weapon, CharacterClass, input, rig, mode }
     this.attract = !!opts.attract;
     this.practice = !!opts.practice;   // solo on an empty stage: no enemies, no teammates, no clock
-    // turf | zones (Zone Control) | boss (one squad, team 0, vs HULLBREAKER); attract backdrops and practice are turf
-    this.mode = this.attract || this.practice ? 'turf' : opts.mode === 'boss' ? 'boss' : opts.mode === 'zones' ? 'zones' : 'turf';
+    // turf | zones (Zone Control) | boss (one squad, team 0, vs HULLBREAKER) | learn (关卡学习, docs/LEARN.md: a solo
+    // level on a real stage, run by src/learn/flow.js); attract backdrops and practice are turf
+    this.mode = this.attract || this.practice ? 'turf' : opts.mode === 'boss' ? 'boss' : opts.mode === 'zones' ? 'zones' : opts.mode === 'learn' && opts.learn ? 'learn' : 'turf';
+    this.learn = null;             // LearnFlow (learn mode), built in setup() once the stage and the actor exist
+    // solo: one squidkid, no enemies, no clock — practice, and a learning level (which is practice with gates)
+    this.solo = this.practice || this.mode === 'learn';
     this.duration = opts.duration || (this.mode === 'zones' ? ZONES.duration : this.mode === 'boss' ? BOSS_MODE.duration : MATCH.defaultDuration);
     this.zones = null;             // ZoneControl (Zone Control mode)
     this.time = this.duration;
@@ -56,10 +61,10 @@ export class Match {
     // humans-only stage (config noBots) offline: a match is just you (the ?devstage walk), the attract backdrop nobody
     // (o.mannequins: idle, brainless kids for the render audits)
     const noBots = !!o.noBots;
-    for (let team = 0; team < (boss || this.practice ? 1 : 2); team++) {
+    for (let team = 0; team < (boss || this.solo ? 1 : 2); team++) {
       const weapons = pickTeam(team === 0 && !this.attract ? o.weapon : null);
       if (boss) weapons.push(...pickTeam(null));   // the whole squad on one side: 8 kids, every weapon kind
-      for (let s = 0; s < (this.practice ? 1 : boss ? BOSS_MODE.squad : MATCH.teamSize); s++) {
+      for (let s = 0; s < (this.solo ? 1 : boss ? BOSS_MODE.squad : MATCH.teamSize); s++) {
         const isLocal = team === 0 && s === 0 && !this.attract;
         if (noBots && !isLocal && !(this.attract && o.mannequins)) continue;
         // subs: yours from the loadout; bots carry a random one (about half keep their weapon's default)
@@ -98,6 +103,7 @@ export class Match {
       this.unsubs.push(on('turf', (e) => this._zoneTurf(e)));
     }
     if (this.mode === 'boss') { this.bossMode = new BossMode(this); this.boss = this.bossMode.boss; }
+    if (this.mode === 'learn') this.learn = new LearnFlow(this, o.learn);
   }
 
   // Online: the host's roster — who owns which squidkid (players their own, the host the bots).
@@ -147,7 +153,7 @@ export class Match {
   }
 
   start() {
-    this.setState(this.attract || this.practice ? 'playing' : 'intro');
+    this.setState(this.attract || this.solo ? 'playing' : 'intro');
   }
 
   setState(s) {
@@ -157,6 +163,7 @@ export class Match {
 
   dispose() {
     this.bossMode?.dispose(); this.bossMode = null; this.boss = null;
+    this.learn?.dispose(); this.learn = null;
     for (const a of this.actors) { G.scene.remove(a.character.root); a.weaponRunner.reset(); a.character.dispose?.(); }
     this.unsubs?.forEach((u) => u());
     G.actors = [];
@@ -186,6 +193,8 @@ export class Match {
   }
 
   update(dt) {
+    // the learning level runs while the match is held for a question (that hold IS `paused`), so it ticks first
+    this.learn?.update(dt);
     if (this.paused) return;
     this.stateT += dt;
     switch (this.state) {
@@ -193,7 +202,7 @@ export class Match {
         if (this.stateT > (this.bossMode ? BOSS_MODE.intro : 4.2)) this.setState('playing');
         break;
       case 'playing': {
-        if (this.practice) break;   // practice never runs out
+        if (this.solo) break;   // practice / a learning level never runs out
         if (this.zones) {
           this.zones.update(dt);
           if (this.state !== 'playing') break;         // knockout / overtime decided it

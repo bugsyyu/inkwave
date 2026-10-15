@@ -25,3 +25,10 @@
 - **验证**：`npm run test:learn` 22 / 22（`nice -n 10`，0.5 s），`npm run check` 185 个文件绿。没开浏览器、没 `npm install`。
 - **定了、要主会话过目的**：关卡作答的证据方式（`L`；打字的词 `T/H/S`；写句 `W/S`）；`audio` 先 `null`（IELTS-Base 的录音是切片打包的）；写句、口语先是 lesson 步；并账走 `Model.mergeDoc`。细节在 LEARN §8。
 - **没做的**：口语 / 写句进日关（第二阶段）；录音接入；同步服务器；IELTS-Base 更新后要重跑导出（`SOURCE.json` 的提交号会变，测试核 sha256）。
+### 21:40 关卡学习 B：解密闯关竖切片——第 1 周第 1 天一关，Tidewater 上离线能走、手机能开（分支 `learn-b`；LEARN.md §9）
+
+- **为什么**：LEARN.md §6 的第一步：A 做内容桥 + 题目引擎（纯模块），B 做模式脚手架 + 一关解谜，两边并行；B 这边先用一个接口一样的替身（`src/learn/engine-stub.js`），A 落地后改 `src/learn/api.js` 一个文件。
+- **改了什么**：三个钩子——`match.js` 的 `mode: 'learn'`（单人无敌人无钟的 `solo`，`match.learn` 每帧先于 `paused` 早退跑）；`menus.js` 的「学习 · LEARN」屏（选周 / 选天 / 选形式，只有解密闯关能开）和 `?learn=w1d1&kind=puzzle`；`hud.js` 挂 `hud-learn.js` 答题层。关卡本体 `src/learn/flow.js`：门沿 `G.nav` 的 A* 路线（出生点 → 对面出口，不走攀墙边）按距离摆，走近 3 m 停住出题，答对门开、墨路铺到下一道门，答错上锁、换个问法排到队尾，最后一道门出结果卡；当天首答进 `store`。`config.js` 的 `LEARN`。自动走（`autoWalk`）给手机竖屏和脚本用。
+- **三个钩子之外**：`src/core/touch.js` 三处（关卡 `paused` 时触屏键不活——拇指按在答题卡上不是摇杆；关卡允许竖屏）。工具：`tools/serve.py` 在没有 IPv6 的容器里退回 IPv4（原来 `AF_INET6` 直接 `EAFNOSUPPORT`）；`tools/chrome.mjs` root 下补 `--no-sandbox`（Chrome 拒绝以 root 起）；`tools/play.mjs` 加 `--touch`（触屏 + 粗指针 + 2x，并把 `touchControls` 钉成 `on`，因为 headless 的触屏模拟不改 `(pointer: coarse)`）。
+- **验证**：`npm run check` 绿（184 个文件）；`node --test tests/learn/*.test.mjs` 5/5（替身的契约：每道题恰好落一道门、一道门一个步、判分不看大小写 / 英美拼写、首答只认一次）；`./tools/smoke.sh 8491` 绿（原来的模式没动）；`tools/learn/play-desktop.json` + `drive.js`（1280×720）：开关、自动走到第一道门、第一题故意答错（上锁）、第二题答对、第一题换成四选一再答对、门开、墨路铺到第二道门（`G.paint.coverage()[0] > 0`），总线上 `learn:question / learn:answer / learn:gate` 的顺序对，无控制台错误；手机 390×844 `--touch`（`tools/learn/play-phone.json`）：触屏模式起、竖屏不弹「转过来」、答题卡占下半屏、输入框 48 px / 字 18 px、按钮 ≥ 44 px，截图看过后删了。__RESULTS__
+- **还缺**：A 的真内容 / 判分 / 记忆模型（替身只有 14 条样例）；题的时限；另三种形式；录音；门的样子（环 + 浮标 + 光柱）；真机 iPhone 上的键盘弹出和第一帧。

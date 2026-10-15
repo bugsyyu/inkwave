@@ -38,6 +38,13 @@ export function chromePath() {
 export function gpuArgs(extra = []) {
   const args = ['--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'];
   if (process.platform === 'darwin') args.unshift('--use-angle=metal');
+  // A CI / dev container (running as root, the usual tell): Chrome refuses to start there without --no-sandbox
+  // ("Running as root without --no-sandbox is not supported"), and there is no GPU — with the default flags the WebGL
+  // context simply fails to create ("BindToCurrentSequence failed"). Software GL instead: ANGLE on SwiftShader, which
+  // newer Chromes only allow with --enable-unsafe-swiftshader. CHROME_SOFT_GL=1 asks for the same on any account.
+  const root = process.platform !== 'win32' && typeof process.getuid === 'function' && process.getuid() === 0;
+  if (root) args.push('--no-sandbox');
+  if (root || process.env.CHROME_SOFT_GL) args.splice(args.indexOf('--enable-gpu'), 1, '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader');
   return args.concat(extra);
 }
 
