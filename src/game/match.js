@@ -71,7 +71,9 @@ export class Match {
     for (let team = 0; team < (boss || this.solo ? 1 : 2); team++) {
       const weapons = pickTeam(team === 0 && !this.attract ? o.weapon : null);
       if (boss) weapons.push(...pickTeam(null));   // the whole squad on one side: 8 kids, every weapon kind
-      for (let s = 0; s < perSide; s++) {
+      // (a learning level may size the two sides itself: the 今日小考 is her + 1 against 2 — opts.learn.sides = [2, 3])
+      const sideN = lk && Array.isArray(o.learn.sides) ? (o.learn.sides[team] || perSide) : perSide;
+      for (let s = 0; s < sideN; s++) {
         const isLocal = team === 0 && s === 0 && !this.attract;
         if (noBots && !isLocal && !(this.attract && o.mannequins)) continue;
         // subs: yours from the loadout; bots carry a random one (about half keep their weapon's default)

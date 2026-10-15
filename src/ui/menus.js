@@ -26,6 +26,7 @@ import {
 import { bossSilhouette, bossEmblem, BOSS_GLYPH, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
 import { WhatsNew } from './news.js';
 import { loadWeek } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
+import { FORM_ZH } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
 
 const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
@@ -159,7 +160,7 @@ const LOCKER_TABS = [
 ];
 const MENU_DESC = {
   play: 'Turf War or Zone Control 4 v 4 — or team up with the bots against HULLBREAKER in a Boss Battle',
-  learn: '雅思课程进游戏：一天的课是一关 — 走到门前答题，答对门开。先有解密闯关；道具赛、对抗赛、Boss 战稍后',
+  learn: '雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、道具赛答对拿道具、对抗赛答题蓄墨、Boss 战是周考',
   online: 'Private rooms for up to 8 friends — create one or join with a room code',
   loadout: 'Choose your weapon, sub and special — or practice with it',
   locker: 'Choose your squidkid — tentacles, headgear, eyes, skin and outfit',
@@ -891,7 +892,7 @@ export class Menus {
       { id: 'online', label: 'ONLINE', sub: 'Play with friends · private rooms', icon: GLYPHS.online, cls: 'iw-btn--menu iw-btn--online', accept: () => this._go('online'), sound: 'ui_confirm',
         badge: h('span', { class: 'iw-btn__live' }, h('i'), 'LIVE') },
       // 关卡学习 (docs/LEARN.md): her IELTS course, a day a level
-      { id: 'learn', label: '学习 · LEARN', sub: '解密闯关 · 雅思课程 第 1–3 周', icon: GLYPHS.pencil, cls: 'iw-btn--menu iw-btn--learn', accept: () => this._go('learn'), sound: 'ui_confirm' },
+      { id: 'learn', label: '学习 · LEARN', sub: '解密闯关 · 道具赛 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', icon: GLYPHS.pencil, cls: 'iw-btn--menu iw-btn--learn', accept: () => this._go('learn'), sound: 'ui_confirm' },
       { id: 'loadout', label: 'LOADOUT', icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: 'LOCKER', icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: 'SETTINGS', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
@@ -1032,27 +1033,28 @@ export class Menus {
   }
 
   // ================================================================ SCREEN: learn (关卡学习: 选周 / 选天 / 选形式 → 开局)
-  // Chinese throughout (docs/LEARN.md §1.4): this is her side of the game. Only 解密闯关 can start in this slice; the
-  // other three forms sit greyed with their names so the shape of the thing is visible.
+  // Chinese throughout (docs/LEARN.md §1.4): this is her side of the game. The four forms (docs/LEVELS.md §2): the day's
+  // recommended one is just first in the list; the boss is the whole week's 周考 (the day picker does not apply to it).
   _scr_learn() {
     const s = this._settings();
     const st = this._learnPick || (this._learnPick = { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
     const FORMS = [
       { id: 'puzzle', name: '解密闯关', sub: '一个人 · 答对门开', icon: GLYPHS.key, on: true },
-      { id: 'race', name: '道具赛', sub: '稍后 · 答对拿道具', icon: GLYPHS.bolt, on: false },
-      { id: 'duel', name: '对抗赛', sub: '稍后 · 答题蓄墨', icon: GLYPHS.swords, on: false },
-      { id: 'boss', name: 'Boss 战', sub: '稍后 · 周考', icon: BOSS_GLYPH, on: false },
+      { id: 'race', name: '道具赛', sub: '和 3 个机器人跑一圈 · 答对拿道具', icon: GLYPHS.bolt, on: true },
+      { id: 'duel', name: '对抗赛', sub: '4v4 抢区域 · 答题蓄墨', icon: GLYPHS.swords, on: true },
+      { id: 'boss', name: 'Boss 战', sub: '周考 · 听 读 写 说 四段', icon: BOSS_GLYPH, on: true },
     ];
     const dayTitle = h('div', { class: 'iw-setup__desc iw-learnsel__day' }, '…');
     const startSub = h('span');
     const refresh = () => {
-      startSub.textContent = `第 ${st.week} 周 · 第 ${st.day} 天 · 解密闯关`;
+      startSub.textContent = st.kind === 'boss' ? `第 ${st.week} 周 · 周考 · ${FORM_ZH.boss}` : `第 ${st.week} 周 · 第 ${st.day} 天 · ${FORM_ZH[st.kind] || FORM_ZH.puzzle}`;
       dayTitle.textContent = '…';
       const want = `${st.week}/${st.day}`;
       loadWeek(st.week).then((w) => {
         if (`${st.week}/${st.day}` !== want) return;   // (a stale answer for a pick she has already changed)
-        const d = (w.days || []).find((x) => x.d === st.day);
-        dayTitle.textContent = d ? `${d.title}${d.steps ? ` · ${d.steps.length} 步` : ''}` : `${w.title || ''} · 第 ${st.day} 天（内容桥接上后显示）`;
+        const d = (w.days || []).find((x) => x.d === st.day || Number(x.n) === st.day);
+        const steps = d && (d.steps ? d.steps.length : ['a', 'b', 'c'].reduce((n, k) => n + (Array.isArray(d[k]) ? d[k].length : 0), 0));
+        dayTitle.textContent = st.kind === 'boss' ? `${w.title || ''} · 周考：听 20 · 读 20 · 写 3 句 · 说 4 问` : d ? `${d.title}${steps ? ` · ${steps} 步` : ''}` : `${w.title || ''} · 第 ${st.day} 天`;
         restartAnim(dayTitle, 'is-in');
       }).catch(() => { dayTitle.textContent = '这一周的课还没接上'; });
     };
@@ -1071,7 +1073,7 @@ export class Menus {
       this._fx(b, { tilt: 5 });
       this._bind(b, { id: 'learn-form-' + f.id, accept: () => {
         if (!f.on) { this._sfx('ui_error', 0.15); restartAnim(b, 'is-edge-r'); this.toast(`${f.name}还没做好 — 先玩解密闯关`); return; }
-        st.kind = f.id; forms.forEach((x) => x.classList.toggle('is-picked', x === b)); this._sfx('ui_toggle');
+        st.kind = f.id; forms.forEach((x) => x.classList.toggle('is-picked', x === b)); this._sfx('ui_toggle'); refresh();
       } });
       return b;
     });
