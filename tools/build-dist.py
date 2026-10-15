@@ -23,7 +23,8 @@ for f in seen:
     d = os.path.join('dist/vendor/three/jsm', f); os.makedirs(os.path.dirname(d), exist_ok=True); shutil.copy(os.path.join(root, f), d)
 os.makedirs('dist/vendor/three/build', exist_ok=True)
 for f in ['three.module.js', 'three.core.js']: shutil.copy('vendor/three/build/' + f, 'dist/vendor/three/build/' + f)
-for d in ['src', 'styles', 'assets', 'songs']: shutil.copytree(d, 'dist/' + d)
+# content/ (the course packs) and vendor/ielts/ (IELTS-Base's engines) ship with the learning levels (docs/LEARN.md §2, §5)
+for d in ['src', 'styles', 'assets', 'songs', 'content', 'vendor/ielts']: shutil.copytree(d, 'dist/' + d)
 shutil.copy('index.html', 'dist/index.html')
 # Device diagnostics that ship. These two are the only pages under tools/ that are self-contained — styles and script
 # inline, no sibling assets — so copying the file alone is a complete page. That matters because a phone has no console
