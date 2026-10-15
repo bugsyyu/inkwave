@@ -46,6 +46,7 @@ test('every item: id, en, zh, tts, audio, meta.kind / meta.input; choice items h
       assert.ok(it.meta && typeof it.meta.kind === 'string' && typeof it.meta.input === 'string', s.id);
       assert.equal(it.meta.step, s.id);
       seen.kinds.add(it.meta.kind); seen.inputs.add(it.meta.input);
+      if (it.meta.input === 'type' || it.meta.input === 'write') assert.equal(it.answer, it.meta.ref, it.id + ': answer is the text checked against');
       if (it.meta.input === 'choice') {
         assert.ok(Array.isArray(it.options) && it.options.length >= 2, it.id + ' options');
         assert.ok(Number.isInteger(it.answer) && it.answer >= 0 && it.answer < it.options.length, it.id + ' answer');

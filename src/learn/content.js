@@ -7,7 +7,8 @@
 //   await loadWeek(n)      → the pack's week { id, n, title, days } (also loads the engine and builds the index)
 //   daySteps(week, d)      → Step[]   Step = { id: 'w1d1:a1', kind, title, minutes, items, meta }
 //                            kind: 'dictation' | 'choice' | 'listen' | 'pron' | 'lesson'
-//   Item = { id, en, zh, tts, audio, options?: [{ en, zh }], answer?, meta }
+//   Item = { id, en, zh, tts, audio, options?: [{ en, zh }], answer?, meta }   answer: the option index, or the text a
+//          typed / written answer is checked against (also meta.ref)
 //          meta = { kind (the index kind: word dict quiz read pair sym write speak lesson), input ('type' | 'choice' |
 //          'write' | 'read'), step, scored, … } — engine.js dispatches on meta.input / meta.kind.
 //
@@ -30,7 +31,9 @@ export function setLoader(fn) { loader = typeof fn === 'function' ? fn : null; }
 async function readText(rel) {
   if (loader) return loader(rel);
   const url = new URL('../../content/' + rel, import.meta.url);
-  if (url.protocol === 'file:') {
+  // Node itself (tests, tools) reads the file; a page — even one served from file:// by Electron's renderer — fetches
+  const node = typeof process !== 'undefined' && process.versions && process.versions.node && url.protocol === 'file:';
+  if (node) {
     const fs = await import('node:fs/promises');
     return fs.readFile(url, 'utf8');
   }
@@ -176,7 +179,7 @@ function wordChoiceItems(reg, si) {
 function wordTypeItems(reg, si) {
   return itemsOf(reg, si).map((it) => {
     const C = it.content || {};
-    return Object.assign(base(it, si.sk, { input: 'type', typed: true, ref: it.en, ipa: it.ipa, ipaUs: it.ipaUs, ipaGb: it.ipaGb, hint: C.zh || it.zh, zhFull: C.zhFull || it.zh }), { tts: it.en });
+    return Object.assign(base(it, si.sk, { input: 'type', typed: true, ref: it.en, ipa: it.ipa, ipaUs: it.ipaUs, ipaGb: it.ipaGb, hint: C.zh || it.zh, zhFull: C.zhFull || it.zh }), { tts: it.en, answer: it.en });
   });
 }
 
@@ -193,7 +196,7 @@ function quizItems(reg, si, passage) {
 }
 
 function dictItems(reg, si) {
-  return itemsOf(reg, si).map((it) => Object.assign(base(it, si.sk, { input: 'type', ref: it.ref || it.en, di: it.di }), { tts: it.ref || it.en }));
+  return itemsOf(reg, si).map((it) => Object.assign(base(it, si.sk, { input: 'type', ref: it.ref || it.en, di: it.di }), { tts: it.ref || it.en, answer: it.ref || it.en }));
 }
 
 // pairs: one word of the pair is spoken (chosen by a stable hash), both are the options
@@ -207,7 +210,7 @@ function pairItems(reg, si) {
 
 // write: the Chinese to put into English; judged by gen.js's WT key forms when asked (the step itself is a lesson step for now)
 function writeItems(reg, si) {
-  return itemsOf(reg, si).map((it) => base(it, si.sk, { input: 'write', ref: it.ref || it.en, wi: it.wi }));
+  return itemsOf(reg, si).map((it) => Object.assign(base(it, si.sk, { input: 'write', ref: it.ref || it.en, wi: it.wi }), { answer: it.ref || it.en }));
 }
 
 function speakItems(reg, si) {
