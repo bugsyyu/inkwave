@@ -160,6 +160,29 @@ function buildDay(w, d) {
 export const DAY_PLAN = {};
 for (const w of ['w1', 'w2', 'w3']) { DAY_PLAN[w] = [null]; for (let d = 1; d <= 7; d++) DAY_PLAN[w][d] = buildDay(w, d); }
 
+// a week the tables do not know (the 4th on): the same rules on the loaded course — form by d % 3 (puzzle → race →
+// duel), the review day a race, every stage once a week ((n × 7 + d) % 7), day / dusk by the week's parity; the pack's
+// own steps give the gates, so a new course pack has a table the moment it is imported (docs/LEVELS.md §6.2)
+export function dayPlanFor(week, d) {
+  if (DAY_PLAN[week.id] && DAY_PLAN[week.id][d]) return DAY_PLAN[week.id][d];
+  const n = Number(week.n) || 0, steps = daySteps(week, d);
+  if (!steps.length) return null;
+  const review = d === 7 || steps.some((s) => s.meta.type === 'weekly');
+  const form = review ? 'race' : ['puzzle', 'race', 'duel'][(d - 1) % 3];
+  const stage = STAGE_IDS[(n * 7 + d) % STAGE_IDS.length], time = n % 2 ? 'day' : 'dusk', spots = SPOTS[stage];
+  const gates = [], signs = [], asking = steps.filter((s) => s.kind !== 'lesson');
+  asking.forEach((s, i) => {
+    const mech = mechanicOf(s), at = (i + 1) / (asking.length + 1);
+    gates.push({ step: s.id, type: s.meta.type, k: s.meta.k, mechanic: mech, ask: s.items.length, batch: MECHANICS[mech].batch, minutes: s.minutes, at: +at.toFixed(3), spot: spots[Math.max(1, Math.min(spots.length - 2, Math.round(at * (spots.length - 1))))] });
+  });
+  steps.filter((s) => s.kind === 'lesson').forEach((s) => {
+    const mech = mechanicOf(s);
+    signs.push({ step: s.id, type: s.meta.type, k: s.meta.k, mechanic: mech, ask: s.meta.type === 'write' ? s.items.length : 0, minutes: s.minutes, at: 0.95, spot: spots[spots.length - 1], classic: CLASSIC[mech] || null });
+  });
+  const extras = review ? { quiz: null, note: '复习日：不出今日小考；明天起周考（Boss）一天一段' } : { quiz: { ...EXAM_MECHANICS.quiz, items: '由 quizPlan(week, d, misses) 选' } };
+  return { form, alt: FORMS.filter((f) => f !== 'boss' && f !== form), stage, time, review, route: form === 'race' ? 'loop' : form === 'duel' ? 'zones' : 'through', minutes: steps.reduce((a, s) => a + s.minutes, 0), gates, signs, extras, generated: true };
+}
+
 /* ───────────────────────────── props (道具): INKWAVE subs / specials as learning props ───────────────────────────── */
 // from: the INKWAVE thing whose prop / effect / sound is reused (the engine's own, nothing new). when: how it is earned.
 // evidence: what using it does to the record ('H' = the answer counts as hinted, store mode H; 'none' = nothing).
@@ -388,7 +411,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const LEVEL_OF = { puzzle: puzzleLevel, race: raceLevel, duel: duelLevel };
 
 export function planDay(week, d, form) {
-  const P = DAY_PLAN[week.id] && DAY_PLAN[week.id][d];
+  const P = dayPlanFor(week, d);
   if (!P) throw new Error('design: no plan for ' + week.id + ' d' + d);
   const f = FORMS.includes(form) && form !== 'boss' ? form : P.form;
   const base = clone(LEVEL_OF[f](week, d));
@@ -499,7 +522,7 @@ export function quizPlan(week, d, misses) {
   const last = items.pop();
   const out = interleave(items);
   if (last) out.push(last);
-  return { kind: 'quiz', form: Q.form, week: week.id, day: d, n: out.length, minutes: Q.minutes, stage: DAY_PLAN[week.id][d].stage, time: 'dusk', items: out.map((x) => ({ id: x.id, stepId: x.stepId, day: x.day })), rules: RULES.duel, bots: { count: 3, teams: 2, allies: 1, enemies: 2, model: 'BOT_ANSWER' } };
+  return { kind: 'quiz', form: Q.form, week: week.id, day: d, n: out.length, minutes: Q.minutes, stage: (dayPlanFor(week, d) || {}).stage || STAGE_IDS[0], time: 'dusk', items: out.map((x) => ({ id: x.id, stepId: x.stepId, day: x.day })), rules: RULES.duel, bots: { count: 3, teams: 2, allies: 1, enemies: 2, model: 'BOT_ANSWER' } };
 }
 
 // 自由练习: opts = { skill: 'L' | 'R' | 'W' | null, weakOnly, n: 5 | 10 | 15, stage? } → a short race whose checkpoints

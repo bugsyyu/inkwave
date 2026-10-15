@@ -11,7 +11,7 @@ import { puzzleLevel } from '../../src/learn/levels.js';
 import { SUBS, SPECIALS, OFFLINE_MAPS, MAPS, DIFFICULTY, TIMES } from '../../src/config.js';
 import {
   FORMS, MECHANICS, CLASSIC, mechanicOf, EXAM_MECHANICS, SPOTS, DAY_PLAN, BOSS_STAGE, PROPS, PROPS_OF, PROP_DROP, BOT_ANSWER, BOTS_OF,
-  EFFECTS, SFX, TRIGGERS, DANCES, BANNERS, RULES, RETRY, UNLOCK, STARS, stars, PACE, estimateMinutes, coverage, planDay,
+  EFFECTS, SFX, TRIGGERS, DANCES, BANNERS, RULES, RETRY, UNLOCK, STARS, stars, PACE, estimateMinutes, coverage, planDay, dayPlanFor,
   bossPlan, quizPlan, freePlan, SYLLABUS_MECHANICS, dayTable, STAGE_IDS,
 } from '../../src/learn/design.js';
 
@@ -179,6 +179,19 @@ test('planDay: A\'s level cloned and extended (gate order, items and pos untouch
   const D = planDay(w1, 6);
   assert.equal(D.form, 'duel'); assert.equal(D.kind, 'duel'); assert.equal(D.rules.mode, 'zones'); assert.equal(D.stage, 'kelpline');
   assert.throws(() => planDay(w1, 9));
+  // a week the tables do not know (the 4th on) gets a plan from the same rules on its own steps: form by d % 3, the
+  // review day a race, every stage once a week, every asking step a gate, the course's minutes
+  const w4 = { ...w1, id: 'w4', n: 4 };
+  const P4 = dayPlanFor(w4, 1);
+  assert.ok(P4.generated); assert.equal(P4.form, 'puzzle'); assert.equal(dayPlanFor(w4, 2).form, 'race'); assert.equal(dayPlanFor(w4, 3).form, 'duel'); assert.equal(dayPlanFor(w4, 7).form, 'race');
+  assert.equal(new Set([1, 2, 3, 4, 5, 6, 7].map((d) => dayPlanFor(w4, d).stage)).size, 7, 'every stage once in week 4');
+  assert.deepEqual(P4.gates.map((g) => g.step), daySteps(w4, 1).filter((s) => s.kind !== 'lesson').map((s) => s.id));
+  assert.equal(P4.minutes, 225); assert.equal(dayPlanFor(w4, 7).extras.quiz, null);
+  const L4 = planDay(w4, 2);
+  assert.equal(L4.form, 'race'); assert.equal(L4.week, 'w4'); assert.ok(STAGE_IDS.includes(L4.stage)); assert.equal(L4.gates.length, 7);
+  assert.deepEqual(dayPlanFor(w4, 1), P4, 'generated again, the same plan');
+  assert.equal(dayPlanFor(w1, 1), DAY_PLAN.w1[1], 'a known week comes from the table itself');
+  assert.equal(quizPlan(w4, 2, []).stage, dayPlanFor(w4, 2).stage, 'the quiz of a generated week plays on that day\'s stage');
 });
 
 test('bossPlan: EXAM.md\'s 周考 — L 20 · R 20 · W 1 task of 3 sentences · S 4 questions + 2 read-aloud; phases are HP bands; due items first; ≈ 44 minutes over 4 days', async () => {
