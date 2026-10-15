@@ -1313,3 +1313,163 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
   .iw-bb__embsplat, .iw-bb__stripes, .iw-btc__stripes, .iw-bb__stars i, .iw-bmv.has-dir.is-on .iw-bmv__dir svg { animation: none !important; }
   .iw-btc__txt, .iw-bend__emb { animation-name: none !important; }
 }
+
+/* ================================================================== 关卡学习: the question layer (src/ui/hud-learn.js)
+   Its own layer in #ui-root (not inside .iw-hud, which hides with the HUD and takes no pointer events), so the shared
+   tokens are declared again here. z 18: over the HUD (10) and the touch controls (15), under the pause menu (20).
+   Chinese text falls through 'Rubik' (Latin only) to the system's CJK face. Dark glass; team colour via --self. */
+.iw-learn {
+  --u: min(1vw, 1.7778vh); --k: #15121c; --muted: #c3bdd6; --lk: rgba(14, 12, 22, .92);
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --out: cubic-bezier(.22, 1, .36, 1);
+  --self: #ff8a14; --self-rgb: 255,138,20; --self-ink: #15121c;
+  position: absolute; inset: 0; z-index: 18; pointer-events: none; color: #fff;
+  font-family: 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.iw-learn.is-off { display: none; }
+.iw-learn * { box-sizing: border-box; }
+.iw-learn svg { display: block; overflow: visible; }
+/* every tap target is at least 44 pt (iPhone first) */
+.iw-learn__btn {
+  pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; min-width: 44px; padding: 0 18px; border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .22); background: var(--self); color: var(--self-ink);
+  font: 800 16px/1 'Rubik', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s var(--out), filter .12s, background .15s;
+}
+.iw-learn__btn:hover { filter: brightness(1.08); }
+.iw-learn__btn:active { transform: scale(.96); }
+.iw-learn__btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.iw-learn__btn i { width: 20px; height: 20px; display: grid; place-items: center; }
+.iw-learn__btn i svg { width: 100%; height: 100%; }
+.iw-learn__btn.is-dim { background: rgba(255, 255, 255, .12); color: #fff; }
+
+/* ---- the walk: where the next gate is, how far, auto-walk */
+.iw-learn__walk {
+  position: absolute; left: 50%; top: calc(var(--u) * 7.4); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 10px; border-radius: 999px;
+  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .14); box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s linear .25s;
+}
+.iw-learn.is-walk .iw-learn__walk { opacity: 1; visibility: visible; transition: opacity .25s, visibility 0s; }
+.iw-learn__arrow { width: 32px; height: 32px; display: grid; place-items: center; color: var(--self); rotate: var(--deg, 0deg); transition: rotate .15s linear; }
+.iw-learn__arrow svg { width: 100%; height: 100%; }
+.iw-learn__walkmain { display: flex; flex-direction: column; line-height: 1.1; min-width: 64px; }
+.iw-learn__walktxt { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.iw-learn__dist { font: 800 18px/1.1 'Rubik', system-ui, sans-serif; }
+.iw-learn__walk.is-near .iw-learn__dist { color: var(--self); }
+.iw-learn__gate { font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .1); white-space: nowrap; }
+.iw-learn__auto { background: rgba(255, 255, 255, .12); color: #fff; padding: 0 14px; }
+.iw-learn__auto.is-on { background: var(--self); color: var(--self-ink); }
+
+/* ---- the question card (desktop: a card low in the middle; phone: the bottom half, see the media query) */
+.iw-learn__panel {
+  position: absolute; left: 50%; bottom: max(24px, 4vh); transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px)); max-height: 78vh; overflow-y: auto; padding: 16px 18px 18px; border-radius: 22px;
+  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .08);
+  pointer-events: auto; display: none; flex-direction: column; gap: 10px;
+}
+.iw-learn.is-ask .iw-learn__panel { display: flex; }
+.iw-learn__panel.is-enter { animation: iw-learn-in .5s var(--spring) backwards; }
+@keyframes iw-learn-in { from { opacity: 0; translate: 0 40px; } }
+.iw-learn__head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.iw-learn__kind { padding: 4px 10px; border-radius: 999px; background: var(--self); color: var(--self-ink); font-size: 12px; letter-spacing: .06em; white-space: nowrap; }
+.iw-learn__prog { flex: 1; }
+.iw-learn__locks { display: flex; gap: 4px; }
+.iw-learn__lock { width: 18px; height: 18px; color: #ff3d5e; }
+.iw-learn__lock svg { width: 100%; height: 100%; }
+.iw-learn__q { font-size: 20px; font-weight: 800; line-height: 1.3; }
+.iw-learn__zh { font-size: 15px; color: var(--muted); line-height: 1.4; }
+.iw-learn__play { align-self: flex-start; background: rgba(255, 255, 255, .12); color: #fff; }
+.iw-learn__play.is-playing { background: var(--self); color: var(--self-ink); }
+/* typed: a real text field (16 px+ so iOS does not zoom into it), Enter or 提交 */
+.iw-learn__form.is-typed { display: flex; gap: 10px; }
+.iw-learn__input {
+  flex: 1; min-width: 0; min-height: 48px; padding: 0 16px; border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .08); color: #fff;
+  font: 600 18px/1 'Rubik', system-ui, sans-serif; outline: none; pointer-events: auto;
+  user-select: text; -webkit-user-select: text;
+}
+.iw-learn__input::placeholder { color: rgba(255, 255, 255, .45); font-weight: 500; }
+.iw-learn__input:focus { border-color: var(--self); background: rgba(255, 255, 255, .12); }
+.iw-learn__input:disabled { opacity: .6; }
+.iw-learn__form.is-shake { animation: iw-learn-shake .3s; }
+@keyframes iw-learn-shake { 25% { translate: -6px 0; } 75% { translate: 6px 0; } }
+/* choice: the English on top, its Chinese under it once answered */
+.iw-learn__form.is-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.iw-learn__opt {
+  pointer-events: auto; display: grid; grid-template-columns: 26px 1fr; column-gap: 10px; align-items: center; text-align: left;
+  min-height: 52px; padding: 8px 12px; border-radius: 14px; border: 2px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .07); color: #fff; font: 700 17px/1.2 'Rubik', system-ui, sans-serif; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background .12s, border-color .12s, transform .12s var(--out);
+}
+.iw-learn__opt:hover:not(:disabled) { background: rgba(255, 255, 255, .13); }
+.iw-learn__opt:active:not(:disabled) { transform: scale(.97); }
+.iw-learn__opt:disabled { cursor: default; }
+.iw-learn__optn { grid-row: 1 / 3; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .14); font-size: 13px; }
+.iw-learn__optzh { font-size: 13px; font-weight: 600; color: var(--muted); opacity: 0; height: 0; overflow: hidden; transition: opacity .2s; }
+.iw-learn__panel.is-answered .iw-learn__optzh { opacity: 1; height: auto; }
+.iw-learn__opt.is-picked { border-color: #fff; }
+.iw-learn__opt.is-right { border-color: var(--self); background: rgba(var(--self-rgb), .22); }
+.iw-learn__panel.is-answered .iw-learn__opt.is-picked:not(.is-right) { border-color: #ff3d5e; background: rgba(255, 61, 94, .16); }
+/* the verdict and 「为什么」 */
+.iw-learn__verdict { display: none; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.iw-learn__verdict.is-on { display: flex; }
+.iw-learn__verdict.is-pop .iw-learn__vline { animation: iw-learn-pop .45s var(--spring); }
+@keyframes iw-learn-pop { from { scale: .8; } }
+.iw-learn__vline { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.iw-learn__vicon { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #15121c; }
+.iw-learn__vicon svg { width: 70%; height: 70%; }
+.iw-learn__verdict.is-ok .iw-learn__vicon { background: #3ddc84; }
+.iw-learn__verdict.is-ok .iw-learn__vtext { color: #3ddc84; }
+.iw-learn__verdict.is-bad .iw-learn__vicon { background: #ff3d5e; }
+.iw-learn__verdict.is-bad .iw-learn__vtext { color: #ff6b85; }
+.iw-learn__why { font-size: 15px; line-height: 1.45; color: #e9e5f4; }
+.iw-learn__next { align-self: flex-end; }
+
+/* ---- results */
+.iw-learn__results {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 32px)); max-height: 86vh; overflow-y: auto; padding: 24px 22px; border-radius: 24px;
+  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .14); box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
+  pointer-events: auto; display: none; flex-direction: column; gap: 14px; text-align: center;
+}
+.iw-learn.is-done .iw-learn__results { display: flex; }
+.iw-learn__results.is-enter { animation: iw-learn-in .55s var(--spring) backwards; }
+.iw-learn__rtitle { font-size: 30px; color: var(--self); }
+.iw-learn__rscore { font-size: 18px; }
+.iw-learn__rscore b { font-size: 40px; font-weight: 900; margin-right: 6px; }
+.iw-learn__rscore small { display: block; color: var(--muted); font-size: 14px; margin-top: 4px; }
+.iw-learn__rdue { text-align: left; }
+.iw-learn__rlabel { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-bottom: 6px; }
+.iw-learn__rdue ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.iw-learn__rdue li { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .08); font-size: 15px; }
+.iw-learn__rdue li span { color: var(--muted); font-size: 13px; }
+.iw-learn__rbtns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.iw-learn__big { min-height: 52px; font-size: 18px; padding: 0 24px; }
+
+/* ---- the rest of the HUD / touch layer during a level: no weapon buttons (fire · sub · special · cheer are the
+   1st, 4th, 5th and 7th buttons of touch.js's LAYOUT + TOP_LAYOUT order); jump, squid, map and pause stay */
+.iw-touch.is-learn .iw-touch__btn:nth-child(1), .iw-touch.is-learn .iw-touch__btn:nth-child(4),
+.iw-touch.is-learn .iw-touch__btn:nth-child(5), .iw-touch.is-learn .iw-touch__btn:nth-child(7) { display: none; }
+
+/* ---- phone: the card is the bottom half of the screen, the walk bar hugs the top-left corner */
+@media (max-width: 640px) {
+  .iw-learn__panel {
+    left: 0; right: 0; bottom: 0; transform: none; width: auto; height: 50%; max-height: none;
+    border-radius: 22px 22px 0 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); gap: 8px;
+  }
+  .iw-learn__panel.is-enter { animation-name: iw-learn-up; }
+  .iw-learn__q { font-size: 18px; }
+  .iw-learn__zh { font-size: 14px; }
+  .iw-learn__opt { font-size: 16px; min-height: 48px; padding: 6px 10px; }
+  .iw-learn__form.is-choice { gap: 8px; }
+  .iw-learn__walk { left: 10px; top: calc(10px + env(safe-area-inset-top)); transform: none; max-width: calc(100vw - 20px); gap: 8px; }
+  .iw-learn__results { width: calc(100vw - 24px); padding: 20px 16px; }
+  .iw-learn__rtitle { font-size: 26px; }
+}
+@keyframes iw-learn-up { from { translate: 0 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .iw-learn *, .iw-learn *::before, .iw-learn *::after { animation: none !important; transition: none !important; }
+}

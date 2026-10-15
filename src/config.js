@@ -558,6 +558,31 @@ export const PROGRESSION = {
   zones: { turfScale: 0.6, xpPerZoneTurfPoint: 1.0, xpKnockout: 300 },
 };
 
+// ---- 关卡学习 (docs/LEARN.md; src/learn/*, src/ui/hud-learn.js) ----
+// The numbers of the learning levels. Everything the puzzle level tunes lives here, so a day's "feel" (how far
+// apart the gates sit, how big the inked trail is) is changed in one place and never duplicated in flow / HUD code.
+export const LEARN = {
+  weeks: 3, days: 7,          // the course: week 1–3, day 1–7 (content.js decides what each day holds)
+  puzzle: {
+    gates: 8,                 // gates per level; a day's steps are spread over them (the last gate is the exit)
+    minGateGap: 6,            // m along the route between two gates (never two gates on top of each other)
+    firstGateMin: 8,          // m from the spawn to the first gate (so the first question is a walk, not a spawn pop)
+    gateRadius: 3,            // m: coming this close to the gate opens its question
+    questionTime: 0,          // s per question, 0 = no clock (solo puzzle: she thinks as long as she likes)
+    retries: 1,               // a wrong answer re-asks the item once (in another form) before the gate shows the answer
+    inkRadius: 1.1,           // m: the ink trail painted from an opened gate to the next one
+    inkStep: 1.2,             // m between the trail's splats
+    autoWalkSpeed: 1,         // 0..1 of the run speed when the level walks her to the next gate (phones: one tap)
+    jumpAhead: 0.7,           // m before a jump-up edge the auto-walk presses jump
+  },
+  ui: {
+    hit: 44,                  // pt: the smallest tap target in the question layer (iPhone first)
+    phoneMax: 640,            // px: at this width and under the question layer takes the bottom half of the screen
+    verdictMs: 1100,          // how long the ✓ / ✗ verdict holds before the next item (reduced motion: shorter)
+    ttsRate: 0.92,            // speechSynthesis rate for the English fallback voice (a little slow for a beginner)
+  },
+};
+
 // ---- On-screen touch controls (src/core/touch.js) ----
 export const TOUCH = {
   // Button cluster geometry, in multiples of the step unit `u`. `u` follows the short screen edge so the cluster keeps

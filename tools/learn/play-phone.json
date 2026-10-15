@@ -1,0 +1,10 @@
+[
+  { "until": "window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.state === 'playing' && __inkwave.match.learn" },
+  { "wait": 800 },
+  { "eval": "JSON.stringify({ touch: __inkwave.touchMode, portraitGate: !!document.querySelector('.iw-touch-rotate.is-armed'), win: innerWidth + 'x' + innerHeight, quality: __inkwave.settings.quality })", "log": "phone-boot" },
+  { "eval": "(() => { const D = __inkwave.debug, F = __inkwave.match.learn; D.freeze(); F.autoWalk(true); let t = 0; while (F.phase !== 'ask' && t < 90000) { D.step(2000); t += 2000; } D.unfreeze(); return JSON.stringify({ simMs: t, phase: F.phase, pos: __inkwave.match.local.pos.toArray().map((v) => +v.toFixed(1)) }); })()", "log": "auto-walk" },
+  { "until": "__inkwave.match.learn.phase === 'ask' && __G.hud.learn._ask" },
+  { "wait": 1500 },
+  { "eval": "(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; const inp = document.querySelector('.iw-learn__input'); return JSON.stringify({ panel: r('.iw-learn__panel'), input: r('.iw-learn__input'), submit: r('.iw-learn__submit'), play: r('.iw-learn__play'), inputFont: inp && getComputedStyle(inp).fontSize, touchLive: __inkwave.touch && __inkwave.touch.enabled, paused: __inkwave.match.paused, q: document.querySelector('.iw-learn__q').textContent, zh: document.querySelector('.iw-learn__zh').textContent }); })()", "log": "phone-overlay" },
+  { "shot": "SHOT_PATH" }
+]

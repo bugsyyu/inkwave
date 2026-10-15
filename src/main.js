@@ -30,6 +30,7 @@ import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
+import { loadWeek, puzzleLevel } from './learn/api.js';   // 关卡学习 (docs/LEARN.md): the level a learning match is built from
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -315,7 +316,11 @@ class Game {
     if (!params.has('autostart')) setTimeout(() => { if (G.mode === 'menu') this.showcase.preloadLobby?.(); }, 2500);
     this._applyAudioVolumes();
     requestAnimationFrame((t) => this._loop(t));
-    if (params.has('autostart')) {
+    // ?learn=w1d1&kind=puzzle — straight into a learning level (the main menu's 学习 · Learn does the same by hand)
+    if (params.has('learn')) {
+      const m = /^w?(\d+)d(\d+)$/i.exec(params.get('learn') || '') || [];
+      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'puzzle' });
+    } else if (params.has('autostart')) {
       const pm = params.get('mode');
       this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
     }
@@ -508,6 +513,10 @@ class Game {
         self._applyPracticeLoadout();   // in practice the new kit is in your hands straight away
       },
       startMatch: (o) => self.startMatch(o),
+      // 关卡学习 (docs/LEARN.md): a day of the course as a level — { week, day, kind } (kind: only 'puzzle' so far)
+      startLearn: (o) => self.startLearn(o),
+      isLearn: () => !!(self.match && self.match.learn && G.mode === 'match'),
+      learnInfo: () => (self.match?.learn ? { week: self.match.learn.week, day: self.match.learn.day, kind: 'puzzle', map: self.mapDef.name } : null),
       // practice: solo on a random stage (no enemies, no clock); the loadout can be changed mid-session
       startPractice: (o) => self.startPractice(o),
       isPractice: () => self._inPractice(),
@@ -692,7 +701,7 @@ class Game {
       if (match.attract || match !== this.match) return;
       if (state === 'intro') this._intro();
       if (state === 'playing') {
-        if (!match.practice) { this.hud?.banner('go'); G.audio?.play('go_horn'); }
+        if (!match.solo) { this.hud?.banner('go'); G.audio?.play('go_horn'); }   // (practice / a level: no GO!)
         if (match.mode !== 'boss') this._playMusic('battle');   // boss mode: the boss audio director scores it by phase
         if (this.match.local) { this.rig.follow(this.match.local, true); }
       }
@@ -796,12 +805,14 @@ class Game {
 
   async startMatch(o = {}) {
     const practice = !!o.practice;
+    const learn = o.mode === 'learn' && o.learn ? o.learn : null;   // 关卡学习: { kind, level }
     const opts = {
       mapId: o.mapId === 'sunset' ? 'tidewater' : (o.mapId || this.mapDef.id),
       time: o.mapId === 'sunset' ? 'dusk' : (o.time || this.time || 'day'),
       difficulty: o.difficulty || this.settings.difficulty,
-      // Zone Control / Boss Battle from the stage select's MODE; practice is always turf
-      mode: o.practice ? 'turf' : o.mode === 'zones' ? 'zones' : o.mode === 'boss' ? 'boss' : 'turf',
+      // Zone Control / Boss Battle from the stage select's MODE; practice is always turf; learn = a learning level
+      mode: o.practice ? 'turf' : o.mode === 'zones' ? 'zones' : o.mode === 'boss' ? 'boss' : learn ? 'learn' : 'turf',
+      learn,
     };
     opts.duration = opts.mode === 'zones' ? (o.duration || ZONES.duration) : opts.mode === 'boss' ? (o.duration || BOSS_MODE.duration)
       : Math.min(MATCH.maxDuration, o.duration || this.settings.matchLength || MATCH.defaultDuration);
@@ -825,7 +836,7 @@ class Game {
       map = OFFLINE_MAPS[0];
     }
     if (opts.mode === 'boss' && !mapBossOk(map.id)) opts.mode = 'turf';
-    await this._buildWorld(map, opts.mode);   // no-op when this stage (+ mode variant) is already built
+    await this._buildWorld(map, learn ? 'turf' : opts.mode);   // no-op when this stage (+ mode variant) is already built (a level plays the turf stage)
     const theme = mapTheme(map, opts.time);
     this.time = opts.time === 'dusk' ? 'dusk' : 'day';
     if (theme !== this.theme) {
@@ -838,7 +849,7 @@ class Game {
     this.mapDef = map;
     this._setPalette(this._pickPalette());
     const m = (this.match = G.match = new Match({
-      attract: false, practice, duration: opts.duration, mode: opts.mode, difficulty: opts.difficulty, weapon: this.profile.weapon || 'shooter', sub: this._subFor(this.profile.weapon), special: this._specialFor(this.profile.weapon),
+      attract: false, practice, learn, duration: opts.duration, mode: opts.mode, difficulty: opts.difficulty, weapon: this.profile.weapon || 'shooter', sub: this._subFor(this.profile.weapon), special: this._specialFor(this.profile.weapon),
       playerName: this.profile.name || 'Player', CharacterClass: this.CharacterClass, rig: this.rig, input: this.input,
       autopilot: params.has('autopilot'), style: this.profile.style || null, noBots: mapNoBots(map.id),   // (devstage: a solo walk)
     }));
@@ -848,14 +859,27 @@ class Game {
     G.mode = 'match';
     this.hud?.setVisible(false);
     this.hudPrompt = null; this._hintT = 0; this._hints = {};
-    this.hud?.setPractice?.(practice);
+    this.hud?.setPractice?.(practice || !!learn);   // (a level has no clock either; the learn layer writes the day on the timer)
     m.start();
     if (practice) {
       // no intro fly-over: straight in, special charged so it can be tried right away
       if (m.local) m.local.special = m.local.specialCost();
       this.hud?.setVisible(true);
     }
+    if (learn) {
+      // no intro either: in at the spawn, looking down the stage (the attract orbit leaves the rig's yaw anywhere)
+      this.rig.yaw = 0; this.rig.pitch = -0.12; this.rig.dioFlip = false;
+      this.hud?.setVisible(true);
+    }
     this._fade(0, 500);
+  }
+
+  // 关卡学习: build the day's level and start it as a 'learn' match on the level's stage (only the puzzle form so far)
+  async startLearn(o = {}) {
+    const week = clamp(+o.week || 1, 1, 3), day = clamp(+o.day || 1, 1, 7);
+    let level = null;
+    try { await loadWeek(week); level = puzzleLevel(week, day); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
+    return this.startMatch({ mode: 'learn', mapId: level.stage || 'tidewater', learn: { kind: 'puzzle', level: { ...level, week, day } } });
   }
 
   _inPractice() { return !!(this.match && this.match.practice && G.mode === 'match'); }
@@ -1551,6 +1575,7 @@ class Game {
       if (a.intent.fire) this._hints.shot = true;
     }
     if (m.practice && m.state === 'playing' && a.alive && this._hintT < 7) prompt = 'Practice · L to change loadout · ESC for the practice menu';
+    if (m.learn) prompt = null;   // 关卡学习: the learn layer carries its own (Chinese) hints; the turf-war ones do not apply
     const strikeAim = !!(a.specialActive && a.specialActive.id === 'strike' && a.specialActive.aiming);
     // "Yeah!" cheers → screen positions over the cheering player (anyone on screen)
     const cheers = [];
@@ -1574,7 +1599,7 @@ class Game {
       d.sc = clamp(1.12 - dist / 60, 0.56, 1);
       this.minimap.toCanvas(d.x, d.z, t); d.mx = t.x / this.minimap.w; d.my = t.y / this.minimap.h;
     }
-    if (a.specialActive && m.state === 'playing' && a.alive) prompt = G.specials.prompt(a) || prompt;
+    if (a.specialActive && m.state === 'playing' && a.alive && !m.learn) prompt = G.specials.prompt(a) || prompt;
     else if (m.state === 'playing' && a.alive && m.actors.some((o) => o !== a && o.team === a.team && o.specialActive?.id === 'booyah' && !o.specialActive.thrown)) prompt = 'A teammate is charging a Cheer Orb — press C to cheer it on!';
     // Built once. The HUD wants [your team, theirs], and this used to get there by calling teamSummary() a second
     // time and reversing that — two filtered, mapped, allocated summaries of the same eight actors every frame just
@@ -1582,7 +1607,7 @@ class Game {
     const teams = m.teamSummary();
     if (a.team === 1) teams.reverse();
     const frame = {
-      time: m.practice ? null : m.time,
+      time: m.solo ? null : m.time,   // (practice / a learning level: no clock)
       teams,   // HUD: [your team, theirs]
       ink: a.ink / PLAYER.inkMax, inkLow: a.ink < 18 || (this._lowInkFlash > 0), subCost: a.specialActive?.kind === 'barrage' ? 0 : (a.sub || SUB.bomb).inkCost / PLAYER.inkMax, subKind: (a.specialActive?.kind === 'barrage' ? a.specialActive.bomb : a.sub || SUB.bomb).kind,
       poisoned: a.status.poison > 0, tracked: a.status.track > 0,
