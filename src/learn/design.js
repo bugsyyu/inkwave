@@ -179,6 +179,14 @@ export const PROPS_OF = {
   duel: ['rain', 'echo', 'shield'],                  // ink is the reward in a duel; props only help the question
   boss: ['rain', 'echo'],
 };
+// drops: every `everyRight`-th right answer drops one prop drawn by `weights` (streak props never drop: they are
+// earned by the streak); `hold` = how many she can carry. No prop ever skips a question.
+export const PROP_DROP = {
+  puzzle: { everyRight: 2, hold: 2, weights: { rain: 1, echo: 1 } },
+  race: { everyRight: 1, hold: 3, weights: { leap: 15, rain: 20, echo: 20, curtain: 15, bomb: 15 } },
+  duel: { everyRight: 3, hold: 1, weights: { rain: 1, echo: 1 } },
+  boss: { everyRight: 4, hold: 1, weights: { rain: 1, echo: 1 } },
+};
 
 /* ───────────────────────────── bots' "answering" model ───────────────────────────── */
 // Bots never see her question. At each checkpoint / each cadence tick a bot rolls a die: correct with probability

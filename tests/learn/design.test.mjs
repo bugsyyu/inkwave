@@ -10,7 +10,7 @@ import { store, setBackend } from '../../src/learn/store.js';
 import { puzzleLevel } from '../../src/learn/levels.js';
 import { SUBS, SPECIALS, OFFLINE_MAPS, MAPS, DIFFICULTY, TIMES } from '../../src/config.js';
 import {
-  FORMS, MECHANICS, CLASSIC, mechanicOf, EXAM_MECHANICS, SPOTS, DAY_PLAN, BOSS_STAGE, PROPS, PROPS_OF, BOT_ANSWER, BOTS_OF,
+  FORMS, MECHANICS, CLASSIC, mechanicOf, EXAM_MECHANICS, SPOTS, DAY_PLAN, BOSS_STAGE, PROPS, PROPS_OF, PROP_DROP, BOT_ANSWER, BOTS_OF,
   EFFECTS, SFX, TRIGGERS, DANCES, BANNERS, RULES, RETRY, UNLOCK, STARS, stars, PACE, estimateMinutes, coverage, planDay,
   bossPlan, quizPlan, freePlan, SYLLABUS_MECHANICS, dayTable, STAGE_IDS,
 } from '../../src/learn/design.js';
@@ -115,6 +115,12 @@ test('PROPS refer to real subs / specials; every form hands out a subset; SFX / 
   assert.ok(SUBS.beacon && SPECIALS.storm && SPECIALS.sonar && SPECIALS.bubbler && SUBS.curtain && SUBS.bomb && SPECIALS.slam);
   FORMS.forEach((f) => { assert.ok(PROPS_OF[f].length >= 2); PROPS_OF[f].forEach((id) => assert.ok(PROPS[id], f + ' ' + id)); });
   assert.ok(PROPS_OF.race.length === 7 && PROPS_OF.puzzle.length === 2);
+  FORMS.forEach((f) => {
+    const D = PROP_DROP[f];
+    assert.ok(D && D.everyRight >= 1 && D.hold >= 1, f);
+    Object.keys(D.weights).forEach((id) => { assert.ok(PROPS_OF[f].includes(id), f + ' drops ' + id); assert.equal(PROPS[id].when, 'right', id + ' drops only when earned by a right answer'); });
+  });
+  assert.ok(!Object.values(PROPS).some((p) => p.effect === 'skip-question'), 'no prop skips a question');
   const sfx = contractSfx();
   assert.ok(sfx.has('splat_big') && sfx.has('charger_charge') && sfx.has('roll') && sfx.has('storm_rain') && sfx.size >= 50, 'the contract list parsed: ' + sfx.size);
   assert.ok(SFX.length >= 15);
