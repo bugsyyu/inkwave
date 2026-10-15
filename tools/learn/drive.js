@@ -2,19 +2,24 @@
 // Expects the level to be running (?learn=w1d1&kind=puzzle). Auto-walks to the first gate, answers the first item
 // WRONG, the next one right, then the first one again (it comes back in another form) right, so the gate opens.
 // Returns a JSON summary: every verdict seen, the bus log (learn:*), the ink coverage after the trail, phase.
+// The walk and the ink pour are stepped with the game's own audit clock (__inkwave.debug.freeze / step: fixed 60 Hz
+// sim, one render per step) — on a software-GL box the live loop runs a frame a second and the sim with it.
 (async () => {
-  const W = window, G = W.__G;
+  const W = window, G = W.__G, DBG = W.__inkwave.debug;
   const L = () => W.__inkwave.match && W.__inkwave.match.learn, H = () => G.hud.learn;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (f, ms = 30000, what = '') => { const t = Date.now(); while (!f()) { if (Date.now() - t > ms) throw new Error('timeout: ' + what); await sleep(100); } };
+  // advance the simulation in 2 s chunks until f() holds (sim time, not wall time)
+  const stepUntil = async (f, maxMs, what) => { let t = 0; while (!f()) { if (t >= maxMs) throw new Error('timeout(sim ' + t + ' ms): ' + what); DBG.step(2000); t += 2000; await sleep(0); } return t; };
   const out = { steps: [], errors: [] };
   await until(() => L() && W.__inkwave.match.state === 'playing', 60000, 'level playing');
   const F = L();
   out.gates = F.gates.map((g) => ({ i: g.index + 1, n: g.items.length, kind: g.kind, pos: [+g.pos.x.toFixed(1), +g.pos.y.toFixed(1), +g.pos.z.toFixed(1)] }));
   out.pathLen = F.path.length;
   const p0 = W.__inkwave.match.local.pos.clone();
+  DBG.freeze();
   F.autoWalk(true);
-  await until(() => F.phase === 'ask' && H()._ask && !H()._ask.answered, 60000, 'reach gate 1');
+  out.simMsToGate = await stepUntil(() => F.phase === 'ask' && H()._ask && !H()._ask.answered, 90000, 'reach gate 1');
   out.walked = +p0.distanceTo(W.__inkwave.match.local.pos).toFixed(1);
   out.pausedAtGate = W.__inkwave.match.paused;
   out.touchLiveAtGate = W.__inkwave.touch ? W.__inkwave.touch.enabled : null;
@@ -49,8 +54,9 @@
     await until(() => H()._ask && !H()._ask.answered, 8000, 'q1 again');
     await answer('right');
     await until(() => F.cur === 1, 8000, 'gate 1 open');
-    await sleep(1800);   // the ink pours on to gate 2
+    DBG.step(3500);   // the ink pours on to gate 2 (timed on the game clock)
   } catch (e) { out.errors.push(String(e && e.message || e)); }
+  DBG.unfreeze();
   out.cov = G.paint.coverage().map((c) => +c.toFixed(4));
   out.log = F.log;
   out.phase = F.phase; out.paused = W.__inkwave.match.paused; out.cur = F.cur;
