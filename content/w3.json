@@ -1,0 +1,1799 @@
+{
+ "app": "ielts-workbench-course",
+ "v": 1,
+ "week": {
+  "days": [
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["restaurant", "餐馆"],
+       ["queue", "排队；队伍（英式；美式说 line）"],
+       ["There is a lot of traffic this morning.", "今天早上路上车很多。"],
+       ["My brother and I were at home last night.", "我哥哥和我昨晚在家。"],
+       ["She didn't buy the black jacket.", "她没买那件黑色的夹克。"],
+       ["I stayed in bed because I had a headache.", "因为头疼，我一直躺在床上。"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：第 2 周的难词难句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "一个英语单词有几个音节（一般有几个元音音素就有几个音节：ci-ty 两个，mu-se-um 三个），其中一个读得最重：更响、更长、音调更高，这叫「重音」。词典的音标用 ˈ 标在重读音节前面：city /ˈsɪti/ 重音在第一个音节，museum /mjuˈziːəm/ 重音在第二个音节。中文每个字都差不多一样重，新加坡口音也常把每个音节读得一样重；重音放错，别人就很难听懂。"],
+       [
+        "rows",
+        [
+         ["单词", "音节", "重音（大写的是重读音节）"],
+         ["city 城市", "ci-ty（2 个）", "CI-ty"],
+         ["building 建筑物", "buil-ding（2 个）", "BUIL-ding"],
+         ["museum 博物馆", "mu-se-um（3 个）", "mu-SE-um"],
+         ["between 在……之间", "be-tween（2 个）", "be-TWEEN"],
+         ["opposite 在……对面", "op-po-site（3 个）", "OP-po-site"]
+        ]
+       ],
+       ["p", "两个音节的词，有一条好用的大致规律：名词、形容词多数重音在前面；动词多数重音在后面。也有例外（visit、listen、travel 是动词，重音却在前），所以学新词时一定看一眼音标里的 ˈ。"],
+       [
+        "rows",
+        [
+         ["名词、形容词：重音多在前", "CEN-tre（中心）、MAR-ket（市场）、COR-ner（拐角）、CROW-ded（拥挤的）、BU-sy（忙的）"],
+         ["动词：重音多在后", "re-LAX（放松）、ar-RIVE（到达）、be-GIN（开始）、re-TURN（回来）"]
+        ]
+       ],
+       ["ex", "The museum is opposite the bank.", "博物馆在银行对面。mu-SE-um 重音在第二个音节，OP-po-site 重音在第一个。"],
+       ["ex", "Turn left at the corner.", "在拐角处向左转。COR-ner 重音在前，后面的 -ner 又轻又短：美音 /ˈkɔːrnɚ/。"],
+       ["tip", "练法：读新词时先看音标里的 ˈ，重读音节读得又响又长，其他音节弱下去（常常读成轻轻的 /ə/）。可以边读边拍手，只在重读音节上拍一下。背单词时把重音一起记住，就像中文要记声调一样。"],
+       ["h", "听力：问路和方位"],
+       ["p", "雅思听力第二部分常有地图题：听别人指路，在地图上找到地方。先把这些说法听熟："],
+       [
+        "rows",
+        [
+         ["Turn left. / Turn right.", "向左转。/ 向右转。"],
+         ["Go straight on.", "一直往前走。（美式常说 Go straight.）"],
+         ["It's on your left.", "它在你左手边。"],
+         ["It's opposite the bank.", "它在银行对面。"],
+         ["It's between the library and the park.", "它在图书馆和公园中间。"],
+         ["It's next to the post office.", "它就在邮局旁边。"],
+         ["It's on the corner.", "它在拐角处。"]
+        ]
+       ],
+       ["ex", "Go straight on and turn right at the traffic lights.", "一直往前走，到红绿灯向右转。"],
+       ["tip", "听指路时手里画一画：先确定自己站在哪里、面朝哪边，再跟着 left、right、straight on 走。opposite（对面）和 next to（旁边）最容易听混，听到就在纸上记下来。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["museum 的重音在哪个音节？", ["mu", "se", "um"], 1, "museum 读 /mjuˈziːəm/，重音在第二个音节：mu-SE-um。", "museum = 博物馆"],
+       ["opposite 怎么读？", ["op-PO-site", "OP-po-site", "op-po-SITE"], 1, "opposite 美音 /ˈɑːpəzɪt/（英音 /ˈɒpəzɪt/），重音在第一个音节，后面两个音节都很轻。", "opposite = 在……对面"],
+       ["两个音节的动词，重音通常在哪里？", ["第一个音节", "第二个音节"], 1, "两个音节的动词多数重音在后：re-LAX、ar-RIVE、be-GIN；名词、形容词多数重音在前：CEN-tre、MAR-ket。"],
+       ["听到 Turn left at the corner. 应该怎么走？", ["在拐角处向左转", "在拐角处向右转", "一直往前走"], 0, "turn left = 向左转，at the corner = 在拐角处。", null, null, "L-map"],
+       ["The bank is between the café and the post office. 银行在哪里？", ["在咖啡馆对面", "在咖啡馆和邮局中间", "在邮局后面"], 1, "between A and B = 在 A 和 B 中间。opposite 是「对面」，behind 是「后面」。", null, null, "L-map"]
+      ],
+      "title": "发音和听力：单词重音入门；问路和方位",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：城市（25 个）",
+      "type": "words",
+      "words": [
+       ["city", "ˈsɪti", "n. 城市", "ˈsɪɾi"],
+       ["town", "taʊn", "n. 镇；小城", "taʊn"],
+       ["centre", "ˈsentə", "n. 中心（city centre 市中心；美式拼写 center）", "ˈsentɚ"],
+       ["building", "ˈbɪldɪŋ", "n. 建筑物；楼", "ˈbɪldɪŋ"],
+       ["bridge", "brɪdʒ", "n. 桥", "brɪdʒ"],
+       ["bank", "bæŋk", "n. 银行", "bæŋk"],
+       ["post office", "ˈpəʊst ɒfɪs", "n. 邮局（重音在 post 上）", "ˈpoʊst ɑːfɪs"],
+       ["library", "ˈlaɪbrəri", "n. 图书馆（书店是 bookshop）", "ˈlaɪbreri"],
+       ["museum", "mjuˈziːəm", "n. 博物馆（重音在 se 上）", "mjuˈziːəm"],
+       ["market", "ˈmɑːkɪt", "n. 市场", "ˈmɑːrkɪt"],
+       ["park", "pɑːk", "n. 公园 v. 停车", "pɑːrk"],
+       ["map", "mæp", "n. 地图", "mæp"],
+       ["corner", "ˈkɔːnə", "n. 拐角；街角（on the corner 在拐角处）", "ˈkɔːrnɚ"],
+       ["traffic lights", "ˈtræfɪk laɪts", "n. 红绿灯（常用复数）", "ˈtræfɪk laɪts"],
+       ["left", "left", "n./adv. 左边；向左（turn left 向左转）", "left"],
+       ["right", "raɪt", "n./adv. 右边；向右（也有「对的」的意思）", "raɪt"],
+       ["straight", "streɪt", "adv. 笔直地（go straight on 一直往前走；gh 不发音）", "streɪt"],
+       ["turn", "tɜːn", "v. 转弯；转身", "tɝːn"],
+       ["cross", "krɒs", "v. 穿过；过（马路、桥）", "krɑːs"],
+       ["opposite", "ˈɒpəzɪt", "prep. 在……对面", "ˈɑːpəzɪt"],
+       ["between", "bɪˈtwiːn", "prep. 在（两者）中间", "bɪˈtwiːn"],
+       ["next to", "ˈnekst tə", "prep. 紧挨着；在……旁边", "ˈnekst tə"],
+       ["behind", "bɪˈhaɪnd", "prep. 在……后面", "bɪˈhaɪnd"],
+       ["in front of", "ɪn ˈfrʌnt əv", "在……前面", "ɪn ˈfrʌnt əv"],
+       ["crowded", "ˈkraʊdɪd", "adj. 拥挤的", "ˈkraʊdɪd"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "说「现在正在做」的事，用现在进行时：am / is / are + 动词 -ing。be 动词跟着主语变，和第 1 周学的一样。"],
+       [
+        "rows",
+        [
+         ["主语", "be", "动词 -ing"],
+         ["I", "am", "walking"],
+         ["he / she / it", "is", "walking"],
+         ["you / we / they", "are", "walking"]
+        ]
+       ],
+       ["ex", "I am walking to the station.", "我正在走路去车站。"],
+       ["ex", "Look! The bus is coming.", "快看！公交车来了。"],
+       ["ex", "They are crossing the road.", "他们正在过马路。"],
+       ["h", "-ing 的拼写"],
+       [
+        "rows",
+        [
+         ["一般直接加 -ing", "walk → walking，go → going"],
+         ["不发音的 e 结尾，去掉 e 再加 -ing", "make → making，ride → riding"],
+         ["一个元音 + 一个辅音结尾的短词，双写最后的辅音", "sit → sitting，run → running，shop → shopping"],
+         ["ie 结尾，ie 变成 y 再加 -ing", "lie → lying（躺）"]
+        ]
+       ],
+       ["p", "否定：在 am / is / are 后面加 not。疑问：把 am / is / are 放到句首。"],
+       ["ex", "She isn't working today.", "她今天不上班。"],
+       ["ex", "Are you waiting for the bus? — Yes, I am.", "你在等公交吗？——是的。"],
+       ["ex", "What are you doing? — I'm reading a map.", "你在做什么？——我在看地图。"],
+       ["tip", "看到 now（现在）、right now（此刻）、Look!（看！）、Listen!（听！），就想到现在进行时。最常见的错误是漏掉 be：I walking ✗ → I am walking ✓。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["Look! The children ___ in the park.", ["play", "are playing", "is playing"], 1, "Look! 说明正在发生；children 是复数，用 are playing。", "快看！孩子们正在公园里玩。", null, "G-be"],
+       ["I ___ for a taxi now.", ["wait", "am waiting", "waiting"], 1, "now 说明正在发生，用 am + -ing。只写 waiting 不对，前面必须有 am。", "我现在正在等出租车。", null, "G-be"],
+       ["下面哪个动词变成 -ing 时要双写最后一个字母？", ["sit", "rain", "walk"], 0, "sit 是「一个元音 + 一个辅音」结尾的短词，双写 t：sitting。rain → raining，walk → walking，直接加 -ing。", null, ["坐", "下雨", "走路"]],
+       ["ride 变成 -ing 形式时，要怎么改？", ["直接加 -ing", "去掉 e 再加 -ing", "双写 d 再加 -ing"], 1, "ride 以不发音的 e 结尾，去掉 e 再加 -ing：riding。", "ride = 骑"],
+       ["___ you reading the map? — Yes, I am.", ["Do", "Are", "Is"], 1, "现在进行时的疑问句把 am / is / are 放到句首；主语是 you，用 Are。回答 Yes, I am 也说明要用 be。", "你在看地图吗？——是的。", null, "G-be"],
+       ["「她现在没在工作。」怎么说？", ["She not working now.", "She isn't working now.", "She doesn't working now."], 1, "否定在 is 后面加 not：isn't working。现在进行时不用 doesn't。", null, ["漏了 is", "她现在没在工作。", "进行时的否定用 isn't，不用 doesn't"], "G-be"]
+      ],
+      "title": "语法：现在进行时（1）：正在做的事",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["Turn left at the traffic lights.", "在红绿灯处向左转。"],
+       ["Go straight on and cross the bridge.", "一直往前走，过桥。"],
+       ["The museum is opposite the library.", "博物馆在图书馆对面。"],
+       ["The bank is between the post office and the market.", "银行在邮局和市场中间。"],
+       ["The library is on your right, behind the big building.", "图书馆在你右手边，在那栋大楼后面。"],
+       ["Excuse me, how do I get to the museum?", "打扰一下，去博物馆怎么走？"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：问路和方位（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["café", "咖啡馆"],
+        ["along the river", "沿着河边"],
+        ["tourist", "游客"],
+        ["take photos", "拍照"],
+        ["free", "免费的"],
+        ["bookshop", "书店"],
+        ["told us the way", "给我们指了路（told 是 tell 的过去式）"],
+        ["have a great day", "过得很开心"]
+       ],
+       "parse": [
+        ["Lots of people are walking along the river, and some tourists are taking photos on the old bridge.", "两个现在进行时的句子用 and 连起来：Lots of people are walking + some tourists are taking photos。along the river、on the old bridge 只说地点，先跳过，主干就清楚了。", "很多人在沿着河边散步，还有一些游客在老桥上拍照。"],
+        ["Now my brother is buying a map in the bookshop next to the bank.", "主干是 my brother is buying a map（主语 + is + -ing + 宾语）。in the bookshop 说在哪里，next to the bank 又说明是哪家书店。", "我哥哥现在正在银行旁边的书店里买地图。"],
+        ["Go straight on, cross the bridge and turn left at the traffic lights.", "这是指路的句子，没有主语（祈使句）：三个动作 go、cross、turn 用逗号和 and 连起来，按顺序做。", "一直往前走，过桥，然后在红绿灯处向左转。"]
+       ],
+       "quiz": [
+        ["Where is Lily now?", ["In a café", "In the museum", "At the market"], 0, "原文第一句：I'm sitting in a small café in the city centre。博物馆是上午去的，市场要吃完午饭才去。", "Lily 现在在哪里？", ["在一家咖啡馆", "在博物馆", "在市场"]],
+        ["What is Lily's brother doing now?", ["He is visiting the museum.", "He is buying a map.", "He is taking photos on the bridge."], 1, "原文：Now my brother is buying a map in the bookshop next to the bank。在桥上拍照的是一些游客。", "Lily 的哥哥现在在做什么？", ["他在参观博物馆。", "他在买地图。", "他在桥上拍照。"]],
+        ["Where is the market?", ["Opposite the library", "On the corner, behind the post office", "Next to the bank"], 1, "原文：The market is on the corner, behind the post office。opposite the library 说的是博物馆，next to the bank 说的是书店。地图题要注意每个方位说的是哪个地方。", "市场在哪里？", ["在图书馆对面", "在拐角处，邮局后面", "在银行旁边"]]
+       ],
+       "text": "Hi Mia! I'm sitting in a small café in the city centre, and I'm writing to you. It's a sunny Saturday, so the streets are very crowded. Lots of people are walking along the river, and some tourists are taking photos on the old bridge. This morning, my brother and I visited the museum. It is opposite the library, and it is free on Saturdays. Now my brother is buying a map in the bookshop next to the bank. After lunch, we want to visit the market. A woman at the bus stop told us the way: 'Go straight on, cross the bridge and turn left at the traffic lights. The market is on the corner, behind the post office.' I'm having a great day! Love, Lily",
+       "title": "A Message from the City",
+       "titleZh": "城里发来的消息",
+       "zh": "Mia 你好！我正坐在市中心的一家小咖啡馆里给你写这条消息。今天是个晴朗的星期六，所以街上特别拥挤。很多人在沿着河边散步，还有一些游客在老桥上拍照。今天上午，我和哥哥参观了博物馆。博物馆在图书馆对面，周六免费。现在我哥哥正在银行旁边的书店里买地图。吃完午饭，我们想去逛市场。公交站的一位女士给我们指了路：「一直往前走，过桥，在红绿灯处向左转。市场就在拐角处，在邮局后面。」我今天过得很开心！爱你的 Lily"
+      },
+      "title": "阅读：A Message from the City（城里发来的消息）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["left", "lift", "左边", "电梯（英式说法）", "P-misc"],
+       ["main", "men", "主要的", "男人们", "P-glide"],
+       ["hole", "hall", "洞", "大厅", "P-glide"],
+       ["map", "mop", "地图", "拖把", "P-misc"],
+       ["turn", "torn", "转弯", "撕破的", "P-er"],
+       ["cross", "crossed", "穿过", "穿过了（过去式）", "L-end"],
+       ["far", "four", "远的", "四", "P-o"],
+       ["right", "ride", "右边", "骑", "P-end"]
+      ],
+      "title": "听辨游戏：left 还是 lift？（左边还是电梯）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["我正在等公交车。", "I am waiting for the bus."],
+       ["博物馆在图书馆对面。", "The museum is opposite the library."],
+       ["在红绿灯处向左转。", "Turn left at the traffic lights."],
+       ["你在做什么？", "What are you doing?"],
+       ["今天街上很拥挤。", "The streets are crowded today."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "Yes, I do. I live in Singapore, and it is a modern and convenient city. There is an MRT station near my flat, and there are lots of shops and food courts. It can be crowded, especially in the evening. Right now, my neighbourhood is changing, because they are building a new shopping centre.",
+       "modelZh": "喜欢。我住在新加坡，这是一座现代又方便的城市。我家附近有一个地铁站，还有很多商店和美食广场。有时候会很拥挤，尤其是晚上。现在我住的那一带正在变化，因为那里正在建一个新的购物中心。",
+       "phrases": [
+        ["It is a modern and convenient city.", "这是一座现代又方便的城市。"],
+        ["It can be crowded, especially in the evening.", "有时候会很拥挤，尤其是晚上。"],
+        ["Right now, they are building …", "现在那里正在建……"]
+       ],
+       "q": "Do you like living in a city?",
+       "tip": "先回答喜不喜欢，再说一个优点（modern、convenient）和一个缺点（crowded、noisy），最后用现在进行时说一件正在发生的变化。注意这几个词的重音：MO-dern、con-VE-nient、CROW-ded。",
+       "zh": "你喜欢住在城市里吗？"
+      },
+      "title": "口语：你喜欢住在城市里吗？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d1",
+    "n": 1,
+    "teacher": "第 3 周开始啦！这一周的发音线是「重音」：单词里哪个音节最响、句子里哪个词最重。新加坡口音常把每个音节读得一样重，学会重音，别人更容易听懂你，你也更跟得上录音。语法学现在进行时、can、将来时和 must / should；阅读开始练「长句找主干」。今天上午先抽查第 2 周的难词难句，下午的听写练雅思听力第二部分最爱考的问路和方位。",
+    "title": "单词重音入门，城市，现在进行时"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["opposite", "在……对面"],
+       ["crowded", "拥挤的"],
+       ["The bank is next to the post office.", "银行在邮局旁边。"],
+       ["Go straight on and turn right.", "一直往前走，然后向右转。"],
+       ["She is reading a map.", "她正在看地图。"],
+       ["What are you doing now?", "你现在在做什么？"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：昨天的词句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "两个词合成的名词（复合名词），重音一般在第一个词上。"],
+       [
+        "rows",
+        [
+         ["复合名词", "重音"],
+         ["bus stop 公交站", "BUS stop"],
+         ["post office 邮局", "POST office"],
+         ["traffic lights 红绿灯", "TRAF-fic lights"],
+         ["bookshop 书店", "BOOK-shop"],
+         ["sunset 日落", "SUN-set"],
+         ["rainforest 热带雨林", "RAIN-for-est"]
+        ]
+       ],
+       ["p", "形容词 + 名词不是复合名词，重音在名词上：a big TREE（一棵大树）、fresh AIR（新鲜空气）、a national PARK（国家公园）。所以 a GREENhouse（温室）和 a green HOUSE（一栋绿色的房子）意思不一样。"],
+       ["ex", "The bus stop is next to the post office.", "公交站在邮局旁边。BUS stop、POST office 都是重音在前。"],
+       ["h", "同一个词，名词和动词重音不同"],
+       [
+        "rows",
+        [
+         ["名词：重音在前", "动词：重音在后"],
+         ["a PREsent（礼物）", "to preSENT（赠送；介绍）"],
+         ["a REcord（记录；唱片）", "to reCORD（录音；记录）"],
+         ["an INcrease（增长）", "to inCREASE（增加）"]
+        ]
+       ],
+       ["ex", "I want to record the sound of the sea.", "我想把大海的声音录下来。record 在这里是动词，重音在后：re-CORD。"],
+       ["ex", "The desert is hot, but the dessert is cold.", "沙漠很热，但甜点是凉的。DES-ert（沙漠）重音在前；des-SERT（甜点）重音在后。"],
+       ["h", "听力：大数字"],
+       [
+        "rows",
+        [
+         ["120", "one hundred and twenty（美式常说 one hundred twenty）"],
+         ["1,500", "one thousand five hundred，也可以说 fifteen hundred"],
+         ["3,000", "three thousand（thousand 不加 s）"],
+         ["2.5", "two point five"],
+         ["850", "eight hundred and fifty"]
+        ]
+       ],
+       ["ex", "The mountain is two thousand metres high.", "这座山高两千米。"],
+       ["ex", "The lake is three point five kilometres long.", "这个湖长三点五公里。"],
+       ["tip", "前面有具体的数（two、three……）时，hundred、thousand 不加 s：two hundred people（两百人）、three thousand birds（三千只鸟）；只有表示「好几百、成千上万」时才加 s：hundreds of birds（成百上千只鸟）。hundred 后面的 and 读得很轻（/ən/），听写时别漏写。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["post office 的重音在哪里？", ["POST office", "post OF-fice"], 0, "复合名词重音一般在第一个词上：POST office、BUS stop。", "post office = 邮局"],
+       ["a green house（一栋绿色的房子）和 a greenhouse（温室），重音有什么不同？", ["一样，都在 green 上", "green house 重音在 house；greenhouse 重音在 green", "一样，都在 house 上"], 1, "形容词 + 名词，重音在名词上：a green HOUSE；复合名词重音在前：a GREENhouse。"],
+       ["I want to record the sound of the sea. 这里的 record 怎么读？", ["RE-cord，重音在前", "re-CORD，重音在后"], 1, "record 在这里是动词（录音），重音在后：re-CORD。名词 a record 才是 RE-cord。", "我想把大海的声音录下来。"],
+       ["听到 one thousand five hundred，写成数字是？", ["1,500", "15,000", "1,050"], 0, "one thousand 是一千（1,000），five hundred 是五百（500），合起来是 1,500。", null, null, "L-num"],
+       ["The forest is two hundred and forty kilometres from the city. 森林离城市多远？", ["214 公里", "240 公里", "2,400 公里"], 1, "two hundred（200）and forty（40）= 240。forty 和 fourteen 要分清：FOR-ty 重音在前，尾巴很短。", null, null, "L-num"]
+      ],
+      "title": "发音和听力：复合词和名词、动词的重音；大数字",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：自然（25 个）",
+      "type": "words",
+      "words": [
+       ["nature", "ˈneɪtʃə", "n. 自然；大自然", "ˈneɪtʃɚ"],
+       ["countryside", "ˈkʌntrisaɪd", "n. 乡村；乡下", "ˈkʌntrisaɪd"],
+       ["mountain", "ˈmaʊntɪn", "n. 山；高山", "ˈmaʊntən"],
+       ["hill", "hɪl", "n. 小山；山坡", "hɪl"],
+       ["river", "ˈrɪvə", "n. 河；江", "ˈrɪvɚ"],
+       ["lake", "leɪk", "n. 湖", "leɪk"],
+       ["sea", "siː", "n. 海；大海", "siː"],
+       ["beach", "biːtʃ", "n. 海滩；沙滩", "biːtʃ"],
+       ["island", "ˈaɪlənd", "n. 岛（s 不发音）", "ˈaɪlənd"],
+       ["forest", "ˈfɒrɪst", "n. 森林", "ˈfɔːrɪst"],
+       ["tree", "triː", "n. 树", "triː"],
+       ["flower", "ˈflaʊə", "n. 花", "ˈflaʊɚ"],
+       ["grass", "ɡrɑːs", "n. 草；草地（不可数）", "ɡræs"],
+       ["plant", "plɑːnt", "n. 植物 v. 种植", "plænt"],
+       ["leaf", "liːf", "n. 叶子（复数 leaves）", "liːf"],
+       ["rock", "rɒk", "n. 岩石；石头", "rɑːk"],
+       ["sky", "skaɪ", "n. 天空", "skaɪ"],
+       ["sun", "sʌn", "n. 太阳；阳光", "sʌn"],
+       ["moon", "muːn", "n. 月亮", "muːn"],
+       ["star", "stɑː", "n. 星星；星形", "stɑːr"],
+       ["air", "eə", "n. 空气（不可数）", "er"],
+       ["fresh", "freʃ", "adj. 新鲜的；清新的（fresh air 新鲜空气）", "freʃ"],
+       ["view", "vjuː", "n. 景色；风景", "vjuː"],
+       ["climb", "klaɪm", "v. 爬；攀登（b 不发音）", "klaɪm"],
+       ["beautiful", "ˈbjuːtɪfl", "adj. 美丽的；漂亮的", "ˈbjuːɾəfl"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "一般现在时说「平时、经常」的事（习惯和事实）；现在进行时说「现在正在」发生的事。"],
+       [
+        "rows",
+        [
+         ["一般现在时（平时）", "现在进行时（现在）"],
+         ["I usually walk in the park.（我通常在公园散步。）", "I am walking in the park now.（我现在正在公园散步。）"],
+         ["It often rains in April.（四月经常下雨。）", "Look! It is raining.（快看！下雨了。）"],
+         ["She works in a bank.（她在银行工作。）", "She is working at home today.（她今天在家工作。）"]
+        ]
+       ],
+       ["ex", "The sun rises in the east.", "太阳从东方升起。这是事实，用一般现在时。"],
+       ["ex", "Look! The sun is going down.", "快看！太阳正在落山。这是现在正在发生的事。"],
+       ["p", "有些动词表示状态、喜好和想法，一般不用进行时：like、love、want、need、know、think（认为）、have（拥有）。"],
+       ["ex", "I love this view.", "我很喜欢这里的风景。一般不说 I am loving this view。"],
+       ["ex", "Do you know the name of this flower?", "你知道这种花叫什么名字吗？不说 Are you knowing …"],
+       ["tip", "看时间词选时态：usually、often、every day、on Sundays → 一般现在时；now、right now、at the moment（此刻）、Look! → 现在进行时。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["It often ___ in the afternoon here.", ["rains", "is raining", "rain"], 0, "often 说的是平时的情况，用一般现在时；主语 it 是第三人称单数，加 -s：rains。", "这里下午经常下雨。", null, "G-3sg"],
+       ["Look! It ___.", ["rains", "is raining", "rain"], 1, "Look! 说明正在发生，用现在进行时：is raining。", "快看！下雨了。"],
+       ["My father ___ in a bank. He is a manager.", ["works", "is working", "work"], 0, "说一个人的工作，这是长期的事实，用一般现在时：works。", "我爸爸在银行工作，他是经理。", null, "G-3sg"],
+       ["I can't talk now. I ___ dinner.", ["cook", "am cooking", "cooks"], 1, "now 说明正在做，用 am cooking。", "我现在没法说话，我正在做晚饭。"],
+       ["___ you like this flower? — Yes, it's beautiful!", ["Are", "Do", "Is"], 1, "like 表示喜好，一般不用进行时，所以问句用 Do you like …?", "你喜欢这朵花吗？——喜欢，真漂亮！", null, "G-do"],
+       ["We ___ a walk by the lake at the moment.", ["take", "are taking", "takes"], 1, "at the moment（此刻）说明正在做，用 are taking。take a walk = 散步。", "我们此刻正在湖边散步。"]
+      ],
+      "title": "语法：现在进行时（2）：平时还是现在？",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["The island is two hundred miles from the city.", "这个岛离城市两百英里。"],
+       ["More than three thousand people visit the lake every year.", "每年有三千多人来这个湖游玩。"],
+       ["It takes four hours to climb the mountain.", "爬这座山要四个小时。"],
+       ["There are fifteen hundred trees in the national park.", "这个国家公园里有一千五百棵树。"],
+       ["The river is one hundred and twenty miles long.", "这条河长一百二十英里。"],
+       ["Look! The sun is going down behind the hill.", "快看！太阳正在落到山后面去。"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：大数字（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["in the middle of", "在……中间"],
+        ["around", "在……周围"],
+        ["most of them", "他们中的大多数"],
+        ["spend the day", "度过这一天"],
+        ["at the moment", "此刻；现在"],
+        ["wild flowers", "野花"],
+        ["amazing", "令人惊叹的；太棒了"],
+        ["check my phone", "看手机"],
+        ["enjoy", "享受；喜欢"]
+       ],
+       "parse": [
+        ["There is a big lake in the middle of the park, and it is three kilometres long.", "两个句子用 and 连起来：There is a big lake + it is three kilometres long。in the middle of the park 说位置；it 指 the lake。", "公园中间有一个大湖，长三公里。"],
+        ["Most of them come in summer, when the weather is warm and dry.", "主干是 Most of them come（他们中的大多数来）。in summer 说时间，when 后面补充说明夏天的天气：the weather is warm and dry。", "他们大多在夏天来，那时天气温暖干燥。"],
+        ["At the moment, Sam is climbing a hill behind the lake, and Ben is taking photos of the wild flowers.", "两个现在进行时的句子用 and 连起来：Sam is climbing a hill + Ben is taking photos。At the moment 说时间，behind the lake、of the wild flowers 是补充，先跳过就能看清主干。", "此刻，Sam 正在爬湖后面的一座小山，Ben 正在给野花拍照。"]
+       ],
+       "quiz": [
+        ["How long is the lake?", ["Three kilometres", "Thirty kilometres", "Ninety kilometres"], 0, "原文：it is three kilometres long。ninety minutes 是坐火车的时间，别被别的数字带偏。", "这个湖有多长？", ["三公里", "三十公里", "九十公里"]],
+        ["What is Ben doing at the moment?", ["He is climbing a hill.", "He is taking photos.", "He is checking his phone."], 1, "原文：Ben is taking photos of the wild flowers。爬山的是 Sam；Ben 还说他今天不看手机（I'm not checking my phone today）。", "Ben 此刻在做什么？", ["他在爬山。", "他在拍照。", "他在看手机。"]],
+        ["Why does Ben love days like this?", ["Because he works in an office on weekdays", "Because he likes taking the train", "Because the park is free"], 0, "原文：Ben works in an office from Monday to Friday, so he loves days like this。题目把 from Monday to Friday 换成了 on weekdays（工作日），意思一样，这叫同义替换，雅思阅读天天考。公园免不免费，文章没说。", "Ben 为什么喜欢这样的日子？", ["因为他工作日都在办公室上班", "因为他喜欢坐火车", "因为公园免费"], "R-para"]
+       ],
+       "text": "Green Valley National Park is about ninety minutes from Maple Bridge by train. There is a big lake in the middle of the park, and it is three kilometres long. Around the lake, there are forests, hills and rivers. Every year, more than fifty thousand people visit the park. Most of them come in summer, when the weather is warm and dry. Today, Ben and Sam are spending the day there. At the moment, Sam is climbing a hill behind the lake, and Ben is taking photos of the wild flowers. The air is fresh, and the view from the top of the hill is amazing. Ben works in an office from Monday to Friday, so he loves days like this. 'I'm not checking my phone today,' he says. 'I'm just enjoying nature!'",
+       "title": "Green Valley National Park",
+       "titleZh": "绿谷国家公园",
+       "zh": "绿谷国家公园离枫桥坐火车大约九十分钟。公园中间有一个大湖，长三公里。湖的周围有森林、小山和河流。每年有五万多人来这个公园。他们大多在夏天来，那时天气温暖干燥。今天，Ben 和 Sam 在那里玩一整天。此刻，Sam 正在爬湖后面的一座小山，Ben 正在给野花拍照。空气很清新，从山顶看到的风景美极了。Ben 周一到周五都在办公室上班，所以他特别喜欢这样的日子。「我今天不看手机，」他说，「就好好享受大自然！」"
+      },
+      "title": "阅读：Green Valley National Park（绿谷国家公园）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["hill", "heel", "小山", "脚后跟", "P-i"],
+       ["sea", "she", "海", "她", "P-sh"],
+       ["river", "liver", "河", "肝", "P-rl"],
+       ["leaf", "leave", "叶子", "离开", "P-end"],
+       ["star", "stir", "星星", "搅拌", "P-er"],
+       ["desert", "dessert", "沙漠", "甜点", "P-misc"],
+       ["air", "ear", "空气", "耳朵", "P-glide"],
+       ["lake", "lack", "湖", "缺少", "P-glide"]
+      ],
+      "title": "听辨游戏：hill 还是 heel？（小山还是脚后跟）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["这里夏天经常下雨。", "It often rains here in summer."],
+       ["快看！下雨了。", "Look! It is raining."],
+       ["我们正在湖边散步。", "We are walking by the lake."],
+       ["从山上看到的景色很美。", "The view from the mountain is beautiful."],
+       ["你知道这种花叫什么吗？", "Do you know the name of this flower?"]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "Yes, I love parks. In Singapore, there are lots of parks, and my favourite is East Coast Park, next to the sea. I usually go there on Sunday mornings, when the air is cool and fresh. I like walking by the beach and looking at the sky. It is a great place to relax.",
+       "modelZh": "喜欢，我很喜欢公园。新加坡有很多公园，我最喜欢的是东海岸公园，就在海边。我通常周日早上去，那时空气凉爽清新。我喜欢在海滩边散步、看看天空。那里是放松的好地方。",
+       "phrases": [
+        ["My favourite is …, next to the sea.", "我最喜欢的是……，就在海边。"],
+        ["I usually go there on …, when …", "我通常在……去那里，那时……"],
+        ["It is a great place to relax.", "那里是放松的好地方。"]
+       ],
+       "q": "Do you like going to parks?",
+       "tip": "说习惯用一般现在时（I usually go …）。when 可以把两个句子连起来，让回答更长：on Sunday mornings, when the air is cool。注意重音：BEAU-ti-ful、FA-vou-rite（美式拼写 favorite）。",
+       "zh": "你喜欢去公园吗？"
+      },
+      "title": "口语：你喜欢去公园吗？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d2",
+    "n": 2,
+    "teacher": "昨天学了单词重音，今天再学两条规律：两个词合成的名词，重音在前（BUS stop）；同一个词当名词和动词时，重音可能不一样（a PREsent，to preSENT）。语法比较一般现在时和现在进行时：一个说「平时」，一个说「现在」。下午的听写练大数字：hundred、thousand 读得清清楚楚，写得一个字母不错。",
+    "title": "复合词的重音，自然，进行时和一般现在时"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["mountain", "山；高山"],
+       ["beautiful", "美丽的；漂亮的"],
+       ["It often rains here in summer.", "这里夏天经常下雨。"],
+       ["Look! It is raining.", "快看！下雨了。"],
+       ["We are walking by the lake.", "我们正在湖边散步。"],
+       ["Do you know the name of this flower?", "你知道这种花叫什么吗？"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：昨天的词句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "一句话里，实词（名词、动词、形容词、数字）读得重，虚词读得轻，这是第 2 周学过的。再进一步：说话人最想让你注意的那个词，读得最重、最长，叫「句子重音」。"],
+       ["ex", "My sister has a cat.", "我姐姐养了一只猫。平常这样说时，最重的是最后一个实词 cat。"],
+       ["p", "纠正别人、或者对比两样东西时，重音会跑到要对比的那个词上："],
+       ["ex", "Is it a rabbit? — No, it's a cat.", "那是兔子吗？——不，是猫。回答里 cat 读得最重，因为它在纠正 rabbit。"],
+       ["ex", "Is that your dog? — No, it's my brother's dog.", "那是你的狗吗？——不，是我哥哥的狗。这里 brother's 读得最重，dog 反而轻了：大家都知道说的是狗，要纠正的是「谁的」。"],
+       [
+        "rows",
+        [
+         ["重读的词", "意思"],
+         ["I didn't feed the cat.（重读 I）", "不是我喂的猫（是别人喂的）。"],
+         ["I didn't feed the cat.（重读 feed）", "我没喂猫（也许只是摸了摸它）。"],
+         ["I didn't feed the cat.（重读 cat）", "我喂的不是猫（是别的动物）。"]
+        ]
+       ],
+       ["tip", "练法：先想清楚一句话里最重要的信息，把它读得又响又长。听力里，重读的词往往就是答案所在的地方。"],
+       ["h", "听力：说话人改口了"],
+       ["p", "雅思听力第一、二部分常有「改口」：先说一个答案，马上又改成另一个。要写的是改了以后的那个。"],
+       [
+        "rows",
+        [
+         ["改口的说法", "例子"],
+         ["sorry / no, sorry", "The zoo opens at nine. Sorry, at ten.（动物园九点开门。抱歉，是十点。）"],
+         ["I mean …", "It's on Tuesday, I mean Thursday.（是周二，我是说周四。）"],
+         ["Actually, …", "It's fifteen pounds. Actually, it's fifty.（十五英镑。其实是五十英镑。）"],
+         ["…, not …", "The tour starts at two, not at three.（参观两点开始，不是三点。）"]
+        ]
+       ],
+       ["ex", "We feed the lions at two. No, sorry, at half past two.", "我们两点喂狮子。不对，抱歉，是两点半。答案是两点半。"],
+       ["tip", "听到 sorry、I mean、actually、no，就要警惕：后面的才是答案。改口前后的两个答案常常是容易混的一对，比如 fifteen 和 fifty、Tuesday 和 Thursday。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["Is it a rabbit? — No, it's a cat. 回答里哪个词读得最重？", ["No", "it's", "cat"], 2, "cat 在纠正前面说的 rabbit，是最重要的信息，读得最重。", "那是兔子吗？——不，是猫。"],
+       ["I didn't feed the cat. 如果重读 I，意思是？", ["不是我喂的猫", "我没喂猫，只是摸了摸它", "我喂的不是猫"], 0, "重读 I，强调的是「不是我（是别人）」。"],
+       ["Is that your dog? — No, it's my brother's dog. 回答里哪个词读得最重？", ["my", "brother's", "dog"], 1, "大家都知道说的是狗，要纠正的是「谁的」，所以重读 brother's。", "那是你的狗吗？——不，是我哥哥的狗。"],
+       ["听到 The zoo opens at nine. Sorry, at ten. 动物园几点开门？", ["9 点", "10 点"], 1, "sorry 后面是改口以后的答案：at ten。", null, null, "L-turn"],
+       ["听到 The tickets are fifteen pounds. I mean, fifty pounds. 票价是多少？", ["£15", "£50", "£65"], 1, "I mean 后面是改口：fifty pounds（50 英镑）。", null, ["15 英镑", "50 英镑", "65 英镑"], "L-turn"]
+      ],
+      "title": "发音和听力：句子重音；听出改口",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：动物（25 个）",
+      "type": "words",
+      "words": [
+       ["animal", "ˈænɪml", "n. 动物", "ˈænɪml"],
+       ["pet", "pet", "n. 宠物（keep a pet 养宠物）", "pet"],
+       ["dog", "dɒɡ", "n. 狗", "dɑːɡ"],
+       ["cat", "kæt", "n. 猫", "kæt"],
+       ["bird", "bɜːd", "n. 鸟", "bɝːd"],
+       ["horse", "hɔːs", "n. 马", "hɔːrs"],
+       ["cow", "kaʊ", "n. 奶牛；母牛", "kaʊ"],
+       ["sheep", "ʃiːp", "n. 羊；绵羊（复数还是 sheep）", "ʃiːp"],
+       ["pig", "pɪɡ", "n. 猪", "pɪɡ"],
+       ["rabbit", "ˈræbɪt", "n. 兔子", "ˈræbɪt"],
+       ["mouse", "maʊs", "n. 老鼠（复数 mice）", "maʊs"],
+       ["duck", "dʌk", "n. 鸭子", "dʌk"],
+       ["lion", "ˈlaɪən", "n. 狮子", "ˈlaɪən"],
+       ["tiger", "ˈtaɪɡə", "n. 老虎", "ˈtaɪɡɚ"],
+       ["elephant", "ˈelɪfənt", "n. 大象", "ˈelɪfənt"],
+       ["monkey", "ˈmʌŋki", "n. 猴子", "ˈmʌŋki"],
+       ["bear", "beə", "n. 熊", "ber"],
+       ["snake", "sneɪk", "n. 蛇", "sneɪk"],
+       ["insect", "ˈɪnsekt", "n. 昆虫", "ˈɪnsekt"],
+       ["zoo", "zuː", "n. 动物园", "zuː"],
+       ["farm", "fɑːm", "n. 农场", "fɑːrm"],
+       ["wild", "waɪld", "adj. 野生的（wild animals 野生动物）", "waɪld"],
+       ["feed", "fiːd", "v. 喂（过去式 fed）", "fiːd"],
+       ["fly", "flaɪ", "v. 飞（过去式 flew） n. 苍蝇", "flaɪ"],
+       ["dangerous", "ˈdeɪndʒərəs", "adj. 危险的", "ˈdeɪndʒərəs"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "can 表示「能、会」（能力），也可以用来问「可以吗」（请求、允许）。can 后面的动词一律用原形；不管主语是谁，can 都不变，不加 -s。"],
+       [
+        "rows",
+        [
+         ["肯定", "Birds can fly.（鸟会飞。）"],
+         ["否定", "Penguins can't fly.（企鹅不会飞。）can't = cannot"],
+         ["疑问", "Can you swim? — Yes, I can. / No, I can't.（你会游泳吗？——会。/ 不会。）"]
+        ]
+       ],
+       ["ex", "My cat can open the door.", "我的猫会开门。can 后面用原形 open，不说 can opens。"],
+       ["ex", "Can I feed the rabbits?", "我可以喂兔子吗？这里的 can 是请求允许。"],
+       ["p", "could 是 can 的过去式：说过去「能、会」。could 还可以让请求更礼貌。"],
+       ["ex", "I could swim when I was six.", "我六岁的时候就会游泳了。"],
+       ["ex", "Could you take a photo of us, please?", "能请你帮我们拍张照吗？比 Can you … 更客气。"],
+       [
+        "rows",
+        [
+         ["说法", "什么时候用"],
+         ["Can I …? / Can you …?", "问「我可以……吗」「你能……吗」，朋友之间常用"],
+         ["Could I …? / Could you …?", "更礼貌，对陌生人、店员、老师用"],
+         ["can't / couldn't + 原形", "不能；不会（couldn't 说过去）"]
+        ]
+       ],
+       ["tip", "两个常见错误：① can 后面加 to 或 -s：She can to swim ✗、She cans swim ✗ → She can swim ✓。② 问「会不会」用 Can you …?，不说 Do you can …?"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["Elephants ___ swim.", ["can", "cans", "can to"], 0, "can 不加 -s，后面直接跟原形，不加 to：can swim。大象确实会游泳，而且游得很好。", "大象会游泳。"],
+       ["Penguins ___ fly, but they can swim very well.", ["can", "can't", "could"], 1, "but 前后意思相反：企鹅不会飞，但很会游泳，所以用 can't。", "企鹅不会飞，但很会游泳。"],
+       ["My grandmother ___ ride a bike when she was young.", ["can", "could", "cans"], 1, "when she was young 说的是过去，用 could。", "我奶奶年轻时会骑自行车。"],
+       ["___ you help me, please? I can't find my dog.", ["Could", "Are", "Is"], 0, "请别人帮忙，用 Could you …? 很礼貌，后面用原形 help。Are you help me 和 Is you help me 都不对。", "请问你能帮帮我吗？我找不到我的狗了。"],
+       ["Can you swim? — No, I ___.", ["can", "can't", "don't"], 1, "用 Can you …? 问，回答也用 can：No, I can't。", "你会游泳吗？——不会。"],
+       ["「我可以摸一下你的狗吗？」最礼貌的说法是？", ["Could I touch your dog?", "I can touch your dog?", "Can I to touch your dog?"], 0, "请求允许用 Can I …?，更礼貌的是 Could I …?，后面用原形 touch。", null, ["我可以摸一下你的狗吗？", "疑问句要把 can 放到句首", "can 后面不加 to"]]
+      ],
+      "title": "语法：情态动词（1）：can 和 could",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["The zoo opens at nine. Sorry, at ten.", "动物园九点开门。抱歉，是十点。"],
+       ["We feed the lions at two, not at three.", "我们两点喂狮子，不是三点。"],
+       ["Elephants can swim, but they can't jump.", "大象会游泳，但不会跳。"],
+       ["Could you take a photo of us, please?", "能请你帮我们拍张照吗？"],
+       ["My cousin keeps two rabbits and a snake.", "我表姐养了两只兔子和一条蛇。"],
+       ["The tickets are fifteen pounds. Actually, they are fifty pounds.", "票价是十五英镑。其实是五十英镑。"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：改口和动物（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["keeper", "（动物园的）饲养员"],
+        ["jump", "跳"],
+        ["young", "年幼的；小的"],
+        ["bottle", "瓶子"],
+        ["carrot", "胡萝卜"],
+        ["special", "特别的"],
+        ["snake house", "蛇馆"],
+        ["come back", "回来；再来"]
+       ],
+       "parse": [
+        ["A keeper told them, 'Elephants can't jump, but they can swim very well.'", "主干是 A keeper told them（一位饲养员告诉他们）；引号里是他说的话：两个句子用 but 连起来，can't jump 和 can swim 意思相反。", "一位饲养员告诉他们：「大象不会跳，但很会游泳。」"],
+        ["Ella wanted to feed the rabbits on the zoo's little farm.", "主干是 Ella wanted to feed the rabbits（Ella 想喂兔子）。want to + 原形 = 想做某事；on the zoo's little farm 说地点。", "Ella 想去动物园的小农场喂兔子。"],
+        ["Max wanted to see the snakes too, but the snake house was closed.", "两个过去时的句子用 but 连起来：Max wanted to see the snakes + the snake house was closed。but 后面是转折：没看成。", "Max 也想看蛇，但蛇馆关门了。"]
+       ],
+       "quiz": [
+        ["How many animals are there at the zoo?", ["About twenty", "Over two hundred", "About two thousand"], 1, "原文：it has more than two hundred animals。题目把 more than 换成了 over（超过），意思一样。", "这个动物园有多少只动物？", ["大约二十只", "两百多只", "大约两千只"], "R-para"],
+        ["Why couldn't Ella give the rabbits carrots?", ["Because the rabbits were sleeping", "Because they can only eat special food", "Because the farm was closed"], 1, "原文：They can only eat our special food。关门的是蛇馆（the snake house），不是农场。", "Ella 为什么不能给兔子喂胡萝卜？", ["因为兔子在睡觉", "因为它们只能吃特别的饲料", "因为农场关门了"]],
+        ["Max saw the snakes. TRUE, FALSE or NOT GIVEN?", ["TRUE", "FALSE", "NOT GIVEN"], 1, "原文：Max wanted to see the snakes too, but the snake house was closed。他没看成蛇，和题目说的相反，所以是 FALSE。记住：原文说了、意思一样 = TRUE；原文说了、意思相反 = FALSE；原文根本没提 = NOT GIVEN。", "Max 看到了蛇。对、错，还是没提到？", ["对（原文这样说了）", "错（原文说的和它相反）", "没提到（原文没说）"], "R-tfng"]
+       ],
+       "text": "Last Sunday, Helen took her two children, Max and Ella, to Riverside Zoo. The zoo is small, but it has more than two hundred animals. First, they watched the elephants. A keeper told them, 'Elephants can't jump, but they can swim very well.' Then they visited the monkeys. One young monkey can open a bottle with its hands! Ella wanted to feed the rabbits on the zoo's little farm. 'Can I give them some carrots?' she asked. 'Sorry, you can't,' said the keeper. 'They can only eat our special food, but you can help me later.' At three o'clock, they saw the lions. Max wanted to see the snakes too, but the snake house was closed. 'We can come back next month,' said Helen.",
+       "title": "A Day at Riverside Zoo",
+       "titleZh": "在河畔动物园的一天",
+       "zh": "上周日，Helen 带着两个孩子 Max 和 Ella 去了河畔动物园。动物园不大，但有两百多只动物。他们先看了大象。一位饲养员告诉他们：「大象不会跳，但很会游泳。」然后他们去看了猴子。有一只小猴子会用手打开瓶子！Ella 想去动物园的小农场喂兔子。「我可以给它们一些胡萝卜吗？」她问。「抱歉，不可以，」饲养员说，「它们只能吃我们特别准备的饲料，不过你待会儿可以帮我喂。」三点钟，他们看了狮子。Max 也想看蛇，但蛇馆关门了。「我们下个月可以再来。」Helen 说。"
+      },
+      "title": "阅读：A Day at Riverside Zoo（在河畔动物园的一天）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["mouth", "mouse", "嘴", "老鼠", "P-th"],
+       ["cat", "cut", "猫", "切", "P-uh"],
+       ["pig", "big", "猪", "大的", "P-voice"],
+       ["bear", "beer", "熊", "啤酒", "P-glide"],
+       ["duck", "dock", "鸭子", "码头", "P-o"],
+       ["farm", "firm", "农场", "公司；坚定的", "P-er"],
+       ["snake", "snack", "蛇", "零食", "P-glide"],
+       ["feed", "feet", "喂", "脚（复数）", "P-end"]
+      ],
+      "title": "听辨游戏：mouth 还是 mouse？（嘴还是老鼠）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["鸟会飞，但企鹅不会。", "Birds can fly, but penguins can't."],
+       ["我可以喂兔子吗？", "Can I feed the rabbits?"],
+       ["能请你帮我们拍张照吗？", "Could you take a photo of us, please?"],
+       ["我小时候不会游泳。", "I couldn't swim when I was a child."],
+       ["我表姐养了一只猫。", "My cousin has a cat."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "Yes, I do. I really like dogs, because they are friendly and they can understand people. I don't have a pet now, because my flat is quite small. But when I was a child, my family had a cat called Mimi. She couldn't catch mice, but she could sleep all day! In the future, I'd like to keep a dog.",
+       "modelZh": "喜欢。我特别喜欢狗，因为狗很友好，还能听懂人的话。我现在没有养宠物，因为我的公寓比较小。不过我小时候，家里养过一只叫咪咪的猫。它抓不到老鼠，但能睡一整天！以后我想养一只狗。",
+       "phrases": [
+        ["I really like …, because …", "我特别喜欢……，因为……"],
+        ["When I was a child, my family had …", "我小时候，家里养过……"],
+        ["In the future, I'd like to keep a dog.", "以后我想养一只狗。"]
+       ],
+       "q": "Do you like animals?",
+       "tip": "回答动物话题：喜欢什么动物 + 原因（用 can 说它能做什么）+ 一个过去的小故事（用 could / couldn't）。录完听一听：can 读得轻（/kən/），can't 读得重（/kænt/）。",
+       "zh": "你喜欢动物吗？"
+      },
+      "title": "口语：你喜欢动物吗？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d3",
+    "n": 3,
+    "teacher": "今天学句子重音：一句话里最重要的那个词读得最重，换一个重读的词，意思就会变。听力里，说话人改口（Tuesday… sorry, Thursday）是雅思最爱设的陷阱，今天专门练。语法学 can 和 could：会不会、能不能、可不可以。动物是口语第一部分的常见话题（Do you like animals?），想想你喜欢什么动物。",
+    "title": "句子重音，动物，can 和 could"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["elephant", "大象"],
+       ["dangerous", "危险的"],
+       ["Birds can fly, but penguins can't.", "鸟会飞，但企鹅不会。"],
+       ["Can I feed the rabbits?", "我可以喂兔子吗？"],
+       ["Could you take a photo of us, please?", "能请你帮我们拍张照吗？"],
+       ["I couldn't swim when I was a child.", "我小时候不会游泳。"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：昨天的词句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "-tion、-sion、-ic 结尾的词，重音一般在这个词尾前面的那个音节上。这条规律很少有例外，学会了，很多长词一看就知道怎么读。"],
+       [
+        "rows",
+        [
+         ["词尾", "例子", "重音"],
+         ["-tion", "information 信息", "in-for-MA-tion"],
+         ["-tion", "reservation 预订", "re-ser-VA-tion"],
+         ["-tion", "station 车站", "STA-tion"],
+         ["-sion", "excursion 短途游览", "ex-CUR-sion"],
+         ["-ic", "fantastic 极好的", "fan-TAS-tic"],
+         ["-ic", "traffic 交通", "TRAF-fic"]
+        ]
+       ],
+       ["p", "重读的那个音节，元音要读得饱满：information 里的 a 读 /eɪ/，要滑动，不要读成短短的「诶」；-tion 本身读得很轻：/ʃn/。"],
+       ["ex", "Can I get some information about the tour?", "我可以了解一下这次游览的信息吗？in-for-MA-tion。"],
+       ["ex", "I have a reservation for two nights.", "我预订了两晚。re-ser-VA-tion。"],
+       ["ex", "The view from the hotel is fantastic.", "从酒店看出去的景色好极了。fan-TAS-tic，重音在 tas 上。"],
+       ["tip", "以后遇到 -tion 结尾的词，先找到 -tion，往前数一个音节就是重音。没学过的词也能读对：destination（目的地）就是 des-ti-NA-tion。"],
+       ["h", "听力：订房、航班和楼层"],
+       [
+        "rows",
+        [
+         ["说法", "意思"],
+         ["a single room / a double room", "单人间 / 双人间"],
+         ["for three nights", "住三晚"],
+         ["Flight two seven five", "275 次航班（航班号一位一位地读）"],
+         ["Gate twelve", "12 号登机口"]
+        ]
+       ],
+       ["p", "楼层要特别小心：雅思常用的英式说法里，和地面一样高的那一层叫 ground floor（一楼），往上才是 first floor（二楼）、second floor（三楼）。美式的 first floor 就是一楼。"],
+       [
+        "rows",
+        [
+         ["英式（雅思常用）", "美式", "中文"],
+         ["ground floor", "first floor", "一楼"],
+         ["first floor", "second floor", "二楼"],
+         ["second floor", "third floor", "三楼"]
+        ]
+       ],
+       ["ex", "Your room is on the first floor, next to the lift.", "你的房间在二楼（英式说法），就在电梯旁边。lift 是英式说法，美式说 elevator。"],
+       ["tip", "听写里，航班号、房间号一个数字一个数字分开写：two seven five。真正考试时写成数字就行（275）。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["information 的重音在哪个音节？", ["in", "for", "ma", "tion"], 2, "-tion 前面的音节重读：in-for-MA-tion。", "information = 信息"],
+       ["fantastic 怎么读？", ["FAN-tas-tic", "fan-TAS-tic", "fan-tas-TIC"], 1, "-ic 前面的音节重读：fan-TAS-tic。", "fantastic = 极好的；太棒了"],
+       ["destination（目的地）的重音在哪里？", ["DES-ti-na-tion", "des-TI-na-tion", "des-ti-NA-tion"], 2, "-tion 前面的音节重读：des-ti-NA-tion。没学过的词也能用这条规律读对。"],
+       ["听到 Flight two seven five leaves from gate twelve. 飞机从几号登机口起飞？", ["2 号", "12 号", "275 号"], 1, "gate twelve = 12 号登机口；two seven five 是航班号。", null, null, "L-num"],
+       ["在英国的酒店，前台说 Your room is on the first floor. 房间在几楼？", ["一楼", "二楼", "三楼"], 1, "英式说法里，一楼叫 ground floor，first floor 是二楼。美式的 first floor 才是一楼。", null, null, "L-detail"]
+      ],
+      "title": "发音和听力：-tion 和 -ic 的重音；订房、航班和楼层",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：旅行（25 个）",
+      "type": "words",
+      "words": [
+       ["holiday", "ˈhɒlədeɪ", "n. 假期（美式常说 vacation）", "ˈhɑːlədeɪ"],
+       ["trip", "trɪp", "n. （短途）旅行；出行", "trɪp"],
+       ["tourist", "ˈtʊərɪst", "n. 游客", "ˈtʊrɪst"],
+       ["passport", "ˈpɑːspɔːt", "n. 护照", "ˈpæspɔːrt"],
+       ["visa", "ˈviːzə", "n. 签证", "ˈviːzə"],
+       ["flight", "flaɪt", "n. 航班", "flaɪt"],
+       ["hotel", "həʊˈtel", "n. 酒店；旅馆（重音在后）", "hoʊˈtel"],
+       ["reservation", "ˌrezəˈveɪʃn", "n. 预订（make a reservation 预订）", "ˌrezɚˈveɪʃn"],
+       ["single", "ˈsɪŋɡl", "adj. 单人的；单程的（a single room 单人间）", "ˈsɪŋɡl"],
+       ["double", "ˈdʌbl", "adj. 双人的；两倍的（a double room 双人间）", "ˈdʌbl"],
+       ["suitcase", "ˈsuːtkeɪs", "n. 行李箱", "ˈsuːtkeɪs"],
+       ["luggage", "ˈlʌɡɪdʒ", "n. 行李（不可数；美式也说 baggage）", "ˈlʌɡɪdʒ"],
+       ["pack", "pæk", "v. 收拾（行李）", "pæk"],
+       ["abroad", "əˈbrɔːd", "adv. 在国外；到国外（go abroad 出国）", "əˈbrɑːd"],
+       ["country", "ˈkʌntri", "n. 国家", "ˈkʌntri"],
+       ["foreign", "ˈfɒrən", "adj. 外国的（g 不发音）", "ˈfɔːrən"],
+       ["language", "ˈlæŋɡwɪdʒ", "n. 语言", "ˈlæŋɡwɪdʒ"],
+       ["guide", "ɡaɪd", "n. 导游；指南 v. 带领", "ɡaɪd"],
+       ["tour", "tʊə", "n. 游览；（旅游）团 v. 游览", "tʊr"],
+       ["sightseeing", "ˈsaɪtsiːɪŋ", "n. 观光；游览（go sightseeing 去观光）", "ˈsaɪtsiːɪŋ"],
+       ["souvenir", "ˌsuːvəˈnɪə", "n. 纪念品（重音在最后）", "ˌsuːvəˈnɪr"],
+       ["visit", "ˈvɪzɪt", "v./n. 参观；拜访", "ˈvɪzɪt"],
+       ["stay", "steɪ", "v./n. 停留；住（stay in a hotel 住酒店）", "steɪ"],
+       ["information", "ˌɪnfəˈmeɪʃn", "n. 信息（不可数）", "ˌɪnfɚˈmeɪʃn"],
+       ["check in", "ˌtʃek ˈɪn", "办理入住；办理登机手续", "ˌtʃek ˈɪn"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "说已经打算好、计划好要做的事，用 am / is / are + going to + 动词原形。"],
+       [
+        "rows",
+        [
+         ["主语", "be", "going to + 原形"],
+         ["I", "am", "going to visit Paris（我打算去巴黎）"],
+         ["he / she / it", "is", "going to visit Paris（他 / 她打算去巴黎）"],
+         ["you / we / they", "are", "going to visit Paris（你们 / 我们 / 他们打算去巴黎）"]
+        ]
+       ],
+       ["ex", "I am going to visit my aunt in Australia next month.", "我打算下个月去澳大利亚看我阿姨。"],
+       ["ex", "We are going to stay in a small hotel near the beach.", "我们打算住在海滩附近的一家小酒店。"],
+       ["p", "否定：在 am / is / are 后面加 not。疑问：把 am / is / are 放到句首。"],
+       ["ex", "She isn't going to take the train. She is going to fly.", "她不打算坐火车，她打算坐飞机。"],
+       ["ex", "Are you going to pack tonight? — Yes, I am.", "你今晚要收拾行李吗？——是的。"],
+       ["ex", "What are you going to do this summer?", "你今年夏天打算做什么？"],
+       ["p", "看到眼前的迹象，预测马上要发生的事，也用 be going to："],
+       ["ex", "Look at those black clouds. It's going to rain.", "看那些乌云，要下雨了。"],
+       ["tip", "常和它一起用的时间词：tomorrow、tonight、next week、next month、this summer。口语里 going to 常说成 gonna，听到要能听懂，但写的时候一定写 going to。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["I ___ going to visit my grandmother next weekend.", ["am", "is", "are"], 0, "主语 I 用 am：I am going to …", "我打算下周末去看奶奶。", null, "G-be"],
+       ["They are going to ___ a car in Spain.", ["rent", "rents", "renting"], 0, "going to 后面用动词原形：going to rent。", "他们打算在西班牙租一辆车。"],
+       ["___ she going to stay in a hotel?", ["Is", "Does", "Are"], 0, "be going to 的疑问句把 be 放到句首；主语 she 用 Is。", "她打算住酒店吗？", null, "G-be"],
+       ["Look at the sky! It ___ rain.", ["is going to", "goes to", "is go to"], 0, "看到迹象（天空）预测马上要发生的事，用 be going to：It is going to rain。", "看看天空！要下雨了。"],
+       ["We ___ going to take the train. We're going to fly.", ["aren't", "don't", "isn't"], 0, "否定在 be 后面加 not；主语 we 用 aren't。", "我们不打算坐火车，我们打算坐飞机。", null, "G-be"],
+       ["「你明年打算出国吗？」怎么说？", ["Are you going to go abroad next year?", "Do you going to go abroad next year?", "Are you go abroad next year?"], 0, "be going to 的疑问句：Are you going to + 原形 …? 不能用 Do，也不能漏掉 going to。", null, ["你明年打算出国吗？", "不能用 Do", "漏了 going to"], "G-be"]
+      ],
+      "title": "语法：一般将来时（1）：be going to",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["I would like to make a reservation for two nights.", "我想预订两晚。"],
+       ["We are going to stay in a double room.", "我们打算住双人间。"],
+       ["Your room is on the first floor, next to the lift.", "你的房间在二楼（英式说法），就在电梯旁边。"],
+       ["Flight two seven five leaves from gate twelve.", "275 次航班从 12 号登机口起飞。"],
+       ["Don't forget your passport and your visa.", "别忘了带护照和签证。"],
+       ["What are you going to do in Paris?", "你打算在巴黎做什么？"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：订房和航班（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["Guess what?", "你猜怎么着？"],
+        ["fly", "坐飞机去；飞"],
+        ["famous", "有名的"],
+        ["rent a car", "租车"],
+        ["along the coast", "沿着海岸"],
+        ["by the sea", "在海边"],
+        ["useful", "有用的"],
+        ["travel light", "轻装出行（不带很多行李）"]
+       ],
+       "parse": [
+        ["We are going to fly from London to Barcelona on the fifth of May, and we are going to stay in a small hotel near the beach.", "两个 be going to 的句子用 and 连起来：We are going to fly + we are going to stay。from London to Barcelona、on the fifth of May、near the beach 分别说路线、日期和地点。", "我们打算五月五日从伦敦飞到巴塞罗那，住在海滩附近的一家小酒店。"],
+        ["After four days, we are going to rent a car and drive along the coast to a quiet town by the sea.", "主干是 we are going to rent a car and drive（一个主语，两个动作：rent 和 drive）。along the coast 说路线，to a quiet town by the sea 说去哪里。", "四天以后，我们打算租一辆车，沿着海岸开到海边一个安静的小镇。"],
+        ["I'm not going to take a big suitcase, because I want to travel light.", "主干是 I'm not going to take a big suitcase（否定：be 后面加 not）；because 引出原因：I want to travel light。", "我不打算带大行李箱，因为我想轻装出行。"]
+       ],
+       "quiz": [
+        ["How long is Ben's holiday?", ["Four days", "Five days", "Ten days"], 2, "原文：Sam and I are going to visit Spain for ten days。four days 是在巴塞罗那待的时间，fifth 是出发的日期。", "Ben 的假期有多长？", ["四天", "五天", "十天"]],
+        ["Where are they going to stay first?", ["In a hotel near the beach", "In a quiet town by the sea", "At Lily's home"], 0, "原文：we are going to stay in a small hotel near the beach。四天以后才开车去海边的安静小镇。", "他们先住在哪里？", ["海滩附近的酒店", "海边一个安静的小镇", "Lily 家"]],
+        ["Why is Ben going to learn some Spanish words?", ["Because he wants to work in Spain", "Because he doesn't speak Spanish", "Because Sam is from Spain"], 1, "原文：I don't speak Spanish, so I'm going to learn some useful words before the trip。so 前面是原因，后面是结果。", "Ben 为什么打算学一些西班牙语单词？", ["因为他想在西班牙工作", "因为他不会说西班牙语", "因为 Sam 是西班牙人"], "R-infer"]
+       ],
+       "text": "Hi Lily! Guess what? I'm going to have a holiday next month! Sam and I are going to visit Spain for ten days. We are going to fly from London to Barcelona on the fifth of May, and we are going to stay in a small hotel near the beach. I'm going to visit the famous buildings in the city, and Sam is going to take lots of photos. After four days, we are going to rent a car and drive along the coast to a quiet town by the sea. I don't speak Spanish, so I'm going to learn some useful words before the trip. I'm not going to take a big suitcase, because I want to travel light. Do you want a souvenir? I'm going to bring you something nice! Ben",
+       "title": "Holiday Plans",
+       "titleZh": "假期计划",
+       "zh": "Lily 你好！你猜怎么着？我下个月要去度假了！我和 Sam 打算去西班牙玩十天。我们打算五月五日从伦敦飞到巴塞罗那，住在海滩附近的一家小酒店。我打算去看看城里那些有名的建筑，Sam 打算拍很多照片。四天以后，我们打算租一辆车，沿着海岸开到海边一个安静的小镇。我不会说西班牙语，所以我打算出发前学一些有用的词。我不打算带大行李箱，因为我想轻装出行。你想要纪念品吗？我会给你带点好东西回来！Ben"
+      },
+      "title": "阅读：Holiday Plans（假期计划）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["flight", "fright", "航班", "惊吓", "P-rl"],
+       ["pack", "back", "收拾（行李）", "后背", "P-voice"],
+       ["boat", "bought", "船", "买了（buy 的过去式）", "P-glide"],
+       ["gate", "get", "登机口；大门", "得到", "P-glide"],
+       ["coach", "couch", "长途大巴（英式）", "沙发", "P-glide"],
+       ["bus", "boss", "公交车", "老板", "P-o"],
+       ["price", "prize", "价格", "奖品", "P-end"],
+       ["thought", "taught", "想过（think 的过去式）", "教过（teach 的过去式）", "P-th"]
+      ],
+      "title": "听辨游戏：flight 还是 fright？（航班还是惊吓）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["我打算下个月去旅行。", "I am going to travel next month."],
+       ["我们打算住在海滩附近的一家酒店。", "We are going to stay in a hotel near the beach."],
+       ["你打算住在哪里？", "Where are you going to stay?"],
+       ["别忘了带护照。", "Don't forget your passport."],
+       ["看那些乌云，要下雨了。", "Look at those black clouds. It is going to rain."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "I'm going to visit Japan with my sister in December. We are going to stay in Tokyo for five days, and then we are going to take the train to Kyoto. I'm really excited, because I want to see the old temples and try real Japanese food. I'm going to take lots of photos and buy some souvenirs for my friends.",
+       "modelZh": "我打算十二月和姐姐去日本。我们打算在东京待五天，然后坐火车去京都。我特别期待，因为我想去看看那些古老的寺庙，尝尝正宗的日本菜。我打算拍很多照片，再给朋友们买些纪念品。",
+       "phrases": [
+        ["I'm going to visit … with … in …", "我打算和……一起去……（in 后面说什么时候）"],
+        ["We are going to stay in … for … days.", "我们打算在……待……天。"],
+        ["I'm really excited, because I want to …", "我特别期待，因为我想……"]
+       ],
+       "q": "Where are you going to go on your next holiday?",
+       "tip": "说计划用 be going to，把「去哪、和谁、什么时候、待多久、做什么」都说到，回答就完整了。注意这几个词的重音：Ja-PAN、Ja-pa-NESE、ex-CI-ted、sou-ve-NIR。",
+       "zh": "你下一个假期打算去哪里？"
+      },
+      "title": "口语：你下一个假期打算去哪里？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d4",
+    "n": 4,
+    "teacher": "今天学一条特别好用的重音规律：-tion、-sion 和 -ic 结尾的词，重音都在这个词尾前面的那个音节上（in-for-MA-tion）。语法学 be going to：说已经打算好的计划，下一个假期去哪儿玩就能说了。下午的听写练订房和航班；还要记住英式的楼层说法：first floor 是二楼。",
+    "title": "-tion 和 -ic 的重音，旅行，be going to"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["passport", "护照"],
+       ["souvenir", "纪念品"],
+       ["I am going to travel next month.", "我打算下个月去旅行。"],
+       ["Where are you going to stay?", "你打算住在哪里？"],
+       ["Don't forget your passport.", "别忘了带护照。"],
+       ["Look at those black clouds. It is going to rain.", "看那些乌云，要下雨了。"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：昨天的词句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "英语句子有节奏：重读的词（实词）之间的时间差不多一样长，中间的虚词不管有几个，都要挤在一起快速读过去。所以句子里小词越多，它们读得越快、越轻。"],
+       [
+        "rows",
+        [
+         ["句子", "重读的词"],
+         ["Cats eat fish.（猫吃鱼。）", "CATS · EAT · FISH"],
+         ["The cats eat the fish.（这些猫吃鱼。）", "CATS · EAT · FISH"],
+         ["The cats will eat the fish.（这些猫会吃鱼。）", "CATS · EAT · FISH"]
+        ]
+       ],
+       ["p", "三句话都只有三个重读的词，所以读起来差不多一样长：多出来的 the、will 都要轻轻带过。"],
+       ["ex", "We'll see the fireworks at the festival.", "我们会在节日上看烟花。重读 see、fireworks 的 fire 和 festival 的 fes；we'll、the 都很轻。"],
+       ["h", "'ll 和 won't"],
+       ["p", "will 在口语里常缩成 'll，和前面的词连在一起：I'll /aɪl/、you'll /juːl/、we'll /wiːl/、it'll /ˈɪtl/（美音的 t 读成轻轻的 d）。will not 缩成 won't：美音 /woʊnt/，英音 /wəʊnt/。"],
+       ["ex", "I'll call you tomorrow.", "我明天给你打电话。I'll 读 /aɪl/，很短。"],
+       ["ex", "I won't go to the party. I want to go to the parade.", "我不去聚会了，我想去看游行。won't /woʊnt/ 嘴唇先收圆、再滑动；want /wɑːnt/ 嘴张大、不滑动。"],
+       ["tip", "won't 和 want 是听力里最容易听反的一对，意思几乎相反：won't 是「不会」，want 是「想要」。听 won't 时注意那个圆唇、滑动的 /oʊ/；want 后面常常跟着 to（口语里 want to 常说成 wanna）。"],
+       ["h", "听力：节日的日期和时间"],
+       [
+        "rows",
+        [
+         ["说法", "意思"],
+         ["from the first to the third of May", "从五月一日到三日"],
+         ["It starts on Friday evening.", "周五晚上开始。"],
+         ["It finishes at midnight.", "午夜结束。"],
+         ["The parade will be at four.", "游行会在四点。"]
+        ]
+       ],
+       ["ex", "The festival will start on the twenty-first of March.", "节日将在三月二十一日开始。"],
+       ["tip", "听到 from … to …，两个日期都要记下来；the twenty-first 是序数词，twenty 和 first 之间有连字符。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["The cats will eat the fish. 这句话里重读的是哪几个词？", ["The、will、the", "cats、eat、fish", "will、fish"], 1, "名词 cats、fish 和动词 eat 是实词，要重读；the、will 是虚词，轻轻带过。", "这些猫会吃鱼。", null, "L-weak"],
+       ["听到 /aɪl/ call you tomorrow，写下来应该是？", ["I call you tomorrow.", "I'll call you tomorrow.", "I will calling you tomorrow."], 1, "/aɪl/ 是 I'll（I will）的缩读。tomorrow 是将来，要有 will。", "我明天给你打电话。", ["少了 'll", "我明天给你打电话。", "will 后面用原形"], "L-weak"],
+       ["听到 I /woʊnt/ go to the party，意思是？", ["我想去聚会", "我不会去聚会"], 1, "/woʊnt/ 是 won't（will not），嘴唇圆、有滑动；want 读 /wɑːnt/，不滑动。", null, null, "P-glide"],
+       ["听到 The festival is from the first to the third of May. 节日一共几天？", ["1 天", "2 天", "3 天"], 2, "from the first to the third：一日、二日、三日，一共三天。这种题要自己算一下。", null, null, "L-date"],
+       ["it'll 是哪两个词的缩写？", ["it will", "it is", "it was"], 0, "'ll = will：it'll rain = it will rain（会下雨）。it's 才是 it is。", null, null, "L-weak"]
+      ],
+      "title": "发音和听力：句子的节奏，'ll 和 won't；节日的日期",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：节日（25 个）",
+      "type": "words",
+      "words": [
+       ["festival", "ˈfestɪvl", "n. 节日；（文化、音乐、美食等）节", "ˈfestɪvl"],
+       ["celebrate", "ˈselɪbreɪt", "v. 庆祝", "ˈseləbreɪt"],
+       ["party", "ˈpɑːti", "n. 聚会；派对", "ˈpɑːrɾi"],
+       ["present", "ˈpreznt", "n. 礼物（重音在前；动词 present 重音在后）", "ˈpreznt"],
+       ["gift", "ɡɪft", "n. 礼物", "ɡɪft"],
+       ["invite", "ɪnˈvaɪt", "v. 邀请", "ɪnˈvaɪt"],
+       ["invitation", "ˌɪnvɪˈteɪʃn", "n. 邀请；请柬", "ˌɪnvɪˈteɪʃn"],
+       ["guest", "ɡest", "n. 客人", "ɡest"],
+       ["wedding", "ˈwedɪŋ", "n. 婚礼", "ˈwedɪŋ"],
+       ["birthday", "ˈbɜːθdeɪ", "n. 生日", "ˈbɝːθdeɪ"],
+       ["New Year", "ˌnjuː ˈjɪə", "n. 新年（Chinese New Year 春节）", "ˌnuː ˈjɪr"],
+       ["Christmas", "ˈkrɪsməs", "n. 圣诞节（t 不发音）", "ˈkrɪsməs"],
+       ["lantern", "ˈlæntən", "n. 灯笼", "ˈlæntɚn"],
+       ["fireworks", "ˈfaɪəwɜːks", "n. 烟花（常用复数）", "ˈfaɪɚwɝːks"],
+       ["parade", "pəˈreɪd", "n. 游行", "pəˈreɪd"],
+       ["decorate", "ˈdekəreɪt", "v. 装饰；布置", "ˈdekəreɪt"],
+       ["traditional", "trəˈdɪʃənl", "adj. 传统的", "trəˈdɪʃənl"],
+       ["culture", "ˈkʌltʃə", "n. 文化", "ˈkʌltʃɚ"],
+       ["special", "ˈspeʃl", "adj. 特别的；特殊的", "ˈspeʃl"],
+       ["wish", "wɪʃ", "v./n. 祝愿；希望；愿望", "wɪʃ"],
+       ["mooncake", "ˈmuːnkeɪk", "n. 月饼", "ˈmuːnkeɪk"],
+       ["costume", "ˈkɒstjuːm", "n. （节日、演出穿的）服装", "ˈkɑːstuːm"],
+       ["lucky", "ˈlʌki", "adj. 幸运的；吉利的", "ˈlʌki"],
+       ["cake", "keɪk", "n. 蛋糕", "keɪk"],
+       ["candle", "ˈkændl", "n. 蜡烛", "ˈkændl"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "will + 动词原形，也表示将来。和 be going to 不同，will 常用在这三种情况："],
+       [
+        "rows",
+        [
+         ["用法", "例子"],
+         ["① 预测、猜想（常和 I think 连用）", "I think it will be a great festival.（我觉得这次节日会很棒。）"],
+         ["② 说话时临时做的决定", "The phone is ringing. I'll answer it.（电话响了，我来接。）"],
+         ["③ 答应别人、主动帮忙", "I'll help you with the lanterns.（我来帮你弄灯笼。）"]
+        ]
+       ],
+       ["p", "will 不跟着主语变：I will、she will、they will 都一样。否定：will not = won't。疑问：把 will 放到句首。"],
+       ["ex", "There will be fireworks at midnight.", "午夜会有烟花。there be 的将来时是 There will be。"],
+       ["ex", "She won't come to the party, because she is ill.", "她不会来聚会了，因为她病了。"],
+       ["ex", "Will you be at home on Christmas Day? — Yes, I will.", "圣诞节那天你会在家吗？——会。"],
+       ["h", "will 还是 be going to？"],
+       [
+        "rows",
+        [
+         ["早就打算好的计划：be going to", "We're going to visit my grandparents at New Year.（我们打算新年去看爷爷奶奶。早就计划好了。）"],
+         ["说话时临时决定：will", "It's cold. I'll close the window.（好冷，我去关窗。刚刚才决定。）"]
+        ]
+       ],
+       ["tip", "will 后面一定是原形：She will comes ✗、She will coming ✗ → She will come ✓。I think … will 很好用：I think it will rain.（我觉得会下雨。）"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["I think it ___ sunny tomorrow.", ["will be", "will is", "is being"], 0, "预测将来用 will + 原形；be 的原形就是 be：will be。", "我觉得明天会是晴天。"],
+       ["The phone is ringing. I ___ answer it.", ["will", "am going to", "answers"], 0, "说话时临时决定，用 will：I will answer it，口语常说 I'll answer it。am going to 用在早就打算好的事上。", "电话响了，我来接。"],
+       ["She ___ come to the party. She's ill.", ["won't", "isn't", "not"], 0, "将来时的否定用 won't（will not）+ 原形：won't come。", "她不会来聚会了，她病了。"],
+       ["There ___ fireworks at midnight.", ["will be", "will have", "will are"], 0, "there be 的将来时是 There will be，will 后面用原形 be。", "午夜会有烟花。"],
+       ["「我觉得你会喜欢这份礼物。」怎么说？", ["I think you will like this present.", "I think you like will this present.", "I think you will likes this present."], 0, "will 放在动词前面，后面用原形：will like。", null, ["我觉得你会喜欢这份礼物。", "will 的位置不对", "will 后面不加 -s"]],
+       ["___ you be at home on Christmas Day? — Yes, I will.", ["Will", "Are", "Is"], 0, "回答是 Yes, I will，问句也用 Will：Will you be …?", "圣诞节那天你会在家吗？——会。"]
+      ],
+      "title": "语法：一般将来时（2）：will",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["The festival will start on the twenty-first of March.", "节日将在三月二十一日开始。"],
+       ["There will be fireworks at midnight.", "午夜会有烟花。"],
+       ["I won't go to the party, but I want to see the parade.", "我不去聚会了，但我想看游行。"],
+       ["We'll celebrate Chinese New Year with my family.", "我们会和家人一起过春节。"],
+       ["The food festival is from the first to the third of October.", "美食节从十月一日到三日。"],
+       ["I think you will love this present.", "我觉得你会喜欢这份礼物的。"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：节日的日期和计划（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["Chinese calendar", "农历"],
+        ["get together", "聚在一起"],
+        ["round", "圆的"],
+        ["carry", "拿着；提着"],
+        ["in the shape of", "形状像……的"],
+        ["grandparents", "爷爷奶奶；外公外婆"],
+        ["take … to …", "把……带到……"],
+        ["miss", "想念；错过"]
+       ],
+       "parse": [
+        ["It is on the fifteenth day of the eighth month of the Chinese calendar, so it is usually in September or early October.", "两个句子用 so 连起来：It is on the fifteenth day … + it is usually in September or early October。of the eighth month of the Chinese calendar 一层层说明是哪一天，先跳过就能看出主干 It is on the fifteenth day。", "中秋节在农历八月十五，所以通常在九月或十月初。"],
+        ["Families get together, eat mooncakes and look at the moon, and children carry colourful lanterns in the shape of rabbits, stars and fish.", "两个句子用 and 连起来。第一句一个主语 Families 带三个动作：get together、eat、look at；第二句主干是 children carry lanterns，in the shape of … 说灯笼的形状。", "一家人聚在一起吃月饼、赏月，孩子们提着兔子、星星和鱼形状的彩色灯笼。"],
+        ["Rachel's cousin, Jack, won't be there, because he is studying in London.", "主干是 Rachel's cousin won't be there（won't = will not）。Jack 放在两个逗号中间，说明表哥的名字；because 引出原因。", "Rachel 的表哥 Jack 不在，因为他在伦敦读书。"]
+       ],
+       "quiz": [
+        ["When is the Mid-Autumn Festival usually?", ["In August", "In September or early October", "On the fifteenth of August"], 1, "原文：it is usually in September or early October。the eighth month 说的是农历八月，不是公历的 August（八月），别被它带偏。", "中秋节通常在什么时候？", ["八月", "九月或十月初", "8 月 15 日"]],
+        ["What will Rachel do with her grandmother?", ["Buy mooncakes", "Make mooncakes", "Send mooncakes to Jack"], 1, "原文：My grandmother will make mooncakes, and I'll help her。help her 就是帮奶奶做月饼，也就是和奶奶一起做月饼。", "Rachel 会和奶奶一起做什么？", ["买月饼", "做月饼", "给 Jack 寄月饼"], "R-infer"],
+        ["Jack will celebrate the festival with his friends in London. TRUE, FALSE or NOT GIVEN?", ["TRUE", "FALSE", "NOT GIVEN"], 2, "原文只说 Jack won't be there（不在家），因为他在伦敦读书，没说他会不会和朋友一起过节，所以是 NOT GIVEN。NOT GIVEN 和 FALSE 不一样：FALSE 是原文说了相反的意思，NOT GIVEN 是原文根本没提。", "Jack 会和朋友们在伦敦过节。对、错，还是没提到？", ["对（原文这样说了）", "错（原文说的和它相反）", "没提到（原文没说）"], "R-tfng"]
+       ],
+       "text": "The Mid-Autumn Festival is a very important festival for Chinese families. It is on the fifteenth day of the eighth month of the Chinese calendar, so it is usually in September or early October. On this night, the moon is big and round. Families get together, eat mooncakes and look at the moon, and children carry colourful lanterns in the shape of rabbits, stars and fish. This year, Rachel will celebrate the festival in Singapore with her grandparents. 'My grandmother will make mooncakes, and I'll help her,' she says. 'After dinner, we'll take our lanterns to the park near our flat.' Rachel's cousin, Jack, won't be there, because he is studying in London. 'I'll send him a photo of the moon,' says Rachel. 'I think he'll miss our family dinner!'",
+       "title": "The Mid-Autumn Festival",
+       "titleZh": "中秋节",
+       "zh": "中秋节是华人家庭非常重要的节日。它在农历八月十五，所以通常在九月或十月初。这天晚上，月亮又大又圆。一家人聚在一起吃月饼、赏月，孩子们提着兔子、星星和鱼形状的彩色灯笼。今年，Rachel 会和爷爷奶奶在新加坡过中秋。「我奶奶会做月饼，我来帮她，」她说，「吃完晚饭，我们会提着灯笼去我家附近的公园。」Rachel 的表哥 Jack 不在，因为他在伦敦读书。「我会给他发一张月亮的照片，」Rachel 说，「我想他会想念我们的家庭晚餐！」"
+      },
+      "title": "阅读：The Mid-Autumn Festival（中秋节）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["won't", "want", "不会（will not）", "想要", "P-glide"],
+       ["will", "we'll", "将会", "我们将会", "P-i"],
+       ["luck", "lock", "运气", "锁", "P-o"],
+       ["cheer", "chair", "欢呼", "椅子", "P-glide"],
+       ["sing", "thing", "唱歌", "东西", "P-th"],
+       ["card", "cart", "卡片", "手推车", "P-end"],
+       ["dance", "dense", "跳舞", "密集的", "P-ae"],
+       ["invite", "invited", "邀请", "邀请了（过去式）", "L-end"]
+      ],
+      "title": "听辨游戏：won't 还是 want？（不会还是想要）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["我觉得明天会是晴天。", "I think it will be sunny tomorrow."],
+       ["午夜会有烟花。", "There will be fireworks at midnight."],
+       ["她不会来聚会了。", "She won't come to the party."],
+       ["我来帮你做灯笼。", "I'll help you make the lanterns."],
+       ["我们打算和家人一起过春节。", "We are going to celebrate Chinese New Year with our family."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "My favourite festival is Chinese New Year. Before the festival, we clean the house and decorate it with red lanterns, because red is a lucky colour. On the eve of Chinese New Year, my whole family has a big reunion dinner together. This year, I think the dinner will be at my grandmother's house, and I'll visit my relatives with my parents.",
+       "modelZh": "我最喜欢的节日是春节。过节前，我们会打扫房子，用红灯笼装饰，因为红色是吉利的颜色。除夕夜，我们全家人一起吃一顿丰盛的团圆饭。今年我想团圆饭会在奶奶家吃，我还会和爸妈一起去走亲戚。",
+       "phrases": [
+        ["My favourite festival is …", "我最喜欢的节日是……"],
+        ["We decorate the house with red lanterns, because red is a lucky colour.", "我们用红灯笼装饰房子，因为红色是吉利的颜色。"],
+        ["This year, I think … will …", "今年我想……会……"]
+       ],
+       "q": "What is your favourite festival?",
+       "tip": "说节日：是什么节 → 过节前做什么 → 当天做什么 → 今年会怎样（用 will）。「团圆饭」可以说 reunion dinner，「红包」在新加坡常说 red packet。注意 celebrate、decorate 的重音都在第一个音节：CE-le-brate、DE-co-rate。",
+       "zh": "你最喜欢哪个节日？"
+      },
+      "title": "口语：你最喜欢哪个节日？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d5",
+    "n": 5,
+    "teacher": "今天学英语句子的节奏：重读的词像鼓点一样均匀，中间的小词挤在一起快速带过。will 在口语里常缩成 'll（I'll、we'll），won't 和 want 很容易听反，今天一起练。语法学 will：预测、临时决定、答应别人。节日是口语里聊文化的好话题，想想你最喜欢哪个节日、怎么过。",
+    "title": "句子的节奏，'ll 和 won't，节日，will"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["fireworks", "烟花"],
+       ["traditional", "传统的"],
+       ["I think it will be sunny tomorrow.", "我觉得明天会是晴天。"],
+       ["There will be fireworks at midnight.", "午夜会有烟花。"],
+       ["She won't come to the party.", "她不会来聚会了。"],
+       ["I'll help you make the lanterns.", "我来帮你做灯笼。"]
+      ],
+      "k": "review",
+      "m": 10,
+      "title": "开场抽查：昨天的词句（6 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "情态动词在句子里通常弱读，后面的动词才是重点；只有否定的 can't、mustn't、shouldn't 读得清楚、有重音。"],
+       [
+        "rows",
+        [
+         ["词", "在句子里", "例子"],
+         ["must", "/məst/，后面是辅音时 t 常常不读", "You must stop here.（你必须在这里停下。）"],
+         ["should", "/ʃəd/", "You should take an umbrella.（你应该带把伞。）"],
+         ["have to", "/ˈhæftə/：v 读成 f", "I have to go now.（我现在得走了。）"],
+         ["has to", "/ˈhæstə/：s 读成清音", "She has to work today.（她今天得上班。）"],
+         ["mustn't", "/ˈmʌsnt/：第一个 t 不发音", "You mustn't park here.（你不能在这里停车。）"]
+        ]
+       ],
+       ["ex", "You must show your ticket.", "你必须出示车票。must 读得轻，重音在 show 和 ticket 上。"],
+       ["ex", "I have to finish my homework.", "我得把作业做完。have to 读成 /ˈhæftə/。"],
+       ["tip", "听力里 must、should 很轻，容易漏掉；否定的 mustn't、shouldn't 读得重，别听成肯定。听写时 have to 要写成两个词。"],
+       ["h", "听力：描述丢失的东西"],
+       ["p", "雅思听力第一部分有时是「失物招领」：工作人员问丢的东西是什么样的。描述的顺序一般是：大小 → 形状 → 颜色 → 是什么东西，最后再说上面有什么。"],
+       [
+        "rows",
+        [
+         ["说法", "意思"],
+         ["a small round black bag", "一个黑色的小圆包"],
+         ["a large square box", "一个大的方盒子"],
+         ["a long thin umbrella", "一把细长的雨伞"],
+         ["It's dark blue, with white stripes.", "它是深蓝色的，有白色条纹。"],
+         ["It has a red circle on the front.", "它的正面有一个红色的圆圈。"]
+        ]
+       ],
+       ["ex", "I lost a small black bag with a red star on it.", "我丢了一个黑色的小包，上面有一颗红色的星星。"],
+       ["tip", "几个形容词放在一起时顺序很固定：大小在前，然后是形状、颜色：a big round red ball（一个红色的大圆球），不说 a red round big ball。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["You must stop here. 这句话里 must 通常怎么读？", ["很重：/mʌst/", "很轻：/məst/，t 常常不读", "完全不读"], 1, "must 在句子里弱读成 /məst/，后面是辅音时 t 常常不读；重音在 stop 和 here 上。", "你必须在这里停下。", null, "L-weak"],
+       ["I have to go. 里的 have to 常读成？", ["/hæv tuː/", "/ˈhæftə/", "/hæz tə/"], 1, "have to 连在一起读，v 受后面 t 的影响读成 f：/ˈhæftə/。", "我得走了。", null, "L-weak"],
+       ["听到 You /ˈmʌsnt/ park here，意思是？", ["你必须在这里停车", "你不能在这里停车"], 1, "/ˈmʌsnt/ 是 mustn't（不准），读得清楚、有重音；第一个 t 不发音。", null, null, "L-weak"],
+       ["描述一个包，哪个顺序是对的？", ["a black round small bag", "a small round black bag", "a round black small bag"], 1, "顺序是大小 → 形状 → 颜色：small（大小）、round（形状）、black（颜色）。", "一个黑色的小圆包"],
+       ["听到 It's a large square box, dark blue with white stripes. 它是什么样的？", ["深蓝色的大方盒子，有白色条纹", "白色的大方盒子，有深蓝色条纹", "深蓝色的小圆盒子，有白色条纹"], 0, "large = 大的，square = 方形的，dark blue = 深蓝色，with white stripes = 有白色条纹。", null, null, "L-detail"]
+      ],
+      "title": "发音和听力：must、have to、should 的读法；描述丢失的东西",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "vocab",
+      "m": 40,
+      "title": "单词：颜色和形状（25 个）",
+      "type": "words",
+      "words": [
+       ["red", "red", "adj./n. 红色（的）", "red"],
+       ["blue", "bluː", "adj./n. 蓝色（的）", "bluː"],
+       ["green", "ɡriːn", "adj./n. 绿色（的）", "ɡriːn"],
+       ["yellow", "ˈjeləʊ", "adj./n. 黄色（的）", "ˈjeloʊ"],
+       ["black", "blæk", "adj./n. 黑色（的）", "blæk"],
+       ["white", "waɪt", "adj./n. 白色（的）", "waɪt"],
+       ["brown", "braʊn", "adj./n. 棕色（的）；咖啡色（的）", "braʊn"],
+       ["grey", "ɡreɪ", "adj./n. 灰色（的）（美式拼写 gray）", "ɡreɪ"],
+       ["pink", "pɪŋk", "adj./n. 粉红色（的）", "pɪŋk"],
+       ["purple", "ˈpɜːpl", "adj./n. 紫色（的）", "ˈpɝːpl"],
+       ["orange", "ˈɒrɪndʒ", "adj./n. 橙色（的） n. 橙子", "ˈɔːrɪndʒ"],
+       ["dark", "dɑːk", "adj. 深色的；黑暗的（dark blue 深蓝色）", "dɑːrk"],
+       ["light", "laɪt", "adj. 浅色的；明亮的 n. 灯；光（light blue 浅蓝色）", "laɪt"],
+       ["bright", "braɪt", "adj. 鲜艳的；明亮的（gh 不发音）", "braɪt"],
+       ["colourful", "ˈkʌləfl", "adj. 色彩丰富的；五颜六色的（美式拼写 colorful）", "ˈkʌlɚfl"],
+       ["shape", "ʃeɪp", "n. 形状", "ʃeɪp"],
+       ["circle", "ˈsɜːkl", "n. 圆圈；圆形", "ˈsɝːkl"],
+       ["square", "skweə", "n. 正方形；广场 adj. 正方形的", "skwer"],
+       ["triangle", "ˈtraɪæŋɡl", "n. 三角形", "ˈtraɪæŋɡl"],
+       ["rectangle", "ˈrektæŋɡl", "n. 长方形", "ˈrektæŋɡl"],
+       ["round", "raʊnd", "adj. 圆的；圆形的", "raʊnd"],
+       ["line", "laɪn", "n. 线；线条", "laɪn"],
+       ["sign", "saɪn", "n. 标志；指示牌（g 不发音）", "saɪn"],
+       ["striped", "straɪpt", "adj. 有条纹的（-ed 读 /t/）", "straɪpt"],
+       ["spotted", "ˈspɒtɪd", "adj. 有斑点的；有圆点的（-ed 读 /ɪd/）", "ˈspɑːɾɪd"]
+      ]
+     },
+     {
+      "id": "a4",
+      "k": "grammar",
+      "lesson": [
+       ["p", "这三个词都表示「该做、得做」，后面都跟动词原形，但语气不一样。"],
+       [
+        "rows",
+        [
+         ["词", "意思", "例子"],
+         ["must", "必须（规定；说话人觉得很重要）", "You must stop at a red light.（红灯必须停。）"],
+         ["have to / has to", "不得不；得（外部的要求）", "I have to work on Saturday.（我周六得上班。）"],
+         ["should", "应该（建议）", "You should take an umbrella.（你应该带把伞。）"]
+        ]
+       ],
+       ["p", "否定要特别小心：mustn't 是「不准」，don't have to 是「不必」，意思差很多。shouldn't 是「不应该」。"],
+       [
+        "rows",
+        [
+         ["否定", "意思", "例子"],
+         ["mustn't", "不准；禁止", "You mustn't park here.（这里禁止停车。）"],
+         ["don't have to", "不必；用不着", "You don't have to pay. It's free.（你不用付钱，是免费的。）"],
+         ["shouldn't", "不应该（建议别做）", "You shouldn't stay up late.（你不应该熬夜。）"]
+        ]
+       ],
+       ["ex", "A red circle usually means you mustn't do something.", "红色的圆圈一般表示禁止做某件事。"],
+       ["ex", "A blue circle usually means you must do something.", "蓝色的圆圈一般表示必须做某件事。"],
+       ["ex", "A triangle is a warning: you should be careful.", "三角形是警告：你要小心。"],
+       ["p", "疑问句：Must I …? / Do I have to …? / Should I …?"],
+       ["ex", "Do I have to show my passport? — Yes, you do.", "我得出示护照吗？——是的。"],
+       ["ex", "What colour should I wear? — You should wear something bright.", "我应该穿什么颜色？——你应该穿点鲜艳的。"],
+       ["tip", "he、she、it 后面用 has to：She has to work.（不说 She have to work。）must 和 should 不变形：She must、She should，后面都用原形，也不加 to。"]
+      ],
+      "m": 25,
+      "quiz": [
+       ["You ___ stop at a red light. It's the law.", ["must", "mustn't", "don't have to"], 0, "红灯停是规定（the law，法律），用 must。", "红灯必须停，这是法律规定。"],
+       ["You ___ park here. Look at the sign!", ["mustn't", "don't have to", "should"], 0, "看标志（禁止停车），用 mustn't（不准）。don't have to 是「不必」，意思不对。", "这里不准停车。看那个标志！"],
+       ["It's free, so you ___ pay.", ["mustn't", "don't have to", "have to"], 1, "免费的，所以「不必」付钱：don't have to。mustn't 是「不准」，意思不对。", "这是免费的，所以你不用付钱。"],
+       ["My sister ___ work on Saturdays.", ["have to", "has to", "must to"], 1, "主语 my sister 是第三人称单数，用 has to；must 后面不加 to。", "我姐姐每周六都得上班。", null, "G-3sg"],
+       ["It's going to rain. You ___ take an umbrella.", ["should", "shouldn't", "mustn't"], 0, "给建议用 should：你应该带把伞。", "要下雨了，你应该带把伞。"],
+       ["___ I have to show my ticket? — Yes, you do.", ["Do", "Must", "Am"], 0, "have to 的疑问句用 Do：Do I have to …? 回答也用 do：Yes, you do。", "我得出示车票吗？——是的。", null, "G-do"]
+      ],
+      "title": "语法：情态动词（2）：must、have to 和 should",
+      "type": "grammar"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "items": [
+       ["I lost a small black bag on the train.", "我在火车上丢了一个黑色的小包。"],
+       ["It is a round blue box with white stripes.", "那是一个有白色条纹的蓝色圆盒子。"],
+       ["My umbrella is dark green, with a yellow handle.", "我的伞是深绿色的，伞柄是黄色的。"],
+       ["You mustn't park in front of the gate.", "你不能把车停在大门前面。"],
+       ["A red circle usually means you mustn't do something.", "红色的圆圈一般表示禁止做某件事。"],
+       ["She has to leave at a quarter to six.", "她得在五点四十五分离开。"]
+      ],
+      "k": "listening",
+      "m": 25,
+      "title": "听力专项：失物和标志（6 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b2",
+      "k": "reading",
+      "m": 30,
+      "passage": {
+       "gloss": [
+        ["road sign", "交通标志"],
+        ["for example", "比如"],
+        ["speed limit", "限速"],
+        ["faster than", "比……快"],
+        ["warning", "警告"],
+        ["may", "可能"],
+        ["a bend in the road", "（路上的）弯道"],
+        ["such as", "比如；像……这样的"],
+        ["drive on the left", "靠左行驶"]
+       ],
+       "parse": [
+        ["For example, a red circle with a number in it shows the speed limit, so you mustn't drive faster than that number.", "主干是 a red circle shows the speed limit；with a number in it 说明是什么样的红圈；so 后面是结果：you mustn't drive faster than that number。", "比如，里面有数字的红色圆圈表示限速，所以你开车不能超过这个数字。"],
+        ["Triangles are warning signs: they tell you that you should be careful, because there may be children, animals or a bend in the road.", "主干是 Triangles are warning signs；冒号后面解释：they tell you that …，that 后面是告诉你的内容；because 引出原因。", "三角形是警告标志：它们提醒你要小心，因为前面可能有孩子、动物或者弯道。"],
+        ["Rectangles give you information, such as the way to the city centre or to the airport.", "主干是 Rectangles give you information（主语 + 动词 + 两个宾语：you 和 information）；such as 后面举例子。", "长方形的标志提供信息，比如去市中心或机场的路。"]
+       ],
+       "quiz": [
+        ["What does a red circle with a number in it show?", ["The speed limit", "The way to the airport", "A warning about animals"], 0, "原文：a red circle with a number in it shows the speed limit。", "里面有数字的红色圆圈表示什么？", ["限速", "去机场的路", "有动物的警告"]],
+        ["Which shape gives you information?", ["A circle", "A triangle", "A rectangle"], 2, "原文：Rectangles give you information。三角形是警告，圆圈是命令（必须做或不准做）。", "哪种形状的标志提供信息？", ["圆形", "三角形", "长方形"]],
+        ["In the UK, you have to drive on the right. TRUE, FALSE or NOT GIVEN?", ["TRUE", "FALSE", "NOT GIVEN"], 1, "原文：in the UK you have to drive on the left。原文说的和题目相反，所以是 FALSE。", "在英国必须靠右行驶。对、错，还是没提到？", ["对（原文这样说了）", "错（原文说的和它相反）", "没提到（原文没说）"], "R-tfng"]
+       ],
+       "text": "When you travel in the UK, you will see lots of road signs. Their shapes and colours tell you different things. Most signs with a red circle tell you what you mustn't do. For example, a red circle with a number in it shows the speed limit, so you mustn't drive faster than that number. Signs with a blue circle usually tell you what you must do, like 'turn left' or 'go straight on'. Triangles are warning signs: they tell you that you should be careful, because there may be children, animals or a bend in the road. Rectangles give you information, such as the way to the city centre or to the airport. Before you drive in another country, you should learn its road signs. In some countries, you have to drive on the right, but in the UK you have to drive on the left.",
+       "title": "Road Signs in the UK",
+       "titleZh": "英国的交通标志",
+       "zh": "在英国旅行时，你会看到很多交通标志。它们的形状和颜色告诉你不同的事情。大多数带红色圆圈的标志告诉你不准做什么。比如，里面有数字的红色圆圈表示限速，所以你开车不能超过这个数字。带蓝色圆圈的标志一般告诉你必须做什么，比如「向左转」或「直行」。三角形是警告标志：它们提醒你要小心，因为前面可能有孩子、动物或者弯道。长方形的标志提供信息，比如去市中心或机场的路。在别的国家开车之前，你应该先学学那里的交通标志。有些国家必须靠右行驶，但在英国必须靠左行驶。"
+      },
+      "title": "阅读：Road Signs in the UK（英国的交通标志）",
+      "type": "reading"
+     },
+     {
+      "id": "b3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["black", "block", "黑色", "街区", "P-misc"],
+       ["white", "wide", "白色", "宽的", "P-end"],
+       ["green", "grin", "绿色", "咧嘴笑", "P-i"],
+       ["dark", "duck", "深色的；黑暗的", "鸭子", "P-a"],
+       ["spot", "sport", "斑点", "体育运动", "P-o"],
+       ["red", "led", "红色", "带领了（lead 的过去式）", "P-rl"],
+       ["gold", "cold", "金色", "冷的", "P-voice"],
+       ["thick", "tick", "粗的；厚的", "打勾", "P-th"]
+      ],
+      "title": "听辨游戏：black 还是 block？（黑色还是街区）",
+      "type": "pairs"
+     },
+     {
+      "from": "a3",
+      "id": "b4",
+      "k": "vocab",
+      "m": 20,
+      "title": "单词第二遍：卡片自测（也可以选「听写」）",
+      "type": "flash"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["红灯必须停。", "You must stop at a red light."],
+       ["这里不准停车。", "You mustn't park here."],
+       ["你不用付钱，是免费的。", "You don't have to pay. It's free."],
+       ["你应该带把伞。", "You should take an umbrella."],
+       ["我的包是黑色的，上面有白色条纹。", "My bag is black, with white stripes."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 5 句话",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "My favourite colour is blue, especially light blue. It reminds me of the sky and the sea, so it makes me feel calm. A lot of my clothes are blue, and my phone case is blue too. I think colours are important, because they can change our mood.",
+       "modelZh": "我最喜欢的颜色是蓝色，尤其是浅蓝色。它让我想起天空和大海，所以让我觉得很平静。我的很多衣服都是蓝色的，手机壳也是蓝色的。我觉得颜色很重要，因为颜色能改变我们的心情。",
+       "phrases": [
+        ["My favourite colour is …, especially …", "我最喜欢的颜色是……，尤其是……"],
+        ["It reminds me of …", "它让我想起……"],
+        ["It makes me feel calm.", "它让我觉得很平静。"]
+       ],
+       "q": "What is your favourite colour?",
+       "tip": "说颜色：最喜欢什么颜色 → 为什么（让你想起什么、给你什么感觉）→ 生活里的例子（衣服、手机）。colour 是英式拼写，美式拼 color；美音结尾的 r 要卷舌：/ˈkʌlɚ/。",
+       "zh": "你最喜欢什么颜色？"
+      },
+      "title": "口语：你最喜欢什么颜色？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "今天的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d6",
+    "n": 6,
+    "teacher": "这是本周最后一天学新课：颜色和形状，还有 must、have to 和 should，用来说规定和建议。英国的交通标志就是用形状和颜色「说话」的：红色圆圈多半表示「不准」，蓝色圆圈表示「必须」，三角形表示「注意」。下午的听写练失物招领：用颜色、形状、大小描述一样东西，雅思听力第一部分常考。明天是复习日，不学新东西。",
+    "title": "情态动词的读法，颜色和形状，must、have to 和 should"
+   },
+   {
+    "a": [
+     {
+      "id": "a1",
+      "items": [
+       ["rectangle", "长方形"],
+       ["souvenir", "纪念品"],
+       ["You mustn't park here.", "这里不准停车。"],
+       ["You don't have to pay. It's free.", "你不用付钱，是免费的。"],
+       ["The museum is opposite the library.", "博物馆在图书馆对面。"],
+       ["Elephants can swim, but they can't jump.", "大象会游泳，但不会跳。"],
+       ["We are going to stay in a hotel near the beach.", "我们打算住在海滩附近的一家酒店。"],
+       ["I think it will be sunny tomorrow.", "我觉得明天会是晴天。"]
+      ],
+      "k": "review",
+      "m": 15,
+      "title": "开场抽查：昨天的词句和本周难词（8 个）",
+      "type": "dictation"
+     },
+     {
+      "id": "a2",
+      "k": "pron",
+      "lesson": [
+       ["p", "这一周学了：① 单词重音（两个音节的名词、形容词多在前，动词多在后；看音标里的 ˈ）；② 复合名词重音在前（BUS stop），名词和动词重音不同（a PREsent，to preSENT）；③ 句子重音和对比重音（No, it's a cat.）；④ -tion、-sion、-ic 前面的音节重读（in-for-MA-tion）；⑤ 句子的节奏，'ll 和 won't；⑥ must、should、have to 的弱读。听力练了问路方位、大数字、改口、订房和楼层、节日日期和描述物品。做下面 8 道题，看看哪里还要补。"]
+      ],
+      "m": 20,
+      "quiz": [
+       ["museum 的重音在哪里？", ["MU-se-um", "mu-SE-um", "mu-se-UM"], 1, "museum /mjuˈziːəm/，重音在第二个音节。", "museum = 博物馆"],
+       ["bus stop 的重音在哪里？", ["BUS stop", "bus STOP"], 0, "复合名词重音一般在第一个词上：BUS stop、POST office。", "bus stop = 公交站"],
+       ["Can I record your voice? 这里的 record 怎么读？", ["RE-cord", "re-CORD"], 1, "这里的 record 是动词（录音），重音在后：re-CORD。", "我可以录下你的声音吗？"],
+       ["Is the party on Friday? — No, it's on Saturday. 回答里哪个词读得最重？", ["No", "it's", "Saturday"], 2, "Saturday 纠正了前面的 Friday，是最重要的信息。", "聚会在周五吗？——不，在周六。"],
+       ["reservation 的重音在哪里？", ["RE-ser-va-tion", "re-SER-va-tion", "re-ser-VA-tion"], 2, "-tion 前面的音节重读：re-ser-VA-tion。", "reservation = 预订"],
+       ["听到 I /woʊnt/ be late，意思是？", ["我会迟到", "我不会迟到", "我想迟到"], 1, "/woʊnt/ 是 won't（will not），要和 want /wɑːnt/ 分清。", null, null, "P-glide"],
+       ["听到 The tour starts at two. Sorry, at three. 参观几点开始？", ["两点", "三点"], 1, "sorry 后面是改口以后的答案：at three。", null, null, "L-turn"],
+       ["I have to go. 里的 have to 通常读成？", ["/hæv tuː/", "/ˈhæftə/"], 1, "have to 连读，v 读成 f：/ˈhæftə/。", "我得走了。", null, "L-weak"]
+      ],
+      "title": "重音和节奏总复习",
+      "type": "grammar"
+     },
+     {
+      "id": "a3",
+      "k": "pron",
+      "m": 15,
+      "pairs": [
+       ["left", "lift", "左边", "电梯（英式说法）", "P-misc"],
+       ["main", "men", "主要的", "男人们", "P-glide"],
+       ["hill", "heel", "小山", "脚后跟", "P-i"],
+       ["sea", "she", "海", "她", "P-sh"],
+       ["mouth", "mouse", "嘴", "老鼠", "P-th"],
+       ["snake", "snack", "蛇", "零食", "P-glide"],
+       ["flight", "fright", "航班", "惊吓", "P-rl"],
+       ["boat", "bought", "船", "买了（buy 的过去式）", "P-glide"],
+       ["won't", "want", "不会（will not）", "想要", "P-glide"],
+       ["black", "block", "黑色", "街区", "P-misc"]
+      ],
+      "title": "听辨大挑战",
+      "type": "pairs"
+     },
+     {
+      "fromWeek": true,
+      "id": "a4",
+      "k": "vocab",
+      "m": 40,
+      "title": "150 个单词总复习",
+      "type": "flash"
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "k": "grammar",
+      "lesson": [
+       ["p", "这一周学了现在进行时（和一般现在时的区别）、can 和 could、be going to、will、must、have to 和 should。做一做下面 10 道题，看看哪里还要补。"]
+      ],
+      "m": 20,
+      "quiz": [
+       ["Look! The monkeys ___ bananas.", ["eat", "are eating", "eats"], 1, "Look! 说明正在发生，用现在进行时；monkeys 是复数，用 are eating。", "快看！猴子们在吃香蕉。", null, "G-be"],
+       ["It often ___ here in April.", ["rains", "is raining", "rain"], 0, "often 说平时的情况，用一般现在时；主语 it 后面的动词加 -s。", "这里四月经常下雨。", null, "G-3sg"],
+       ["My grandfather ___ swim when he was young, but now he can't.", ["can", "could", "cans"], 1, "when he was young 说的是过去，用 could。", "我爷爷年轻时会游泳，但现在不会了。"],
+       ["___ you help me with my suitcase, please?", ["Could", "Are", "Is"], 0, "请别人帮忙，用 Could you …? 最礼貌。", "请问你能帮我拿一下行李箱吗？"],
+       ["We ___ going to visit Japan in December.", ["am", "is", "are"], 2, "主语 we 用 are：We are going to …", "我们打算十二月去日本。", null, "G-be"],
+       ["Look at those clouds. It ___ rain.", ["is going to", "will to", "goes to"], 0, "看到迹象（乌云）预测马上要发生的事，用 be going to。will 后面不加 to。", "看那些云，要下雨了。"],
+       ["I think you ___ love the fireworks.", ["will", "are", "is"], 0, "预测用 will + 原形：will love。", "我觉得你会喜欢这些烟花的。"],
+       ["You ___ park here. It's not allowed.", ["mustn't", "don't have to", "should"], 0, "not allowed（不允许）= 不准：mustn't。don't have to 是「不必」。", "这里不准停车，是不允许的。"],
+       ["She ___ work on Sundays.", ["have to", "has to", "must to"], 1, "主语 she 用 has to；must 后面不加 to。", "她周日得上班。", null, "G-3sg"],
+       ["You look tired. You ___ go to bed early.", ["should", "mustn't", "don't have to"], 0, "给建议用 should：你应该早点睡。", "你看起来很累，应该早点睡。"]
+      ],
+      "title": "语法综合小测",
+      "type": "grammar"
+     },
+     {
+      "id": "b2",
+      "items": [
+       ["The post office is between the bank and the market.", "邮局在银行和市场中间。"],
+       ["Go straight on and turn left at the traffic lights.", "一直往前走，到红绿灯向左转。"],
+       ["More than two thousand people visit the island every year.", "每年有两千多人去这个岛。"],
+       ["The parade starts at four. Sorry, at five.", "游行四点开始。抱歉，是五点。"],
+       ["Your room is on the second floor.", "你的房间在三楼（英式说法）。"],
+       ["We are going to fly to Spain on the fifth of May.", "我们打算五月五日飞去西班牙。"],
+       ["I won't be late. I'll take a taxi.", "我不会迟到的，我坐出租车去。"],
+       ["You don't have to bring anything.", "你什么都不用带。"]
+      ],
+      "k": "listening",
+      "m": 20,
+      "title": "听写综合：方位、数字和计划（8 句）",
+      "type": "dictation"
+     },
+     {
+      "id": "b3",
+      "k": "reading",
+      "m": 25,
+      "passage": {
+       "gloss": [
+        ["coach", "长途大巴（英式）"],
+        ["main door", "大门"],
+        ["picnic", "野餐"],
+        ["provide", "提供"],
+        ["human food", "人吃的食物"],
+        ["If it rains, …", "如果下雨，……"],
+        ["instead", "改为；代替"],
+        ["by Thursday", "周四之前"]
+       ],
+       "parse": [
+        ["The coach will leave from the main door of the school at half past eight, so please don't be late.", "主干是 The coach will leave（大巴将出发）；from the main door of the school 说地点，at half past eight 说时间；so 后面是结果：please don't be late。", "大巴八点半从学校大门出发，所以请不要迟到。"],
+        ["You don't have to bring any food, because the school is going to provide lunch, but you should bring water and a hat.", "三个部分：You don't have to bring any food（不用带吃的）+ because 说原因 + but 转折：you should bring water and a hat（应该带水和帽子）。", "你们不用带吃的，因为学校会提供午饭，但应该带上水和帽子。"],
+        ["You mustn't feed the wild birds by the lake, because human food can make them ill.", "主干是 You mustn't feed the wild birds（不准喂野鸟）；by the lake 说地点；because 引出原因：human food can make them ill（make + 谁 + 形容词：让……变得……）。", "你们不准喂湖边的野鸟，因为人吃的食物会让它们生病。"]
+       ],
+       "quiz": [
+        ["What time will the coach leave?", ["At 8:00", "At 8:30", "At 9:30"], 1, "原文：The coach will leave … at half past eight（8:30）。about an hour 是路上的时间，到公园大约 9:30。", "大巴几点出发？", ["八点", "八点半", "九点半"]],
+        ["What should students bring?", ["Lunch and water", "Water and a hat", "Food for the birds"], 1, "原文：you should bring water and a hat。午饭学校会提供（provide），不用带；湖边的野鸟也不准喂。", "学生应该带什么？", ["午饭和水", "水和帽子", "喂鸟的食物"]],
+        ["The guide works at the language school. TRUE, FALSE or NOT GIVEN?", ["TRUE", "FALSE", "NOT GIVEN"], 2, "原文只说 a guide will show us the lake …，没说导游是不是语言学校的人，所以是 NOT GIVEN。原文没提的，就算听起来很合理，也不能选 TRUE。", "导游在这所语言学校工作。对、错，还是没提到？", ["对（原文这样说了）", "错（原文说的和它相反）", "没提到（原文没说）"], "R-tfng"]
+       ],
+       "text": "Next Saturday, Maple Bridge Language School is going to take its students on a trip to Hill Park. The coach will leave from the main door of the school at half past eight, so please don't be late. The journey takes about an hour. At the park, a guide will show us the lake, the old bridge and the animal farm. On the farm, you can feed the sheep and the rabbits. In the afternoon, there will be a picnic on the grass. You don't have to bring any food, because the school is going to provide lunch, but you should bring water and a hat. You mustn't feed the wild birds by the lake, because human food can make them ill. If it rains, we will visit the town museum instead. The trip costs twelve pounds, and you have to pay by Thursday.",
+       "title": "The Language School Trip",
+       "titleZh": "语言学校的出游",
+       "zh": "下周六，枫桥语言学校要带学生们去山丘公园出游。大巴八点半从学校大门出发，所以请不要迟到。路上大约要一个小时。到了公园，导游会带我们看湖、老桥和动物农场。在农场里，你们可以喂羊和兔子。下午，我们会在草地上野餐。你们不用带吃的，因为学校会提供午饭，但应该带上水和帽子。你们不准喂湖边的野鸟，因为人吃的食物会让它们生病。如果下雨，我们就改去镇上的博物馆。出游的费用是十二英镑，周四之前必须交。"
+      },
+      "title": "阅读：The Language School Trip（语言学校的出游）",
+      "type": "reading"
+     },
+     {
+      "id": "b4",
+      "k": "review",
+      "m": 20,
+      "summary": "这一周你学了单词重音和句子重音（复合词、-tion 和 -ic、对比重音、句子节奏），150 个新词（城市、自然、动物、旅行、节日、颜色和形状），学会了现在进行时、can 和 could、be going to、will、must、have to 和 should，还练了问路方位、大数字、改口、订房和楼层、节日日期和描述物品的听力，开始做 TRUE / FALSE / NOT GIVEN 判断题。",
+      "title": "周复盘：把周报发给老师",
+      "type": "weekly"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "items": [
+       ["今天早上路上车很多。", "There is a lot of traffic this morning."],
+       ["我可以试穿一下吗？（说的是一件夹克）", "Can I try it on?"],
+       ["那杯茶是我的。", "That tea is mine."],
+       ["你昨天累吗？", "Were you tired yesterday?"],
+       ["我昨天给医生打了电话。", "I called the doctor yesterday."],
+       ["我昨晚没出门。", "I didn't go out last night."]
+      ],
+      "k": "writing",
+      "m": 15,
+      "title": "写 6 句话：第 2 周的句子，再写一遍",
+      "type": "write"
+     },
+     {
+      "id": "c2",
+      "k": "speaking",
+      "m": 15,
+      "speak": {
+       "model": "This weekend, I'm going to meet my friends in the city centre. On Saturday morning, we're going to visit a new museum, and then we're going to have lunch at a hawker centre. I think it will be very hot, so I'll take an umbrella and some water. On Sunday, I'm going to stay at home and study English, because I have to review this week's words.",
+       "modelZh": "这个周末，我打算和朋友们在市中心见面。周六上午我们打算去参观一个新的博物馆，然后在小贩中心吃午饭。我觉得天会很热，所以我会带上伞和水。周日我打算待在家里学英语，因为我得复习这一周的单词。",
+       "phrases": [
+        ["This weekend, I'm going to …", "这个周末，我打算……"],
+        ["I think it will be …, so I'll …", "我觉得天会……，所以我会……"],
+        ["I have to review this week's words.", "我得复习这一周的单词。"]
+       ],
+       "q": "What are you going to do this weekend?",
+       "tip": "计划好的事用 be going to，临时决定和预测用 will，必须做的事用 have to。整段说完听一遍：going to 可以说得快一点，但 have to 里的 to 别漏掉。",
+       "zh": "你这个周末打算做什么？"
+      },
+      "title": "口语：你这个周末打算做什么？",
+      "type": "speak"
+     },
+     {
+      "id": "c3",
+      "k": "review",
+      "m": 5,
+      "title": "这一周的打卡",
+      "type": "checkin"
+     }
+    ],
+    "id": "w3d7",
+    "n": 7,
+    "teacher": "第 3 周完成！今天只复习、不学新内容：上午把重音规律和 150 个单词过一遍，下午做语法和听写综合练习，再读一篇长一点的通知；傍晚把第 2 周的句子再写一遍。做完周复盘，把周报复制发给我。",
+    "title": "复习日：把这一周串起来"
+   }
+  ],
+  "id": "w3",
+  "n": 3,
+  "title": "第 3 周：单词重音和句子重音，出门看世界"
+ }
+}

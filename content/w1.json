@@ -1,0 +1,3773 @@
+{
+ "app": "ielts-workbench-course",
+ "v": 1,
+ "week": {
+  "id": "w1",
+  "n": 1,
+  "title": "第 1 周：打地基",
+  "days": [
+   {
+    "id": "w1d1",
+    "n": 1,
+    "title": "8 个单元音，星期和月份",
+    "teacher": "欢迎来上第一课！今天的目标很简单：认识 8 个元音，记住星期和月份。发音不标准完全没关系，第一天只要\"认识它们\"就赢了。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：8 个单元音（上）",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "iː",
+       "ɪ",
+       "e",
+       "æ",
+       "ɑː",
+       "ʌ",
+       "ɒ",
+       "ɔː"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：星期和月份（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "Monday",
+        "ˈmʌndeɪ",
+        "星期一",
+        "ˈmʌndeɪ"
+       ],
+       [
+        "Tuesday",
+        "ˈtjuːzdeɪ",
+        "星期二",
+        "ˈtuːzdeɪ"
+       ],
+       [
+        "Wednesday",
+        "ˈwenzdeɪ",
+        "星期三（第一个 d 不发音）",
+        "ˈwenzdeɪ"
+       ],
+       [
+        "Thursday",
+        "ˈθɜːzdeɪ",
+        "星期四",
+        "ˈθɝːzdeɪ"
+       ],
+       [
+        "Friday",
+        "ˈfraɪdeɪ",
+        "星期五",
+        "ˈfraɪdeɪ"
+       ],
+       [
+        "Saturday",
+        "ˈsætədeɪ",
+        "星期六",
+        "ˈsæɾɚdeɪ"
+       ],
+       [
+        "Sunday",
+        "ˈsʌndeɪ",
+        "星期日",
+        "ˈsʌndeɪ"
+       ],
+       [
+        "January",
+        "ˈdʒænjuəri",
+        "一月",
+        "ˈdʒænjueri"
+       ],
+       [
+        "February",
+        "ˈfebruəri",
+        "二月",
+        "ˈfebrueri"
+       ],
+       [
+        "March",
+        "mɑːtʃ",
+        "三月",
+        "mɑːrtʃ"
+       ],
+       [
+        "April",
+        "ˈeɪprəl",
+        "四月",
+        "ˈeɪprəl"
+       ],
+       [
+        "May",
+        "meɪ",
+        "五月",
+        "meɪ"
+       ],
+       [
+        "June",
+        "dʒuːn",
+        "六月",
+        "dʒuːn"
+       ],
+       [
+        "July",
+        "dʒuˈlaɪ",
+        "七月",
+        "dʒuˈlaɪ"
+       ],
+       [
+        "August",
+        "ˈɔːɡəst",
+        "八月",
+        "ˈɑːɡəst"
+       ],
+       [
+        "September",
+        "sepˈtembə",
+        "九月",
+        "sepˈtembɚ"
+       ],
+       [
+        "October",
+        "ɒkˈtəʊbə",
+        "十月",
+        "ɑːkˈtoʊbɚ"
+       ],
+       [
+        "November",
+        "nəʊˈvembə",
+        "十一月",
+        "noʊˈvembɚ"
+       ],
+       [
+        "December",
+        "dɪˈsembə",
+        "十二月",
+        "dɪˈsembɚ"
+       ],
+       [
+        "week",
+        "wiːk",
+        "n. 星期；周",
+        "wiːk"
+       ],
+       [
+        "weekend",
+        "ˌwiːkˈend",
+        "n. 周末",
+        "ˈwiːkend"
+       ],
+       [
+        "month",
+        "mʌnθ",
+        "n. 月",
+        "mʌnθ"
+       ],
+       [
+        "year",
+        "jɪə",
+        "n. 年",
+        "jɪr"
+       ],
+       [
+        "today",
+        "təˈdeɪ",
+        "adv. 今天",
+        "təˈdeɪ"
+       ],
+       [
+        "tomorrow",
+        "təˈmɒrəʊ",
+        "adv. 明天",
+        "təˈmɑːroʊ"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：词性，每个词都有自己的\"工种\"",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "英语的词按作用分成几类，叫\"词性\"。认识词性，是看懂句子的第一步。今天先认识最常用的 6 种："
+       ],
+       [
+        "rows",
+        [
+         [
+          "名词 n.",
+          "人、事物、地点的名字",
+          "mother 母亲，book 书，March 三月"
+         ],
+         [
+          "动词 v.",
+          "动作或状态",
+          "go 去，eat 吃，is 是"
+         ],
+         [
+          "形容词 adj.",
+          "描述名词\"怎么样\"",
+          "cheap 便宜的，big 大的，kind 善良的"
+         ],
+         [
+          "副词 adv.",
+          "描述动作\"怎么做、多经常\"",
+          "usually 通常，very 非常，early 早"
+         ],
+         [
+          "介词 prep.",
+          "放在名词前，表示时间、位置",
+          "in 在……里，on 在……上，at 在"
+         ],
+         [
+          "连词 conj.",
+          "把词或句子连起来",
+          "and 和，but 但是，because 因为"
+         ]
+        ]
+       ],
+       [
+        "p",
+        "来看一个句子里的分工："
+       ],
+       [
+        "ex",
+        "My mother usually cooks dinner.",
+        "我妈妈通常做晚饭。"
+       ],
+       [
+        "p",
+        "mother 和 dinner 是名词，usually 是副词，cooks 是动词。"
+       ],
+       [
+        "tip",
+        "背单词时顺便看一眼词性（n. v. adj. adv.），以后造句就不容易用错。"
+       ]
+      ],
+      "quiz": [
+       [
+        "cheap 是什么词性？",
+        [
+         "名词",
+         "动词",
+         "形容词"
+        ],
+        2,
+        "cheap 描述东西\"便宜\"，是形容词。",
+        "cheap = 便宜的"
+       ],
+       [
+        "She works on Monday. 这句里的 works 是？",
+        [
+         "名词",
+         "动词",
+         "副词"
+        ],
+        1,
+        "works 表示\"工作\"这个动作，是动词。",
+        "她周一上班。"
+       ],
+       [
+        "I often cook. 这句里的 often 是？",
+        [
+         "形容词",
+         "副词",
+         "介词"
+        ],
+        1,
+        "often 说明做饭\"多经常\"，是副词。",
+        "我经常做饭。"
+       ],
+       [
+        "family 是什么词性？",
+        [
+         "名词",
+         "动词",
+         "形容词"
+        ],
+        0,
+        "family 是\"家庭\"，是名词。",
+        "family = 家庭"
+       ],
+       [
+        "My birthday is in May. 这句里的 in 是？",
+        [
+         "介词",
+         "连词",
+         "动词"
+        ],
+        0,
+        "in 放在 May 前面表示时间，是介词。",
+        "我的生日在五月。"
+       ],
+       [
+        "I like tea but she likes coffee. 这句里的 but 是？",
+        [
+         "介词",
+         "连词",
+         "副词"
+        ],
+        1,
+        "but 把两个句子连起来，是连词。",
+        "我喜欢茶，但她喜欢咖啡。"
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "I have an English class on Monday.",
+        "周一我有英语课。"
+       ],
+       [
+        "My birthday is in March.",
+        "我的生日在三月。"
+       ],
+       [
+        "Today is Wednesday.",
+        "今天星期三。"
+       ],
+       [
+        "I relax at the weekend.",
+        "我周末放松一下。"
+       ],
+       [
+        "The course starts on the fifth of September.",
+        "课程九月五号开始。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：My Week（我的一周）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "My Week",
+       "text": "Hi, I'm Lily. I work from Monday to Friday. On Monday and Wednesday, I go to an English class after work. Thursday is my busy day. On Friday evening, I relax with my friends. The weekend is my favourite time. On Saturday, I sleep late. On Sunday, I call my parents. My birthday is in March, and I love spring. Today is Tuesday. Tomorrow is Wednesday, so I have an English class!",
+       "gloss": [
+        [
+         "from … to …",
+         "从……到……"
+        ],
+        [
+         "after work",
+         "下班后"
+        ],
+        [
+         "busy",
+         "忙的"
+        ],
+        [
+         "relax",
+         "放松"
+        ],
+        [
+         "favourite",
+         "最喜欢的"
+        ],
+        [
+         "sleep late",
+         "睡懒觉"
+        ],
+        [
+         "call",
+         "给……打电话"
+        ],
+        [
+         "spring",
+         "春天"
+        ]
+       ],
+       "quiz": [
+        [
+         "How many days does Lily work every week?",
+         [
+          "Five",
+          "Six",
+          "Seven"
+         ],
+         0,
+         "from Monday to Friday，周一到周五，一共五天。",
+         "Lily 每周工作几天？",
+         [
+          "五天",
+          "六天",
+          "七天"
+         ]
+        ],
+        [
+         "When does Lily have English classes?",
+         [
+          "Monday and Wednesday",
+          "Tuesday and Thursday",
+          "Saturday and Sunday"
+         ],
+         0,
+         "原文：On Monday and Wednesday, I go to an English class.",
+         "Lily 什么时候上英语课？",
+         [
+          "周一和周三",
+          "周二和周四",
+          "周六和周日"
+         ]
+        ],
+        [
+         "When is Lily's birthday?",
+         [
+          "In May",
+          "In March",
+          "On Tuesday"
+         ],
+         1,
+         "原文：My birthday is in March.",
+         "Lily 的生日在什么时候？",
+         [
+          "五月",
+          "三月",
+          "星期二"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "On Friday evening, I relax with my friends.",
+         "I relax（我放松）。On Friday evening 说时间，with my friends 说和谁一起。",
+         "周五晚上，我和朋友们一起放松。"
+        ],
+        [
+         "My birthday is in March, and I love spring.",
+         "两个句子用 and 连起来：My birthday is in March + I love spring。",
+         "我的生日在三月，我很喜欢春天。"
+        ]
+       ],
+       "titleZh": "我的一周",
+       "zh": "你好，我是 Lily。我周一到周五上班。周一和周三下班后，我去上英语课。周四是我很忙的一天。周五晚上，我和朋友们一起放松。周末是我最喜欢的时间：周六我睡懒觉，周日给爸妈打电话。我的生日在三月，我很喜欢春天。今天是星期二，明天是星期三，所以我有英语课！"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：ship 还是 sheep？（船还是羊）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "ship",
+        "sheep",
+        "船",
+        "羊"
+       ],
+       [
+        "sit",
+        "seat",
+        "坐",
+        "座位"
+       ],
+       [
+        "bed",
+        "bad",
+        "床",
+        "坏的"
+       ],
+       [
+        "men",
+        "man",
+        "男人们",
+        "男人"
+       ],
+       [
+        "cup",
+        "cap",
+        "杯子",
+        "帽子"
+       ],
+       [
+        "cut",
+        "cart",
+        "切",
+        "手推车"
+       ],
+       [
+        "hot",
+        "hut",
+        "热的",
+        "小屋"
+       ],
+       [
+        "pot",
+        "port",
+        "锅",
+        "港口"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "今天是星期五。",
+        "Today is Friday."
+       ],
+       [
+        "我的生日在十月。",
+        "My birthday is in October."
+       ],
+       [
+        "我周一到周五上班。",
+        "I work from Monday to Friday."
+       ],
+       [
+        "明天是星期六。",
+        "Tomorrow is Saturday."
+       ],
+       [
+        "周末是我最喜欢的时间。",
+        "The weekend is my favourite time."
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：你最喜欢星期几？为什么？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "What day of the week do you like best? Why?",
+       "zh": "你最喜欢星期几？为什么？",
+       "model": "I like Saturday best. On Saturday I don't work, so I can sleep late. In the afternoon, I usually meet my friends or go shopping. It is the most relaxing day of my week.",
+       "phrases": [
+        [
+         "I like … best.",
+         "我最喜欢……"
+        ],
+        [
+         "On Saturday I don't work, so …",
+         "周六我不上班，所以……"
+        ],
+        [
+         "It is the most relaxing day of my week.",
+         "这是我一周里最放松的一天。"
+        ]
+       ],
+       "tip": "Part 1 的万能结构：直接回答，加一个原因，再加一个小细节。说 2 到 4 句就够了。",
+       "modelZh": "我最喜欢星期六。周六我不上班，所以可以睡懒觉。下午我通常和朋友见面或者去购物。这是我一周里最放松的一天。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d2",
+    "n": 2,
+    "title": "最后 4 个单元音和 4 个双元音，数字和价钱",
+    "teacher": "昨天的 8 个元音还记得吗？今天我们学会\"滑动\"的双元音，就是 day、my、boy 里的那种音。另外，thirteen 和 thirty 是雅思听力最爱考的陷阱之一，今天就把它拿下。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：4 个单元音和 4 个双元音",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "ʊ",
+       "uː",
+       "ɜː",
+       "ə",
+       "eɪ",
+       "aɪ",
+       "ɔɪ",
+       "aʊ"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：数字和价钱（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "thirteen",
+        "ˌθɜːˈtiːn",
+        "十三（重音在后）",
+        "ˌθɝːˈtiːn"
+       ],
+       [
+        "thirty",
+        "ˈθɜːti",
+        "三十（重音在前）",
+        "ˈθɝːɾi"
+       ],
+       [
+        "fifteen",
+        "ˌfɪfˈtiːn",
+        "十五",
+        "ˌfɪfˈtiːn"
+       ],
+       [
+        "fifty",
+        "ˈfɪfti",
+        "五十",
+        "ˈfɪfti"
+       ],
+       [
+        "hundred",
+        "ˈhʌndrəd",
+        "百",
+        "ˈhʌndrəd"
+       ],
+       [
+        "thousand",
+        "ˈθaʊznd",
+        "千",
+        "ˈθaʊznd"
+       ],
+       [
+        "million",
+        "ˈmɪljən",
+        "百万",
+        "ˈmɪljən"
+       ],
+       [
+        "half",
+        "hɑːf",
+        "n. 一半",
+        "hæf"
+       ],
+       [
+        "quarter",
+        "ˈkwɔːtə",
+        "n. 四分之一；一刻钟",
+        "ˈkwɔːrɾɚ"
+       ],
+       [
+        "hour",
+        "ˈaʊə",
+        "n. 小时（h 不发音）",
+        "aʊr"
+       ],
+       [
+        "minute",
+        "ˈmɪnɪt",
+        "n. 分钟",
+        "ˈmɪnɪt"
+       ],
+       [
+        "first",
+        "fɜːst",
+        "第一",
+        "fɝːst"
+       ],
+       [
+        "second",
+        "ˈsekənd",
+        "第二；n. 秒",
+        "ˈsekənd"
+       ],
+       [
+        "third",
+        "θɜːd",
+        "第三",
+        "θɝːd"
+       ],
+       [
+        "price",
+        "praɪs",
+        "n. 价格",
+        "praɪs"
+       ],
+       [
+        "cost",
+        "kɒst",
+        "v. 花费 n. 费用",
+        "kɑːst"
+       ],
+       [
+        "cheap",
+        "tʃiːp",
+        "adj. 便宜的",
+        "tʃiːp"
+       ],
+       [
+        "expensive",
+        "ɪkˈspensɪv",
+        "adj. 贵的",
+        "ɪkˈspensɪv"
+       ],
+       [
+        "pay",
+        "peɪ",
+        "v. 付钱",
+        "peɪ"
+       ],
+       [
+        "cash",
+        "kæʃ",
+        "n. 现金",
+        "kæʃ"
+       ],
+       [
+        "card",
+        "kɑːd",
+        "n. 卡；银行卡",
+        "kɑːrd"
+       ],
+       [
+        "pound",
+        "paʊnd",
+        "n. 英镑",
+        "paʊnd"
+       ],
+       [
+        "dollar",
+        "ˈdɒlə",
+        "n. 美元",
+        "ˈdɑːlɚ"
+       ],
+       [
+        "discount",
+        "ˈdɪskaʊnt",
+        "n. 折扣",
+        "ˈdɪskaʊnt"
+       ],
+       [
+        "total",
+        "ˈtəʊtl",
+        "n. 总数 adj. 总的",
+        "ˈtoʊɾl"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：句子的骨架：主语和谓语",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "每个英语句子都有一副\"骨架\"：谁（主语）加上做什么或怎么样（谓语动词）。找到这两样，再长的句子也不怕。"
+       ],
+       [
+        "ex",
+        "I work.",
+        "我工作。主语 I，谓语 work。"
+       ],
+       [
+        "ex",
+        "My sister lives in London.",
+        "我姐姐住在伦敦。主语 My sister，谓语 lives。"
+       ],
+       [
+        "ex",
+        "The price is low.",
+        "价格很低（很便宜）。主语 The price，谓语 is。"
+       ],
+       [
+        "p",
+        "很多动词后面还要跟一个\"宾语\"，也就是动作的对象。pay 是\"付\"，付什么？the bill 就是宾语："
+       ],
+       [
+        "ex",
+        "I pay the bill.",
+        "我付账单。"
+       ],
+       [
+        "tip",
+        "英语句子一般不能没有主语。中文可以说\"很便宜\"，英语要说\"It is cheap.\"，那个 It 不能省。"
+       ]
+      ],
+      "quiz": [
+       [
+        "My father drives a bus. 主语是？",
+        [
+         "My father",
+         "drives",
+         "a bus"
+        ],
+        0,
+        "谁在开车？My father。",
+        "我爸爸开公交车。",
+        [
+         "我爸爸",
+         "开",
+         "一辆公交车"
+        ]
+       ],
+       [
+        "My father drives a bus. 谓语动词是？",
+        [
+         "My father",
+         "drives",
+         "bus"
+        ],
+        1,
+        "drives 是动作\"开\"。",
+        "我爸爸开公交车。",
+        [
+         "我爸爸",
+         "开",
+         "公交车"
+        ]
+       ],
+       [
+        "My father drives a bus. 宾语是？",
+        [
+         "My father",
+         "drives",
+         "a bus"
+        ],
+        2,
+        "开什么？a bus。",
+        "我爸爸开公交车。",
+        [
+         "我爸爸",
+         "开",
+         "一辆公交车"
+        ]
+       ],
+       [
+        "The shop opens at nine. 主语是？",
+        [
+         "The shop",
+         "opens",
+         "nine"
+        ],
+        0,
+        "什么开门？The shop。",
+        "商店九点开门。",
+        [
+         "商店",
+         "开门",
+         "九"
+        ]
+       ],
+       [
+        "下面哪句是完整的英语句子？",
+        [
+         "Is cheap.",
+         "It is cheap.",
+         "Very cheap is."
+        ],
+        1,
+        "要有主语 It 和谓语 is。",
+        null,
+        [
+         "少了主语",
+         "它很便宜。",
+         "语序不对"
+        ]
+       ],
+       [
+        "We study English together. 谓语动词是？",
+        [
+         "We",
+         "study",
+         "English"
+        ],
+        1,
+        "study 是动作\"学习\"。",
+        "我们一起学英语。",
+        [
+         "我们",
+         "学",
+         "英语"
+        ]
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "It costs thirteen pounds.",
+        "这个十三英镑。"
+       ],
+       [
+        "The ticket is fifty dollars.",
+        "票价五十美元。"
+       ],
+       [
+        "Can I pay by card?",
+        "我可以刷卡吗？"
+       ],
+       [
+        "The total is two hundred and fifteen pounds.",
+        "一共两百一十五英镑。"
+       ],
+       [
+        "The shop opens at a quarter past nine.",
+        "商店九点一刻开门。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：At the Market（在市场）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "At the Market",
+       "text": "Every Saturday morning, Tom goes to the market near his home. The fruit there is cheap and fresh. Today, a kilo of apples is two pounds, and a bunch of bananas is one pound fifty. Tom buys a kilo of apples and a bunch of bananas. The total is three pounds fifty. He pays in cash. The shop next door has a discount on Saturdays, so he also buys a cheap umbrella for five pounds.",
+       "gloss": [
+        [
+         "market",
+         "市场"
+        ],
+        [
+         "fresh",
+         "新鲜的"
+        ],
+        [
+         "a kilo of",
+         "一公斤"
+        ],
+        [
+         "a bunch of",
+         "一串"
+        ],
+        [
+         "in cash",
+         "用现金"
+        ],
+        [
+         "next door",
+         "隔壁的"
+        ],
+        [
+         "umbrella",
+         "雨伞"
+        ]
+       ],
+       "quiz": [
+        [
+         "When does Tom go to the market?",
+         [
+          "Every Saturday morning",
+          "Every Sunday evening",
+          "Every day"
+         ],
+         0,
+         "原文第一句：Every Saturday morning。",
+         "Tom 什么时候去市场？",
+         [
+          "每周六早上",
+          "每周日晚上",
+          "每天"
+         ]
+        ],
+        [
+         "How much is a kilo of apples?",
+         [
+          "£1.50",
+          "£2",
+          "£3.50"
+         ],
+         1,
+         "a kilo of apples is two pounds，两英镑。",
+         "一公斤苹果多少钱？",
+         [
+          "1.5 英镑",
+          "2 英镑",
+          "3.5 英镑"
+         ]
+        ],
+        [
+         "How does Tom pay?",
+         [
+          "By card",
+          "In cash",
+          "He doesn't pay"
+         ],
+         1,
+         "原文：He pays in cash。",
+         "Tom 怎么付钱？",
+         [
+          "刷卡",
+          "付现金",
+          "他不付钱"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "The fruit there is cheap and fresh.",
+         "The fruit is cheap and fresh（主语 + is + 形容词）。there 跟在 fruit 后面，表示\"那里的\"水果。",
+         "那里的水果又便宜又新鲜。"
+        ],
+        [
+         "The shop next door has a discount on Saturdays, so he also buys a cheap umbrella.",
+         "The shop has a discount + so + he buys an umbrella。next door 修饰 shop，so 引出结果。",
+         "隔壁的商店周六打折，所以他还买了一把便宜的伞。"
+        ]
+       ],
+       "titleZh": "在市场",
+       "zh": "每个周六早上，Tom 都去家附近的市场。那里的水果又便宜又新鲜。今天，一公斤苹果两英镑，一串香蕉一英镑五十便士。Tom 买了一公斤苹果和一串香蕉，一共三英镑五十便士。他用现金付款。隔壁的商店周六打折，所以他还花五英镑买了一把便宜的雨伞。"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：full 还是 fool？（满的还是傻瓜）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "full",
+        "fool",
+        "满的",
+        "傻瓜"
+       ],
+       [
+        "pull",
+        "pool",
+        "拉",
+        "水池"
+       ],
+       [
+        "bird",
+        "bed",
+        "鸟",
+        "床"
+       ],
+       [
+        "work",
+        "walk",
+        "工作",
+        "走路"
+       ],
+       [
+        "wait",
+        "white",
+        "等待",
+        "白色"
+       ],
+       [
+        "boy",
+        "buy",
+        "男孩",
+        "买"
+       ],
+       [
+        "thirteen",
+        "thirty",
+        "十三",
+        "三十"
+       ],
+       [
+        "fifteen",
+        "fifty",
+        "十五",
+        "五十"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "这个很便宜。",
+        "This is cheap."
+       ],
+       [
+        "那个包很贵。",
+        "That bag is expensive."
+       ],
+       [
+        "我可以用现金付款吗？",
+        "Can I pay in cash?"
+       ],
+       [
+        "一共三十英镑。",
+        "The total is thirty pounds."
+       ],
+       [
+        "今天有折扣吗？",
+        "Is there a discount today?"
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：你喜欢购物吗？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "Do you like shopping?",
+       "zh": "你喜欢购物吗？",
+       "model": "Yes, I do. I like shopping for clothes, especially when there is a discount. I usually shop online because it is cheap and easy. But sometimes I go to the shopping centre with my friends at the weekend.",
+       "phrases": [
+        [
+         "especially when …",
+         "尤其是当……的时候"
+        ],
+        [
+         "I usually shop online because …",
+         "我通常网购，因为……"
+        ],
+        [
+         "But sometimes I …",
+         "但有时候我……"
+        ]
+       ],
+       "tip": "回答 Yes 或 No 以后一定要接着说原因，只说一个 Yes 是口语考试的大忌。",
+       "modelZh": "是的，我喜欢。我喜欢买衣服，尤其是打折的时候。我通常在网上买，因为便宜又方便。但有时候周末我会和朋友去购物中心。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d3",
+    "n": 3,
+    "title": "最后 4 个双元音和第一批辅音，家人和朋友",
+    "teacher": "今天开始学辅音啦。聊家人是口语考试的常客，今天学的词，下周就能用在你自己的回答里。傍晚记得录一段\"我的家\"，一周后回来听，你会惊讶自己的进步。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：4 个双元音和 4 个辅音",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "əʊ",
+       "ɪə",
+       "eə",
+       "ʊə",
+       "p",
+       "b",
+       "t",
+       "d"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：家人和朋友（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "family",
+        "ˈfæməli",
+        "n. 家庭；家人",
+        "ˈfæməli"
+       ],
+       [
+        "parents",
+        "ˈpeərənts",
+        "n. 父母",
+        "ˈperənts"
+       ],
+       [
+        "mother",
+        "ˈmʌðə",
+        "n. 母亲",
+        "ˈmʌðɚ"
+       ],
+       [
+        "father",
+        "ˈfɑːðə",
+        "n. 父亲",
+        "ˈfɑːðɚ"
+       ],
+       [
+        "sister",
+        "ˈsɪstə",
+        "n. 姐姐；妹妹",
+        "ˈsɪstɚ"
+       ],
+       [
+        "brother",
+        "ˈbrʌðə",
+        "n. 哥哥；弟弟",
+        "ˈbrʌðɚ"
+       ],
+       [
+        "daughter",
+        "ˈdɔːtə",
+        "n. 女儿",
+        "ˈdɑːɾɚ"
+       ],
+       [
+        "son",
+        "sʌn",
+        "n. 儿子",
+        "sʌn"
+       ],
+       [
+        "husband",
+        "ˈhʌzbənd",
+        "n. 丈夫",
+        "ˈhʌzbənd"
+       ],
+       [
+        "wife",
+        "waɪf",
+        "n. 妻子",
+        "waɪf"
+       ],
+       [
+        "grandmother",
+        "ˈɡrænmʌðə",
+        "n. 奶奶；外婆",
+        "ˈɡrænmʌðɚ"
+       ],
+       [
+        "grandfather",
+        "ˈɡrænfɑːðə",
+        "n. 爷爷；外公",
+        "ˈɡrænfɑːðɚ"
+       ],
+       [
+        "aunt",
+        "ɑːnt",
+        "n. 阿姨；姑姑",
+        "ænt"
+       ],
+       [
+        "uncle",
+        "ˈʌŋkl",
+        "n. 叔叔；舅舅",
+        "ˈʌŋkl"
+       ],
+       [
+        "cousin",
+        "ˈkʌzn",
+        "n. 堂/表兄弟姐妹",
+        "ˈkʌzn"
+       ],
+       [
+        "friend",
+        "frend",
+        "n. 朋友",
+        "frend"
+       ],
+       [
+        "neighbour",
+        "ˈneɪbə",
+        "n. 邻居",
+        "ˈneɪbɚ"
+       ],
+       [
+        "child",
+        "tʃaɪld",
+        "n. 孩子",
+        "tʃaɪld"
+       ],
+       [
+        "children",
+        "ˈtʃɪldrən",
+        "n. 孩子们（child 的复数）",
+        "ˈtʃɪldrən"
+       ],
+       [
+        "baby",
+        "ˈbeɪbi",
+        "n. 婴儿",
+        "ˈbeɪbi"
+       ],
+       [
+        "age",
+        "eɪdʒ",
+        "n. 年龄",
+        "eɪdʒ"
+       ],
+       [
+        "married",
+        "ˈmærid",
+        "adj. 已婚的",
+        "ˈmerid"
+       ],
+       [
+        "together",
+        "təˈɡeðə",
+        "adv. 一起",
+        "təˈɡeðɚ"
+       ],
+       [
+        "kind",
+        "kaɪnd",
+        "adj. 善良的",
+        "kaɪnd"
+       ],
+       [
+        "funny",
+        "ˈfʌni",
+        "adj. 有趣的；好笑的",
+        "ˈfʌni"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：be 动词：am、is、are",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "be 动词相当于中文的\"是\"，也可以表示\"在\"，或者描述状态。它会跟着主语变形："
+       ],
+       [
+        "rows",
+        [
+         [
+          "I 我",
+          "am"
+         ],
+         [
+          "he 他 / she 她 / it 它 / 单数名词",
+          "is"
+         ],
+         [
+          "you 你（们）/ we 我们 / they 他们 / 复数名词",
+          "are"
+         ]
+        ]
+       ],
+       [
+        "ex",
+        "I am a student.",
+        "我是学生。"
+       ],
+       [
+        "ex",
+        "She is kind.",
+        "她很善良。中文说\"很善良\"，英语里必须有 is。"
+       ],
+       [
+        "ex",
+        "They are at home.",
+        "他们在家。"
+       ],
+       [
+        "p",
+        "否定：在 be 后面加 not。疑问：把 be 放到句首。"
+       ],
+       [
+        "ex",
+        "I am not busy.",
+        "我不忙。"
+       ],
+       [
+        "ex",
+        "Are you free today?",
+        "你今天有空吗？"
+       ],
+       [
+        "tip",
+        "缩写很常用：I'm = I am，she's = she is，they're = they are，isn't = is not，aren't = are not。"
+       ]
+      ],
+      "quiz": [
+       [
+        "My mother ___ a teacher.",
+        [
+         "am",
+         "is",
+         "are"
+        ],
+        1,
+        "My mother 是单数，用 is。",
+        "我妈妈是老师。"
+       ],
+       [
+        "We ___ friends.",
+        [
+         "am",
+         "is",
+         "are"
+        ],
+        2,
+        "we 用 are。",
+        "我们是朋友。"
+       ],
+       [
+        "I ___ from Singapore.",
+        [
+         "am",
+         "is",
+         "are"
+        ],
+        0,
+        "I 只和 am 搭配。",
+        "我来自新加坡。"
+       ],
+       [
+        "The rooms ___ quiet.",
+        [
+         "is",
+         "are",
+         "am"
+        ],
+        1,
+        "rooms 是复数，用 are。",
+        "这些房间很安静。"
+       ],
+       [
+        "\"她很忙\"应该怎么说？",
+        [
+         "She busy.",
+         "She is busy.",
+         "She very busy."
+        ],
+        1,
+        "形容词前面要有 be 动词。",
+        null,
+        [
+         "少了 is",
+         "她很忙。",
+         "少了 is"
+        ]
+       ],
+       [
+        "把 You are free. 变成疑问句：",
+        [
+         "You are free?",
+         "Are you free?",
+         "Do you free?"
+        ],
+        1,
+        "把 are 放到句首。",
+        "You are free. = 你有空。",
+        [
+         "只加问号不对",
+         "你有空吗？",
+         "do 用错了"
+        ]
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "There are four people in my family.",
+        "我家有四口人。"
+       ],
+       [
+        "My sister is married.",
+        "我姐姐结婚了。"
+       ],
+       [
+        "My grandmother is very kind.",
+        "我奶奶很和蔼。"
+       ],
+       [
+        "We have dinner together every Sunday.",
+        "我们每周日一起吃晚饭。"
+       ],
+       [
+        "My cousin has two children.",
+        "我表姐有两个孩子。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：My Family（我的家）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "My Family",
+       "text": "There are five people in my family: my parents, my grandmother, my little brother and me. My father is a driver, and my mother works in a hospital. My grandmother is seventy-two, but she walks in the park every morning. My brother is ten. He is funny and he loves football. We don't live with my aunt and uncle, but we have dinner together every Sunday. I love my family because they are kind to me.",
+       "gloss": [
+        [
+         "there are",
+         "有"
+        ],
+        [
+         "little brother",
+         "弟弟"
+        ],
+        [
+         "driver",
+         "司机"
+        ],
+        [
+         "hospital",
+         "医院"
+        ],
+        [
+         "seventy-two",
+         "七十二"
+        ],
+        [
+         "football",
+         "足球"
+        ],
+        [
+         "be kind to",
+         "对……好"
+        ]
+       ],
+       "quiz": [
+        [
+         "How many people are there in the family?",
+         [
+          "Four",
+          "Five",
+          "Six"
+         ],
+         1,
+         "原文：There are five people in my family。",
+         "这个家有几口人？",
+         [
+          "四口",
+          "五口",
+          "六口"
+         ]
+        ],
+        [
+         "What does the mother do?",
+         [
+          "She is a driver.",
+          "She works in a hospital.",
+          "She is a teacher."
+         ],
+         1,
+         "my mother works in a hospital。",
+         "妈妈是做什么的？",
+         [
+          "她是司机。",
+          "她在医院工作。",
+          "她是老师。"
+         ]
+        ],
+        [
+         "When do they have dinner with the aunt and uncle?",
+         [
+          "Every Sunday",
+          "Every morning",
+          "Every Monday"
+         ],
+         0,
+         "we have dinner together every Sunday。",
+         "他们什么时候和阿姨、叔叔一起吃晚饭？",
+         [
+          "每周日",
+          "每天早上",
+          "每周一"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "My grandmother is seventy-two, but she walks in the park every morning.",
+         "My grandmother is seventy-two + but + she walks。but 表示转折。",
+         "我奶奶七十二岁了，但她每天早上都去公园散步。"
+        ],
+        [
+         "I love my family because they are kind to me.",
+         "I love my family；because 引出原因：they are kind to me。",
+         "我爱我的家人，因为他们对我很好。"
+        ]
+       ],
+       "titleZh": "我的家",
+       "zh": "我家有五口人：我爸爸妈妈、我奶奶、我弟弟和我。我爸爸是司机，我妈妈在医院工作。我奶奶七十二岁了，但她每天早上都去公园散步。我弟弟十岁，他很有趣，也很喜欢足球。我们不和阿姨、叔叔住在一起，但每周日都一起吃晚饭。我爱我的家人，因为他们对我很好。"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：coat 还是 caught？（外套还是抓住）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "coat",
+        "caught",
+        "外套",
+        "抓住（catch 的过去式）"
+       ],
+       [
+        "here",
+        "hair",
+        "这里",
+        "头发"
+       ],
+       [
+        "pen",
+        "Ben",
+        "钢笔",
+        "本（人名）"
+       ],
+       [
+        "pie",
+        "buy",
+        "馅饼",
+        "买"
+       ],
+       [
+        "tie",
+        "die",
+        "领带",
+        "死"
+       ],
+       [
+        "town",
+        "down",
+        "城镇",
+        "向下"
+       ],
+       [
+        "cap",
+        "cab",
+        "帽子",
+        "出租车"
+       ],
+       [
+        "bat",
+        "bad",
+        "蝙蝠；球拍",
+        "坏的"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "我家有三口人。",
+        "There are three people in my family."
+       ],
+       [
+        "我妈妈很善良。",
+        "My mother is kind."
+       ],
+       [
+        "我哥哥结婚了。",
+        "My brother is married."
+       ],
+       [
+        "我和朋友们一起吃午饭。",
+        "I have lunch with my friends."
+       ],
+       [
+        "我的邻居很有趣。",
+        "My neighbour is funny."
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：说说你的家庭。",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "Tell me about your family.",
+       "zh": "说说你的家庭。",
+       "model": "There are four people in my family: my parents, my younger brother and me. My father works in a bank, and my mother is a teacher. We are very close. We usually have dinner together and talk about our day.",
+       "phrases": [
+        [
+         "There are … people in my family.",
+         "我家有……口人。"
+        ],
+        [
+         "We are very close.",
+         "我们关系很亲。"
+        ],
+        [
+         "We usually … together.",
+         "我们通常一起……"
+        ]
+       ],
+       "tip": "换成你自己家的真实情况再说一遍，真实的内容最容易说流利。",
+       "modelZh": "我家有四口人：我爸爸妈妈、我弟弟和我。我爸爸在银行工作，我妈妈是老师。我们关系很亲，通常一起吃晚饭，聊聊一天的事情。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d4",
+    "n": 4,
+    "title": "/θ/ 和 /ð/ 等 8 个辅音，家和租房",
+    "teacher": "今天的 /θ/ 和 /ð/ 是中国同学最容易发错的两个音，大胆把舌头伸出来，别害羞！租房是雅思听力第一部分的高频场景，听写要好好练。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：8 个辅音（含最难的 /θ/ 和 /ð/）",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "k",
+       "ɡ",
+       "f",
+       "v",
+       "θ",
+       "ð",
+       "s",
+       "z"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：家和租房（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "home",
+        "həʊm",
+        "n. 家",
+        "hoʊm"
+       ],
+       [
+        "house",
+        "haʊs",
+        "n. 房子",
+        "haʊs"
+       ],
+       [
+        "flat",
+        "flæt",
+        "n. 公寓（英式）",
+        "flæt"
+       ],
+       [
+        "apartment",
+        "əˈpɑːtmənt",
+        "n. 公寓（美式）",
+        "əˈpɑːrtmənt"
+       ],
+       [
+        "room",
+        "ruːm",
+        "n. 房间",
+        "ruːm"
+       ],
+       [
+        "bedroom",
+        "ˈbedruːm",
+        "n. 卧室",
+        "ˈbedruːm"
+       ],
+       [
+        "kitchen",
+        "ˈkɪtʃɪn",
+        "n. 厨房",
+        "ˈkɪtʃɪn"
+       ],
+       [
+        "bathroom",
+        "ˈbɑːθruːm",
+        "n. 浴室；卫生间",
+        "ˈbæθruːm"
+       ],
+       [
+        "living room",
+        "ˈlɪvɪŋ ruːm",
+        "n. 客厅",
+        "ˈlɪvɪŋ ruːm"
+       ],
+       [
+        "garden",
+        "ˈɡɑːdn",
+        "n. 花园",
+        "ˈɡɑːrdn"
+       ],
+       [
+        "window",
+        "ˈwɪndəʊ",
+        "n. 窗户",
+        "ˈwɪndoʊ"
+       ],
+       [
+        "door",
+        "dɔː",
+        "n. 门",
+        "dɔːr"
+       ],
+       [
+        "floor",
+        "flɔː",
+        "n. 地板；楼层",
+        "flɔːr"
+       ],
+       [
+        "furniture",
+        "ˈfɜːnɪtʃə",
+        "n. 家具（不可数）",
+        "ˈfɝːnɪtʃɚ"
+       ],
+       [
+        "sofa",
+        "ˈsəʊfə",
+        "n. 沙发",
+        "ˈsoʊfə"
+       ],
+       [
+        "desk",
+        "desk",
+        "n. 书桌",
+        "desk"
+       ],
+       [
+        "rent",
+        "rent",
+        "n. 房租 v. 租",
+        "rent"
+       ],
+       [
+        "landlord",
+        "ˈlændlɔːd",
+        "n. 房东",
+        "ˈlændlɔːrd"
+       ],
+       [
+        "address",
+        "əˈdres",
+        "n. 地址",
+        "əˈdres"
+       ],
+       [
+        "street",
+        "striːt",
+        "n. 街道",
+        "striːt"
+       ],
+       [
+        "quiet",
+        "ˈkwaɪət",
+        "adj. 安静的",
+        "ˈkwaɪət"
+       ],
+       [
+        "noisy",
+        "ˈnɔɪzi",
+        "adj. 吵闹的",
+        "ˈnɔɪzi"
+       ],
+       [
+        "comfortable",
+        "ˈkʌmftəbl",
+        "adj. 舒服的",
+        "ˈkʌmftɚbl"
+       ],
+       [
+        "near",
+        "nɪə",
+        "prep. 在……附近",
+        "nɪr"
+       ],
+       [
+        "neighbourhood",
+        "ˈneɪbəhʊd",
+        "n. 街区；周边",
+        "ˈneɪbɚhʊd"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：一般现在时：说习惯和事实",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "说\"平时、经常、总是\"做的事，或者一个事实，用一般现在时，动词用原形："
+       ],
+       [
+        "ex",
+        "I usually get up at seven.",
+        "我通常七点起床。"
+       ],
+       [
+        "ex",
+        "We live in a flat.",
+        "我们住在公寓里。"
+       ],
+       [
+        "p",
+        "重点来了：主语是 he、she、it 或者单数名词时，动词要加 -s 或 -es。这叫\"第三人称单数\"，是写作里最常见的扣分点之一。"
+       ],
+       [
+        "ex",
+        "She works in an office.",
+        "她在办公室上班。"
+       ],
+       [
+        "ex",
+        "My brother watches TV every evening.",
+        "我弟弟每天晚上看电视。watch 以 ch 结尾，加 -es。"
+       ],
+       [
+        "ex",
+        "He has lunch at twelve.",
+        "他十二点吃午饭。have 变成 has，要单独记。"
+       ],
+       [
+        "p",
+        "否定和疑问用 do 或 does，用了 does，后面的动词就回到原形："
+       ],
+       [
+        "ex",
+        "Does she work on Saturday?",
+        "她周六上班吗？"
+       ],
+       [
+        "ex",
+        "He doesn't cook.",
+        "他不做饭。"
+       ],
+       [
+        "tip",
+        "看到 usually（通常）、always（总是）、often（经常）、sometimes（有时）、never（从不）、every day（每天），就想到一般现在时。"
+       ]
+      ],
+      "quiz": [
+       [
+        "She ___ in a big company.",
+        [
+         "work",
+         "works",
+         "working"
+        ],
+        1,
+        "she 是第三人称单数，动词加 -s。",
+        "她在一家大公司工作。"
+       ],
+       [
+        "They ___ dinner at six.",
+        [
+         "have",
+         "has",
+         "having"
+        ],
+        0,
+        "they 是复数，用原形 have。",
+        "他们六点吃晚饭。"
+       ],
+       [
+        "My father ___ TV in the evening.",
+        [
+         "watch",
+         "watchs",
+         "watches"
+        ],
+        2,
+        "watch 以 ch 结尾，加 -es。",
+        "我爸爸晚上看电视。"
+       ],
+       [
+        "___ your sister live near here?",
+        [
+         "Do",
+         "Does",
+         "Is"
+        ],
+        1,
+        "your sister 是单数，用 Does。",
+        "你姐姐住在这附近吗？"
+       ],
+       [
+        "He doesn't ___ coffee.",
+        [
+         "drink",
+         "drinks",
+         "drinking"
+        ],
+        0,
+        "doesn't 后面用原形。",
+        "他不喝咖啡。"
+       ],
+       [
+        "哪句话是对的？",
+        [
+         "He go to work by bus.",
+         "He goes to work by bus.",
+         "He going to work by bus."
+        ],
+        1,
+        "he 后面的动词要加 -es：goes。",
+        null,
+        [
+         "go 没有变成 goes",
+         "他坐公交上班。",
+         "going 前面少了 is"
+        ]
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "I live in a small flat.",
+        "我住在一套小公寓里。"
+       ],
+       [
+        "The rent is five hundred pounds a month.",
+        "房租每月五百英镑。"
+       ],
+       [
+        "My address is eight Park Street.",
+        "我的地址是公园街 8 号。"
+       ],
+       [
+        "The kitchen is small but the living room is big.",
+        "厨房很小，但客厅很大。"
+       ],
+       [
+        "Is the flat near a bus stop?",
+        "这套公寓离公交站近吗？"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：Looking for a Flat（找公寓）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "Looking for a Flat",
+       "text": "Anna is a student, and she is looking for a flat near her university. She visits a flat on Green Street. It has one bedroom, a small kitchen and a bathroom. There is no garden, but the living room is big and comfortable. The rent is six hundred and fifty pounds a month. The landlord is friendly, and the neighbourhood is quiet. Anna likes the flat, and she wants to move in next month.",
+       "gloss": [
+        [
+         "is looking for",
+         "正在找"
+        ],
+        [
+         "visit",
+         "去看（房）"
+        ],
+        [
+         "there is no",
+         "没有"
+        ],
+        [
+         "friendly",
+         "友好的"
+        ],
+        [
+         "move in",
+         "搬进去"
+        ],
+        [
+         "next month",
+         "下个月"
+        ]
+       ],
+       "quiz": [
+        [
+         "Where is the flat?",
+         [
+          "On Green Street",
+          "Near the station",
+          "In the garden"
+         ],
+         0,
+         "原文：She visits a flat on Green Street。",
+         "这套公寓在哪里？",
+         [
+          "在 Green 街",
+          "在车站附近",
+          "在花园里"
+         ]
+        ],
+        [
+         "How much is the rent?",
+         [
+          "£560 a month",
+          "£650 a month",
+          "£615 a month"
+         ],
+         1,
+         "six hundred and fifty 是 650。雅思听力很爱这样考数字。",
+         "房租多少钱？",
+         [
+          "每月 560 英镑",
+          "每月 650 英镑",
+          "每月 615 英镑"
+         ]
+        ],
+        [
+         "What does the flat NOT have?",
+         [
+          "A kitchen",
+          "A garden",
+          "A bathroom"
+         ],
+         1,
+         "原文：There is no garden。",
+         "这套公寓没有什么？",
+         [
+          "厨房",
+          "花园",
+          "浴室"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "Anna is a student, and she is looking for a flat near her university.",
+         "Anna is a student + she is looking for a flat。near her university 修饰 a flat：在她大学附近的公寓。",
+         "安娜是个学生，她正在找一套离大学近的公寓。"
+        ],
+        [
+         "There is no garden, but the living room is big and comfortable.",
+         "There is no garden（there be 句型：某处有或没有某物）+ but + the living room is big and comfortable。",
+         "没有花园，但客厅又大又舒服。"
+        ]
+       ],
+       "titleZh": "找公寓",
+       "zh": "安娜是个学生，她正在找一套离大学近的公寓。她去看了 Green 街上的一套公寓：有一间卧室、一个小厨房和一个浴室。没有花园，但客厅又大又舒服。房租每月六百五十英镑。房东很友好，周边也很安静。安娜喜欢这套公寓，想下个月搬进去。"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：coat 还是 goat？（外套还是山羊）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "coat",
+        "goat",
+        "外套",
+        "山羊"
+       ],
+       [
+        "fan",
+        "van",
+        "风扇",
+        "面包车"
+       ],
+       [
+        "few",
+        "view",
+        "很少",
+        "风景"
+       ],
+       [
+        "think",
+        "sink",
+        "想",
+        "水槽；下沉"
+       ],
+       [
+        "three",
+        "free",
+        "三",
+        "免费的；空闲的"
+       ],
+       [
+        "they",
+        "day",
+        "他们",
+        "天"
+       ],
+       [
+        "sip",
+        "zip",
+        "小口喝",
+        "拉链"
+       ],
+       [
+        "bus",
+        "buzz",
+        "公交车",
+        "嗡嗡声"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "我住在一套公寓里。",
+        "I live in a flat."
+       ],
+       [
+        "我的卧室很安静。",
+        "My bedroom is quiet."
+       ],
+       [
+        "房租很贵。",
+        "The rent is expensive."
+       ],
+       [
+        "我家附近有一个公园。",
+        "There is a park near my home."
+       ],
+       [
+        "这个沙发很舒服。",
+        "This sofa is comfortable."
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：你住独栋房子还是公寓？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "Do you live in a house or a flat?",
+       "zh": "你住独栋房子还是公寓？",
+       "model": "I live in a flat in the city centre. It is not very big, but it is comfortable. I love my bedroom because it is quiet and it has a big window. The neighbourhood is convenient, with lots of shops and restaurants.",
+       "phrases": [
+        [
+         "I live in a flat in …",
+         "我住在……的一套公寓里"
+        ],
+        [
+         "It is not very big, but …",
+         "不是很大，但是……"
+        ],
+        [
+         "The neighbourhood is convenient.",
+         "周边很方便。"
+        ]
+       ],
+       "tip": "描述地方的万能顺序：在哪里，大不大，你最喜欢哪里，周边怎么样。",
+       "modelZh": "我住在市中心的一套公寓里。它不是很大，但很舒服。我很喜欢我的卧室，因为它很安静，还有一扇大窗户。周边很方便，有很多商店和餐馆。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d5",
+    "n": 5,
+    "title": "/r/ 和 /ʃ/ 等 8 个辅音，日常作息",
+    "teacher": "坚持到第 5 天了，给自己比个心！今天的 /r/ 和 /l/、/ʃ/ 和 /s/ 都是容易混的\"难兄难弟\"，多听几遍，对比着学。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：8 个辅音（含 /r/ 和 /tr/ /dr/）",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "ʃ",
+       "ʒ",
+       "h",
+       "r",
+       "tʃ",
+       "dʒ",
+       "tr",
+       "dr"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：日常作息（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "get up",
+        "ɡet ʌp",
+        "起床",
+        "ɡet ʌp"
+       ],
+       [
+        "breakfast",
+        "ˈbrekfəst",
+        "n. 早餐",
+        "ˈbrekfəst"
+       ],
+       [
+        "lunch",
+        "lʌntʃ",
+        "n. 午餐",
+        "lʌntʃ"
+       ],
+       [
+        "dinner",
+        "ˈdɪnə",
+        "n. 晚餐",
+        "ˈdɪnɚ"
+       ],
+       [
+        "shower",
+        "ˈʃaʊə",
+        "n. 淋浴",
+        "ˈʃaʊɚ"
+       ],
+       [
+        "cook",
+        "kʊk",
+        "v. 做饭",
+        "kʊk"
+       ],
+       [
+        "clean",
+        "kliːn",
+        "v. 打扫 adj. 干净的",
+        "kliːn"
+       ],
+       [
+        "work",
+        "wɜːk",
+        "v./n. 工作",
+        "wɝːk"
+       ],
+       [
+        "study",
+        "ˈstʌdi",
+        "v. 学习",
+        "ˈstʌdi"
+       ],
+       [
+        "sleep",
+        "sliːp",
+        "v. 睡觉",
+        "sliːp"
+       ],
+       [
+        "usually",
+        "ˈjuːʒuəli",
+        "adv. 通常",
+        "ˈjuːʒuəli"
+       ],
+       [
+        "always",
+        "ˈɔːlweɪz",
+        "adv. 总是",
+        "ˈɑːlweɪz"
+       ],
+       [
+        "often",
+        "ˈɒfn",
+        "adv. 经常（t 通常不发音）",
+        "ˈɑːfn"
+       ],
+       [
+        "sometimes",
+        "ˈsʌmtaɪmz",
+        "adv. 有时",
+        "ˈsʌmtaɪmz"
+       ],
+       [
+        "never",
+        "ˈnevə",
+        "adv. 从不",
+        "ˈnevɚ"
+       ],
+       [
+        "early",
+        "ˈɜːli",
+        "adj./adv. 早",
+        "ˈɝːli"
+       ],
+       [
+        "late",
+        "leɪt",
+        "adj./adv. 晚",
+        "leɪt"
+       ],
+       [
+        "busy",
+        "ˈbɪzi",
+        "adj. 忙的",
+        "ˈbɪzi"
+       ],
+       [
+        "free",
+        "friː",
+        "adj. 空闲的；免费的",
+        "friː"
+       ],
+       [
+        "relax",
+        "rɪˈlæks",
+        "v. 放松",
+        "rɪˈlæks"
+       ],
+       [
+        "exercise",
+        "ˈeksəsaɪz",
+        "v./n. 锻炼",
+        "ˈeksɚsaɪz"
+       ],
+       [
+        "walk",
+        "wɔːk",
+        "v. 走路；散步（l 不发音）",
+        "wɑːk"
+       ],
+       [
+        "bus",
+        "bʌs",
+        "n. 公交车",
+        "bʌs"
+       ],
+       [
+        "morning",
+        "ˈmɔːnɪŋ",
+        "n. 早上",
+        "ˈmɔːrnɪŋ"
+       ],
+       [
+        "evening",
+        "ˈiːvnɪŋ",
+        "n. 傍晚；晚上",
+        "ˈiːvnɪŋ"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：名词单复数，a、an 和 the",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "可数名词分单数和复数。复数一般加 -s：book 变成 books。以 s、x、ch、sh 结尾的加 -es：bus 变成 buses，box 变成 boxes。"
+       ],
+       [
+        "p",
+        "有些要单独记：child（孩子）变成 children，man（男人）变成 men，woman（女人）变成 women，person（人）变成 people（人们）。"
+       ],
+       [
+        "p",
+        "不可数名词没有复数，前面也不能用 a：furniture（家具）、homework（家庭作业）、money（钱）、water（水）。"
+       ],
+       [
+        "p",
+        "a 和 an 表示\"一个\"。看的是读音，不是字母：辅音开头用 a，元音开头用 an。"
+       ],
+       [
+        "ex",
+        "a desk, an apple, an hour",
+        "一张桌子、一个苹果、一个小时。hour 的 h 不发音，读音以元音开头，所以用 an。"
+       ],
+       [
+        "ex",
+        "a university",
+        "一所大学。university 读音以 /j/ 开头，是辅音，所以用 a。"
+       ],
+       [
+        "p",
+        "the 表示\"特指的那一个\"，前面提过的、双方都知道的东西用 the："
+       ],
+       [
+        "ex",
+        "I have a flat. The flat is near the park.",
+        "我有一套公寓。这套公寓在公园附近。"
+       ]
+      ],
+      "quiz": [
+       [
+        "one child, two ___",
+        [
+         "childs",
+         "children",
+         "childrens"
+        ],
+        1,
+        "child 的复数是 children，要单独记。",
+        "一个孩子，两个孩子"
+       ],
+       [
+        "I need ___ umbrella.",
+        [
+         "a",
+         "an",
+         "不填"
+        ],
+        1,
+        "umbrella 以元音音素开头，用 an。",
+        "我需要一把伞。"
+       ],
+       [
+        "She is ___ university student.",
+        [
+         "a",
+         "an",
+         "不填"
+        ],
+        0,
+        "university 读音以 /j/ 开头，用 a。",
+        "她是一名大学生。"
+       ],
+       [
+        "We bought some new ___.",
+        [
+         "furniture",
+         "furnitures",
+         "a furniture"
+        ],
+        0,
+        "furniture 不可数，没有复数，也不能加 a。",
+        "我们买了一些新家具。"
+       ],
+       [
+        "I have a cat. ___ cat is very funny.",
+        [
+         "A",
+         "An",
+         "The"
+        ],
+        2,
+        "前面提过的那只猫，用 The。",
+        "我有一只猫。这只猫很有趣。"
+       ],
+       [
+        "two ___",
+        [
+         "boxs",
+         "boxes",
+         "boxies"
+        ],
+        1,
+        "以 x 结尾加 -es。",
+        "两个盒子"
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "I usually get up at seven.",
+        "我通常七点起床。"
+       ],
+       [
+        "She often cooks dinner.",
+        "她经常做晚饭。"
+       ],
+       [
+        "I am busy in the morning.",
+        "我早上很忙。"
+       ],
+       [
+        "He never goes to bed late.",
+        "他从不晚睡。"
+       ],
+       [
+        "We sometimes walk in the park after lunch.",
+        "我们有时午饭后去公园散步。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：A Busy Day（忙碌的一天）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "A Busy Day",
+       "text": "Mia is a nurse. She usually gets up at six o'clock. She has a quick shower and eats breakfast at half past six. She goes to work by bus, and the bus ride takes forty minutes. At work, she is always busy. She has lunch at one o'clock. After work, she often walks in the park to relax. In the evening, she cooks dinner, reads a book and goes to bed early. She never watches TV late at night.",
+       "gloss": [
+        [
+         "nurse",
+         "护士"
+        ],
+        [
+         "quick",
+         "快速的"
+        ],
+        [
+         "half past six",
+         "六点半"
+        ],
+        [
+         "by bus",
+         "坐公交"
+        ],
+        [
+         "ride",
+         "车程"
+        ],
+        [
+         "take",
+         "花费（时间）"
+        ],
+        [
+         "go to bed",
+         "上床睡觉"
+        ]
+       ],
+       "quiz": [
+        [
+         "What time does Mia get up?",
+         [
+          "At 6:00",
+          "At 6:30",
+          "At 7:00"
+         ],
+         0,
+         "She usually gets up at six o'clock。六点半是吃早饭的时间。",
+         "Mia 几点起床？",
+         [
+          "6 点",
+          "6 点半",
+          "7 点"
+         ]
+        ],
+        [
+         "How long is the bus ride?",
+         [
+          "14 minutes",
+          "40 minutes",
+          "4 hours"
+         ],
+         1,
+         "forty minutes，四十分钟。",
+         "坐公交要多久？",
+         [
+          "14 分钟",
+          "40 分钟",
+          "4 小时"
+         ]
+        ],
+        [
+         "What does Mia do after work?",
+         [
+          "She watches TV.",
+          "She walks in the park.",
+          "She goes shopping."
+         ],
+         1,
+         "After work, she often walks in the park。",
+         "Mia 下班后做什么？",
+         [
+          "她看电视。",
+          "她去公园散步。",
+          "她去购物。"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "She goes to work by bus, and the bus ride takes forty minutes.",
+         "She goes to work + the bus ride takes forty minutes。by bus 说明方式。",
+         "她坐公交上班，车程四十分钟。"
+        ],
+        [
+         "In the evening, she cooks dinner, reads a book and goes to bed early.",
+         "一个主语 she，带了三个动作 cooks、reads、goes，用逗号和 and 连起来。",
+         "晚上，她做晚饭、看书，然后早早睡觉。"
+        ]
+       ],
+       "titleZh": "忙碌的一天",
+       "zh": "Mia 是一名护士。她通常六点起床，快速洗个澡，六点半吃早餐。她坐公交上班，车程四十分钟。上班时她总是很忙，一点吃午饭。下班后，她经常去公园散步放松一下。晚上，她做晚饭、看书，然后早早睡觉。她从不熬夜看电视。"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：see 还是 she？（看见还是她）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "see",
+        "she",
+        "看见",
+        "她"
+       ],
+       [
+        "sip",
+        "ship",
+        "小口喝",
+        "船"
+       ],
+       [
+        "chip",
+        "ship",
+        "薯条；芯片",
+        "船"
+       ],
+       [
+        "cheap",
+        "jeep",
+        "便宜的",
+        "吉普车"
+       ],
+       [
+        "rice",
+        "lice",
+        "米饭",
+        "虱子"
+       ],
+       [
+        "right",
+        "light",
+        "对的；右边",
+        "光；灯"
+       ],
+       [
+        "try",
+        "dry",
+        "尝试",
+        "干的"
+       ],
+       [
+        "hat",
+        "at",
+        "帽子",
+        "在"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "我通常七点起床。",
+        "I usually get up at seven."
+       ],
+       [
+        "她经常做饭。",
+        "She often cooks."
+       ],
+       [
+        "我周末很忙。",
+        "I am busy at the weekend."
+       ],
+       [
+        "他从不吃早饭。",
+        "He never has breakfast."
+       ],
+       [
+        "我每天晚上锻炼。",
+        "I exercise every evening."
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：你早上通常做什么？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "What do you usually do in the morning?",
+       "zh": "你早上通常做什么？",
+       "model": "I usually get up at seven. First, I have a shower, and then I have a quick breakfast, usually eggs and coffee. After that, I study English for two hours, because the morning is the best time for me to learn.",
+       "phrases": [
+        [
+         "First, … and then …",
+         "先……然后……"
+        ],
+        [
+         "After that, …",
+         "之后……"
+        ],
+        [
+         "… is the best time for me to …",
+         "……是我做……的最佳时间"
+        ]
+       ],
+       "tip": "说顺序时用 first、then、after that 串起来，听起来马上就有条理了。",
+       "modelZh": "我通常七点起床。先洗个澡，然后快速吃个早餐，一般是鸡蛋和咖啡。之后我学两个小时英语，因为早上是我学习的最佳时间。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d6",
+    "n": 6,
+    "title": "最后 8 个辅音，学习和工作",
+    "teacher": "最后 8 个音标！学完今天，48 个音标就全部认识了，这一步很多人拖了好几年，你一周就完成了。明天是复习日，不学新东西。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symbols",
+      "title": "音标：最后 8 个辅音",
+      "m": 35,
+      "k": "pron",
+      "items": [
+       "ts",
+       "dz",
+       "m",
+       "n",
+       "ŋ",
+       "l",
+       "w",
+       "j"
+      ]
+     },
+     {
+      "id": "a2",
+      "type": "words",
+      "title": "单词：学习和工作（25 个）",
+      "m": 40,
+      "k": "vocab",
+      "words": [
+       [
+        "school",
+        "skuːl",
+        "n. 学校",
+        "skuːl"
+       ],
+       [
+        "university",
+        "ˌjuːnɪˈvɜːsəti",
+        "n. 大学",
+        "ˌjuːnɪˈvɝːsəɾi"
+       ],
+       [
+        "student",
+        "ˈstjuːdnt",
+        "n. 学生",
+        "ˈstuːdnt"
+       ],
+       [
+        "teacher",
+        "ˈtiːtʃə",
+        "n. 老师",
+        "ˈtiːtʃɚ"
+       ],
+       [
+        "subject",
+        "ˈsʌbdʒɪkt",
+        "n. 科目",
+        "ˈsʌbdʒɪkt"
+       ],
+       [
+        "course",
+        "kɔːs",
+        "n. 课程",
+        "kɔːrs"
+       ],
+       [
+        "class",
+        "klɑːs",
+        "n. 班级；课",
+        "klæs"
+       ],
+       [
+        "lesson",
+        "ˈlesn",
+        "n. 一节课",
+        "ˈlesn"
+       ],
+       [
+        "exam",
+        "ɪɡˈzæm",
+        "n. 考试",
+        "ɪɡˈzæm"
+       ],
+       [
+        "homework",
+        "ˈhəʊmwɜːk",
+        "n. 家庭作业（不可数）",
+        "ˈhoʊmwɝːk"
+       ],
+       [
+        "degree",
+        "dɪˈɡriː",
+        "n. 学位",
+        "dɪˈɡriː"
+       ],
+       [
+        "major",
+        "ˈmeɪdʒə",
+        "n. 专业",
+        "ˈmeɪdʒɚ"
+       ],
+       [
+        "job",
+        "dʒɒb",
+        "n. 工作（可数）",
+        "dʒɑːb"
+       ],
+       [
+        "company",
+        "ˈkʌmpəni",
+        "n. 公司",
+        "ˈkʌmpəni"
+       ],
+       [
+        "office",
+        "ˈɒfɪs",
+        "n. 办公室",
+        "ˈɑːfɪs"
+       ],
+       [
+        "colleague",
+        "ˈkɒliːɡ",
+        "n. 同事",
+        "ˈkɑːliːɡ"
+       ],
+       [
+        "boss",
+        "bɒs",
+        "n. 老板",
+        "bɑːs"
+       ],
+       [
+        "salary",
+        "ˈsæləri",
+        "n. 工资",
+        "ˈsæləri"
+       ],
+       [
+        "interview",
+        "ˈɪntəvjuː",
+        "n. 面试",
+        "ˈɪntɚvjuː"
+       ],
+       [
+        "experience",
+        "ɪkˈspɪəriəns",
+        "n. 经验；经历",
+        "ɪkˈspɪriəns"
+       ],
+       [
+        "skill",
+        "skɪl",
+        "n. 技能",
+        "skɪl"
+       ],
+       [
+        "career",
+        "kəˈrɪə",
+        "n. 职业；事业",
+        "kəˈrɪr"
+       ],
+       [
+        "apply",
+        "əˈplaɪ",
+        "v. 申请",
+        "əˈplaɪ"
+       ],
+       [
+        "manager",
+        "ˈmænɪdʒə",
+        "n. 经理",
+        "ˈmænɪdʒɚ"
+       ],
+       [
+        "part-time",
+        "ˌpɑːtˈtaɪm",
+        "adj. 兼职的",
+        "ˌpɑːrtˈtaɪm"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "grammar",
+      "title": "语法：五种基本句型",
+      "m": 25,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "英语句子虽然千变万化，骨架只有 5 种。认出骨架，长句就好拆了。"
+       ],
+       [
+        "h",
+        "1. 主语 + 谓语"
+       ],
+       [
+        "ex",
+        "She smiles.",
+        "她（经常）微笑。"
+       ],
+       [
+        "h",
+        "2. 主语 + 谓语 + 宾语"
+       ],
+       [
+        "ex",
+        "I love my job.",
+        "我爱我的工作。"
+       ],
+       [
+        "h",
+        "3. 主语 + 系动词 + 表语"
+       ],
+       [
+        "ex",
+        "The flat is quiet.",
+        "公寓很安静。is 把主语和描述它的 quiet 连起来。"
+       ],
+       [
+        "h",
+        "4. 主语 + 谓语 + 两个宾语"
+       ],
+       [
+        "ex",
+        "My mother gave me a book.",
+        "妈妈给了我一本书。me 和 a book 都是宾语。"
+       ],
+       [
+        "h",
+        "5. 主语 + 谓语 + 宾语 + 宾语补足语"
+       ],
+       [
+        "ex",
+        "The news made her happy.",
+        "这个消息让她很开心。happy 补充说明 her。"
+       ],
+       [
+        "tip",
+        "找骨架三步：先找谓语动词，再往前找主语，最后往后看它还需要什么（宾语？表语？两个宾语？）。"
+       ]
+      ],
+      "quiz": [
+       [
+        "The kitchen is small. 是哪种句型？",
+        [
+         "主语 + 谓语",
+         "主语 + 系动词 + 表语",
+         "主语 + 谓语 + 宾语"
+        ],
+        1,
+        "is 是系动词，small 是表语。",
+        "厨房很小。"
+       ],
+       [
+        "We study English. 是哪种句型？",
+        [
+         "主语 + 谓语 + 宾语",
+         "主语 + 系动词 + 表语",
+         "主语 + 谓语"
+        ],
+        0,
+        "study 的对象是 English，English 是宾语。",
+        "我们学英语。"
+       ],
+       [
+        "He sent me a message. 里的 me 和 a message 是？",
+        [
+         "两个宾语",
+         "一个表语",
+         "主语和宾语"
+        ],
+        0,
+        "给谁（me），给什么（a message），都是宾语。",
+        "他给我发了一条消息。"
+       ],
+       [
+        "The baby cried. 是哪种句型？",
+        [
+         "主语 + 谓语",
+         "主语 + 谓语 + 宾语",
+         "主语 + 系动词 + 表语"
+        ],
+        0,
+        "cried 后面不需要宾语。",
+        "宝宝哭了。"
+       ],
+       [
+        "This job makes me tired. 里的 tired 是？",
+        [
+         "宾语",
+         "宾语补足语",
+         "谓语"
+        ],
+        1,
+        "tired 补充说明 me 的状态。",
+        "这份工作让我很累。"
+       ],
+       [
+        "下面哪句是\"主语 + 系动词 + 表语\"？",
+        [
+         "My sister is a nurse.",
+         "My sister likes tea.",
+         "My sister sings."
+        ],
+        0,
+        "is 连接 My sister 和 a nurse。",
+        null,
+        [
+         "我姐姐是护士。",
+         "我姐姐喜欢茶。",
+         "我姐姐唱歌。"
+        ]
+       ]
+      ]
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "dictation",
+      "title": "听写：5 句话",
+      "m": 25,
+      "k": "listening",
+      "items": [
+       [
+        "I am a university student.",
+        "我是一名大学生。"
+       ],
+       [
+        "My major is English.",
+        "我的专业是英语。"
+       ],
+       [
+        "She has an interview on Friday.",
+        "她周五有个面试。"
+       ],
+       [
+        "My colleagues are very helpful.",
+        "我的同事们很乐于助人。"
+       ],
+       [
+        "He wants a job with a good salary.",
+        "他想要一份工资高的工作。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "reading",
+      "title": "阅读：A New Job（新工作）",
+      "m": 35,
+      "k": "reading",
+      "passage": {
+       "title": "A New Job",
+       "text": "Sam is twenty-three, and he has a degree in computer science. Now he works at a small company in the city centre. His boss, Helen, is kind, and his colleagues are helpful. Sam likes his job and his salary is good, but he wants more experience. Every Tuesday and Thursday evening, he takes an online course. He wants to learn new skills and build a great career. Next year, he wants to apply for a job as a manager.",
+       "gloss": [
+        [
+         "a degree in …",
+         "……专业的学位"
+        ],
+        [
+         "computer science",
+         "计算机科学"
+        ],
+        [
+         "city centre",
+         "市中心"
+        ],
+        [
+         "helpful",
+         "乐于助人的"
+        ],
+        [
+         "online course",
+         "网课"
+        ],
+        [
+         "build",
+         "建立"
+        ],
+        [
+         "apply for",
+         "申请"
+        ]
+       ],
+       "quiz": [
+        [
+         "What is Sam's degree in?",
+         [
+          "Business",
+          "Computer science",
+          "English"
+         ],
+         1,
+         "a degree in computer science。",
+         "Sam 是什么专业的学位？",
+         [
+          "商科",
+          "计算机科学",
+          "英语"
+         ]
+        ],
+        [
+         "Who is Helen?",
+         [
+          "Sam's colleague",
+          "Sam's boss",
+          "Sam's teacher"
+         ],
+         1,
+         "His boss, Helen：Helen 是他的老板。",
+         "Helen 是谁？",
+         [
+          "Sam 的同事",
+          "Sam 的老板",
+          "Sam 的老师"
+         ]
+        ],
+        [
+         "When does Sam take his online course?",
+         [
+          "Every Tuesday and Thursday evening",
+          "Every weekend",
+          "Every morning"
+         ],
+         0,
+         "原文：Every Tuesday and Thursday evening。",
+         "Sam 什么时候上网课？",
+         [
+          "每周二和周四晚上",
+          "每个周末",
+          "每天早上"
+         ]
+        ]
+       ],
+       "parse": [
+        [
+         "His boss, Helen, is kind, and his colleagues are helpful.",
+         "His boss is kind + his colleagues are helpful。Helen 放在两个逗号中间，补充说明老板的名字。",
+         "他的老板 Helen 人很好，同事们也乐于帮忙。"
+        ],
+        [
+         "Next year, he wants to apply for a job as a manager.",
+         "he wants to apply for a job。as a manager 说明是什么职位。",
+         "明年，他想申请一个经理的职位。"
+        ]
+       ],
+       "titleZh": "新工作",
+       "zh": "Sam 二十三岁，有计算机科学的学位。现在他在市中心的一家小公司工作。他的老板 Helen 人很好，同事们也乐于帮忙。Sam 喜欢他的工作，工资也不错，但他想要更多经验。每周二和周四晚上，他都上一门网课。他想学新技能，打造一份好事业。明年，他想申请一个经理的职位。"
+      }
+     },
+     {
+      "id": "b3",
+      "type": "pairs",
+      "title": "听辨游戏：bets 还是 beds？（赌注还是床）",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "bets",
+        "beds",
+        "赌注（复数）",
+        "床（复数）"
+       ],
+       [
+        "sun",
+        "sung",
+        "太阳",
+        "唱（sing 的过去分词）"
+       ],
+       [
+        "thin",
+        "thing",
+        "瘦的；薄的",
+        "东西"
+       ],
+       [
+        "win",
+        "wing",
+        "赢",
+        "翅膀"
+       ],
+       [
+        "light",
+        "night",
+        "光；灯",
+        "夜晚"
+       ],
+       [
+        "wet",
+        "vet",
+        "湿的",
+        "兽医"
+       ],
+       [
+        "west",
+        "vest",
+        "西边",
+        "背心"
+       ],
+       [
+        "yet",
+        "jet",
+        "还；然而",
+        "喷气式飞机"
+       ]
+      ]
+     },
+     {
+      "id": "b4",
+      "type": "flash",
+      "title": "单词第二遍：卡片自测",
+      "m": 15,
+      "k": "vocab",
+      "from": "a2"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "write",
+      "title": "写 5 句话",
+      "m": 15,
+      "k": "writing",
+      "items": [
+       [
+        "我是一名学生。",
+        "I am a student."
+       ],
+       [
+        "我的专业是英语。",
+        "My major is English."
+       ],
+       [
+        "她在一家大公司工作。",
+        "She works for a big company."
+       ],
+       [
+        "我明天有个面试。",
+        "I have an interview tomorrow."
+       ],
+       [
+        "我想要更多经验。",
+        "I want more experience."
+       ]
+      ]
+     },
+     {
+      "id": "c2",
+      "type": "speak",
+      "title": "口语：你是上班还是读书？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "Do you work or are you a student?",
+       "zh": "你是上班还是读书？",
+       "model": "At the moment, I am preparing for the IELTS exam, so studying English is my main job! I want to study abroad next year, so I spend most of my time learning English.",
+       "phrases": [
+        [
+         "At the moment, I am …",
+         "目前我正在……"
+        ],
+        [
+         "I want to study abroad.",
+         "我想出国留学。"
+        ],
+        [
+         "I spend most of my time …",
+         "我大部分时间都在……"
+        ]
+       ],
+       "tip": "按你的真实情况改：比如想出国工作就说 I want to work abroad，想移民就说 I want to move to another country。",
+       "modelZh": "目前我在准备雅思考试，所以学英语就是我的主要工作！我想明年出国留学，所以我大部分时间都在学英语。"
+      }
+     },
+     {
+      "id": "c3",
+      "type": "checkin",
+      "title": "今天的打卡",
+      "m": 5,
+      "k": "review"
+     }
+    ]
+   },
+   {
+    "id": "w1d7",
+    "n": 7,
+    "title": "复习日：把这一周串起来",
+    "teacher": "第一周完成！今天只复习、不学新内容。下午有一个入门小测，不算成绩，只是帮我了解你现在的水平。做完周复盘，把周报复制给我，我会据此把第 2 到第 6 周的课一次做好。",
+    "a": [
+     {
+      "id": "a1",
+      "type": "symreview",
+      "title": "48 个音标总复习",
+      "m": 40,
+      "k": "pron"
+     },
+     {
+      "id": "a2",
+      "type": "pairs",
+      "title": "听辨大挑战",
+      "m": 15,
+      "k": "pron",
+      "pairs": [
+       [
+        "ship",
+        "sheep",
+        "船",
+        "羊"
+       ],
+       [
+        "bed",
+        "bad",
+        "床",
+        "坏的"
+       ],
+       [
+        "thirteen",
+        "thirty",
+        "十三",
+        "三十"
+       ],
+       [
+        "think",
+        "sink",
+        "想",
+        "水槽；下沉"
+       ],
+       [
+        "right",
+        "light",
+        "对的；右边",
+        "光；灯"
+       ],
+       [
+        "vine",
+        "wine",
+        "葡萄藤",
+        "葡萄酒"
+       ],
+       [
+        "thin",
+        "thing",
+        "瘦的；薄的",
+        "东西"
+       ],
+       [
+        "she",
+        "see",
+        "她",
+        "看见"
+       ],
+       [
+        "full",
+        "fool",
+        "满的",
+        "傻瓜"
+       ],
+       [
+        "fifteen",
+        "fifty",
+        "十五",
+        "五十"
+       ]
+      ]
+     },
+     {
+      "id": "a3",
+      "type": "flash",
+      "title": "150 个单词总复习",
+      "m": 40,
+      "k": "vocab",
+      "fromWeek": true
+     }
+    ],
+    "b": [
+     {
+      "id": "b1",
+      "type": "grammar",
+      "title": "语法综合小测",
+      "m": 20,
+      "k": "grammar",
+      "lesson": [
+       [
+        "p",
+        "这一周学了词性、主语和谓语、be 动词、一般现在时、名词单复数和冠词、五种基本句型。做一做下面 10 道题，看看哪里还要补。"
+       ]
+      ],
+      "quiz": [
+       [
+        "The rent ___ very expensive.",
+        [
+         "am",
+         "is",
+         "are"
+        ],
+        1,
+        "The rent 是单数，用 is。",
+        "房租很贵。"
+       ],
+       [
+        "My parents ___ in a small house.",
+        [
+         "live",
+         "lives",
+         "living"
+        ],
+        0,
+        "My parents 是复数，动词用原形。",
+        "我父母住在一栋小房子里。"
+       ],
+       [
+        "She ___ breakfast at half past seven.",
+        [
+         "have",
+         "has",
+         "haves"
+        ],
+        1,
+        "she 后面 have 要变成 has。",
+        "她七点半吃早饭。"
+       ],
+       [
+        "I have ___ interview tomorrow.",
+        [
+         "a",
+         "an",
+         "不填"
+        ],
+        1,
+        "interview 以元音音素开头，用 an。",
+        "我明天有个面试。"
+       ],
+       [
+        "two ___",
+        [
+         "womans",
+         "women",
+         "womens"
+        ],
+        1,
+        "woman 的复数是 women。",
+        "两个女人"
+       ],
+       [
+        "usually 是什么词性？",
+        [
+         "形容词",
+         "副词",
+         "动词"
+        ],
+        1,
+        "usually 说明\"多经常\"，是副词。",
+        "usually = 通常"
+       ],
+       [
+        "My colleague is funny. 是哪种句型？",
+        [
+         "主语 + 系动词 + 表语",
+         "主语 + 谓语 + 宾语",
+         "主语 + 谓语"
+        ],
+        0,
+        "is 是系动词，funny 是表语。",
+        "我的同事很有趣。"
+       ],
+       [
+        "___ he work on Sunday?",
+        [
+         "Do",
+         "Does",
+         "Is"
+        ],
+        1,
+        "he 是第三人称单数，用 Does。",
+        "他周日上班吗？"
+       ],
+       [
+        "I ___ busy today.",
+        [
+         "am",
+         "is",
+         "are"
+        ],
+        0,
+        "I 用 am。",
+        "我今天很忙。"
+       ],
+       [
+        "Our classroom has twenty ___.",
+        [
+         "desk",
+         "desks",
+         "deskes"
+        ],
+        1,
+        "二十张桌子要用复数 desks。",
+        "我们教室有二十张桌子。"
+       ]
+      ]
+     },
+     {
+      "id": "b2",
+      "type": "placement",
+      "title": "入门小测：帮老师校准难度",
+      "m": 45,
+      "k": "review"
+     },
+     {
+      "id": "b3",
+      "type": "weekly",
+      "title": "周复盘：把周报发给老师",
+      "m": 20,
+      "k": "review"
+     }
+    ],
+    "c": [
+     {
+      "id": "c1",
+      "type": "speak",
+      "title": "口语：你周末喜欢做什么？",
+      "m": 15,
+      "k": "speaking",
+      "speak": {
+       "q": "What do you like to do at the weekend?",
+       "zh": "你周末喜欢做什么？",
+       "model": "At the weekend, I like to relax. On Saturday morning I sleep late, and in the afternoon I often go for a walk in the park. On Sunday I usually cook a nice lunch for my family. Sometimes I watch a film in the evening.",
+       "phrases": [
+        [
+         "I like to relax.",
+         "我喜欢放松一下。"
+        ],
+        [
+         "go for a walk",
+         "去散步"
+        ],
+        [
+         "cook a nice lunch for …",
+         "给……做一顿好吃的午饭"
+        ]
+       ],
+       "tip": "把这一周学过的句型都用上试试：usually、often、sometimes，还有 first、then、after that。",
+       "modelZh": "周末我喜欢放松一下。周六早上我睡懒觉，下午经常去公园散步。周日我通常给家人做一顿好吃的午饭。有时候晚上会看一部电影。"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

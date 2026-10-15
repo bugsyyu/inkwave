@@ -1,0 +1,112 @@
+{
+ "repo": "bugsyyu/IELTS-Base",
+ "commit": "adf43697466f533994f4a29dfbd94031a5278bf0",
+ "date": "2026-10-15T21:08:47+00:00",
+ "tool": "tools/learn/export-ielts.mjs",
+ "files": {
+  "model.js": {
+   "from": "app/base/model.js",
+   "bytes": 64364,
+   "sha256": "3d03719be0896b24279795bbde8061a0ac5e8f7972e6eb642520497b4766c011"
+  },
+  "bank.js": {
+   "from": "app/exam/bank.js",
+   "bytes": 329580,
+   "sha256": "c862539c2e3a37e4d9daf7324c28dc2e67daf8a2cc65a15b0e40b9d5949e5883"
+  },
+  "gen.js": {
+   "from": "app/exam/gen.js",
+   "bytes": 170495,
+   "sha256": "19d349c6ad52b99dabbeee6f11a7036cf6fb9d8143951a870f2656fc7011a368"
+  },
+  "sched.js": {
+   "from": "app/exam/sched.js",
+   "bytes": 103538,
+   "sha256": "bac949a479effc4c69f137efc2af64b431244771df1b75b54f158ed8a1601c11"
+  },
+  "mark.js": {
+   "from": "app/exam/mark.js",
+   "bytes": 27422,
+   "sha256": "01ee9fabb39b68fbc77362b90e32f90df012293ac7db67960506b4782394be15"
+  }
+ },
+ "host": {
+  "file": "host.js",
+  "from": "app/index.html",
+  "indexSha256": "87f8bba5a05b1756ea2575544caca9e1070b7da113f6a5649c1286ac963682fa",
+  "lines": {
+   "esc": [
+    2419,
+    2419
+   ],
+   "fdUs": [
+    7234,
+    7244
+   ],
+   "toks": [
+    7757,
+    7757
+   ],
+   "normTok": [
+    7758,
+    7760
+   ],
+   "lcsOk": [
+    7761,
+    7771
+   ],
+   "NUM_1": [
+    8448,
+    8449
+   ],
+   "NUM_10": [
+    8450,
+    8450
+   ],
+   "NUM_ORD": [
+    8451,
+    8451
+   ],
+   "numWords": [
+    8452,
+    8462
+   ],
+   "dictWords": [
+    7772,
+    7781
+   ],
+   "tokMarks": [
+    7782,
+    7790
+   ],
+   "dictScore": [
+    7791,
+    7795
+   ]
+  },
+  "bytes": 7290,
+  "sha256": "6851aa8dcf7592bd10839013f9b6adc7a4ac53c821321b29a4a9c8640a2b90a0"
+ },
+ "content": {
+  "w1.json": {
+   "from": "app/index.html W1 (const W1 = {) through formatExampleWeek()",
+   "bytes": 84672,
+   "sha256": "58d4eaa9b4d6bc4d02729bf4ee971af3aa5bcb7a106cc20586a01b3bf0676243"
+  },
+  "symbols.json": {
+   "from": "app/index.html SYMBOLS, SYM_GROUPS, SYM_LIST (WB), SYM_US",
+   "bytes": 19160,
+   "sha256": "68f08d818279f37d73fea853a0068e1425348f506523be430710d9f2e785c856"
+  },
+  "w2.json": {
+   "from": "docs/courses/w2.json",
+   "bytes": 88445,
+   "sha256": "06a1eb36117fa019bd51d92cb9aa2790b89a6936f74742f70d88ea503b7c9e8f"
+  },
+  "w3.json": {
+   "from": "docs/courses/w3.json",
+   "bytes": 124261,
+   "sha256": "4f049a0114422a2b50dc35928b6c77cad6fafdfd052906728d32acd8600dc81d"
+  }
+ }
+}
