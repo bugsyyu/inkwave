@@ -1,5 +1,7 @@
 // Scripted play-through for audits.
-// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900] [--touch] [--dpr 2] [--settings '{"shadows":false}']
+// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900] [--touch] [--dpr 2] [--settings '{"shadows":false}'] [--until 180]
+//   --until: seconds each "until" step may wait (180). A software-GL box boots in a minute and renders a frame in
+//     0.4 s, so the autostart intro alone outlasts the default — raise it there rather than read a slow boot as a failure
 //   --touch: a phone — touch events, a coarse pointer and 2x pixels (--dpr overrides), so the game picks its on-screen controls
 //   --settings: JSON merged into the saved settings (localStorage inkwave.settings) before the page loads — e.g. shadows
 //     off and ?quality=low for a software-GL box, where the default tier runs at a frame a second
@@ -19,6 +21,7 @@ const W = +opt('w', 1600), H = +opt('h', 900);
 const TOUCH = args.includes('--touch');
 const SETTINGS = opt('settings', null);
 const DPR = +opt('dpr', TOUCH ? 2 : 1);
+const UNTIL_MS = (+opt('until', 180) || 180) * 1000;
 
 const browser = await puppeteer.launch({
   executablePath: chromePath(),
@@ -43,7 +46,7 @@ page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${(e.stack || '
 try {
 await page.goto(url, { waitUntil: 'load', timeout: 180000 });
 for (const s of steps) {
-  if (s.until) { try { await page.waitForFunction(s.until, { timeout: 180000, polling: 150 }); } catch { console.log('until timeout', s.until); } }
+  if (s.until) { try { await page.waitForFunction(s.until, { timeout: UNTIL_MS, polling: 150 }); } catch { console.log('until timeout', s.until); } }
   if (s.wait) await new Promise((r) => setTimeout(r, s.wait));
   if (s.down) await page.keyboard.down(s.down);
   if (s.up) await page.keyboard.up(s.up);
