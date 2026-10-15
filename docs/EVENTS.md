@@ -76,3 +76,13 @@ longer emitted.
 | `zones:active` | `{ objective, zones, final, moved }` — rotation (final = the last-30-s centre lock) | zones.js |
 | `zones:overtime` | `{ losing }` | zones.js |
 | `zones:end` | `{ winner, reason, counts }` (reason: knockout · time · comeback · retake · neutralised · overtime-cap) | zones.js |
+
+## 关卡学习 (docs/LEARN.md; src/learn/flow.js)
+A learning level (`match.mode === 'learn'`) emits these; `match.learn.log` keeps the same records in order for audits.
+
+| event | payload | where |
+|---|---|---|
+| `learn:gate` | `{ id, index, total, locks, opened }` — she reached a gate (`opened: false`, the match is now held for its questions) / the gate opened (`opened: true`, the ink trail runs on to the next one) | learn/flow.js |
+| `learn:question` | `{ itemId, gate, type: 'typed' \| 'choice', form: 'normal' \| 'alt' }` — a question is up in the learn layer (`alt`: the same item re-asked in its other form after a miss) | learn/flow.js |
+| `learn:answer` | `{ itemId, ok, first, gate }` — judged; `first` = this was the day's first answer for the item (the one the store / memory model counts) | learn/flow.js |
+| `learn:done` | `{ done, total, due, firsts, locks, week, day }` — the last gate opened; `due` = `[{ en, zh }]` of the words the store says are due | learn/flow.js |
