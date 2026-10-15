@@ -1,6 +1,6 @@
 // Scripted play-through for audits.
-// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900] [--touch] [--settings '{"shadows":false}']
-//   --touch: a phone — touch events, a coarse pointer and 2x pixels, so the game picks its on-screen controls
+// usage: node tools/play.mjs <url> <script.json|inline-json> [--w 1600 --h 900] [--touch] [--dpr 2] [--settings '{"shadows":false}']
+//   --touch: a phone — touch events, a coarse pointer and 2x pixels (--dpr overrides), so the game picks its on-screen controls
 //   --settings: JSON merged into the saved settings (localStorage inkwave.settings) before the page loads — e.g. shadows
 //     off and ?quality=low for a software-GL box, where the default tier runs at a frame a second
 // script: [{"wait":ms},{"down":"KeyW"},{"up":"KeyW"},{"press":"Space"},{"mouse":"down"|"up"},{"move":[dx,dy]},
@@ -18,12 +18,13 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const W = +opt('w', 1600), H = +opt('h', 900);
 const TOUCH = args.includes('--touch');
 const SETTINGS = opt('settings', null);
+const DPR = +opt('dpr', TOUCH ? 2 : 1);
 
 const browser = await puppeteer.launch({
   executablePath: chromePath(),
   headless: 'new',
   args: gpuArgs([`--window-size=${W},${H}`]),
-  defaultViewport: { width: W, height: H, deviceScaleFactor: TOUCH ? 2 : 1, isMobile: TOUCH, hasTouch: TOUCH },
+  defaultViewport: { width: W, height: H, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH },
 });
 // always take the browser down with us (an orphaned headless Chrome keeps spinning its WebGL loop at 100 % CPU)
 const kill = () => { try { browser.process()?.kill('SIGKILL'); } catch { /* gone */ } };
