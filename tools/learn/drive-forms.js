@@ -6,10 +6,27 @@
   const W = window, G = W.__G;
   const M = () => W.__inkwave.match, L = () => M() && M().learn, H = () => G.hud.learn;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const until = async (f, ms = 30000, what = '') => { const t = Date.now(); while (!f()) { if (Date.now() - t > ms) throw new Error('timeout: ' + what); await sleep(100); } };
+  // fast: once the level runs, the real-time loop is frozen and the simulation stepped (main.js debug.freeze / step),
+  // so a minute of race or zone countdown costs a few renders instead of a minute of wall clock
+  const FAST = /fast=1/.test(location.search);
+  let frozen = false;
+  // stepping without a render: debug.step draws one frame per call, and under software GL a frame of a 4v4 takes
+  // seconds; the rules do not need the picture, so the frames run with the renderer skipped and one draw at the end
+  const adv = async (ms) => {
+    if (!frozen) { await sleep(Math.min(ms, 200)); return; }
+    const I = W.__inkwave, n = Math.max(1, Math.round(ms / (1000 / 60)));
+    I._skipRender = true;
+    try { for (let i = 0; i < n; i++) I._frame(1 / 60); } finally { I._skipRender = false; }
+    await sleep(0);
+  };
+  const until = async (f, ms = 30000, what = '') => { const t = Date.now(); let sim = 0; while (!f()) { if (Date.now() - t > ms || sim > ms * 3) throw new Error('timeout: ' + what); await adv(frozen ? 400 : 100); sim += 400; } };
   const out = { steps: [], errors: [], effects: [] };
   try {
-    await until(() => L() && M().state === 'playing', 90000, 'level playing');
+    // (software GL renders a 4v4 at well under a frame a second: freeze as soon as the level exists and step the
+    // simulation through the intro, so the audit measures the rules and not the renderer)
+    await until(() => L(), 120000, 'level built');
+    if (FAST && W.__inkwave.debug) { W.__inkwave.debug.freeze(); frozen = true; out.fast = true; }
+    await until(() => L() && M().state === 'playing', 60000, 'level playing');
     const F = L(), kind = M().learnKind;
     out.kind = kind; out.stage = W.__inkwave.mapDef && W.__inkwave.mapDef.id; out.actors = M().actors.length; out.teams = [...new Set(M().actors.map((a) => a.team))];
     out.boot = F.debug ? F.debug() : null;
@@ -42,20 +59,20 @@
       await until(() => document.querySelector('.iw-learn__verdict').classList.contains('is-on'), 8000, 'verdict');
       const ok = document.querySelector('.iw-learn__verdict').classList.contains('is-ok');
       out.steps.push({ type: p.type, q: p.text, mode, picked, ok, why: document.querySelector('.iw-learn__why').textContent.slice(0, 60) });
-      await sleep(150);
+      await adv(150);
       document.querySelector('.iw-learn__next').click();
-      await sleep(200);
+      await adv(200);
       return ok;
     };
     let n = 0, wrongDone = false;
     const t0 = Date.now();
-    while (Date.now() - t0 < 300000) {
+    while (Date.now() - t0 < (FAST ? 75000 : 300000)) {
       if (F.phase === 'done' || document.querySelector('.iw-learn.is-done')) break;
       // let the form bring the next question up (auto-walk to the next checkpoint when the form walks)
-      if (F.prep && F.prep()) { const go = document.querySelector('.iw-lf__go'); if (go) { out.boards = (out.boards || 0) + 1; go.click(); } await sleep(400); continue; }
+      if (F.prep && F.prep()) { const go = document.querySelector('.iw-lf__go'); if (go) { out.boards = (out.boards || 0) + 1; go.click(); } await adv(1000); continue; }
       if (!(H()._ask && !H()._ask.answered)) {
-        if (F.autoWalk && !F.auto && F.phase === 'walk') F.autoWalk(true);
-        await sleep(200); continue;
+        if (F.autoWalk && !F.auto && (F.phase === 'walk' || F.phase === 'final')) F.autoWalk(true);
+        await adv(1000); continue;
       }
       const mode = !wrongDone ? 'wrong' : 'right';
       const ok = await answer(mode);
@@ -65,9 +82,10 @@
       if (F.effects) out.effects.push(F.effects());
     }
     out.answered = n;
-    await until(() => document.querySelector('.iw-learn.is-done'), 60000, 'results card');
+    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 25000 : 60000, 'results card');
     out.results = document.querySelector('.iw-learn__results') && document.querySelector('.iw-learn__results').innerText.slice(0, 400);
   } catch (e) { out.errors.push(String(e && e.message || e)); }
+  if (frozen) { try { W.__inkwave.debug.step(16.7); W.__inkwave.debug.unfreeze(); } catch (e) { /* fine */ } }
   const F = L();
   out.log = F ? F.log.map((e) => e.name + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).join(' ') : null;
   out.done = F ? F.log.find((e) => e.name === 'learn:done') : null;

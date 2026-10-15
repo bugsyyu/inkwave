@@ -54,6 +54,12 @@ export class RaceFlow extends LearnFlow {
     this.route = route; this.path = route.loop;
     this.cum = cumulative(nav.nodes, this.path);
     const { fit, at } = placeAlong(this.cum, this.level.gates.length, { first: R.firstGateMin, gap: R.gap, tail: R.gap });
+    // the two lanes run side by side near the spawn: a checkpoint within laneAvoid m (as the crow flies) of an earlier
+    // one slides back along the lap until it stands apart, so no checkpoint is reached without running to it
+    for (let k = 1; k < at.length; k++) {
+      const near = (i) => at.slice(0, k).some((j) => { const a = nav.nodes[this.path[i]], b = nav.nodes[this.path[j]]; return Math.hypot(a.x - b.x, a.z - b.z) < R.laneAvoid; });
+      while (at[k] > at[k - 1] + 3 && near(at[k])) at[k] -= 1;
+    }
     const defs = fitGates(this.level.gates, fit);
     this.gates = defs.map((def, k) => {
       const i = at[k], node = nav.nodes[this.path[i]];
@@ -81,6 +87,7 @@ export class RaceFlow extends LearnFlow {
       this.board = true;
       for (const r of this.racers) r.a.character.setDance?.('lobby_pose');
       this.ui.showBoard({ ...board, title: `${board.title} · 第 ${g.index + 1} / ${this.gates.length} 站`, go: this.started ? '走！' : '出发！' }, () => this._go());
+      G.input?.exitLock?.();   // the mouse for the board (hold is set: main.js does not read this as a pause)
     } else this._go();
   }
   _go() {
@@ -321,7 +328,6 @@ export class RaceFlow extends LearnFlow {
     const due = dueIds.map((id) => byId.get(id)).filter(Boolean).map((it) => ({ en: it.en, zh: it.zh }));
     const data = { done: this.right.size, total: this.total, due, firsts: this.firsts, firstRight: this.firstRight, scored: this.scoredN, locks: this.gates.reduce((n, g) => n + g.locks, 0), week: this.week, day: this.day, form: 'race', place: this.place, clock: +this.clock.toFixed(1), stars, starsBefore: st.before, relearn: this.relearn.length, relearnRight: this.relearnRight };
     this._emit('learn:done', data);
-    G.audio?.play?.('results_win', { volume: 0.5 });
     this.hud?.results(data, {
       again: () => G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: 'race' }),
       menu: () => G.game?.api?.quitMatch?.(),
