@@ -1,7 +1,7 @@
 // Match: turf-war rules, lifecycle (intro → countdown → play → time's up → judge → results), team setup.
 import * as THREE from 'three';
 import { G, emit, on, clamp } from '../core/ctx.js';
-import { MATCH, PLAYER, WEAPON_ORDER, SUB_ORDER, SPECIAL_ORDER, BOT_NAMES, TEAM_NAMES, ZONES } from '../config.js';
+import { MATCH, PLAYER, WEAPON_ORDER, SUB_ORDER, SPECIAL_ORDER, BOT_NAMES, TEAM_NAMES, ZONES, LEARN } from '../config.js';
 import { ZoneControl } from './zones.js';
 import { randomStyle } from './character-style.js';
 import { Actor } from './actor.js';
@@ -21,8 +21,11 @@ export class Match {
     // level on a real stage, run by src/learn/flow.js); attract backdrops and practice are turf
     this.mode = this.attract || this.practice ? 'turf' : opts.mode === 'boss' ? 'boss' : opts.mode === 'zones' ? 'zones' : opts.mode === 'learn' && opts.learn ? 'learn' : 'turf';
     this.learn = null;             // LearnFlow (learn mode), built in setup() once the stage and the actor exist
-    // solo: one squidkid, no enemies, no clock — practice, and a learning level (which is practice with gates)
-    this.solo = this.practice || this.mode === 'learn';
+    // the learning form (docs/LEVELS.md §2): puzzle (solo) · race (solo + 3 racer bots, no brains) · duel (4v4 on the
+    // zones rules) · boss (her + 3 squad bots vs HULLBREAKER); the form's flow class comes in opts.learn.Flow
+    this.learnKind = this.mode === 'learn' ? (opts.learn.kind || 'puzzle') : null;
+    // solo: one squidkid's side, no enemies, no clock — practice, a puzzle level, a race (its bots are team-mates)
+    this.solo = this.practice || (this.mode === 'learn' && (this.learnKind === 'puzzle' || this.learnKind === 'race'));
     this.duration = opts.duration || (this.mode === 'zones' ? ZONES.duration : this.mode === 'boss' ? BOSS_MODE.duration : MATCH.defaultDuration);
     this.zones = null;             // ZoneControl (Zone Control mode)
     this.time = this.duration;
@@ -57,14 +60,18 @@ export class Match {
     };
     const names = shuffle([...BOT_NAMES]);
     let ni = 0;
-    const boss = this.mode === 'boss';
+    const lk = this.learnKind;
+    const boss = this.mode === 'boss' || lk === 'boss';
+    // squidkids per side: a race is her + LEARN.race.bots racers, a learning boss her + LEARN.boss.squad (not the full 8)
+    const perSide = lk === 'race' ? 1 + LEARN.race.bots : lk === 'boss' ? 1 + LEARN.boss.squad : this.solo ? 1 : boss ? BOSS_MODE.squad : MATCH.teamSize;
+    this.perSide = perSide;
     // humans-only stage (config noBots) offline: a match is just you (the ?devstage walk), the attract backdrop nobody
     // (o.mannequins: idle, brainless kids for the render audits)
     const noBots = !!o.noBots;
     for (let team = 0; team < (boss || this.solo ? 1 : 2); team++) {
       const weapons = pickTeam(team === 0 && !this.attract ? o.weapon : null);
       if (boss) weapons.push(...pickTeam(null));   // the whole squad on one side: 8 kids, every weapon kind
-      for (let s = 0; s < (this.solo ? 1 : boss ? BOSS_MODE.squad : MATCH.teamSize); s++) {
+      for (let s = 0; s < perSide; s++) {
         const isLocal = team === 0 && s === 0 && !this.attract;
         if (noBots && !isLocal && !(this.attract && o.mannequins)) continue;
         // subs: yours from the loadout; bots carry a random one (about half keep their weapon's default)
@@ -78,7 +85,8 @@ export class Match {
         });
         if (isLocal && o.style) { /* reserved for future customisation */ }
         G.scene.add(a.character.root);
-        if ((!isLocal || o.autopilot) && !(noBots && !isLocal)) a.bot = new BotBrain(a, o.difficulty);
+        // (a race's bots have no BotBrain: the race flow steers them along the route — a brain would go and paint turf)
+        if ((!isLocal || o.autopilot) && !(noBots && !isLocal) && lk !== 'race') a.bot = new BotBrain(a, o.difficulty);
         this.actors.push(a);
       }
     }
@@ -89,7 +97,7 @@ export class Match {
     // initial placement on the spawn decks (standing, no drop)
     for (const a of this.actors) {
       const pad = G.level.spawnPads[a.team];
-      const ang = (a.slot / (this.mode === 'boss' ? BOSS_MODE.squad : 4)) * Math.PI * 2 + 0.6, rr = this.mode === 'boss' ? 1.7 : 1.2;
+      const ang = (a.slot / Math.max(4, perSide)) * Math.PI * 2 + 0.6, rr = boss ? 1.7 : 1.2;
       _v.set(pad.x + Math.cos(ang) * rr, pad.y, pad.z + Math.sin(ang) * rr);
       a.spawnAt(_v, a.team === 0 ? 0 : Math.PI);
       a.invuln = 0;
@@ -98,12 +106,12 @@ export class Match {
     this.unsubs = [
       on('splatted', (e) => this._onSplatted(e)),
     ];
-    if (this.mode === 'zones') {
+    if (this.mode === 'zones' || lk === 'duel') {
       this.zones = new ZoneControl(this);
       this.unsubs.push(on('turf', (e) => this._zoneTurf(e)));
     }
-    if (this.mode === 'boss') { this.bossMode = new BossMode(this); this.boss = this.bossMode.boss; }
-    if (this.mode === 'learn') this.learn = new LearnFlow(this, o.learn);
+    if (boss) { this.bossMode = new BossMode(this); this.boss = this.bossMode.boss; }
+    if (this.mode === 'learn') this.learn = new (o.learn.Flow || LearnFlow)(this, o.learn);
   }
 
   // Online: the host's roster — who owns which squidkid (players their own, the host the bots).
@@ -255,7 +263,8 @@ export class Match {
 
   updateController(dt) {
     if (!this.controller) return;
-    this.controller.enabled = this.state === 'playing' && !this.paused && this.local.alive;
+    // (learn.hold: a race / duel question holds her still while the round runs on — see src/learn/forms)
+    this.controller.enabled = this.state === 'playing' && !this.paused && this.local.alive && !(this.learn && this.learn.hold);
     this.controller.update(dt);
   }
 

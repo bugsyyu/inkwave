@@ -581,6 +581,54 @@ export const LEARN = {
     verdictMs: 1100,          // how long the ✓ / ✗ verdict holds before the next item (reduced motion: shorter)
     ttsRate: 0.92,            // speechSynthesis rate for the English fallback voice (a little slow for a beginner)
   },
+  // ---- the other three forms (docs/LEVELS.md §2.2–§2.5, §6.4 proposal 3; src/learn/design.js reads these, never its own copy)
+  gate: { trigger: 3 },       // m: coming this close to a checkpoint / gate opens its question (the puzzle keeps puzzle.gateRadius)
+  race: {
+    bots: 3,                  // racer bots on the same route (one team, no brains: the race flow steers them)
+    detour: 8,                // s a second wrong answer costs: the short way stays shut, she (or a bot) goes round
+    firstGateMin: 10,         // m from the spawn to the first checkpoint
+    gap: 12,                  // m along the loop between two checkpoints (extra gates merge into the last that fits)
+    laneAvoid: 6,             // m: the way back avoids nodes this close to the way out (a loop, not an out-and-back)
+    botTrigger: 2.5,          // m: a bot "reaches" its checkpoint this close to it and rolls its die
+    block: 3,                 // s a Drip Curtain (墨幕) holds the bots behind her
+    stun: 3,                  // s a Splat Bomb (墨弹) stops the nearest bot
+    hold: 3,                  // props she can carry
+    lapClock: true,           // the HUD clock shows the lap time (never a time's-up)
+  },
+  duel: {
+    allies: 3, enemies: 4,    // her side's bots (they never answer) and the other side's (they roll BOT_ANSWER dice)
+    flood: [2.5, 0.5, 4.5],   // m of zone a right answer inks: base, + per streak, cap
+    special: 15,              // special points a right answer adds
+    askGap: 2.0,              // s between the verdict and the next question in a round
+    roundMin: 60, roundMax: 300,   // s a round (= a gate) lasts: the gate's course minutes, clamped
+    prep: true,               // between rounds the board shows the next step (the clock stops)
+  },
+  boss: {
+    phaseTime: { L: 840, R: 840, W: 600, S: 360 },   // s per phase (EXAM: 14 / 14 / 10 / 6 min)
+    squad: 3,                 // squad bots beside her (they fight for show; only she hurts the boss)
+    askGap: 2.0,              // s after a verdict before the next question (the boss is between moves)
+    dodge: 3,                 // s she gets to dodge after a wrong answer's move before the next question
+    stunStreak: 5,            // a streak this long stuns the boss once
+  },
+  quiz: { n: 8, minutes: 6 }, // 今日小考: one duel round after the exit (days 1–6)
+  // the bots' "answering" model per DIFFICULTY (they never see her question): correct chance, delay range (s), rubber
+  // band (s per checkpoint ahead, capped), the duel cadence (s between enemy "answers") and flood (m), prop use chance
+  bots: {
+    easy:   { correct: 0.55, delay: [6, 10], rubber: 2.5, rubberCap: 2, duelCadence: 9, duelFlood: 2.0, propUse: 0.3 },
+    normal: { correct: 0.70, delay: [4, 7], rubber: 2.0, rubberCap: 2, duelCadence: 6, duelFlood: 2.2, propUse: 0.5 },
+    hard:   { correct: 0.85, delay: [2.5, 4.5], rubber: 1.0, rubberCap: 1, duelCadence: 4, duelFlood: 2.4, propUse: 0.8 },
+  },
+  // prop drops per form: every everyRight-th right answer drops one, drawn by weights; hold = how many she carries.
+  // Streak props (shield at 3, lane at 5) never drop. No prop ever skips a question.
+  props: {
+    puzzle: { everyRight: 2, hold: 2, weights: { rain: 1, echo: 1 } },
+    race: { everyRight: 1, hold: 3, weights: { leap: 15, rain: 20, echo: 20, curtain: 15, bomb: 15 } },
+    duel: { everyRight: 3, hold: 1, weights: { rain: 1, echo: 1 } },
+    boss: { everyRight: 4, hold: 1, weights: { rain: 1, echo: 1 } },
+  },
+  streak: { three: 3, five: 5 },   // the two streak thresholds every form celebrates
+  relearnMax: 12,             // 回炉门: at most this many items come back before the exit (the rest wait for tomorrow)
+  starsKey: 'inkwave:learn:design:v1',   // stars + walked days (local only; never the evidence document)
 };
 
 // ---- On-screen touch controls (src/core/touch.js) ----
