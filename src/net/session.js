@@ -5,7 +5,7 @@
 // sends one roster to everyone; every client builds the stage, reports ready, and the host says go — so intros start
 // together. In the match NetMatch (netmatch.js) does the replication.
 import { G, emit } from '../core/ctx.js';
-import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, MATCH, ZONES, BOT_NAMES, TEAM_PALETTES, mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock } from '../config.js';
+import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, MATCH, ZONES, BOT_NAMES, TEAM_PALETTES, LEARN, mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock } from '../config.js';
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
@@ -16,6 +16,14 @@ const CODE_CHARS = 'BCEFGHJKLMNPQRTUVXYZ23456789';
 const TEAM = 4;
 // a loadout's sub / special: a known id, or null (= the weapon's own)
 const subOf = (id) => (SUBS[id] ? id : null), specialOf = (id) => (SPECIALS[id] ? id : null);
+// the room's modes: INKWAVE's three, and the two-player learning forms (docs/LEARN.md §10, §14): versus2 (双人联机赛, a
+// Zone Control match with the same question put to both players) and coop2 (双人成形合作赛, the two on one team, no enemies)
+export const ROOM_MODES = ['turf', 'zones', 'boss', 'versus2', 'coop2'];
+export const LEARN_ROOM_MODES = ['versus2', 'coop2'];
+const roomMode = (m) => (ROOM_MODES.includes(m) ? m : 'turf');
+const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || lo));
+// the lesson a learning room plays: { week, day } (the host's pick; short = the audits' shortened match)
+const lessonOf = (o, prev = { week: 1, day: 1 }) => ({ week: clampInt(o && o.week != null ? o.week : prev.week, 1, LEARN.weeks), day: clampInt(o && o.day != null ? o.day : prev.day, 1, LEARN.days), ...((o && o.short) || (!o && prev.short) ? { short: true } : {}) });
 
 export class NetSession {
   constructor() {
@@ -59,7 +67,8 @@ export class NetSession {
     // mode: 'turf' | 'zones' (Zone Control: the host runs the rules — zones.js) | 'boss' (Boss Battle: everyone is one
     // squad vs HULLBREAKER — docs/BOSS.md)
     const map = g?.mapDef?.id || MAPS[0].id;
-    return { map, time: g?.time || 'day', duration: g?.settings?.matchLength || MATCH.defaultDuration, bots: !mapNoBots(map), difficulty: g?.settings?.difficulty || 'normal', palette: g?.paletteIndex?.() ?? 0, mode: 'turf', players: [], maxPlayers: TEAM * 2 };
+    const learn = lessonOf({ week: g?.settings?.learnWeek || 1, day: g?.settings?.learnDay || 1 });
+    return { map, time: g?.time || 'day', duration: g?.settings?.matchLength || MATCH.defaultDuration, bots: !mapNoBots(map), difficulty: g?.settings?.difficulty || 'normal', palette: g?.paletteIndex?.() ?? 0, mode: 'turf', learn, players: [], maxPlayers: TEAM * 2 };
   }
 
   _profile() {
@@ -185,7 +194,7 @@ export class NetSession {
   }
   _wireLobby() {
     const l = this.lobby;
-    return { map: l.map, time: l.time, duration: l.duration, bots: l.bots, difficulty: l.difficulty, palette: l.palette, mode: l.mode, players: l.players.map(({ id, name, team, weapon, sub, special, style, ready, ping }) => ({ id, name, team, weapon, sub, special, style, ready, ping })) };
+    return { map: l.map, time: l.time, duration: l.duration, bots: l.bots, difficulty: l.difficulty, palette: l.palette, mode: l.mode, learn: l.learn, players: l.players.map(({ id, name, team, weapon, sub, special, style, ready, ping }) => ({ id, name, team, weapon, sub, special, style, ready, ping })) };
   }
   // local view: mark you + host
   _pushLobby() {
@@ -241,7 +250,8 @@ export class NetSession {
     if (s.bots != null) this._botsPref = !!s.bots;
     if (s.difficulty && ['easy', 'normal', 'hard'].includes(s.difficulty)) l.difficulty = s.difficulty;
     if (Number.isInteger(s.palette) && s.palette >= 0 && s.palette < TEAM_PALETTES.length) l.palette = s.palette;
-    if (s.mode === 'turf' || s.mode === 'zones' || s.mode === 'boss') l.mode = s.mode;
+    if (ROOM_MODES.includes(s.mode)) l.mode = s.mode;
+    if (s.learn && typeof s.learn === 'object') l.learn = lessonOf(s.learn, l.learn);
     // stage rules (config MAPS flags): a Boss Battle never runs on a noBoss stage — picking one in boss mode is refused,
     // switching a room on one to boss mode moves it to a boss-eligible stage; a noBots stage forces bots off (the host's
     // own choice comes back on the next stage)
@@ -255,7 +265,12 @@ export class NetSession {
     return !this.startBlock() && this.lobby.players.every((p) => p.ready || p.id === this.myId);
   }
   // why the room can't start regardless of ready-ups (a humans-only stage without 2+ players, one per side), else null
-  startBlock() { return noBotsStartBlock(this.lobby); }
+  // (双人成形合作赛 needs exactly two: one clue, one pair of hands — docs/LEARN.md §14)
+  startBlock() {
+    const n = this.lobby.players.length;
+    if (this.lobby.mode === 'coop2' && n !== 2) return n < 2 ? '双人合作赛要两个人：把房间码发给另一个人' : `双人合作赛只能两个人（现在 ${n} 个）`;
+    return noBotsStartBlock(this.lobby);
+  }
 
   emote(name) {
     if (!this.tr || !this.myId) return;
@@ -272,12 +287,13 @@ export class NetSession {
     let nid = 0;
     const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
     const boss = l.mode === 'boss' && mapBossOk(l.map);   // one squad of up to 8 (all team 0), bots fill the rest
-    for (let team = 0; team < (boss ? 1 : 2); team++) {
-      const humans = boss ? l.players : l.players.filter((p) => p.team === team);
+    const coop = l.mode === 'coop2', learn = LEARN_ROOM_MODES.includes(l.mode);   // coop2: the two on team 0, no bots, no enemies
+    for (let team = 0; team < (boss || coop ? 1 : 2); team++) {
+      const humans = boss || coop ? l.players : l.players.filter((p) => p.team === team);
       const weapons = [...WEAPON_ORDER].sort(() => Math.random() - 0.5);
       let slot = 0;
       for (const p of humans) roster.push({ nid: nid++, owner: p.id, bot: false, team, slot: slot++, name: p.name, weapon: p.weapon, sub: subOf(p.sub), special: specialOf(p.special), style: p.style });
-      if (bots) {
+      if (bots && !coop) {
         while (slot < (boss ? TEAM * 2 : TEAM)) {
           const used = new Set(roster.filter((r) => r.team === team).map((r) => r.weapon));
           const wpn = weapons.find((w) => !used.has(w)) || weapons[slot % weapons.length];
@@ -288,8 +304,11 @@ export class NetSession {
         }
       }
     }
-    // (Zone Control always runs its own 5:00 + overtime, as offline)
-    const cfg = { k: 'start', roster, map: l.map, time: l.time, duration: !boss && l.mode === 'zones' ? ZONES.duration : l.duration, difficulty: l.difficulty, palette: l.palette, mode: boss ? 'boss' : l.mode === 'zones' ? 'zones' : 'turf', host: this.myId, id: Math.random().toString(36).slice(2, 8) };
+    // (Zone Control always runs its own 5:00 + overtime, as offline — versus2 is one; the audits' short one runs 60 s)
+    const lesson = learn ? lessonOf(l.learn) : null;
+    const duration = !boss && (l.mode === 'zones' || l.mode === 'versus2') ? (lesson && lesson.short ? LEARN.versus2.short.duration : ZONES.duration) : l.duration;
+    const cfg = { k: 'start', roster, map: l.map, time: l.time, duration, difficulty: l.difficulty, palette: l.palette, mode: boss ? 'boss' : learn ? l.mode : l.mode === 'zones' ? 'zones' : 'turf', host: this.myId, id: Math.random().toString(36).slice(2, 8),
+      ...(learn ? { learn: { ...lesson, kind: l.mode } } : {}) };
     this.tr.lock(true);
     this.tr.broadcast(cfg);
     this._begin(cfg);
@@ -361,7 +380,8 @@ export class NetSession {
           const l = d.l;
           this.lobby.map = l.map; this.lobby.time = l.time; this.lobby.duration = l.duration; this.lobby.bots = l.bots; this.lobby.difficulty = l.difficulty;
           if (Number.isInteger(l.palette)) this.lobby.palette = l.palette;
-          this.lobby.mode = l.mode === 'boss' || l.mode === 'zones' ? l.mode : 'turf';
+          this.lobby.mode = roomMode(l.mode);
+          if (l.learn) this.lobby.learn = lessonOf(l.learn, this.lobby.learn);
           const prev = new Map(this.lobby.players.map((p) => [p.id, p]));
           this.lobby.players = l.players.map((p) => ({ ...p, host: p.id === this.hostId }));
           for (const p of this.lobby.players) if (!prev.has(p.id)) this._emit('join', { player: p });

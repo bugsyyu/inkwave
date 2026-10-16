@@ -6,7 +6,8 @@ own squidkid locally (instant controls) and streams it to the others, who render
 as a local character, interpolated ~100 ms behind. Ink is replicated splat-for-splat from whoever painted it, so every
 screen shows the same turf.
 
-Transport: one WebSocket per player to a Cloudflare Durable Object relay (`server/`), one room object per code.
+Transport: one WebSocket per player to a Cloudflare Durable Object relay (`server/`), one room object per code — or to
+the Node relay (`server/node/relay.mjs`, below), which speaks the same wire format.
 
 ## `G.net` — the session (src/net/session.js)
 
@@ -18,7 +19,8 @@ G.net.hostId
 G.net.isHost     // boolean
 G.net.error      // last error message (string) or null
 G.net.lobby = {
-  map: 'tidewater', time: 'day' | 'dusk', duration: 180, bots: true, difficulty: 'normal', mode: 'turf' | 'zones' | 'boss',
+  map: 'tidewater', time: 'day' | 'dusk', duration: 180, bots: true, difficulty: 'normal', mode: 'turf' | 'zones' | 'boss' | 'versus2' | 'coop2',
+  learn: { week, day },   // the lesson the two learning modes play (docs/LEARN.md §14)
   players: [{ id, name, team: 0 | 1, weapon, sub, special, style, ready, host, you, ping }],   // stable order: join order
   maxPlayers: 8,
 }
@@ -28,7 +30,8 @@ await G.net.create(name)          // → code; state goes connecting → lobby (
 await G.net.join(code, name)      // rejects with Error('Room not found' | 'Room is full' | 'Match in progress' | 'Could not connect')
 G.net.leave()                     // back to 'offline'
 G.net.setMe({ name, weapon, sub, special, style, ready, team })   // any subset; team: 0 | 1 | 'auto'
-G.net.setSettings({ map, time, duration, bots, difficulty, mode })   // host only (Zone Control always runs 5:00 + overtime)
+G.net.setSettings({ map, time, duration, bots, difficulty, mode, learn })   // host only (Zone Control — and versus2 — always runs 5:00 + overtime)
+G.net.startBlock()                // why the room can't start (a humans-only stage short of players; coop2 without exactly two), else null
 G.net.canStart()                  // host: true when everyone present is ready (host counts as ready)
 G.net.start()                     // host only → state 'starting' for everyone, then 'match'
 G.net.emote(name)                 // 'booyah' | 'wave' | 'dance' | 'flex' — shown on your lobby character for everyone
@@ -98,6 +101,24 @@ snapshots, and each client fills its own players' special gauges.
 **Relay (server/).** One Durable Object per room code: membership, host election, join refusal (unknown / full /
 match running) and blind fan-out of `b|` / `s|to|` payloads. Clients send `"ping"` every 2 s, answered by the runtime
 without waking the room; a sweep drops sockets silent for 10 s during a match (150 s in the lobby).
+
+**Node relay (server/node/relay.mjs).** The same relay as one Node process with a `Map` of rooms, for a server of one's
+own (docs/LEARN.md §10, §14): the Worker's wire format word for word — `b|` / `s|to|` / `m|from|`, `welcome / join /
+leave / err` (close 4000), the host's `lock`, `"ping"` → `"pong"` and `{t:'ping',c}` → `{t:'pong',c}`, 8 players, host =
+the oldest member, the silence sweep (20 s in a match, 150 s in the lobby, close 4001), 64 K characters a message, the
+rate strikes (close 4008), the same origin rule. No dependencies: the RFC 6455 server side (handshake, masking, 16 / 64-bit
+lengths, fragments, ping frames, no extensions) is written on `node:http`. `node server/node/relay.mjs [--port 8787]
+[--host 0.0.0.0]` (`npm run relay-node`); env `RELAY_ORIGINS` adds page origins (`*` = any); rooms answer at
+`/room/<CODE>` and `/relay/room/<CODE>`, health at `/health`. Where the game connects (`relayURL()`, src/net/transport.js):
+`?relay=` first; a page from this machine or the LAN → `ws://<host>:8787` (either relay); the public site and the desktop
+app → the Worker; a page served from any other host → `wss://<that host>/relay` (the Node relay behind the same origin;
+a page from the relay's own host is always allowed). Start, proxy and test: `server/node/README.md`;
+`node --test tests/learn/relay.test.mjs` checks it with real sockets.
+
+**Learning payloads (docs/LEARN.md §14).** The two-player learning modes (`lobby.mode` `'versus2' | 'coop2'`, with
+`lobby.learn = { week, day }`) ride the same envelope: `{k:'l…'}` messages (`ls ld lq la lr lc lg`) are handed by
+NetMatch to `match.learn.onNet(from, d)` (held until `bind()` if they arrive while the match is still loading). The
+host referees, as it does the clock.
 
 **Testing.** `node tools/net-test.mjs` (game on :8490, `cd server && npx wrangler dev --port 8787`) plays real headless
 clients against the local relay and reports consistency (clock, coverage, rosters, results) and what is drawn:

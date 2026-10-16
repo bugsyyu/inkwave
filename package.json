@@ -22,7 +22,8 @@
     "build": "node tools/py.mjs tools/build-dist.py",
     "release": "./tools/release-pages.sh",
     "deploy-relay": "cd server && wrangler deploy",
-    "relay": "cd server && wrangler dev --ip 0.0.0.0 --port 8787"
+    "relay": "cd server && wrangler dev --ip 0.0.0.0 --port 8787",
+    "relay-node": "node server/node/relay.mjs"
   },
   "keywords": [
     "game",

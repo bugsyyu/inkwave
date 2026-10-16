@@ -78,6 +78,7 @@ export class NetMatch {
     // humans-only stage: anyone who left while the match was loading (no NetMatch yet to hear it) is dropped now
     if (mapNoBots(this.cfg.map)) for (const a of [...this.byNid.values()]) if (a.owner !== this.myId && !this.s._members.has(a.owner)) this._remove(a);
     this.unsubs.push(on('match:state', ({ state, match: m }) => { if (m === this.match && this.isHost) this._sendNow({ k: 'st', s: state, t: r2(m.time) }); }));
+    if (this.learnBuf && match.learn?.onNet) for (const [from, d] of this.learnBuf.splice(0)) match.learn.onNet(from, d);
   }
 
   _setupActor(a) {
@@ -217,6 +218,14 @@ export class NetMatch {
       case 'res': if (from === this.s.hostId) this._result(d); break;
       case 'end': if (from === this.s.hostId) G.game?.netMatchEnd?.(); break;
       case 'own': if (from === this.s.hostId) this._ownership(d.map); break;
+      default:
+        // 关卡学习 (docs/LEARN.md §14): the two-player forms' payloads ({k:'l…'}) go to the level; a guest's can arrive while
+        // this client is still building the match — held until bind()
+        if (typeof d.k === 'string' && d.k.charCodeAt(0) === 108 /* l */) {
+          const L = this.match?.learn;
+          if (L && L.onNet) L.onNet(from, d);
+          else if ((this.learnBuf || (this.learnBuf = [])).length < 64) this.learnBuf.push([from, d]);
+        }
     }
   }
 

@@ -221,7 +221,7 @@ export class LearnFlow {
   // ---------------------------------------------------------------------------------------------- auto-walk
   autoWalk(on = true) {
     this.auto = !!on;
-    this.autoPath = null; this.autoK = 0; this.autoStall = 0;
+    this.autoPath = null; this.autoK = 0; this.autoStall = 0; this._autoMove = null;
     if (!on && this.match.local) this.match.local.intent.move.set(0, 0, 0);
     this.hud?.walk?.(null, { auto: this.auto });
     return this.auto;
@@ -229,8 +229,10 @@ export class LearnFlow {
 
   _autoWalk(a, g, dt) {
     const it = a.intent, nav = G.nav;
-    // the player pushing the stick / keys takes control back
-    if (it.move.lengthSq() > 0.04) { this.autoWalk(false); return; }
+    // the player pushing the stick / keys takes control back (not the move this walk set itself: a slow frame — over
+    // 1/45 s — runs the match in two sub-steps, and the second one finds the first one's move still in the intent)
+    const own = this._autoMove && Math.abs(it.move.x - this._autoMove.x) < 1e-6 && Math.abs(it.move.z - this._autoMove.z) < 1e-6;
+    if (it.move.lengthSq() > 0.04 && !own) { this.autoWalk(false); return; }
     if (!this.autoPath) {
       const from = nav.nearest(a.pos, 1.5, true);
       this.autoPath = from >= 0 ? nav.path(from, g.node, 0, 40000, true) : null;
@@ -247,6 +249,7 @@ export class LearnFlow {
     const dx = n.x - a.pos.x, dz = n.z - a.pos.z, d = Math.hypot(dx, dz);
     const k = this.P.autoWalkSpeed;
     if (d > 1e-3) it.move.set((dx / d) * k, 0, (dz / d) * k);
+    this._autoMove = { x: it.move.x, z: it.move.z };
     const edge = this.autoK > 0 && this.autoK < path.length ? nav.edge(path[this.autoK - 1], path[this.autoK]) : null;
     it.jump = !!(edge && edge.type === 'jump' && d < this.P.jumpAhead + 0.8) || (n.y - a.pos.y > 0.45 && d < 1.2);
     it.squid = false; it.fire = false;

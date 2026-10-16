@@ -30,8 +30,8 @@ import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
-import { buildLearn, LEARN_KINDS } from './learn/forms/index.js';
-import { t } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
+import { buildLearn, buildNetLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
+import { t } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -944,13 +944,17 @@ class Game {
   async startNetMatch(cfg, nm) {
     G.audio?.init?.();
     this.menus?.show(null);
+    // 关卡学习 online (docs/LEARN.md §14): versus2 = a Zone Control match with the learn layer, coop2 = a 'learn' match on
+    // the turf stage; every client builds the same level from the same content (a failure here fails the start)
+    const learn = cfg.learn ? await buildNetLearn(cfg.learn) : null;
+    const mode = learn ? learn.mode : cfg.mode;
     await this._fade(1, 350);
     G.music?.stop?.(0.3); this._musicTrack = null;
     this.showcase.hide();
     if (this.match) this.match.dispose();
     G.projectiles.clear(); G.subs.clear(); G.specials.clear(); G.fx.clear?.(); G.paint.clear(); this._clearDeathMarks();
     const map = MAPS.find((m) => m.id === cfg.map) || MAPS[0];
-    await this._buildWorld(map, cfg.mode);   // no-op when this stage (+ mode variant) is already built
+    await this._buildWorld(map, learn ? learn.world : cfg.mode);   // no-op when this stage (+ mode variant) is already built
     const theme = mapTheme(map, cfg.time);
     this.time = cfg.time === 'dusk' ? 'dusk' : 'day';
     if (theme !== this.theme) {
@@ -963,7 +967,7 @@ class Game {
     this.mapDef = map;
     this._setPalette(this.settings.colorblind ? COLORBLIND_PALETTE : TEAM_PALETTES[cfg.palette] || TEAM_PALETTES[0]);
     const m = (this.match = G.match = new Match({
-      attract: false, duration: cfg.duration, difficulty: cfg.difficulty, mode: cfg.mode, CharacterClass: this.CharacterClass, rig: this.rig, input: this.input,
+      attract: false, duration: cfg.duration, difficulty: cfg.difficulty, mode, learn, CharacterClass: this.CharacterClass, rig: this.rig, input: this.input,
       roster: cfg.roster, myId: G.net.myId, host: G.net.isHost, autopilot: params.has('autopilot'),
     }));
     m.setup();
@@ -974,6 +978,7 @@ class Game {
     G.mode = 'match';
     this.hud?.setVisible(false);
     this.hudPrompt = null; this._hintT = 0; this._hints = {};
+    this.hud?.setPractice?.(!!(m.learn && m.solo));   // (coop2 has no clock: the learn layer writes the day on the timer)
     // hold on the stage (not black) while the others finish loading
     if (m.local) { this.rig.follow(m.local, true); this.rig.yaw = m.local.team === 0 ? 0 : Math.PI; }
     this.rig.dioFlip = !!(m.local && m.local.team === 1);
@@ -992,6 +997,7 @@ class Game {
     if (!m || m.state !== 'init') return;
     this.input.requestLock();
     m.start();
+    if (m.solo) this.hud?.setVisible(true);   // coop2: no intro, straight in (like an offline level)
   }
   // results done → everyone back in the room's lobby
   async netMatchEnd() {
@@ -1191,6 +1197,7 @@ class Game {
       xp: { gained, levelBefore: before.level, levelAfter: p.level, xpBefore: before.xp, xpAfter: p.xp, xpToNextBefore: before.toNext, xpToNextAfter: PROGRESSION.xpForLevel(p.level), ...(xpParts ? { parts: xpParts } : {}) },
       mapName: this.mapDef.name,
       ...(zr ? { mode: 'zones', zones: zr } : {}),
+      ...(m.learn && m.learn.resultsData ? { learn: m.learn.resultsData() } : {}),   // 双人联机赛: who inked first, who answered right
     };
     // your team on the podium
     const team = m.actors.filter((a) => a.team === myTeam);

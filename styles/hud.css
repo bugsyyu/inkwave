@@ -1420,6 +1420,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 .iw-learn__form.is-flipped .iw-learn__rate { display: flex; }
 .iw-learn__rate .iw-learn__btn.is-picked { outline: 3px solid #fff; outline-offset: 2px; }
 .iw-learn__rate .iw-learn__btn:disabled { opacity: .7; cursor: default; }
+/* 双人合作 (coop2): the clue half — no form; what to tell the partner */
+.iw-learn__form.is-clue { display: block; }
+.iw-learn__clue { padding: 12px 14px; border-radius: 14px; border: 2px dashed rgba(255, 255, 255, .28); color: #fff; font-size: 16px; font-weight: 700; line-height: 1.45; }
 /* choice: the English on top, its Chinese under it once answered */
 .iw-learn__form.is-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .iw-learn__opt {

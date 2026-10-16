@@ -6,6 +6,15 @@
 
 ## 2026-10-16
 
+### 02:15 F 工作流交付：Node 中继 + 双人联机赛 versus2 + 双人成形合作赛 coop2（分支 `learn-f`，LEARN §14）
+
+- **先读了什么**：LEARN 全文（§5 模块边界、§10 联机、§13 E 交付）、NET.md、EVENTS.md、`server/src/index.js`（Worker 的线协议）、`src/net/*`（session / transport / netmatch 的 `onMessage`、`sendResult`、房主迁移）、`src/learn/forms/*`（对抗赛的 `zonePlan().hotspot` + `paint.flood`、`common.js` 的纯函数）、`flow.js`、`hud-learn.js`、`match.js` / `main.js` 的联机路径（`startNetMatch`、`netMatchGo`、`_judge`）、`zones.js`（`netEvent`、`_end` 的 `ze`）、`menus.js` 的房间屏和结算屏、`tools/net-test.mjs` / `play.mjs` / `chrome.mjs`。
+- **先定的**：中继手写 WebSocket（全局 NODE_PATH 里没有 `ws`，不 `npm install`）；versus2 就是一局 INKWAVE 的 Zone Control（`mode 'zones'` + 学习层），不另造一种局——开场、规则、HUD、加时、裁判、结算原样；coop2 走 B 的解谜舞台（`mode 'learn'`、solo、两个人一队）；房主当学习的裁判（和钟、区域一样），学习负载走同一个信封（`{k:'l…'}`）；`paint.flood` 不走复制，所以墨由房主定点、每个屏幕自己涂；「先答对」按各自屏幕上的用时比（房主到自己是零延迟）。
+- **改了什么**：见 LEARN §14（中继、房间、负载、两种模式的规则、纯函数、B / E 文件里的改动、测试、实测、拿不准的、没做的）。提交：中继 → versus2 竖切片 → coop2（含 B 自动走的修）→ 文档。
+- **路上踩到的**：① 两个浏览器连上后都被中继踢掉——不是中继错：步进时一次 `evaluate` 跑 30 帧，页面主线程堵住，ping 发不出去，20 s 静默按规矩踢；改成 4 帧一块。② 还是踢——加了中继的踢人日志才看清：比赛的**第一次 `paint.flush` 在每个页面卡 ~48 s**（SwiftShader，换不换舞台都一样，`--profile` 量出来 46.8 s 全在 `paint.flush`），中继给这台机器起成 `--silent-match 150000`（默认仍是 Worker 的 20 s）。③ 步进比实时快时一个客户端每秒发一百多个 tick，会撞中继的 90 条 / 秒——限成最多 2 倍实时。④ 页面在菜单里没冻结时，背景的 4v4 演示局让大厅的轮询都等超时——开机就冻结，建房、开局、建关、ready / go 都只靠消息和定时器。⑤ INKWAVE 的裁判动画跑在 HUD 自己的 rAF 时钟上，GPU 被占满时几乎不走——结束后用它自带的调试倍速 `hud.timeScale`。⑥ coop2 两个人一步都不走：B 的自动走在一帧 > 1/45 s 时（局面分两个子步）把自己上一个子步写的移动当成「玩家推了摇杆」关掉了——慢手机上也会，修在 `flow.js`。⑦ 墨垫在 halyard 的回头坡上两块挨着（不同高度）——`padsApart` 认「隔一层楼」也算分开，退回路线上时再往前找。
+- **验证**：`npm run test:learn` 59 / 59、`npm run check` 206 文件绿；两个 headless 浏览器（都在 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10` 里，一次一个、每次 ≤ 3 分钟）：versus2 8 / 8（建房 78 s、两人进关 83 s、同一道题相隔 15 ms、第 1 题访客按自己的时钟快 1.5 s 拿到墨、第 2 题房主、两边份额一样、各自的首答、两边结算带学习条 158 s）；coop2 全过（墨垫 129 s、5 题全拆两半、答错换人、两道门两边都开、结果卡 165 s）；大厅 6 / 6（MODE 箭头、「课」一行两边一致、coop2 的锁和两人规则）；截图看过都删了；三次都没有控制台错误。前面十几次没跑完的都是上面那几条坑。
+- **没做的**：见 LEARN §14 末尾（docker-compose、墨罐共用、迁移时正在问的题、机器人填位 / 断线 / 迁移没实测、手机竖屏）。没推、没 `npm install`（`node_modules` 是指向 B 工作树的软链，被 `.git/info/exclude` 挡着）。
+
 ### 02:10 H 工作流交付：录音接入、进度并进她的证据、iPhone / WKWebView 下的稳妥（分支 `learn-h`，LEARN §16）
 
 - **先读了什么**：LEARN §2 / §5 / §8 / §13，`src/learn/*.js`、`vendor/ielts/model.js`（`mergeDoc`、`validLeaf`、`answers` 取当天最早的）；IELTS-Base 的 `app/index.html`（`Clips`：`index.json` → `[分片, 偏移, 长度]`、`at()` 的查法、`plan()` 的「每段都有才放」、`<audio>` 优先的理由、`CLIP_SILENT` 解锁；`LOCAL_KEY` / `localBlob()` / `S.base`；`tzPlace()` 默认新加坡），`app/base/core.js`（`record` 的 `hasEvOn`、`mergeDoc`、`DERIVED_V = 2`），`app/sync.js`（`pendingChanges` 对每篇算摘要），`ios/IELTSBase/SchemeHandler.swift`（单段 Range、206、MIME 表）、`WebView.swift`（`mediaTypesRequiringUserActionForPlayback = []`、默认数据存储、非首页开侧滑），`docs/native-integration.md` §5 / §7。没打开 `app/my-progress.*`；测试和浏览器里用的都是编出来的工作台。

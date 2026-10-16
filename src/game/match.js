@@ -23,9 +23,12 @@ export class Match {
     this.learn = null;             // LearnFlow (learn mode), built in setup() once the stage and the actor exist
     // the learning form (docs/LEVELS.md §2): puzzle (solo) · race (solo + 3 racer bots, no brains) · duel (4v4 on the
     // zones rules) · boss (her + 3 squad bots vs HULLBREAKER); the form's flow class comes in opts.learn.Flow
-    this.learnKind = this.mode === 'learn' ? (opts.learn.kind || 'puzzle') : null;
-    // solo: one squidkid's side, no enemies, no clock — practice, a puzzle level, a race (its bots are team-mates)
-    this.solo = this.practice || (this.mode === 'learn' && (this.learnKind === 'puzzle' || this.learnKind === 'race'));
+    // (online, docs/LEARN.md §14: versus2 is a Zone Control match with the learn layer on it — mode 'zones', learnKind
+    // 'versus2'; coop2 is mode 'learn' with both players on one team)
+    this.learnKind = this.mode === 'learn' ? (opts.learn.kind || 'puzzle') : this.mode === 'zones' && opts.learn && opts.learn.kind === 'versus2' ? 'versus2' : null;
+    // solo: one squidkid's side, no enemies, no clock — practice, a puzzle level, a race (its bots are team-mates), the
+    // two-player co-op level
+    this.solo = this.practice || (this.mode === 'learn' && (this.learnKind === 'puzzle' || this.learnKind === 'race' || this.learnKind === 'coop2'));
     this.duration = opts.duration || (this.mode === 'zones' ? ZONES.duration : this.mode === 'boss' ? BOSS_MODE.duration : MATCH.defaultDuration);
     this.zones = null;             // ZoneControl (Zone Control mode)
     this.time = this.duration;
@@ -146,6 +149,8 @@ export class Match {
       this.unsubs.push(on('turf', (e) => this._zoneTurf(e)));
     }
     if (this.mode === 'boss') { this.bossMode = new BossMode(this); this.boss = this.bossMode.boss; }
+    // the two-player learning forms (versus2 / coop2): the same flow on every client; the host referees (src/learn/forms)
+    if (this.learnKind && o.learn && o.learn.Flow) this.learn = new o.learn.Flow(this, o.learn);
   }
 
   // Zone Control: ink laid while standing on (or aiming into) the live zone counts as objective play (results / XP)

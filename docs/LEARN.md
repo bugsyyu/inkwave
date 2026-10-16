@@ -171,6 +171,53 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 
 **没做的 / 要主会话过目的**：绕路第一版是等 8 秒不是长道；对抗赛的「1 minute left!」/ 倒数是 INKWAVE 自己的英文横幅；Boss 的音乐导演（`bossAudio.js` 只认 `match.mode === 'boss'`）在学习局里不起、吼声 / 脚步照有；Boss 第二版的 `sched.plan + gen.render` 场景题和估分没做；复习日的快闪翻牌（F 方式）仍按卡片打字问；写字墙 / 回声亭 / 打卡垫作为路标还没有 3D 位置（结果卡上也没列）；写句（W 段）用的是单行输入框；机器人在舞台楼梯上的卡住用「1.6 秒不动就跳 + 下一个节点」兜底。
 
+## 14. F 交付（2026-10-16，分支 `learn-f`：Node 中继 + 双人联机赛 `versus2` + 双人成形合作赛 `coop2`，§10 的落地）
+
+**中继**（`server/node/relay.mjs`，零依赖）：和 Cloudflare 版（`server/src/index.js`，留着没动）一字不差的线协议——`b|` / `s|to|` / `m|from|`、`welcome / join / leave / err`（关 4000）、房主的 `lock`、`"ping"` → `"pong"` 和 `{t:'ping',c}` → `{t:'pong',c}`、8 人、房主 = 最早进来的、静默踢人（比赛 20 s / 大厅 150 s，关 4001）、单条 64 K 字符、速率三振（关 4008）、同一条 Origin 规则。**为什么手写 WebSocket**：全局 `NODE_PATH`（`/opt/node22/lib/node_modules`）里没有 `ws`，仓库不 `npm install`；于是握手、掩码、16 / 64 位长度、分片重组、ping 帧回 pong、不协商扩展都写在 `node:http` 上（~200 行），业主的服务器只要 `node`。一个进程、一个 `Map` 的房间（空了就删）。加项：`/relay/room/<CODE>`（反向代理后的同源路径）、`RELAY_ORIGINS`（再加页面来源，`*` = 都行）、中继自己的 host 发来的页面总是放行、`--silent-match` / `--silent-lobby`（默认就是 Worker 的 20 s / 150 s，只给页面真会卡那么久的机器用——这台没有 GPU 的容器就是）、踢人时打一行日志。
+- **怎么起**：`node server/node/relay.mjs [--port 8787] [--host 0.0.0.0]`（`npm run relay-node`）；`server/node/README.md` 一段：怎么起、nginx `location /relay/` 片段、`?relay=`。
+- **客户端怎么指过去**（`src/net/transport.js relayURL()`）：`?relay=` 照旧最优先；本机 / 局域网照旧 `ws://<host>:8787`（Node 中继起在 8787 就直接能用）；公开站点（`*.pages.dev`）、Vercel（`*.vercel.app`，`tools/release.sh`）、GitHub Pages 和桌面版照旧连 Worker；**其它 host（业主自己的服务器）连 `wss://<host>/relay`**。
+- 没做：§10 说的 `deploy/` 里和 IELTS-Base 同步服务器一起的 docker-compose——README 里只有 nginx 片段。
+
+**房间**（INKWAVE 的大厅原样，只加项；`src/net/session.js`、`src/ui/menus.js`）：`lobby.mode` 多 `'versus2' | 'coop2'`（session 里四处原来把不认识的模式变成 `'turf'` 的地方都认了）；`lobby.learn = { week, day }`（房主在「课 · LESSON」一行选：第 1–3 周 · 第 1–7 天，只在两种学习模式出现，跟着大厅广播；`short` 是审计的短局）；MODE 箭头多两种，名字中文（「双人联机赛」「双人合作赛」，§1.4）；`coop2` 像 Boss 一样锁住队伍（大家一边）和机器人；`versus2` 的时长锁成 Zone Control 的 5:00；`startBlock()`：`coop2` 不是正好两个人就不能开（「双人合作赛要两个人：把房间码发给另一个人」），`versus2` 一个人也能开（和机器人打）。开局的 `start` 记录多 `learn: { week, day, kind, short }`；每个客户端在 `main.startNetMatch` 里用同一份课程内容建同一关（`forms/index.js buildNetLearn`：`versus2` = 当天的对抗赛计划、`coop2` = 当天的解谜计划；舞台是大厅选的，不是计划里的）。
+
+**线上的学习负载**（同一个信封，`{k:'l…'}`；`NetMatch` 交给 `match.learn.onNet(from, d)`，比赛还在建时先存着、`bind()` 时交）：`ls` 题队列（房主 → 大家：迁移后的新房主照着接着出）· `ld` 访客的到期条目 → 房主 · `lq` 出题（`q, i, id, alt, n, total, sec`；coop2 多 `g, clue, hands`）· `la` 作答（versus2 → 房主：`ok, ms, none`；coop2 → 大家：`ok, why, canonical, first`）· `lr` 谁的墨、涂在哪（versus2：`win, by, name, z, at, r`）· `lc` 关题（versus2：`res: [[pid, 1|0|-1]…]`）· `lg` 门的状态（coop2：`ask / open`）。都是房主当裁判，和钟、区域一样。
+
+**`versus2` 双人联机赛**（`src/learn/forms/versus2.js`；`Match.mode` 就是 `'zones'`，`learnKind: 'versus2'`——INKWAVE 的开场飞镜头、Zone Control 规则、HUD、加时、击倒、裁判、结算全照用，学习层叠在上面）：
+- 题：当天对抗赛计划的门**轮流**取（不会只出前两步），前面先放两个人**合并后的到期条目**（`duo.js mergeDue`：按位置比例交错，谁的到期列表长谁的题多，同一条只出一次；最多一半），一局 12 题（短局 2 题）。
+- 同一道题（`lq`）同时出给两个人；每个人在自己的屏幕上答，**首答进自己的 store**（`recordFirst({ item, ok, pct })`，不计分的 store 自己拒）。
+- **先答对**按每个人「题出现在自己屏幕上起」的用时比，房主收到第一个对的答案后等 0.4 s 宽限（房主到自己是零延迟，按到达先后它就总赢）；赢的那边：房主取那一边最缺的地方（`zonePlan().hotspot`，对抗赛的同一套）、按连对算半径（`duelFlood`），广播 `lr`，**每个屏幕自己 `paint.flood`**（flood 不走复制）；答对的人特殊 +15、头上冒 INKWAVE 自己的「YEAH!」（`G.specials.cheer`）、连对 3 / 5 的庆祝照对抗赛；**答错掉三成墨罐**（§4 的「答错的掉墨」）。慢的那个人照样答完（自己的证据），对面先答对时只告诉他「X 先答对了」，不露答案。
+- 没有人的那一边（一个人开、机器人填）用机器人的骰子（`BOT_ANSWER`，对抗赛那一套）答；没开机器人就没人跟他抢。
+- 都答完或到时间（选择 20 s / 打字 30 s）关题（`lc`），没人答对的换个问法再来一次；3 s 后下一题。题出完房主按区域计数叫停（`Z._end(…, 'answered')`，跟着 `ze` 记录到每个屏幕）；击倒、时间 + 加时照 INKWAVE 先结束也行。
+- 结算：INKWAVE 自己的 VICTORY / DEFEAT、区域计数、原因「题都答完了 · 区域领先」，下面一条「双人联机赛 · 第 n 周第 d 天 · k 题」：每个人先答对几题、答对几 / 几，和「你的当天首答 n 题（答对 m），记进了这台设备上你自己的进度」。
+
+**`coop2` 双人成形合作赛**（`src/learn/forms/coop2.js`，继承 B 的 `LearnFlow`：同一条路线上的门、门环 / 锁 / 光柱、墨路、自动走、换问法、结果卡；`Match.mode 'learn'`，两个人都在 0 队，没有敌人、没有钟）：
+- **两块墨垫**：每道门在路线两侧各一块（`padNodes`：门所在节点横向 2.4 m，贴到导航图上；太窄——桥、楼梯、墙边、水边——就放在路线本身门前门后，回头坡上再往前，保证两块分得开）；房主看两个人的位置，两块都有不同的人站着 0.4 s → 广播 `lg ask`，两边同时开始出题。自动走会把你带到你自己那块（房间的进人顺序：房主 0 号、另一个 1 号）。
+- **题拆两半**（`splitPrompt`）：一个屏幕是「线索」——题干、中文、▶ 录音，**没有作答**（「你听得到：把听到的念给队友（一个字母一个字母拼也行），队友来打字」「你看得到题目：讲给队友听，队友来选」）；另一个屏幕是「作答」——输入框 / 选项，**没有录音、没有题干、没有中文**（「队友听得到录音：听队友说，把它打出来」）。角色每题互换。作答的人判分，判定（对错、为什么、正确写法）两边同时显示。
+- 答错：门上一道锁，这道题换个问法排回队尾，**交给另一个人答**；再错照 B 的规矩给答案走人。门的题都过了 → 两边同时开门，**只有房主倒墨路**（它的 splat 走复制，两边都看得到；两边都倒就是两遍）。
+- 证据：**每台设备只记它自己的人亲手作答的那题**（作答的一方；角色互换，一道门下来两个人都有首答，各记各的 store）。
+- 最后一道门 → B 的结果卡两边都出：「两个人一起走完了！」、两个人一起答对几 / 几、你来答的几 / 几、你讲给队友的几题、你的首答；房主的「回到房间」（30 s 后自己回），访客「等房主回房间」，「离开房间」。队友中途离开 → 「队友离开了房间 · 双人合作要两个人」，直接结果卡。
+
+**纯函数**（`src/learn/forms/duo.js`，Node 能跑）：`mergeDue · spreadGates · buildQueue · canRequeue · answerTime · Referee（open / answer / leave / tick → ink / close）· settle · tally · rolesFor · splitPrompt · padSpots · padNodes · padsApart · padsHeld · LEARN_WIRE · validQ`。数字在 `config.js LEARN.versus2 / LEARN.coop2`。E 的 `common.js`（`botRoll`、`duelFlood`、`streakKind`、`judgeAnswer`、`rightAnswerOf`、`shortenLevel`）和 `duel.js` 的 `zoneCellsXYZ`（改成导出）直接复用。
+
+**B / E 的文件里改了什么**：`flow.js` 自动走 3 行（一帧超过 1/45 s 时局面分两个子步，第二个子步把第一个子步自己写的移动当成玩家推了摇杆、把自动走关了——慢手机上也会；现在记住自己写的移动）；`hud-learn.js` 认一种 `type: 'clue'` 的卡（没有作答，只有一行说明）；versus2 把 B 加在触屏层上的 `is-learn` 去掉（那个类藏了开火 / 副武器 / 特殊 / 欢呼四个键——单人关卡里答题是唯一的动作，可 versus2 是一局真的 Zone Control；E 的单人对抗赛照旧藏着）；`duel.js` 一个 `export`。`match.js`：`learnKind` 认 `versus2`（mode `zones`）/ `coop2`（单人式 solo），`_setupRoster` 末尾按 `o.learn.Flow` 建学习层；`netmatch.js`：`l…` 负载路由 + 缓冲；`main.js`：`startNetMatch` 建关、`netMatchGo` 对 solo 直接亮 HUD、`_judge` 把 `learn` 数据交给结算。
+
+**测试**：`npm run test:learn` 59 / 59（原来 43 + `relay.test.mjs` 8 条：HTTP 路由、建房 / 进房 / 拒绝、转发、锁房 / 满员 / 房主迁移、Origin、静默 / 超长 / 刷屏、手写帧、可配的静默时限——真 socket、Node 自带的 WebSocket 客户端；`duo.test.mjs` 8 条：合并到期 / 题队列、裁判（按自己用时不按到达、宽限、骰子、超时、离开）、结算、拆题（作答那边看不到要答的英文）、墨垫在夹具和 **7 张真舞台**的导航图上）；`npm run check` 206 个文件绿。
+
+**两个 headless 浏览器的实测**（`node tools/learn/net-duo.mjs --mode versus2|coop2 [--lobby]`：自己起 Node 中继和文件服务，两个 Chromium，`?quality=low`、阴影 / 泛光关、400 × 225；都在 `flock /tmp/ielts-browser.lock` 里一次一个，每次 ≤ 3 分钟）：
+- 这台机器没有 GPU：两个浏览器同时开机 72–80 s；比赛的**第一次 `paint.flush` 在每个页面上卡 ~48 s**（SwiftShader，换不换舞台都一样）——所以页面开机后就冻结（建房、开局、建关、ready / go 只靠消息和定时器），比赛按 1/24 s 一帧分小块步进（不超过 2 倍实时：一个步进的客户端每模拟 1/20 s 发一个 tick，中继限速 90 条 / 秒），中继起成 `--silent-match 150000`；INKWAVE 的裁判动画走 HUD 自己的 rAF 时钟，结束后把它的调试倍速（`hud.timeScale`）开到 25。前几次没有这些时，中继按规矩把两个卡住的页面踢了（日志「timed out (silent 24 s)」）——中继是对的。
+- **versus2**（第 1 周第 1 天短局，1 对 1 不开机器人）：建房 78 s（两人同房、访客看到 `versus2 · w1d1`）→ 两人进关 83 s（同一关、两个角色、0 / 1 队）→ 同一道题（`s:iː`，选择）两边相隔 15 ms 出现 → 第 1 题访客先答（按自己的时钟快 1.5 s），房主后答但先到裁判——**墨归访客** → 第 2 题房主答对、访客答错 → 墨归房主 → 两边区域份额一样（`[0.092, 0]`）→ 题答完房主叫停（`answered`，平手按份额判给 0 队）→ 两边 INKWAVE 的结算 + 学习条（「Ann 先答对 1 · 答对 2 / 2；Bo 先答对 1 · 答对 1 / 2」）158 s；两边的首答各进各的 `ev-2026-10-12`；无控制台错误。
+- **coop2**（同一天，两道门各两题）：两人自动走到各自的墨垫（129 s，前面那 48 s 是 flush）→ 房主宣布、两边同时出题 → 5 题全部拆成两半（线索那边没有作答、有录音的题录音只在线索那边；作答那边 4 个选项、没有录音）→ 第一题作答的人答错 → 两边都显示判定、门上一道锁 → 换个问法交给另一个人答对 → 两道门两边都开 → 两边的结果卡（165 s）；首答各记各的（3 / 2 条）；无控制台错误。
+- **大厅**（`--lobby`，800 × 450）：两边都是 INKWAVE 的房间屏；房主点 MODE ▶ 三下到「双人联机赛」→ 两边的 MODE 都变、「课 · LESSON」一行出现（只在学习模式）、时长锁成 5:00 + OVERTIME；房主在自己屏幕上点「第 2 周」「3」→ 访客的大厅数据和屏幕都是第 2 周第 3 天；再 ▶ 到「双人合作赛」→ 两边队伍和机器人都锁住、两个人可以开；访客走了 → 房主的「开始」变成「双人合作赛要两个人：把房间码发给另一个人」。截图看过后删了（窄屏上「课」一行的 7 个天数按钮挤，能点）。
+
+**拿不准、按 §1 的顺序自己定的**：
+1. coop2 的「两个人都答过才算当天首答，各记一份」：按 §1.2（证据就是内容）定成**每台设备只记自己亲手作答的题**，角色每题互换、答错换人再答，一道门下来两个人都有首答；没有把「线索」那一方也记一份（他没有作答）。要「两个人每题都记」就得每题问两遍（各当一次作答）。
+2. versus2 的「答错的掉墨」照 §4 做成掉三成墨罐（LEVELS §0 的「不惩罚」管的是学习，墨罐是游戏的）；不动证据。
+3. versus2 就是一局 INKWAVE 的 Zone Control（5:00 + 加时，击倒照样结束），题答完就按计数叫停；没有像单人对抗赛那样一门一轮、轮间备战板（两个人的房间没法停钟等一个人看板）。
+4. 先答对按「各自屏幕上的用时」比 + 0.4 s 宽限，用时是客户端自己报的（朋友之间，不防作弊）。
+5. 线上的两种用大厅选的舞台，不用当天计划的舞台；versus2 用当天的对抗赛计划出题、coop2 用当天的解谜计划。
+
+**没做的**：`deploy/` 的 docker-compose；coop2 的**墨罐共用**（§4 表里「一个人喷光了另一个人得去充」）；coop2 的「一个人看中文、另一个人看英文」只按题目自带的方向拆（中→英的题线索那边是中文、作答那边是英文选项；没有另做一套英→中）；versus2 在房主迁移时丢掉正在问的那一题（新房主从下一题接着出）；两种模式都只在 1 对 1 / 2 人测过，没测机器人填位的 versus2、断线、房主迁移；手机竖屏没截图；Electron 版照旧连 Worker。
+
 ## 15. G 交付（2026-10-16，分支 `learn-g`：游戏壳中文化 + 学习关的收尾打磨）
 
 **中文化**（业主今天发版，先做的这一条）：

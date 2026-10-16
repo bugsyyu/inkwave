@@ -4,15 +4,22 @@
 
 export const PROTO = 1;
 
-// Where the relay lives: ?relay=… wins; a page served from this machine or the LAN talks to a local `wrangler dev`
-// relay on :8787; the public site talks to the deployed Worker.
+// Where the relay lives: ?relay=… wins; a page served from this machine or the LAN talks to a local relay on :8787
+// (`wrangler dev`, or the Node relay: node server/node/relay.mjs); the public site and the desktop app talk to the
+// deployed Worker (so do pages on the static hosts below); a page served from any other host (the owner's own server,
+// docs/LEARN.md §10) talks to the Node relay behind the same origin at /relay (wss://<host>/relay/room/<CODE>).
 export const PROD_RELAY = 'wss://inkwave-net.inkwave.workers.dev';
+// static hosts that cannot run a relay of their own (the game's Cloudflare Pages site, the Vercel deploy of
+// tools/release.sh, GitHub Pages): their pages keep talking to the Worker
+const PROD_PAGES = /(\.pages\.dev|\.vercel\.app|\.github\.io)$/;
 export function relayURL() {
   const q = new URLSearchParams(location.search).get('relay');
   if (q) return q.replace(/\/$/, '');
   const h = location.hostname;
   const local = h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(h) || h.endsWith('.local');
-  return local ? `ws://${h}:8787` : PROD_RELAY;
+  if (local) return `ws://${h}:8787`;
+  if (!/^https?:$/.test(location.protocol) || !h || PROD_PAGES.test(h)) return PROD_RELAY;
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/relay`;
 }
 
 // Debug: simulate a real connection on localhost — ?netlag=ms (extra one-way delay on everything received),
