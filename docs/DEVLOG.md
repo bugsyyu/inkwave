@@ -6,6 +6,15 @@
 
 ## 2026-10-16
 
+### 07:15 I 工作流交付：App 里竖着拿手机能走到的每一屏（分支 `learn-i`，LEARN §17）
+
+- **先读了什么**：LEARN 全文（§1 原则、§14–§16 的「没做的」）、DEVLOG 10-16 的四条；`menus.js` 的屏系统、`touch.js` 的竖屏门、`showcase.js` 的取景、`session.js` 的房间；IELTS-Base `app/exam/ui.js` 的 claim、`app/exam/sched.js` 周报里的「自评」、gen.js 的 `claimable`（只读，没碰 `app/my-progress.*`）。
+- **先定的**：主会话定了 App 里藏「对战」；I 把它做成一个开关（`LEARN.appLearnOnly`），连装备页的「练习」、房间的三种对战模式一起收，只在 `from=app` 且中文界面时生效。每屏用一个脚本量，不靠截图目测：真触屏点进去、动画走完、量 44 pt / 被盖 / 出屏 / 裁字 / 折行、用屏自己的返回键回去。
+- **改了什么**：见 LEARN §17——联机 hub / 房间 / 武器抽屉 / 表情 / 装备 / 换装 / 结算 / 联机暂停的竖屏版式和中文（字典 502 → 862 条）、手机上能输房间码、机器人中文昵称、竖屏 HUD（钟不再被门条压、触屏上排键 ≥ 44 pt、出题时触屏层不活）、写句的「我的写法也对」（`S`）、审计脚本。提交 10 个：开关 + 审计 → hub / 码 → 房间 / 装备 / 换装 → 结算 / 暂停 / HUD → versus2 组 → 「我的写法也对」→ 审计横屏开关 → `?lang=en` 不跟开关 → 关卡收尾 → 文档。
+- **路上踩到的**：① 手机上**进不了别人的房间**——房间码格子是听实体键盘的 `<span>`，点了不弹键盘；盖了一个透明的真输入框。② 换装屏点格子报 `t is not a function`：参数名把 `t()` 盖住了（G 的字典进来以后才会炸）。③ 审计里的假象，都改在脚本里、不改游戏：入场动画没走完时按钮量出来是 0；`extra` 在量之前求值，钟量在 HUD 落下来之前（y = −19）；触屏层是在放开题卡的**下一帧**开的，紧接着量就是「没活」；versus2 的 HUD 开场是 3 秒墙钟、两倍速步进时一直藏着。④ Boss 的写句近似答案不好凑：在页面里拿 `engine.js` 对第 1 周 30 句做删词 / 换词，30 / 30 都有 `claimable` 的变体。⑤ 容器 05:00 前后重启过一次，没提交的改动检查后照常提交。
+- **验证**：`npm run test:learn` 82 / 82（+ `claim.test.mjs` 3 条、i18n 扫描多盖 8 个方法和一条「对照表一项不少」），`npm run check` 212 个文件绿。headless 都在 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10` 里、一次一组、每组 ≤ 3 分钟（`/opt/pw-browsers/chromium`、`?quality=low`、阴影 / 泛光关、模拟时钟）：390×844 触屏 8 组（menus、kit、online、room、zone、level、versus2——真起一个本地中继开房、对机器人打完到结算再回房间、boss——真点一次「我的写法也对」记 `[1, 'S']`、真跳过一次记 `[0, 'W']`），表在 LEARN §17，每屏进得去、回得来、溢出 0、最小目标 ≥ 44；`--lang en` 一组；1280×720 桌面横屏（`--web --desktop`）联机两屏。截图和日志看完删了。
+- **没做的**：清单第 4 项（coop2 共用墨罐、房主迁移时正在问的那题）没做——要两个客户端才验证得了，接手的位置写在 §17；访客那一侧、对的房间码、点「开始」、coop2 开局后的竖屏、真 iPhone 键盘只代码审过。没推、没 `npm install`（`node_modules` 是指向 learn-b 的软链，被 exclude 挡着）。
+
 ### 02:15 F 工作流交付：Node 中继 + 双人联机赛 versus2 + 双人成形合作赛 coop2（分支 `learn-f`，LEARN §14）
 
 - **先读了什么**：LEARN 全文（§5 模块边界、§10 联机、§13 E 交付）、NET.md、EVENTS.md、`server/src/index.js`（Worker 的线协议）、`src/net/*`（session / transport / netmatch 的 `onMessage`、`sendResult`、房主迁移）、`src/learn/forms/*`（对抗赛的 `zonePlan().hotspot` + `paint.flood`、`common.js` 的纯函数）、`flow.js`、`hud-learn.js`、`match.js` / `main.js` 的联机路径（`startNetMatch`、`netMatchGo`、`_judge`）、`zones.js`（`netEvent`、`_end` 的 `ze`）、`menus.js` 的房间屏和结算屏、`tools/net-test.mjs` / `play.mjs` / `chrome.mjs`。
