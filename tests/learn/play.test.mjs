@@ -75,7 +75,7 @@ test('layoutTargets: four word balls on a phone held upright (2 × 2 round her),
   }
 });
 
-test('layoutTargets: a 54-character label makes banners — stacked one per row both ways, wrapped, inside the safe area, never under 14 px', () => {
+test('layoutTargets: a 54-character label makes banners — planks of the atlas\'s width, one per row upright, side by side round her on its side, inside the safe area, never under 14 px', () => {
   assert.ok(isBanner(LONG) && !isBanner(WORD) && !isBanner(QUIZ3));
   assert.ok(isBanner([{ text: 'Monday and Wednesday', zh: '周一和周三' }]), '13+ English characters');
   assert.ok(isBanner([{ text: '/ɒv/，读得很清楚', zh: '' }]) === false && isBanner([{ text: '又轻又短又快又弱的音', zh: '' }]), '9+ Chinese characters');
@@ -85,9 +85,9 @@ test('layoutTargets: a 54-character label makes banners — stacked one per row 
     assert.equal(L.kind, 'banner', name);
     checkLayout(name + ' banners', L, S, 3);
     assert.ok(L.font >= 14, `${name}: font ${L.font}`);
-    for (let k = 1; k < 3; k++) assert.ok(L.items[k].y >= L.items[k - 1].y + L.items[k - 1].h, `${name}: stacked, one per row`);
+    if (S.W < 500) for (let k = 1; k < 3; k++) assert.ok(L.items[k].y >= L.items[k - 1].y + L.items[k - 1].h, `${name}: a phone held upright stacks them, one per row`);
     assert.ok(L.items.every((it) => it.lines >= 2), `${name}: both lines on every plank`);
-    if (S.W < S.H) assert.ok(L.items.every((it) => it.w >= S.safe.w * 0.5), `${name}: upright a plank is wide`);
+    assert.ok(L.items.every((it) => it.w >= LEARN.m1.bannerW * 0.8 && it.w <= LEARN.m1.bannerW + 0.5), `${name}: the atlas's plank, at most a little smaller`);
   }
 });
 
@@ -263,7 +263,7 @@ test('one label atlas per gate: a gate\'s distinct labels, shelf-packed into at 
   for (const n of [1, 2, 3]) {
     const w = await loadWeek(n);
     for (const d of w.days) for (const g of planDay(w, d.n, 'puzzle').gates) {
-      const labs = gateLabels(g.items, prompt, can, 340);
+      const labs = gateLabels(g.items, prompt, can);
       if (!labs.length) continue;
       const P = fitAtlas(labs);
       assert.ok(P.fits && P.w <= LEARN.m1.atlasMax && P.h <= LEARN.m1.atlasMax, `w${n}d${d.n} ${g.id}: ${labs.length} labels fit (${P.w}×${P.h} at ${P.scale})`);

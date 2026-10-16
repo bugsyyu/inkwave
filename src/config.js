@@ -675,12 +675,12 @@ export const LEARN = {
   m1: {
     bannerEn: 12, bannerZh: 8,  // a label longer than this many English / Chinese characters makes the whole item banners (PLAY §4)
     bannerMax: 3,             // at most this many banners (no banner item in the courses has more options)
+    bannerW: 340,             // px: a banner plank's width on screen (its text wraps to it once, in the gate's atlas; upright one per row)
     ball: 0.55,               // m: the ball's radius at its ideal distance (the layout's pixels set the depth, then this)
     near: 3, far: 8.5,        // m past the camera boom the targets may float: within her shot (shooter range 12.5 m)
-    clear: 0.35,              // m a target keeps above the ground under it (the framing pitches up until it does)
-    tilt: 0.42,               // rad: the framing never pitches up more than this
-    frameRate: 4.5,           // 1/s: how fast the camera eases to the framing pose (dampAngle; reduced motion holds still)
-    frameFor: 1.2,            // s of easing at most (her own look input ends it at once)
+    clear: 0.35,              // m a target keeps above the ground under it (closer first, then a little higher)
+    frameRate: 7,             // 1/s: how fast the camera eases to the framing pose (dampAngle; reduced motion holds still) …
+    frameFor: 0.9,            // … for at most this long (her own look input ends it at once); then the objects come up
     turnFor: 0.26,            // s at most a tap-shot waits for her to turn (aimFace springs) before it leaves the muzzle
     turnTol: 0.22,            // rad: … or less once she faces it this well
     flood: [2.5, 0.5, 4.5],   // m of her ink a right answer pours under the targets: base, + per right at this gate, cap

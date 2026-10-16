@@ -8,7 +8,7 @@
 //     safe    { x, y, w, h } CSS px the objects may take: the screen minus the strip on top and LEARN.playUi.side at the
 //             sides (the caller also takes off the HUD's top buttons and the bottom controls)
 //     opts    { avoid: [{ x, y, w, h }] (her silhouette, the touch buttons, the minimap: no object box crosses one),
-//               font, font2 (label line sizes, px), bannerW (px, the widest a banner gets) }
+//               font, font2 (label line sizes, px), bannerW (px: a plank's width, LEARN.m1.bannerW — the atlas's) }
 //   Each item: a ball — centre (x, y), radius r, its label plate below (label = { x, y, w, h }, top-left); a banner — the
 //   plank's box (x, y top-left, w, h) with the label on it. rect = the object's whole box (ball ∪ label, or the plank):
 //   what is projected back for a tap (pick.js) and what the audit checks against the safe area.
@@ -140,40 +140,52 @@ function ballsIn(rows, boxes, safe, avoid, f = 1) {
   return { score: d * even, d, items };
 }
 
-// banners: rows packed from the top; a row holds one plank across the widest free stretch (≤ bannerW), or two side by
-// side when an avoid box (her) splits the band into two stretches each at least 240 px wide; every plank wraps to its width
-function bannersIn(n, labels, safe, avoid, font, font2, bannerW) {
-  const gap = 10, items = [];
-  let y = safe.y, i = 0, fits = true;
+// banners: every plank is the label atlas's own box (bannerBox at LEARN.m1.bannerW: the text wrapped once, 2 gates
+// ahead, whichever way the phone is held); rows packed from the top, as many planks side by side as the band's free
+// stretches hold (upright: one per row; on its side: two above her head, one each side of her below). A stretch a
+// little narrower than a plank takes it shrunk (never under 80 %, never a font under 14 px).
+function bannersIn(n, labels, safe, avoid, bannerW, font, font2) {
+  const gap = 10, items = [], boxes = labels.slice(0, n).map((l) => bannerBox(l, bannerW, font, font2));
+  let y = safe.y, i = 0, fits = true, minScale = 1;
   while (i < n) {
-    // the band a plank of the full width would need
-    let h = bannerBox(labels[i], bannerW, font, font2).h, segs = null;
-    for (let pass = 0; pass < 3; pass++) {
-      segs = freeSegments(safe.x, safe.x + safe.w, y, y + h, avoid, 120).sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
-      if (!segs.length) break;
-      const two = segs.length >= 2 && i + 1 < n && segs[0][1] - segs[0][0] < bannerW * 0.9 && segs[1][1] - segs[1][0] >= 240;
-      const use = two ? segs.slice(0, 2).sort((a, b) => a[0] - b[0]) : segs.slice(0, 1);
-      const boxes = use.map(([s0, s1], j) => { const w = Math.min(bannerW, s1 - s0); const b = bannerBox(labels[i + j], w, font, font2); b.x = s0 + (s1 - s0 - w) / 2; return b; });
-      const nh = Math.max(...boxes.map((b) => b.h));
-      if (nh <= h + 0.5 || pass === 2) { segs = boxes; h = nh; break; }
-      h = nh;
+    const h0 = boxes[i].h;
+    const segs = freeSegments(safe.x, safe.x + safe.w, y, y + h0, avoid, bannerW * 0.8).sort((a, b) => a[0] - b[0]);
+    if (!segs.length) { y += 12; if (y + h0 > safe.y + safe.h) { fits = false; break; } continue; }
+    let rowH = 0;
+    const placed = [];
+    for (const [s0, s1] of segs) {
+      let x = s0;
+      while (i < n) {
+        const b = boxes[i], room = s1 - x;
+        const sc = Math.min(1, room / b.w);
+        if (sc < 0.8 || (placed.length && room < b.w)) break;
+        placed.push({ i, x, w: b.w * sc, h: b.h * sc, b, sc });
+        minScale = Math.min(minScale, sc);
+        rowH = Math.max(rowH, b.h * sc);
+        x += b.w * sc + gap; i++;
+      }
     }
-    if (!segs || !segs.length) { fits = false; break; }
-    for (const b of segs) {
-      items.push({ i, kind: 'banner', x: b.x, y, w: b.w, h: b.h, label: { x: b.x, y, w: b.w, h: b.h }, lines: b.la.length + b.lb.length, rect: { x: b.x, y, w: b.w, h: b.h } });
-      i++;
+    if (!placed.length) { y += 12; if (y + h0 > safe.y + safe.h) { fits = false; break; } continue; }
+    // centre the row's planks in each stretch they share
+    for (const [s0, s1] of segs) {
+      const mine = placed.filter((q) => q.x >= s0 - 0.5 && q.x < s1);
+      if (!mine.length) continue;
+      const used = mine.reduce((a, q) => a + q.w, 0) + gap * (mine.length - 1), off = (s1 - s0 - used) / 2;
+      let x = s0 + off;
+      for (const q of mine) { q.x = x; x += q.w + gap; }
     }
-    y += h + gap;
+    for (const q of placed) items.push({ i: q.i, kind: 'banner', x: q.x, y, w: q.w, h: q.h, scale: q.sc, label: { x: q.x, y, w: q.w, h: q.h }, lines: q.b.la.length + q.b.lb.length, rect: { x: q.x, y, w: q.w, h: q.h } });
+    y += rowH + gap;
   }
   const used = y - gap - safe.y;
-  if (used > safe.h || items.length < n) fits = false;
-  // the stack sits in the upper part of the free area (over the stage, under the strip): a little air under the strip,
-  // never so much that a plank reaches an avoid box below it
+  if (used > safe.h + 0.5 || items.length < n) fits = false;
+  // a little air under the strip, never so much that a plank reaches an avoid box below it
   let shift = Math.max(0, Math.min((safe.h - used) * 0.25, 24));
   for (const it of items) for (const a of avoid) if (it.rect.x < a.x + a.w && a.x < it.rect.x + it.rect.w && a.y >= it.rect.y + it.rect.h) shift = Math.min(shift, a.y - (it.rect.y + it.rect.h) - 2);
   shift = Math.max(0, shift);
   for (const it of items) { it.y += shift; it.label.y += shift; it.rect.y += shift; }
-  return { fits, items };
+  items.sort((a, b) => a.i - b.i);
+  return { fits, items, minScale };
 }
 
 export function layoutTargets(n, labels, aspect, safe, opts = {}) {
@@ -184,15 +196,15 @@ export function layoutTargets(n, labels, aspect, safe, opts = {}) {
   const banner = opts.banner != null ? !!opts.banner : isBanner(labels);
   const landscape = aspect >= 1;
   if (banner) {
-    // the font steps down (17 → 15 → 14) until the stack fits; never below 14 px
-    const bannerW = opts.bannerW || Math.min(560, landscape ? safe.w * 0.72 : safe.w);
+    // the planks are the atlas's boxes; when they do not fit the font steps down (17 → 15 → 14), never below 14 px
+    const bannerW = opts.bannerW || M.bannerW;
     let out = null;
     for (const f of [opts.font || U.font, 15, 14]) {
-      out = bannersIn(Math.min(n, M.bannerMax), labels, safe, avoid, f, f - 2, bannerW);
+      out = bannersIn(Math.min(n, M.bannerMax), labels, safe, avoid, bannerW, f, f - 2);
       out.font = f; out.font2 = f - 2;
       if (out.fits) break;
     }
-    return { kind: 'banner', fits: out.fits, items: out.items, font: out.font, font2: out.font2 };
+    return { kind: 'banner', fits: out.fits, items: out.items, font: out.font, font2: out.font2, bannerW };
   }
   const font = opts.font || U.font, font2 = opts.font2 || font - 2;
   const boxes = labels.map((l) => labelBox(l, font, font2));

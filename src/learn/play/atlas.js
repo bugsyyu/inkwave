@@ -19,7 +19,7 @@ import { labelBox, bannerBox, isBanner } from './layout.js';
 const U = LEARN.playUi, M = LEARN.m1;
 export const LABEL_FONT = "'Rubik', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif";
 
-export function gateLabels(items, promptOf, canPlay, bannerW = 340) {
+export function gateLabels(items, promptOf, canPlay, bannerW = M.bannerW) {
   const out = [], seen = new Map();
   for (const it of items || []) {
     let p = null; try { p = promptOf(it); } catch (e) { p = null; }
