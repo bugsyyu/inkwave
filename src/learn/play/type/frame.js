@@ -97,7 +97,10 @@ export function frameFor(o = {}) {
   // portrait band rarely does without pushing the camera far away, so the rig wins: typing frames the rig alone
   const ty = o.targetY ?? FRAME.targetY;
   const pts = [...R.plate, R.strike, ...R.textLines, R.typed10];
-  const head = (P) => P(R.head) < P(R.midRow);            // her head below the plate's middle row
+  // her head below the plate's middle row (on a wide screen, below its far row: the band between strip and keyboard is
+  // ~150 px tall there and a steeper view would shrink the rig further)
+  const row = aspect > 1.4 ? [0, 1.16, 1.12] : R.midRow;
+  const head = (P) => P(R.head) < P(row);
   const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4 });
   const rigOnly = search(pts, [head], { ...band, cz: 1.0 });
   return withTarget.fits && Math.hypot(withTarget.pos[1] - 1.2, withTarget.pos[2]) < Math.hypot(rigOnly.pos[1] - 1.2, rigOnly.pos[2]) * 1.35 ? withTarget : rigOnly;

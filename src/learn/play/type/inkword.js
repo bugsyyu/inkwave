@@ -146,7 +146,8 @@ export class InkWord {
     this.cap = o.cap || T.blobs[o.quality || G.settings?.quality || 'high'] || T.blobs.high;
     this.grey = new THREE.Color(T.word); this.coral = new THREE.Color(T.coral);
     const n = this.cap * ROWS;
-    const geo = new THREE.IcosahedronGeometry(1, 1);
+    // a 20-triangle droplet on iPhone low (they are a few pixels wide there), 80 above
+    const geo = new THREE.IcosahedronGeometry(1, this.cap <= T.blobs.low ? 0 : 1);
     this.mesh = new THREE.InstancedMesh(geo, getInkMaterial(new THREE.Color(1, 1, 1)), n);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.castShadow = true; this.mesh.receiveShadow = false; this.mesh.frustumCulled = false;
@@ -160,7 +161,7 @@ export class InkWord {
     this.rows = [{ n: 0, words: 0, base: 0 }, { n: 0, words: 0, base: this.cap }];
     this.phase = 'idle'; this.t = 0; this.pending = null; this._assembled = null; this._resolved = null;
     this.anchor = new V3(); this.right = new V3(1, 0, 0); this.up = new V3(0, 1, 0); this.fwd = new V3(0, 0, -1);
-    this.groundY = 0; this.splats = 0; this._cc = new V3();
+    this.groundY = 0; this.splats = 0; this._cc = new V3(); this._samples = new Map();
     if (this.scene) this.scene.add(this.mesh);
   }
 
@@ -185,37 +186,59 @@ export class InkWord {
 
   // lay out + rasterise + sample `text` into instance row r at centre c; colours per word from `marks` (true → team,
   // false → coral, null → base colour); `delay0` staggers the whole row
+  /** Lay out, rasterise and sample a text once (cached by text): the blobs in the word's own plane (metres, centre
+   *  at 0), their word index and left-to-right order. The heavy part of a word (canvas + getImageData + the grid):
+   *  TypeShot calls it at 射 and resolve() for the correction, while the shell is still in the air — never in the
+   *  frame the letters appear. */
+  prepare(text, o = {}) {
+    const key = String(text) + '|' + (o.maxH ?? '') + '|' + this.cap;
+    const hit = this._samples.get(key); if (hit) return hit;
+    const L = layoutText(text, emMeasure(), o);
+    const px = 64, ras = rasterise(L.lines, px, L.lead);
+    const out = { L, n: 0, lx: null, ly: null, word: null, order: null, spacing: 0 };
+    if (ras) {
+      const m2px = L.lineH / px;                       // metres per raster pixel
+      // juicy droplets, not dust: a floor on the spacing in metres (bigger on low quality), the cap does the rest
+      const S = sampleMask(ras.alpha, ras.w, ras.h, this.cap, (this.cap <= T.blobs.low ? 0.05 : 0.04) * Math.max(0.6, L.scale) / m2px);
+      const spans = wordSpans(L.lines, ras.measure);
+      const n = S.n, lx = new Float32Array(n), ly = new Float32Array(n), word = new Int16Array(n), order = new Float32Array(n);
+      let minX = Infinity, maxX = -Infinity;
+      for (let k = 0; k < n; k++) { const x = S.pts[k * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
+      const cx = ras.w / 2, cy = ras.h / 2;
+      for (let k = 0; k < n; k++) {
+        const x = S.pts[k * 2], y = S.pts[k * 2 + 1];
+        lx[k] = (x - cx) * m2px; ly[k] = (cy - y) * m2px;
+        // which word: its line from y, then the span the x falls in (centred line)
+        const li = clamp(Math.floor((y - ras.pad) / ras.lh + 0.08), 0, L.lines.length - 1);
+        const ex = x - (ras.w - ras.widths[li]) / 2;
+        let wd = -1; for (const sp of spans) if (sp.line === li && ex >= sp.x0 - px * 0.15 && ex <= sp.x1 + px * 0.15) { wd = sp.word; break; }
+        if (wd < 0) { for (const sp of spans) if (sp.line === li) { wd = sp.word; if (ex < sp.x1) break; } }
+        word[k] = Math.max(0, wd);
+        order[k] = (x - minX) / Math.max(1, maxX - minX);
+      }
+      Object.assign(out, { n, lx, ly, word, order, spacing: S.spacing * m2px });
+    }
+    if (this._samples.size > 6) this._samples.delete(this._samples.keys().next().value);
+    this._samples.set(key, out);
+    return out;
+  }
+
+  // place a prepared text into instance row r at centre c; colours per word from `marks` (true → team, false →
+  // coral, null → base colour); `delay0` staggers the whole row
   _fill(r, text, c, base, marks, delay0, o = {}) {
     const row = this.rows[r], cap = this.cap, i0 = row.base;
-    const em = emMeasure();
-    const L = layoutText(text, em, o);
-    const px = 96, ras = rasterise(L.lines, px, L.lead);
+    const P = this.prepare(text, o), L = P.L;
     row.n = 0; row.lines = L.lines; row.layout = L;
-    if (!ras) return row;
-    const m2px = L.lineH / px;                         // metres per raster pixel
-    // juicy droplets, not dust: a floor on the spacing in metres (bigger on low quality), the cap does the rest
-    const S = sampleMask(ras.alpha, ras.w, ras.h, cap, (cap <= T.blobs.low ? 0.05 : 0.04) * Math.max(0.6, L.scale) / m2px);
-    const spans = wordSpans(L.lines, ras.measure);
-    row.words = spans.length;
-    const rad = S.spacing * m2px * 0.8;              // neighbours overlap: strokes read as one wet surface
-    const cx = ras.w / 2, cy = ras.h / 2;
-    let minX = Infinity, maxX = -Infinity;
-    for (let k = 0; k < S.n; k++) { const x = S.pts[k * 2]; if (x < minX) minX = x; if (x > maxX) maxX = x; }
-    for (let k = 0; k < S.n; k++) {
-      const i = i0 + k, x = S.pts[k * 2], y = S.pts[k * 2 + 1];
-      const lx = (x - cx) * m2px, ly = (cy - y) * m2px;
+    const rad = P.spacing * 0.8;                       // neighbours overlap: strokes read as one wet surface
+    for (let k = 0; k < P.n; k++) {
+      const i = i0 + k, lx = P.lx[k], ly = P.ly[k];
       const dz = (Math.sin(k * 12.9898) * 43758.5453 % 1) * 0.5;
       this.Tg[i * 3] = c.x + this.right.x * lx + this.fwd.x * dz * rad;
       this.Tg[i * 3 + 1] = c.y + ly;
       this.Tg[i * 3 + 2] = c.z + this.right.z * lx + this.fwd.z * dz * rad;
-      // which word: its line from y, then the span the x falls in (centred line)
-      const li = clamp(Math.floor((y - ras.pad) / ras.lh + 0.08), 0, L.lines.length - 1);
-      const lineLeft = (ras.w - ras.widths[li]) / 2, ex = x - lineLeft;
-      let wd = -1; for (const sp of spans) if (sp.line === li && ex >= sp.x0 - px * 0.15 && ex <= sp.x1 + px * 0.15) { wd = sp.word; break; }
-      if (wd < 0) { for (const sp of spans) if (sp.line === li) { wd = sp.word; if (ex < sp.x1) break; } }
-      this.word[i] = Math.max(0, wd);
+      this.word[i] = P.word[k];
       this.rad[i] = rad * (0.9 + 0.22 * ((k * 7919) % 13) / 13);
-      const order = (x - minX) / Math.max(1, maxX - minX);
+      const order = P.order[k];
       this.ux[i] = order;
       this.delay[i] = delay0 + (this.reduced ? 0 : order * 0.45 + ((k * 3571) % 17) / 17 * 0.08);
       this.st[i] = 1; this.age[i] = 0; this.drip[i] = 0;
@@ -227,11 +250,12 @@ export class InkWord {
       this.cB[i * 3] = col.r; this.cB[i * 3 + 1] = col.g; this.cB[i * 3 + 2] = col.b; this.cmix[i] = 1;
       this.mesh.setColorAt(i, col);
     }
-    row.n = S.n; row.spacing = S.spacing * m2px;
+    row.n = P.n; row.spacing = P.spacing;
+    row.words = P.n ? P.word.reduce((a, w) => Math.max(a, w + 1), 0) : 0;
     // instances this row does not use stay invisible (a row-1 fill draws past row 0's end)
     _m.makeScale(0, 0, 0);
-    for (let i = i0 + S.n; i < i0 + cap; i++) { this.st[i] = 0; this.mesh.setMatrixAt(i, _m); }
-    this.mesh.count = Math.max(this.mesh.count, i0 + S.n);
+    for (let i = i0 + P.n; i < i0 + cap; i++) { this.st[i] = 0; this.mesh.setMatrixAt(i, _m); }
+    this.mesh.count = Math.max(this.mesh.count, i0 + P.n);
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
     return row;
   }
@@ -241,6 +265,9 @@ export class InkWord {
     const p = new Promise((res) => { this._resolved = res; });
     this._onDone = onDone || null;
     this.pending = v;
+    // the correction's raster now, while the shell is still in the air (not in the frame it appears)
+    const dict = v.pct != null && isFinite(v.pct);
+    if (v.right && !(dict ? v.pct >= 100 : v.ok)) this.prepare(v.right, { maxH: 1.2 });
     if (this.phase === 'shown') this._apply();
     return p;
   }

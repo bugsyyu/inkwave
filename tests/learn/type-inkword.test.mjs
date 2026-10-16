@@ -84,7 +84,8 @@ test('camera frames: typing and word frames fit their band at 390×844, 844×390
       const [x, y, z] = projectRig(p, f.pos, f.look, f.fov, aspect);
       assert.ok(z > 0 && y > yLo && y < 1 && Math.abs(x) < 1, `type ${w}×${h}: ${p} on screen above the keyboard`);
     }
-    assert.ok(projectRig(RIG_POINTS.head, f.pos, f.look, f.fov, aspect)[1] < projectRig(RIG_POINTS.midRow, f.pos, f.look, f.fov, aspect)[1], 'her head below the middle key row');
+    const row = aspect > 1.4 ? [0, 1.16, 1.12] : RIG_POINTS.midRow;
+    assert.ok(projectRig(RIG_POINTS.head, f.pos, f.look, f.fov, aspect)[1] < projectRig(row, f.pos, f.look, f.fov, aspect)[1], 'her head below the key rows she types on');
     const g = frameFor({ phase: 'word', aspect, word: { w: 3.2, h: 0.7, y: 2.4 } });
     assert.ok(g.fits, `word ${w}×${h}`);
   }

@@ -12,7 +12,7 @@ import { G, emit } from '../src/core/ctx.js';
 import { Character } from '../src/game/character.js';
 import { getInkMaterial } from '../src/game/character-mats.js';
 import { TypeShot } from '../src/learn/play/type/shot.js';
-import { wordBox } from '../src/learn/play/type/inkword.js';
+import { wordBox, typedMarks } from '../src/learn/play/type/inkword.js';
 import { frameFor } from '../src/learn/play/type/frame.js';
 import { PlayKeys } from '../src/ui/play-keys.js';
 
@@ -213,8 +213,8 @@ window.lab = {
   step(ms = 16) { const n = Math.max(1, Math.round(ms / 1000 / STEP)); for (let i = 0; i < n; i++) tick(STEP); },
   render() { render(); return this.info(); },
   frame,
-  press(k) { return shot.key(k); },
-  back() { return shot.back(); },
+  press(k) { keys._press(k, keys.keyEls.get(k)); return shot.text; },   // through the game keyboard, like a tap
+  back() { keys._press('back', keys.keyEls.get('back')); return shot.text; },
   /** type a string through the game keyboard (as taps) with `gap` s of sim time between keys (freeze() first) */
   type(str, gap = 0.12) { for (const ch of String(str)) { const k = ch === '\b' ? 'back' : ch; keys._press(k, keys.keyEls.get(k)); this.step(gap * 1000); } return shot.text; },
   keys,
@@ -233,8 +233,10 @@ window.lab = {
   demo(kind) {
     if (kind === 'right') return shot.resolve({ ok: true, right: shot.text });
     if (kind === 'wrong') return shot.resolve({ ok: false, right: DEMO.word.right });
-    const right = DEMO.sentence.right, toks = right.split(' ').map((t) => ({ t, ok: t !== "o'clock." }));
-    return shot.resolve({ ok: true, pct: 86, right, toks });
+    // the host's per-token marks stand-in: a reference word is ok when the typed text has it (in order)
+    const right = DEMO.sentence.right, oks = typedMarks(right, shot.text), toks = right.split(' ').map((t, i) => ({ t, ok: oks[i] }));
+    const pct = Math.round(oks.filter(Boolean).length / oks.length * 100);
+    return shot.resolve({ ok: pct >= 80, pct, right, toks });
   },
   /** next question: clear the word, fresh sheet, the target pops back, camera back to the typing frame */
   next(m = mode) { mode = m; shot.clear(); shot.begin({ mode, target: ball }); ball.visible = true; ballPop = 0; keys.setMode(mode); keys.clear(); keys.setHintUsed(false); keys.show(); window.__kbFrac = keys.frac; frame('type', true); return mode; },

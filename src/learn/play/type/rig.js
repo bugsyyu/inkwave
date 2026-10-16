@@ -112,8 +112,10 @@ export class TypeRig {
   _build() {
     const g = this.geo, team = this.color;
     const plastic = getPlasticMaterial(), ink = getInkMaterial(team);
-    const add = (geo, mat, parent = this.hull, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = shadow; parent.add(m); return m; };
-    add(g.body, plastic); this.inkMesh = add(g.ink, ink);
+    // shadows: only the big shapes cast (hull + legs + deck, its ink, the paper) — every caster is one more draw call per
+    // shadow map; the keys, type-bars, platen and mortar sit inside the hull's own shadow anyway
+    const add = (geo, mat, parent = this.hull, shadow = false) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; parent.add(m); return m; };
+    add(g.body, plastic, this.hull, true); this.inkMesh = add(g.ink, ink, this.hull, true);
     // mortar (recoils along its own axis)
     this.cannon = new THREE.Group(); this.cannon.position.copy(g.cannon.at); this.hull.add(this.cannon);
     for (const [geo, mat] of [[g.cannon.body, plastic], [g.cannon.ink, ink]]) { const m = add(geo, mat, this.cannon); m.position.copy(g.cannon.at).negate(); }
@@ -121,7 +123,7 @@ export class TypeRig {
     const n = g.caps.length;
     this.capMat = capMaterial(this.atlas, team);
     this.caps = new THREE.InstancedMesh(g.cap, this.capMat, n);
-    this.caps.castShadow = true; this.caps.receiveShadow = true; this.caps.frustumCulled = false;
+    this.caps.castShadow = false; this.caps.receiveShadow = true; this.caps.frustumCulled = false;
     this.capAttr = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4);
     this.caps.geometry = g.cap.clone();   // own the instanced attribute (the shared geometry stays clean)
     this.caps.geometry.setAttribute('aKey', this.capAttr);
@@ -136,7 +138,7 @@ export class TypeRig {
     this.hull.add(this.caps);
     // type-bars
     this.bars = new THREE.InstancedMesh(g.bar, plastic, g.bars.length);
-    this.bars.castShadow = true; this.bars.frustumCulled = false;
+    this.bars.castShadow = false; this.bars.receiveShadow = true; this.bars.frustumCulled = false;
     this.barIndex = new Map(); this.barState = new Float32Array(g.bars.length * 3);   // phase x, v, target
     g.bars.forEach((b, i) => { this.barIndex.set(b.key, i); this._barMatrix(i, 0); });
     this.hull.add(this.bars);
@@ -146,7 +148,7 @@ export class TypeRig {
     this.textTex = makeTextTexture(DECK.cols, LINES);
     this.paperMat = paperMaterial(this.atlas, this.textTex, T.glyph);
     const pg = new THREE.PlaneGeometry(DECK.paperW, DECK.paperH, 1, 40); pg.translate(0, DECK.paperH / 2, 0); pg.rotateY(Math.PI);
-    this.paper = new THREE.Mesh(pg, this.paperMat); this.paper.castShadow = true; this.paper.receiveShadow = true;
+    this.paper = new THREE.Mesh(pg, this.paperMat); this.paper.castShadow = true; this.paper.receiveShadow = false;
     this.paperBase = new V3(0, DECK.platenR * 0.62, 0.012);
     this.paper.position.copy(this.paperBase);
     this.carriage.add(this.paper);
@@ -158,7 +160,7 @@ export class TypeRig {
     this.fill.scale.set(1, DECK.tankH * 0.94, 1);
     // the shell (only during a shot), neutral grey ink caps: nothing is judged yet
     this.shellG = new THREE.Group(); this.shellG.visible = false;
-    add(g.shell.body, plastic, this.shellG); add(g.shell.ink, getInkMaterial(new THREE.Color(T.word)), this.shellG);
+    add(g.shell.body, plastic, this.shellG, true); add(g.shell.ink, getInkMaterial(new THREE.Color(T.word)), this.shellG);   // its shadow runs along the ground under the arc
     this.caps.instanceMatrix.needsUpdate = true; this.bars.instanceMatrix.needsUpdate = true;
   }
 

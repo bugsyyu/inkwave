@@ -118,6 +118,7 @@ export class TypeShot {
     if (this.s.phase !== 'typing' || !this.s.text.trim()) return null;
     const text = this.s.text;
     this._go({ t: 'submit' });
+    this.word.prepare(text);              // the ink word's raster now (the keyboard hides this frame), not at landing
     const tgt = this.target;
     const aim = new THREE.Vector3();
     if (tgt && tgt.isObject3D) tgt.getWorldPosition(aim); else if (tgt) aim.copy(tgt);
