@@ -39,8 +39,9 @@ const NETMOCK = typeof location !== 'undefined' && new URLSearchParams(location.
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';   // 关卡学习: opened from the IELTS-Base App
 // 关卡学习 I (docs/LEARN.md §17): in the App (portrait only) the shell keeps only the learning — no PLAY on the main menu, no
 // PRACTICE on the loadout (both open landscape matches she could not turn the phone for), and a room offers 双人联机赛 /
-// 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web never changes.
-const APP_LEARN = FROM_APP && LEARN.appLearnOnly !== false;
+// 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web and ?lang=en (the
+// original INKWAVE, even inside the App) never change.
+const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];

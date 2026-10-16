@@ -9,7 +9,7 @@ import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, 
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
-import { botNames } from '../ui/i18n.js';   // 关卡学习 I (docs/LEARN.md §17): the host names the bots (Chinese nicknames; ?lang=en: their own)
+import { botNames, isZh } from '../ui/i18n.js';   // 关卡学习 I (docs/LEARN.md §17): the host names the bots (Chinese nicknames; ?lang=en: their own)
 
 // no 0/O or 1/I (misread), and no W/A/S/D: those move the menu cursor, so any other key typed on the online hub can
 // only mean a room code (28⁵ ≈ 17 M codes)
@@ -23,8 +23,8 @@ export const ROOM_MODES = ['turf', 'zones', 'boss', 'versus2', 'coop2'];
 export const LEARN_ROOM_MODES = ['versus2', 'coop2'];
 const roomMode = (m) => (ROOM_MODES.includes(m) ? m : 'turf');
 // 关卡学习 I (docs/LEARN.md §17): a room opened in the IELTS-Base App (?from=app, portrait only) starts as 双人联机赛 — its
-// menu offers the two learning modes only (config LEARN.appLearnOnly)
-const APP_LEARN = typeof location !== 'undefined' && new URLSearchParams(location.search || '').get('from') === 'app' && LEARN.appLearnOnly !== false;
+// menu offers the two learning modes only (config LEARN.appLearnOnly; as menus.js, not under ?lang=en)
+const APP_LEARN = typeof location !== 'undefined' && new URLSearchParams(location.search || '').get('from') === 'app' && isZh && LEARN.appLearnOnly !== false;
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || lo));
 // the lesson a learning room plays: { week, day } (the host's pick; short = the audits' shortened match)
 const lessonOf = (o, prev = { week: 1, day: 1 }) => ({ week: clampInt(o && o.week != null ? o.week : prev.week, 1, LEARN.weeks), day: clampInt(o && o.day != null ? o.day : prev.day, 1, LEARN.days), ...((o && o.short) || (!o && prev.short) ? { short: true } : {}) });
