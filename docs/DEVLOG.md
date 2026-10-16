@@ -6,6 +6,15 @@
 
 ## 2026-10-16
 
+### 02:10 H 工作流交付：录音接入、进度并进她的证据、iPhone / WKWebView 下的稳妥（分支 `learn-h`，LEARN §16）
+
+- **先读了什么**：LEARN §2 / §5 / §8 / §13，`src/learn/*.js`、`vendor/ielts/model.js`（`mergeDoc`、`validLeaf`、`answers` 取当天最早的）；IELTS-Base 的 `app/index.html`（`Clips`：`index.json` → `[分片, 偏移, 长度]`、`at()` 的查法、`plan()` 的「每段都有才放」、`<audio>` 优先的理由、`CLIP_SILENT` 解锁；`LOCAL_KEY` / `localBlob()` / `S.base`；`tzPlace()` 默认新加坡），`app/base/core.js`（`record` 的 `hasEvOn`、`mergeDoc`、`DERIVED_V = 2`），`app/sync.js`（`pendingChanges` 对每篇算摘要），`ios/IELTSBase/SchemeHandler.swift`（单段 Range、206、MIME 表）、`WebView.swift`（`mediaTypesRequiringUserActionForPlayback = []`、默认数据存储、非首页开侧滑），`docs/native-integration.md` §5 / §7。没打开 `app/my-progress.*`；测试和浏览器里用的都是编出来的工作台。
+- **先定的**：录音照课上的顺序放（`<audio>` 先、Web Audio 后、设备声音最后），不是字面上的「解码后播」——iPhone 静音键开着时只有 `<audio>` 有声音（IELTS-Base 查过 WebKit 源码，native-integration §7）；解码那条路用 INKWAVE 自己的 AudioContext。并账的「当天首答」取宿主写入时的规矩：她那天已有答案就不进。她的时钟和切句都从宿主逐字抄（导出工具），不自己写一份。
+- **改了什么**：导出工具多抄 8 个宿主名字并在 IELTS-Base `e881096` 上重跑（`content/` 没变）；`src/learn/audio.js`（新）；`src/learn/workbench.js`（新）；`store.js` 的 `exportDoc / exportDocs / pushToWorkbench / attachWorkbench`、她的时钟、只读她的历史；`api.js` 在页面里挂 `attachWorkbench`；`hud-learn.js` 播放四处；`touch.js` 竖屏门；`main.js` 全屏条件；`menus.js` 小图三行；`index.html` 信标。
+- **路上踩到的**：竖屏 App 里页面一隐藏，关卡暂停菜单就被「Turn your device」盖住（headless 实测 `is-armed`、`display: flex`），App 转不过来就出不去——`from=app` 不再亮门。headless Chromium 不管 `--autoplay-policy` 都让媒体自动放，Safari 的「先点一下」只能拿桩模拟（`play()` 在可信事件前拒、`AudioContext.state` 挂起）；这一模拟抓到解锁监听摘得太早（脚本合成的点击先到、被拒，真点击时已经没监听了），改成放成了才摘。服务器不认 Range 时两片的缓存会让同一分片在一道门里重下几次，改成留一个音色的 12 片。
+- **验证**：`npm run test:learn` 52 / 52（+ `audio.test.mjs` 4、`workbench.test.mjs` 5），`npm run check` 201 个文件绿。headless 都在 `flock -w … /tmp/ielts-browser.lock nice -n 10` 里、每次 ≤ 3 分钟、一次一个（共 15 次，含几次改脚本重跑）：按 IELTS-Base `app/` 布局的小服务器上 `game/index.html?learn=w1d1&kind=puzzle&from=app&quality=low`——第一道听的题 Monday 走 `index.json` + `us-5.mp3 206 bytes=4652-10839`、`<audio>` 放（clip）、点「听」走缓存；答对 0.8 秒后编出来的工作台 blob 里多了 `ev-2026-10-12` 的 9 条；页面隐藏 → 暂停菜单、声音停、门不亮；不认 Range 的服务器：200 整片、之后不再发 Range；模拟 Safari：先换设备的声音、真点击后放录音；开发服务器根目录：`/audio/` 零请求；`from=app` 主菜单 / 模式页只请求 `-sm` 图、门不亮。都无控制台错误、无未处理的 rejection、`from=app` 无信标。截图（暂停菜单、主菜单）看过即删。
+- **真机待验 / 没做的**：见 LEARN §16 末尾——WKWebView 里的 Range、blob `<audio>`、同 origin 的 `localStorage`、iOS 16.4+ 导入表、后台时的 `visibilitychange`、内存；IELTS-Base 那边建议游戏页不开侧滑返回、改完要重跑 `sync-inkwave.sh`；竖屏菜单挤；考试人物录音没接。
+
 ### 00:20 E 工作流交付：道具赛、对抗赛、Boss 战三种形式 + 今日小考（分支 `learn-e`，LEARN §13）
 
 - **先读了什么**：LEARN §1 / §4 / §5 / §8 / §9 / §12，LEVELS 全文（§2.2–§2.8 的规则、§3 的表、§5 的演出名、§6 的数据形状），`design.js`、`flow.js`、`hud-learn.js`、`match.js`、`zones.js`、`bots.js`（`zonePlan` / `hotspot`、`_bossTick` 认 `G.boss`）、`boss.js` / `bossMode.js` / `bossBrain.js`（`force`、`checkPhase`、`applyDamage`）、`nav.js`、`paint.js`（`flood` 只要 `region.cells`）、`main.js`（指针锁丢了就暂停的那一处）。
