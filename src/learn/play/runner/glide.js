@@ -227,10 +227,12 @@ export class GlideStation {
   // paper between the question strip and the game keyboard): the strip's bottom edge as it stands on the screen (upright
   // in the runner it sits under the standings, ~ a quarter down — frame.js's default 0.1 would put the rig under it) and
   // the keyboard's share. The search runs once per band / aspect (frameFor is a search); the typing pose is re-based on
-  // her every frame. After 射 the word's frame is taken once, in the world, aimed from where she was at 射 straight at
-  // the spot the word forms (frame.js wants it dead ahead; on the road it may stand a little to the side): the lens holds
-  // there while she swims on towards the word — she rides up into the picture — until she is at it (2.5 m): then it
-  // hands back to the chase camera (a held sentence may wait there for her tap). cam.js eases one pose into the next.
+  // her every frame. After 射 the word's frame is taken once, in the world: play-type's 'word' composition (the word
+  // big in the upper screen, the rig at the bottom edge) for a rig FRAME.dist (6.5 m) short of the spot the word forms,
+  // on the line from her at 射 (frame.js wants the word dead ahead; on the road it may stand a little to the side). The
+  // word lands ~13 m ahead of her, so she is not there yet: the lens holds while she swims on into that composition —
+  // the word forms over her as she arrives — until she is at the word (2.5 m): then it hands back to the chase camera
+  // (a held sentence may wait there for her tap). cam.js eases one pose into the next.
   _framed() {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = typeof innerWidth !== 'undefined' ? innerWidth : 1280, H = typeof innerHeight !== 'undefined' ? innerHeight : 720, aspect = W / H;
@@ -246,16 +248,17 @@ export class GlideStation {
       if (C.passed) return null;
       if (!C.wpose) {
         const dx = C.word.x - a.pos.x, dz = C.word.z - a.pos.z, dist = Math.max(3, Math.hypot(dx, dz)), wy = Math.atan2(dx, dz), s2 = Math.sin(wy), c2 = Math.cos(wy);
+        const D = Math.min(FRAME.dist, dist), ox = C.word.x - s2 * D, oz = C.word.z - c2 * D, oy = a.pos.y;   // (the rig's spot in the composition)
         const b = wordBox(C.text || 'word');
-        const f = frameFor({ phase: 'word', aspect, kbFrac: 0, topFrac: top, dist, word: { w: b.w, h: b.h, y: C.word.y - a.pos.y } });
-        C.wpose = { pos: new THREE.Vector3(a.pos.x + c2 * f.pos[0] + s2 * f.pos[2], a.pos.y + f.pos[1], a.pos.z - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
-        this._f = { ...f, top, kb: 0 };
+        const f = frameFor({ phase: 'word', aspect, kbFrac: 0, topFrac: top, dist: D, word: { w: b.w, h: b.h, y: C.word.y - oy } });
+        C.wpose = { pos: new THREE.Vector3(ox + c2 * f.pos[0] + s2 * f.pos[2], oy + f.pos[1], oz - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
+        this._fw = { fits: f.fits, top, kb: 0, D: +D.toFixed(1) };
       }
       return C.wpose;
     }
     const kb = this.keys ? +this.keys.frac.toFixed(2) : 0;
     const key = `${aspect.toFixed(2)}|${kb}|${top}`;
-    if (this._fkey !== key) {
+    if (this._fkey !== key || !this._f) {   // (the typing frame's own cache: the word's frame never lands in it)
       this._fkey = key;
       this._f = frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); this._f.top = top; this._f.kb = kb;
     }
@@ -283,7 +286,7 @@ export class GlideStation {
 
   debug() {
     const C = this.cur;
-    return { active: this.active, typing: this.typing, item: C ? C.item.id : null, mode: C ? C.mode : null, phase: this.shot ? this.shot.phase : null, text: this.shot ? this.shot.text : '', answered: !!(C && C.answered), hinted: !!(C && C.hinted), held: !!(C && C.held), passed: !!(C && C.passed), verdict: C ? C.verdict : null, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, fits: this._f ? this._f.fits : null, band: this._f ? { top: this._f.top, kb: this._f.kb } : null, yaw: this.mounted && this.shot && this.shot.rig ? +this.shot.rig.hullYaw.toFixed(3) : null, left: this.run_ ? this.run_.list.length : 0, stats: { ...this.stats }, log: this.log.slice(-8) };
+    return { active: this.active, typing: this.typing, item: C ? C.item.id : null, mode: C ? C.mode : null, phase: this.shot ? this.shot.phase : null, text: this.shot ? this.shot.text : '', answered: !!(C && C.answered), hinted: !!(C && C.hinted), held: !!(C && C.held), passed: !!(C && C.passed), verdict: C ? C.verdict : null, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, fits: this._f ? this._f.fits : null, band: this._f ? { top: this._f.top, kb: this._f.kb } : null, wordFrame: this._fw || null, yaw: this.mounted && this.shot && this.shot.rig ? +this.shot.rig.hullYaw.toFixed(3) : null, left: this.run_ ? this.run_.list.length : 0, stats: { ...this.stats }, log: this.log.slice(-8) };
   }
   dispose() {
     this.run_ = null; this.cur = null;

@@ -125,7 +125,7 @@
         // (held) standing grey, waiting for her tap
         let k = 0; while (k++ < 240) { const w = Gl.shot && Gl.shot.word; if (w && (w.phase === 'shown' || w.phase === 'resolving' || w.phase === 'done')) break; await step(17); }
         g.held = !!Gl.held; g.wordPhase = Gl.shot && Gl.shot.word ? Gl.shot.word.phase : null;
-        g.wordCam = { pose: !!(Gl.cur && Gl.cur.wpose), passed: !!(Gl.cur && Gl.cur.passed), fits: Gl._f ? Gl._f.fits : null };
+        g.wordCam = { pose: !!(Gl.cur && Gl.cur.wpose), passed: !!(Gl.cur && Gl.cur.passed), frame: Gl._fw || null };
         g.leavesHeld = g.held ? leaves(g.item) : null;
         if (g.held && g.leavesHeld !== g.leavesBefore) S.errors.push('glide ' + g.item + ': evidence written while held');
         g.stage = g.held ? 'decide' : g.plan === 'wrong' ? 'wrongShot' : 'wait';
