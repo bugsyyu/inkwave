@@ -24,6 +24,15 @@ const CSS = `
 /* the strip (play-strip.js) in the runner: under the standings upright, narrower than the standings' column in landscape */
 @media (max-width: 640px) and (orientation: portrait) { .iw-ps.is-runner .iw-ps__box { top: 122px; } .iw-lf.is-runner .iw-lf__rank { top: 84px; } .iw-lf.is-runner .iw-lf__rank div:not(.is-me) { display: none; } }
 @media (max-height: 460px) and (orientation: landscape) { .iw-ps.is-runner .iw-ps__box { max-width: min(560px, calc(100vw - 300px)); padding: 6px 12px 6px 6px; } .iw-ps.is-runner .iw-ps__q { font-size: 17px; } .iw-ps.is-runner .iw-ps__zh { font-size: 15px; } }
+/* the 滑行段 on a landscape phone (play-4): the band between the strip and the game keyboard (44 % of the height) is what
+   the typewriter gets — the strip goes up to the top edge, one tight line, no ▶ (the keyboard has its own ▶ and 提示 at
+   the start of its rows), so the rig is framed about twice as tall (glide.js frames to the strip's real bottom edge) */
+@media (max-height: 460px) and (orientation: landscape) {
+  .iw-ps.is-runner.is-typing .iw-ps__box { top: 6px; padding: 4px 12px; gap: 8px; border-radius: 16px; }
+  .iw-ps.is-runner.is-typing .iw-ps__play { display: none; }
+  .iw-ps.is-runner.is-typing .iw-ps__q, .iw-ps.is-runner.is-typing .iw-ps__head { font-size: 17px; }
+  .iw-ps.is-runner.is-typing .iw-ps__zh, .iw-ps.is-runner.is-typing .iw-ps__why { font-size: 15px; }
+}
 /* nothing is aimed in the runner: no crosshair / ink tank cluster */
 .iw-hud.is-runner .iw-xh { display: none; }
 /* the thumb cluster is not used here: swipes steer (src/core/touch.js swipe hook); only ⏸ stays */

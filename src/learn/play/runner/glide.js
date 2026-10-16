@@ -69,6 +69,7 @@ export class GlideStation {
   run({ items, gate, row }) {
     this._ensure();
     const list = items.slice();
+    this.flow.strip.el?.classList?.add('is-typing');   // (tips.js: the strip tight at the top edge on a landscape phone)
     return new Promise((done) => {
       this.run_ = { gate, row, list, done };
       this._next();
@@ -85,7 +86,7 @@ export class GlideStation {
     this.run_ = null; this.cur = null;
     if (this.keys) this.keys.hide();
     if (this.shot) { this.shot.clear(); if (this.mounted) { this.shot.unmount(); this.mounted = false; } }
-    this.flow.strip.hide();
+    this.flow.strip.hide(); this.flow.strip.el?.classList?.remove('is-typing');
     Rn.done({ answered: this.stats.asked });
   }
 
