@@ -6,6 +6,7 @@
 //   BOSS_GLYPH                small monochrome crab-in-a-box glyph (currentColor) for chips / pips
 // Colours come from CSS custom properties so the same art follows the match palette:
 //   --boss (the boss's corrupt ink = team 1), --weak (weak-point glow = the squad's ink). Both have fallbacks.
+import { t as tx } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the boss's name, epithet and move calls
 
 const K = '#15121c';
 const INK = 'var(--boss, var(--enemy, #2f5bff))';
@@ -16,11 +17,11 @@ const CARA = '#a8283f', CARA_D = '#6c1628', CARA_L = '#dc4d61';
 const CLAW = '#c5354c', CLAW_L = '#f07a82';
 const BELLY = '#f1c9a6';
 
-export const BOSS_NAME = 'HULLBREAKER';
-export const BOSS_EPITHET = 'The Rust-Shelled Terror';
-export const BOSS_BLURB = 'A giant hermit crab living in a rusted shipping container. Everyone in the room teams up to sink it before time runs out.';
+export const BOSS_NAME = tx('boss.name');   // (中文化: 破船巨蟹; ?lang=en HULLBREAKER)
+export const BOSS_EPITHET = tx('boss.epithet');
+export const BOSS_BLURB = tx('boss.blurb');
 export const MOVE_LABELS = {
-  slam: 'SLAM!', barrage: 'INCOMING!', sweep: 'SWEEP!', charge: 'CHARGE!', crablets: 'BROOD!', frenzy: 'FRENZY!', open: 'OPEN!',
+  slam: tx('mv.slam'), barrage: tx('mv.barrage'), sweep: tx('mv.sweep'), charge: tx('mv.charge'), crablets: tx('mv.crablets'), frenzy: tx('mv.frenzy'), open: tx('mv.open'),
 };
 
 // ------------------------------------------------------------------ bits

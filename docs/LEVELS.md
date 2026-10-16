@@ -36,7 +36,7 @@
 | `reading` 阅读（reading） | 每天 1 篇 + 3 题；d7 1 篇 | listen | **阅览室** `reading-room`：大展板放课文（gloss 生词可点、中文可翻），整篇 tts 一次 → 3 锁门 | 解谜 / 道具赛 / 对抗赛 / Boss R | 展板 + 选择层 | `GF`；记 `L`；错因 = 包里的 `why`（原文句） |
 | `pairs` 听辨游戏（pron） | 每天 8 对；d7 大挑战 10 对 | listen | **听辨岔路** `pair-fork`：走廊分成两扇门，各写一个词（带中文），放其中一个（`stableHash` 定），走对的那扇；8 个岔口连成一段 | 解谜 / 道具赛 / 对抗赛 / Boss L | 两扇门 = 两块 `curtain`；走进去 = 选 | `LP`；记 `L` |
 | `flash` 卡片自测（vocab，`from: a2`） | 每天 b4：25 张 | dictation（typed） | **卡片打字门** `flash-type`：卡片给中文 + 音标提示，tts 放词 → 打字；5 张一锁 | 解谜 / 道具赛 / 对抗赛 / Boss R | 输入层 | `VS`（`Model.spellCheck`）；记 `T`，看了提示 `H`，「我的写法也对」`S`（宿主的卡片听写同款） |
-| `flash` 且 `fromWeek` 150 词总复习（vocab） | d7 | dictation | **快闪翻牌** `flash-flip`：看中文想英文 → 翻面 → 认识 / 不熟；不熟的当场打字；10 张一锁，15 截 | 复习日道具赛 | 卡片层 | 翻牌自评 = 宿主的卡片自测 → 方式 `F`（**store 现在只会记 `L`，§6.4 提案 1**）；打字的 `T/H/S` |
+| `flash` 且 `fromWeek` 150 词总复习（vocab） | d7 | dictation | **快闪翻牌** `flash-flip`：看中文想英文 → 翻面 → 认识 / 不熟；不熟的当场打字；10 张一锁，15 截 | 复习日道具赛 | 卡片层 | 翻牌自评 = 宿主的卡片自测 → 方式 `F`（`store.recordFirst({ how: 'F' })`，G 10-16 已接，LEARN §15）；打字的 `T/H/S` |
 | `write` 写 5 / 6 句话（writing） | 每天 c1 | lesson（`input: 'write'`，计分） | **写字墙** `write-wall`：出口区的墙，中文一句一格，写英文；判完给「为什么」和「我的写法也对」 | 解谜 / 道具赛 / 对抗赛的出口区；Boss W | 输入层（多行） | gen.js `WT` 关键形式；记 `W`，自认对 `S` |
 | `speak` 口语（speaking） | 每天 c2 | lesson（不计分） | **回声亭** `echo-booth`：亭子里是问题、范例（中文）、句型、tip；tts 读范例，她跟着说 2–4 句；「说完了」 | 出口区；Boss S | 展板 + 「说完了」按钮 | **不计分**；评分 = 经典页（要语音服务器，第二阶段） |
 | `checkin` 打卡（review） | d1–d6 c3 | lesson | **打卡垫** `checkin-pad`：出口的垫子，老师的话在牌上；踩上去 = 这一天走完（本机星表） | 出口区 | `decor.pulse` 的出生垫 | 不进证据；心情和备注 = 经典页（宿主表单） |
@@ -212,7 +212,7 @@
 复习日「只复习、不学新内容」，课程本身就是一周里最满的一天（EXAM §2.2），所以：
 - **形式固定是道具赛**，路线是舞台的**一整圈**（环线：两条道都跑），3 个机器人同跑；没有看板段（没有新内容），钟一直走——这是一周里唯一「像比赛」的一天，复习就该快。
 - **48 个音标总复习**：音标门 12 截（每 4 一锁），没有展板；答错的音标回炉时才给口型 tip。
-- **150 个单词总复习**：快闪翻牌（看中文想英文 → 翻面 → 认识 / 不熟），10 张一锁；点「不熟」的当场打字一次（`T/H`），再进回炉。40 分钟 150 张 = 每张 16 秒，和宿主的卡片自测一个节奏。自评进证据要 `F` 方式（§6.4 提案 1）。
+- **150 个单词总复习**：快闪翻牌（看中文想英文 → 翻面 → 认识 / 不熟），10 张一锁；点「不熟」的当场打字一次（`T/H`），再进回炉。40 分钟 150 张 = 每张 16 秒，和宿主的卡片自测一个节奏。自评进证据是 `F` 方式（§6.4 提案 1，G 已做：`store.recordFirst` 的 `how`）。
 - **听辨大挑战** 10 个岔口连着跑；**语法综合小测** 10 题一锁一题。
 - **第 2、3 周的复习日**多了开场抽查 8 个、连读 / 重音总复习 8 题、听写综合 8 句、一篇阅读、写 6 句（上周写错的再写一遍——课程自己的夯实）。
 - **终点**是入门小测牌（w1）、周报牌、回声亭：都是路标；今日小考不出；结算卡上一句预告「这一周走完了。明天起，Boss（周考）一天一段。」
@@ -686,7 +686,7 @@ FreePlan = { kind: 'free', form: 'race', week, n, minutes, stage, time, items, r
 
 ### 6.4 给其它工作流的提案（本工作流不改它们的文件）
 
-1. **A `store.js`**：`recordFirst` 支持卡片自评 → 方式 `F`（`Model.MODES` 里有 `F`；`modeOf` 现在非打字的词一律 `L`）。建议：`a.self && a.rated` 或新参数 `rated: true` → `'F'`。没有它，复习日 150 张翻牌只能记 `L`（对排程无别，但周报里会把自评说成课上作答）。
+1. **A `store.js`**（**G 已做**，10-16：`recordFirst({ how: 'F' })`，不在 `Model.MODES` 里的方式不写）：`recordFirst` 支持卡片自评 → 方式 `F`（`Model.MODES` 里有 `F`；`modeOf` 现在非打字的词一律 `L`）。建议：`a.self && a.rated` 或新参数 `rated: true` → `'F'`。没有它，复习日 150 张翻牌只能记 `L`（对排程无别，但周报里会把自评说成课上作答）。
 2. **A `store.js`**：星表和「走完」进度（`inkwave:learn:v1` 里加 `meta: { stars: { 'w1d1': 3 }, walked: {…}, props? }`），或者 D / B 自己开一个键 `inkwave:learn:design:v1`——建议后者（不碰证据文档）。
 3. **`config.js`**（**E 已做**，10-15）：`LEARN` 多了 `gate / race / duel / boss / quiz / bots / props / streak / relearnMax / starsKey`，`design.js` 的 `PROP_DROP`、`BOT_ANSWER`、`BOTS_OF`、`EFFECTS`、`RULES`、`RETRY`、Boss 各段的分钟都从它读，不再自己存一份；学习关的 zones 不轮转是对抗赛自己把每一轮的 `ZoneControl` 设成 `final`（§2.3），没有碰 `ZONES.rotateMin/Max`。
 4. **A / 流程**：Boss 第二版用 `vendor/ielts/sched.js` 的 `plan('week', state, { part })` + `gen.js` 的 `render` 出真正的场景题（26 种题型、字数限制、改口），估分用 `estimate / band`；第一版（本文）用课程条目按 EXAM 的题量和配比。需要 `genCtx`（index、bank、vocab、state），A 的 `ielts()` 已经把五个模块都加载了。

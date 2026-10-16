@@ -16,7 +16,7 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip } from './common.js';
+import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
 import { FormsUi } from './ui.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -76,8 +76,12 @@ export class DuelFlow extends LearnFlow {
     if (g._relearnGate) {
       this.ui.showBoard({ title: '回炉门', head: `错过的 ${g.items.length} 个再来一次`, rows: g.items.map((it) => ({ en: it.en.length > 48 ? it.zh : it.en, zh: it.en.length > 48 ? '' : it.zh, tts: it.tts || it.en })), go: '开始回炉' }, () => this._roundStart());
     } else {
-      const board = boardOf(g, this.level) || { title: '备战', head: g.title, rows: [{ text: `这一轮 ${g.items.length} 题：答对一题，区域里最缺的那块涂成你的墨。` }] };
-      this.ui.showBoard({ ...board, title: `${board.title} · 第 ${this.round + 1} / ${this.gates.length} 轮`, go: this.round === 0 ? '开始第 1 轮' : '开始这一轮' }, () => this._roundStart());
+      // 今日小考 (LEVELS §1.2): one round, no board of a step — what it is, and that it is optional
+      if (this.level.quiz) this.ui.showBoard({ title: '今日小考 · 傍晚一轮对抗赛', head: `${g.items.length} 题：今天学的、到期的、答错过的`, rows: [{ text: '答对一题，区域里最缺墨的那块涂成你的颜色。可做可不做；今天第一次答的照样记进进度，课上答过的再答只算练习。' }], go: '开始小考' }, () => this._roundStart());
+      else {
+        const board = boardOf(g, this.level) || { title: '备战', head: g.title, rows: [{ text: `这一轮 ${g.items.length} 题：答对一题，区域里最缺的那块涂成你的墨。` }] };
+        this.ui.showBoard({ ...board, title: `${board.title} · 第 ${this.round + 1} / ${this.gates.length} 轮`, go: this.round === 0 ? '开始第 1 轮' : '开始这一轮' }, () => this._roundStart());
+      }
     }
     this.prepOn = true; this.hold = true; this.phase = 'prep';
     for (const a of this.match.actors) if (a.isBot && a.alive) a.character.setDance?.('lobby_pose');
@@ -161,9 +165,9 @@ export class DuelFlow extends LearnFlow {
   // ---------------------------------------------------------------------------------------------- her questions
   _ask(g) {
     const item = g.queue.shift(), a = this.match.local;
-    const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    const p = cardFor(g, item, () => prompt(item), () => this._altPrompt(item));
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
-    if (this.hintNext && p.type !== 'choice') { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
+    if (this.hintNext && p.type !== 'choice' && !p._flip) { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
     this.asking = { gate: g, item, p };
     this.hold = true; a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.jump = false;
     G.input?.exitLock?.();
@@ -182,22 +186,24 @@ export class DuelFlow extends LearnFlow {
     }
   }
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
+  firstsN() { return this.firsts; }
 
   _answer(g, item, p, ans) {
     const r = judgeAnswer(item, p, ans);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now() });
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });
     const first = !!rec.first;
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, flip: !!p._flip });
     let again = false;
     if (r.ok) { if (item._relearn) this.relearnRight++; this.streak++; this.rightN++; this._onRight(); }
+    else if (p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; G.audio?.play?.('ui_toggle', { volume: 0.5 }); }   // 不记得: type it right away
     else {
       this.streak = 0; g.locks++;
       if (!item._relearn && item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; G.audio?.play?.(EFFECTS.duel.wrong.sfx, { volume: 0.6 }); }
       else { G.audio?.play?.(EFFECTS.duel.wrong2.sfx, { volume: 0.6 }); if (!item._relearn) this.relearn.push(item); if (this.shield) { this.shield = false; this.enemyT += this.model.duelCadence; this.ui.say('护盾：对面这一次没得「答题」'); } }
     }
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._after());
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._after());
   }
   _after() {
     this.asking = null; this.hold = false; this.askT = this.D.askGap;
@@ -278,8 +284,10 @@ export class DuelFlow extends LearnFlow {
     this.ui.say('');
     const played = this.rounds.filter((r) => !String(r.gate).includes('relearn')).length;
     const summary = { gates: this.level.gates.length, visited: played, signs: null, seen: 0, scored: this.scoredN, firstRight: this.firstRight, relearn: this.relearn.length, relearnRight: this.relearnRight };
-    const stars = starsOf(summary);
-    const st = writeStars(this.dayKey, stars, null, { trophy: `${this.wins}/${played}` });
+    // (the 今日小考 is an extra, not the day: its result is a trophy of its own and never the day's stars)
+    const quiz = !!this.level.quiz;
+    const stars = quiz ? 0 : starsOf(summary);
+    const st = writeStars(quiz ? `${this.dayKey}:quiz` : this.dayKey, stars, null, { trophy: `${this.wins}/${played}` });
     let dueIds = []; try { dueIds = store.due(this.level.weekRef || this.week); } catch (e) { dueIds = []; }
     const byId = new Map(); for (const g of this.level.gates) for (const it of g.items) byId.set(it.id, it);
     const due = dueIds.map((id) => byId.get(id)).filter(Boolean).map((it) => ({ en: it.en, zh: it.zh }));
@@ -290,7 +298,13 @@ export class DuelFlow extends LearnFlow {
       menu: () => G.game?.api?.quitMatch?.(),
     });
     if (this.hud && this.level.quiz) this.hud.rTitle.textContent = '今日小考做完了';
-    this.ui.resultsExtra([
+    if (quiz) this.ui.resultsExtra([
+      { b: `${this.wins} / ${played} 轮`, t: '区域赢了（只是奖杯）' },
+      { b: `${this.firstRight} / ${this.firstsN()}`, t: '今天第一次答的里答对了（记进进度）' },
+      this.firsts < this.total ? `另外 ${this.total - this.firsts} 题课上答过了，这次只算练习` : '每一题都是今天第一次答',
+      '小考不算这一天的星星',
+    ], null);
+    else this.ui.resultsExtra([
       { b: `${this.wins} / ${played} 轮`, t: '区域赢了（输赢只是奖杯，不进星）' },
       { b: `${this.firstRight} / ${this.scoredN}`, t: '首答答对' },
       this.relearn.length ? { b: `${this.relearnRight} / ${this.relearn.length}`, t: '回炉清了' } : '没有要回炉的',

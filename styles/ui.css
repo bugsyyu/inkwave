@@ -2807,3 +2807,107 @@ circle.iw-ico-cut { fill: var(--cut, #fff); }
   .iw-learnsel__forms { grid-template-columns: repeat(2, 1fr); }
   .iw-learnsel__panel .iw-seg { min-width: 0; }
 }
+
+/* ------------------------------------------------------------------ 中文化 (docs/LEARN.md §15, src/ui/i18n.js)
+   Titan One and Rubik carry Latin only. CJK in a display face falls back per character to the system's CJK face — at
+   the display text's weight 400, which reads thin next to Titan One — so 'Titan One' gets a CJK-only alias onto a heavy
+   system face (unicode-range: Latin still comes from the real Titan One). The display outline is a little thinner for
+   字 (their counters are smaller than a Latin letter's). <html lang> is set by i18n.js: zh-CN, or en with ?lang=en. */
+@font-face { font-family: 'Titan One'; font-weight: 400; font-style: normal; font-display: swap;
+  src: local('PingFangSC-Semibold'), local('PingFang SC Semibold'), local('Hiragino Sans GB W6'), local('HiraginoSansGB-W6'), local('NotoSansCJKsc-Bold'), local('Noto Sans CJK SC Bold'), local('NotoSansSC-Bold'), local('Microsoft YaHei Bold'), local('MicrosoftYaHei-Bold');
+  unicode-range: U+2E80-2FFF, U+3000-303F, U+3040-30FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
+html:lang(zh) .iw-ui, html:lang(zh) .iw-hud, html:lang(zh) .iw-hud-over, html:lang(zh) .iw-touch-rotate {
+  font-family: 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif; }
+html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .03em; }
+
+/* ---- 关卡学习: the learn pause (menus.js _scr_pauseLearn): the form, the day, the stage, how far she is */
+.iw-plearn { width: calc(var(--u) * 40); }
+.iw-plearn__stage { display: flex; align-items: center; gap: .45em; font: 700 var(--fs-m) / 1.35 'Rubik', sans-serif; color: #e9e5f4; }
+.iw-plearn__stage i { display: block; flex: none; width: 1.1em; height: 1.1em; color: var(--self); }
+.iw-plearn__stage i svg { width: 100%; height: 100%; }
+.iw-plearn__stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(var(--u) * .5); }
+.iw-plearn__stats .iw-pstat { min-width: 0; }
+.iw-plearn .iw-pmatch__map { white-space: normal; }
+
+/* ------------------------------------------------------------------ 关卡学习 G: phones held upright (390 × 844)
+   She opens a level from the IELTS-Base App in portrait. The screens on her path get a column layout here — the main
+   menu, the learn screen, the settings and a level's pause (core/touch.js keeps the "turn your device" banner down over
+   exactly these); every other INKWAVE screen is still the landscape layout under that banner. Sizes are px where a
+   thumb or a 16 px minimum matters; --u is re-based on the width so the u-sized details scale with the phone. */
+@media (orientation: portrait) and (max-width: 720px) {
+  .iw-main, .iw-learnsel, .iw-pause--learn, .iw-settings { --u: min(2.2vw, 1.1vh); }
+  .iw-main .iw-prompts, .iw-learnsel .iw-prompts, .iw-pause--learn .iw-prompts, .iw-settings .iw-prompts { display: none; }
+  .iw-main .iw-btn, .iw-learnsel .iw-btn, .iw-pause--learn .iw-btn, .iw-settings .iw-btn { --tilt: 0deg; }
+  .iw-learnsel .iw-backbtn .iw-hint, .iw-settings .iw-backbtn .iw-hint { display: none; }   /* (Esc / B: no keys on a phone) */
+  .iw-learnsel .iw-head__titles, .iw-settings .iw-head__titles { min-width: 0; }
+
+  /* main menu: the logo on top, one column of full-width buttons, no side panels (the profile / loadout cards) */
+  .iw-main .iw-scrim-left { background: linear-gradient(180deg, rgba(12, 9, 22, .55), rgba(12, 9, 22, .82) 40%, rgba(12, 9, 22, .88)); }
+  .iw-main__logo { left: 50%; translate: -50% 0; top: calc(14px + var(--sat, 0px)); font-size: 34px; }
+  .iw-main__logo .iw-logo--sm { font-size: 34px; }
+  .iw-main__menu { left: 16px; right: 16px; width: auto; top: calc(128px + var(--sat, 0px)); transform: none; gap: 8px; }
+  .iw-main__menu .iw-btn--menu, .iw-main__menu .iw-btn--menu:not(.iw-btn--xl), .iw-main__menu .iw-btn--menu:not(.iw-btn--xl):not(.iw-btn--online) {
+    height: 46px; font-size: 18px; padding: 0 16px; gap: 12px; }
+  .iw-main__menu .iw-btn--xl { height: 66px; font-size: 24px; margin-bottom: 4px; }
+  .iw-main__menu .iw-btn__sub, .iw-main__menu .iw-btn--xl .iw-btn__sub { font-size: 12px; margin-top: 5px; }
+  .iw-main__menu .iw-btn__text { min-width: 0; }
+  .iw-main__menu .iw-btn__label, .iw-main__menu .iw-btn__sub { overflow: hidden; text-overflow: ellipsis; }
+  .iw-main__menu .iw-btn__live { font-size: 11px; }
+  .iw-main__desc, .iw-main__side { display: none; }
+
+  /* the learn screen: header, the week / day panel, the four forms two by two, the start button full width */
+  .iw-learnsel .iw-head { left: 16px; right: 16px; top: calc(14px + var(--sat, 0px)); }
+  .iw-learnsel .iw-head__title { font-size: 28px; }
+  .iw-learnsel .iw-head__sub { font-size: 12px; line-height: 1.35; }
+  .iw-learnsel__body { top: calc(96px + var(--sat, 0px)); width: calc(100vw - 32px); gap: 12px; }
+  .iw-learnsel .iw-setrow__label { font-size: 13px; letter-spacing: .06em; }
+  .iw-learnsel .iw-setrow--stack .iw-seg__opt { font-size: 14px; min-height: 40px; padding: 4px 2px; }
+  .iw-learnsel__day { font-size: 14px; }
+  .iw-learnsel__form { min-height: 104px; padding: 10px 8px; gap: 4px; }
+  .iw-learnsel__ficon { width: 28px; height: 28px; }
+  .iw-learnsel__fname { font-size: 18px; }
+  .iw-learnsel__fsub { font-size: 12px; }
+  .iw-learnsel__start .iw-btn--start { width: 100%; height: 60px; font-size: 24px; }
+  .iw-learnsel__start .iw-btn--start .iw-btn__sub { font-size: 12px; max-width: none; }
+
+  /* a level's pause: the title and three buttons on top, the level's panel at the bottom */
+  .iw-pause--learn .iw-pause__dim { background: rgba(8, 6, 14, .8); }
+  .iw-pause--learn .iw-pause__col { left: 16px; right: 16px; width: auto; top: calc(28px + var(--sat, 0px)); transform: none; gap: 16px; }
+  .iw-pause--learn .iw-pause__title { font-size: 34px; }
+  .iw-pause--learn .iw-pause__menu { gap: 10px; }
+  .iw-pause--learn .iw-btn--menu { height: 52px; font-size: 19px; padding: 0 16px; gap: 12px; }
+  .iw-pause--learn .iw-plearn { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(20px + var(--sab, 0px)); transform: none; padding: 14px 16px; gap: 12px; }
+  .iw-plearn .iw-pmatch__tag { font-size: 13px; }
+  .iw-plearn .iw-pmatch__diff { font-size: 14px; letter-spacing: .04em; }
+  .iw-plearn .iw-pmatch__map { font-size: 18px; }
+  .iw-plearn__stage { font-size: 15px; }
+  .iw-plearn__stats { gap: 6px; }
+  .iw-plearn .iw-pstat { padding: 8px 4px; gap: 4px; }
+  .iw-plearn .iw-pstat > i { width: 16px; height: 16px; }
+  .iw-plearn .iw-pstat > b { font-size: 17px; }
+  .iw-plearn .iw-pstat > small { font-size: 11px; letter-spacing: .04em; }
+  .iw-plearn .iw-ppractice__tip { font-size: 13px; }
+
+  /* settings: the panel full width, the live preview card hidden, rows label-over-control when they would not fit */
+  .iw-settings .iw-head { left: 16px; right: 16px; top: calc(14px + var(--sat, 0px)); }
+  .iw-settings .iw-head__title { font-size: 28px; }
+  .iw-settings .iw-head__sub { font-size: 12px; }
+  .iw-settings__panel { left: 16px; right: 16px; width: auto; top: calc(96px + var(--sat, 0px)); max-height: calc(100% - 116px); overflow-y: auto; padding: 12px; }
+  .iw-settings .iw-prev { display: none; }
+  .iw-settings .iw-tabs .iw-tabs__hint { display: none; }
+  .iw-settings .iw-tab { height: 44px; font-size: 15px; padding: 0 4px; white-space: nowrap; }
+  .iw-settings .iw-tab i { display: none; }
+  .iw-settings .iw-row { flex-wrap: wrap; gap: 6px 10px; min-height: 48px; padding: 6px 8px; }
+  .iw-settings .iw-row.is-focus { transform: none; }
+  .iw-settings .iw-row__label { font-size: 15px; flex: 1 1 auto; min-width: 0; }
+  .iw-settings .iw-row__ctrl { margin-left: auto; }
+  .iw-settings .iw-row__ctrl .iw-seg { min-width: 0; }
+  .iw-settings .iw-slider { width: 168px; }
+  .iw-settings .iw-slider__val { font-size: 13px; width: 3.6em; }
+  .iw-settings .iw-toggle { width: 60px; height: 30px; }
+  .iw-settings .iw-toggle.is-on .iw-toggle__knob { transform: translateX(30px); }
+  .iw-settings .iw-toggle__knob { top: 4px; left: 4px; width: 22px; height: 22px; }
+  .iw-settings .iw-seg__opt { font-size: 13px; padding: 8px 8px; }
+  .iw-settings__foot { flex-wrap: wrap; gap: 8px; }
+  .iw-settings .iw-btn--small { font-size: 14px; padding: 10px 12px; }
+}

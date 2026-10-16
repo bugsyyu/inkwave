@@ -20,6 +20,8 @@ import * as THREE from 'three';
 import { G, emit } from '../core/ctx.js';
 import { LEARN } from '../config.js';
 import { puzzleLevel, prompt, judge, store } from './api.js';
+import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
+import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -50,6 +52,7 @@ export class LearnFlow {
     G.scene.add(this.group);
     this._place();
     this._buildMeshes();
+    this._buildSigns();
     this.hud?.start(this);
   }
 
@@ -128,6 +131,45 @@ export class LearnFlow {
       this.group.add(grp);
     }
     this._styleGates();
+  }
+
+  // The day's signs (路标: 写字墙 · 回声亭 · 打卡垫 · 周报牌 · 入门小测牌 — the lesson steps, LEVELS §2.1 rule 5) stand in
+  // the exit area: at the end of the route (the far exit in a puzzle, the finish in a race), spread across it, each a
+  // ring on the ground and a board on a post with its name, facing the way she comes in. Placeholders for now: they
+  // are not gates and ask nothing (the write wall's sentences are scored in the boss's W phase, LEARN §8 note 4).
+  _buildSigns() {
+    const signs = this.level.signs || [], nav = G.nav, path = this.path || [];
+    this.signs = [];
+    if (!signs.length || path.length < 4 || typeof document === 'undefined') return;
+    const end = nav.nodes[path[path.length - 1]], back = nav.nodes[path[Math.max(0, path.length - 6)]];
+    let fx = end.x - back.x, fz = end.z - back.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
+    const sx = -fz, sz = fx, col = G.teamColors[0] || new THREE.Color('#ff8a14');
+    const ringG = this._geos[0];
+    const postG = new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), boardG = new THREE.PlaneGeometry(1.9, 0.95);
+    this._geos.push(postG, boardG);
+    this.signGroup = new THREE.Group(); this.signGroup.name = 'learn-signs';
+    const n = signs.length;
+    signs.forEach((sg, i) => {
+      const mech = sg.design && sg.design.mechanic, name = (MECHANICS[mech] && MECHANICS[mech].zh) || '路标';
+      const lat = (i - (n - 1) / 2) * 2.6, ahead = -2.5;
+      _v.set(end.x + sx * lat + fx * ahead, end.y + 1, end.z + sz * lat + fz * ahead);
+      const k = nav.nearest(_v, 2.5, true), at = k >= 0 ? nav.nodes[k] : end;
+      const grp = new THREE.Group();
+      grp.position.set(at.x, at.y, at.z);
+      grp.rotation.y = Math.atan2(-fx, -fz);   // the board faces back along the route, towards her
+      const ringM = new THREE.MeshBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringG, ringM); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.scale.set(0.8, 0.8, 1);
+      const postM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#2c2540'), toneMapped: false });
+      const post = new THREE.Mesh(postG, postM); post.position.y = 0.75;
+      const tex = signTexture(name, sg.title || '', col);
+      const boardM = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, side: THREE.DoubleSide });
+      const board = new THREE.Mesh(boardG, boardM); board.position.y = 1.95;
+      grp.add(ring, post, board);
+      this._mats.push(ringM, postM, boardM); (this._texs || (this._texs = [])).push(tex);
+      this.signGroup.add(grp);
+      this.signs.push({ id: sg.id, mechanic: mech, name, pos: grp.position.clone() });
+    });
+    G.scene.add(this.signGroup);
   }
 
   _styleGates() {
@@ -230,7 +272,7 @@ export class LearnFlow {
   _askNext(g) {
     if (!g.queue.length) { this._open(g); return; }
     const item = g.queue.shift();
-    const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    const p = cardFor(g, item, () => prompt(item), () => this._altPrompt(item));
     this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
@@ -244,22 +286,24 @@ export class LearnFlow {
 
   _answer(g, item, p, ans) {
     let r;
-    if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
+    if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
+    else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
     else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
     else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
     else r = judge(item, ans);
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now() });   // (A's store: the dictation percent is the leaf; the day is today's date)
+    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date)
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
     let again = false;
-    if (!r.ok) {
+    if (!r.ok && p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; }   // 不记得: no lock, type it right away
+    else if (!r.ok) {
       g.locks++;
       if (item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; }
       this._styleGates();
     }
-    G.audio?.play?.(r.ok ? 'hit_marker' : 'ui_error', { volume: 0.8 });
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._askNext(g));
+    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
   }
 
   // The other form of an item (asked when the first answer was wrong), judged through the same judge():
@@ -363,10 +407,27 @@ export class LearnFlow {
   dispose() {
     this.hud?.end?.();
     G.scene.remove(this.group);
+    if (this.signGroup) G.scene.remove(this.signGroup);
+    for (const t of this._texs || []) t.dispose();
     for (const g of this._geos || []) g.dispose();
     for (const m of this._mats || []) m.dispose();
     this.gates = []; this.inkQueue.length = 0;
   }
+}
+
+// a sign's board: its name big (写字墙) and the step's title small, on dark glass with a rim in her ink
+function signTexture(name, title, col) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const x = c.getContext('2d');
+  const hex = '#' + col.getHexString();
+  x.fillStyle = 'rgba(21, 18, 28, 0.92)'; x.strokeStyle = hex; x.lineWidth = 12;
+  x.beginPath(); x.roundRect ? x.roundRect(8, 8, 496, 240, 36) : x.rect(8, 8, 496, 240); x.fill(); x.stroke();
+  const font = "'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif";
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = hex; x.font = `800 84px ${font}`; x.fillText(name, 256, 100, 460);
+  x.fillStyle = '#e9e5f4'; x.font = `600 34px ${font}`; x.fillText(String(title).slice(0, 20), 256, 186, 460);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
 }
 
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }

@@ -30,7 +30,8 @@ import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
-import { buildLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
+import { buildLearn, LEARN_KINDS } from './learn/forms/index.js';
+import { t } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -131,7 +132,7 @@ class Game {
     this.menus?.show('loading');
     this.bootMarks = [];
     const progress = async (p, label) => { this.bootMarks.push([label, Math.round(performance.now() - t0)]); this.menus?.setLoading(p, label); await nextFrame(); };
-    await progress(0.05, 'Mixing ink…');
+    await progress(0.05, t('boot.mix'));
 
     // renderer / scene
     this.R = new Renderer(app, this.settings);
@@ -223,7 +224,7 @@ class Game {
     this.CharacterClass = charMod.Character;
     try { this.PropKit = (await import('./world/props.js')).PropKit; } catch (e) { console.error('[inkwave] prop kit failed to load', e); this.PropKit = null; }
     G.audio = audioMod.audio; G.music = musicMod.music;
-    await progress(0.15, 'Building the plaza…');
+    await progress(0.15, t('boot.plaza'));
 
     // world
     // (old ?map=sunset links = Tidewater at dusk)
@@ -240,14 +241,14 @@ class Game {
     } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
     this.zoneMarks = new ZoneMarks(scene);   // Zone Control ground markings: build / clear themselves on 'match:state'
-    await progress(0.4, 'Filling the harbor…');
+    await progress(0.4, t('boot.harbor'));
     const B = G.level.bounds;
     G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: q.shadowSize, footprint: this._footprint(G.level), forceDeckField: this.touchMode });
     if (G.env.envMap) scene.environment = G.env.envMap;
     // sky-fill balance (scene.environmentIntensity, hemisphere) + per-theme exposure are the environment theme's job
     // (Environment.setTheme), so a stage/time looks the same booted into or switched to mid-session
     G.renderer.toneMappingExposure = 0.94;
-    await progress(0.55, 'Teaching squids to swim…');
+    await progress(0.55, t('boot.squids'));
     G.projectiles = new Projectiles(scene);
     G.subs = new SubSystem(scene);
     G.specials = new SpecialSystem(scene);
@@ -271,13 +272,13 @@ class Game {
     // online session (G.net) — the menus' online screens and startNetMatch/netMatchGo/netMatchEnd below drive it
     try { (await import('./net/session.js')).installNet(); } catch (e) { console.error('[inkwave] net', e); }
     G.net?.on?.('lobby', ({ lobby }) => this._roomPalette(lobby));
-    await progress(0.7, 'Tuning the tentacles…');
+    await progress(0.7, t('boot.tentacles'));
 
     this._setPalette(this._pickPalette());
     this._bindEvents();
     this._startAttract();
     // warm up: compile every shader now so the first shot/splat never hitches
-    await progress(0.85, 'Warming up…');
+    await progress(0.85, t('boot.warm'));
     this._warmup();
     // Shader compile. three.js's compileAsync calls compile() SYNCHRONOUSLY as its first statement — the extension
     // only lets the driver do the work in the background while the main thread carries on. Without
@@ -295,9 +296,9 @@ class Game {
     }
     for (const m of this._warmMeshes || []) { G.scene.remove(m); }
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
-    await progress(0.93, 'Warming up…');
+    await progress(0.93, t('boot.warm'));
     for (let i = 0; i < 3; i++) { this._frame(1 / 60); await nextFrame(); }
-    await progress(1, 'Ready!');
+    await progress(1, t('boot.ready'));
     await new Promise((r) => setTimeout(r, 250));
 
     this.timer = new THREE.Timer(); this.timer.connect?.(document);
@@ -321,7 +322,7 @@ class Game {
     // (?learn=w1&kind=boss is the week's 周考; &short=1 is the audits' shortened level: 2 gates, a 60 s clock)
     if (params.has('learn')) {
       const m = /^w?(\d+)(?:d(\d+))?$/i.exec(params.get('learn') || '') || [];
-      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'plan', short: params.has('short') });
+      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'plan', short: params.has('short'), gate: +params.get('gate') || 0 });
     } else if (params.has('autostart')) {
       const pm = params.get('mode');
       this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
@@ -649,28 +650,28 @@ class Game {
       if (actor.isLocal || actor._nearCamera?.()) G.audio?.play('swim_splash', { pos: actor.isLocal ? undefined : actor.pos, volume: (actor.isLocal ? 0.5 : 0.32) * Math.min(1, 0.55 + (speed || 0) / 16) });
     });
     // online, humans-only stage: a player who left is gone from the match (Match.removeActor) — say so in the feed
-    on('actor:removed', ({ actor }) => { if (this.match && !this.match.attract) this.hud?.feed({ text: `${actor.name} left the match`, color: G.teamHex[actor.team], kind: 'info' }); });
+    on('actor:removed', ({ actor }) => { if (this.match && !this.match.attract) this.hud?.feed({ text: t('feed.left', { name: actor.name }), color: G.teamHex[actor.team], kind: 'info' }); });
     on('splatted', ({ victim, attacker, cause }) => {
       if (!this.match || this.match.attract) return;
       this._addDeathMark(victim);
       const local = this.match.local;
       if (attacker?.isLocal) {
         G.audio?.play('splat_enemy', { volume: 0.9 });
-        this.hud?.feed({ text: `You splatted ${victim.name}!`, color: G.teamHex[local.team], kind: 'kill' });
+        this.hud?.feed({ text: t('feed.youSplat', { name: victim.name }), color: G.teamHex[local.team], kind: 'kill' });
       } else if (victim.isLocal) {
         G.audio?.play('splatted_self');
         G.audio?.duck?.(0.45, 2.2);
         // the card shows what did it (hud.js splatCause): the attacker's main weapon, or the sub / special / the sea
-        const by = attacker ? attacker.name : cause === 'water' ? null : 'enemy ink';
+        const by = attacker ? attacker.name : cause === 'water' ? null : t('feed.enemyInk');
         this.hud?.showSplatted({ by, byColor: attacker ? G.teamHex[attacker.team] : '#6fd0ff', respawn: PLAYER.respawnTime, attacker: attacker || null, cause });
         this.rig.mode = 'spectate';
         this.rig.spectate = { actor: attacker && attacker.alive ? attacker : null, pos: victim.pos.clone(), from: victim.pos.clone() };
         this.rig.lookAt.copy(victim.pos);
       } else if (victim.team === local?.team) {
         G.audio?.play('ally_splatted', { volume: 0.5 });
-        this.hud?.feed({ text: `${victim.name} was splatted${attacker ? ' by ' + attacker.name : ''}`, color: G.teamHex[victim.enemyTeam], kind: 'death' });
+        this.hud?.feed({ text: attacker ? t('feed.splatBy', { name: victim.name, by: attacker.name }) : t('feed.splat', { name: victim.name }), color: G.teamHex[victim.enemyTeam], kind: 'death' });
       } else if (attacker && attacker.team === local?.team) {
-        this.hud?.feed({ text: `${attacker.name} splatted ${victim.name}`, color: G.teamHex[attacker.team], kind: 'ally' });
+        this.hud?.feed({ text: t('feed.allySplat', { by: attacker.name, name: victim.name }), color: G.teamHex[attacker.team], kind: 'ally' });
       }
     });
     on('respawn', ({ actor }) => {
@@ -885,7 +886,7 @@ class Game {
     const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
     const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'plan';   // ('plan': buildLearn takes the day's planned form)
     let learn = null;
-    try { learn = await buildLearn({ week, day, kind, short: !!o.short }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
+    try { learn = await buildLearn({ week, day, kind, short: !!o.short, gate: o.gate | 0 }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
     return this.startMatch({ mode: 'learn', mapId: learn.level.stage || 'tidewater', time: learn.time || 'day', duration: learn.duration, learn });
   }
 

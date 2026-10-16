@@ -62,8 +62,10 @@ export const store = {
   reset() { state = fresh(); return store.save(); },
 
   // the first answer of the day about an item is evidence; later ones are practice → { first: false }
-  //   { itemId, ok, pct?, day?, at?, item?, hinted?, self?, typed? }
+  //   { itemId, ok, pct?, day?, at?, item?, hinted?, self?, typed?, how? }
   //   ok: boolean; pct: the dictation percent (judge() returns it); day 'YYYY-MM-DD' and at (Date | ms) default to now
+  //   how: the mode when the act names it — a flip card's self-rating is 'F' (core.js mapEvidence: 看词自评 → F); it
+  //   must be one of Model.MODES (else { first: false, reason: 'bad-mode' }, nothing written); without it, modeOf
   recordFirst(a) {
     a = a || {};
     const I = ieltsNow(), M = I.Model;
@@ -74,7 +76,7 @@ export const store = {
     if (!kind || kind === 'lesson' || meta.scored === false) return { first: false, reason: 'not-scored' }; // like core.record: no item, no evidence
     const date = M.util.isYmd(a.day) ? a.day : ymdOf(a.at), hms = hmsOf(a.at);
     if (store.hasEvOn(id, date)) return { first: false };
-    const mode = modeOf(kind, { typed: a.typed != null ? !!a.typed : !!meta.typed, hinted: !!a.hinted, self: !!a.self });
+    const mode = a.how != null ? String(a.how) : modeOf(kind, { typed: a.typed != null ? !!a.typed : !!meta.typed, hinted: !!a.hinted, self: !!a.self });
     if (!M.MODES[mode]) return { first: false, reason: 'bad-mode' };
     let r;
     if (kind === 'dict') {

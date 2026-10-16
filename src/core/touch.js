@@ -16,6 +16,7 @@
 //     a control within ~32dp of an edge eats a `pointercancel` instead of a tap.
 import { G } from './ctx.js';
 import { TOUCH } from '../config.js';
+import { t as tx } from '../ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the portrait gate's words
 
 // Left share of the screen that owns the movement stick. The rest is look / fire / buttons.
 const MOVE_ZONE = 0.44;
@@ -25,15 +26,15 @@ const MOVE_ZONE = 0.44;
 // together. +x = left, +y = up. Tuned on device — these are the numbers to move.
 const LAYOUT = [
   { name: 'fire', label: '', x: 1.50, y: 1.50, r: 1.50, cls: 'is-fire' },
-  { name: 'jump', label: 'JUMP', x: 4.55, y: 1.20, r: 1.05 },
-  { name: 'squid', label: 'SQUID', x: 4.55, y: 3.40, r: 1.05 },
-  { name: 'sub', label: 'SUB', x: 1.50, y: 4.35, r: 1.05 },
-  { name: 'special', label: 'SP', x: 4.20, y: 5.30, r: 1.05 },
+  { name: 'jump', label: tx('tc.jump'), x: 4.55, y: 1.20, r: 1.05 },
+  { name: 'squid', label: tx('tc.squid'), x: 4.55, y: 3.40, r: 1.05 },
+  { name: 'sub', label: tx('tc.sub'), x: 1.50, y: 4.35, r: 1.05 },
+  { name: 'special', label: tx('tc.sp'), x: 4.20, y: 5.30, r: 1.05 },
 ];
 // Top-right row: not thumb-arc controls, so they sit on their own line. `top: true` anchors them to the top edge.
 const TOP_LAYOUT = [
-  { name: 'map', label: 'MAP', x: 1.10, y: 1.10, r: 0.90, cls: 'is-small', top: true },
-  { name: 'cheer', label: 'YEAH', x: 2.95, y: 1.10, r: 0.90, cls: 'is-small', top: true },
+  { name: 'map', label: tx('tc.map'), x: 1.10, y: 1.10, r: 0.90, cls: 'is-small', top: true },
+  { name: 'cheer', label: tx('tc.cheer'), x: 2.95, y: 1.10, r: 0.90, cls: 'is-small', top: true },
   { name: 'pause', label: 'II', x: 4.80, y: 1.10, r: 0.90, cls: 'is-small', top: true },
 ];
 
@@ -95,7 +96,7 @@ export class TouchControls {
     // child can never paint over the menus — and the portrait menu is exactly what the gate exists to replace.
     const rotate = document.createElement('div');
     rotate.className = 'iw-touch-rotate';
-    rotate.innerHTML = '<div><i>▭</i><b>Turn your device</b><span>INKWAVE is played in landscape.</span></div>';
+    rotate.innerHTML = `<div><i>▭</i><b>${tx('rot.title')}</b><span>${tx('rot.text')}</span></div>`;
     parent.appendChild(rotate);
     this.rotateEl = rotate;
 
@@ -297,8 +298,11 @@ export class TouchControls {
     // NOT the loading screen: that is where a player looks to see whether the game is coming up at all, and covering
     // it turns "still loading" into "broken" (which is exactly what an earlier version of this gate did). The title
     // screen is left alone too — it advances on a tap anywhere, which portrait does fine.
+    // 关卡学习 G: the screens on her path have a portrait layout (styles/ui.css, the portrait block) — the main menu, the
+    // learn screen, the settings, and a level's own pause — so the banner stays down over those
     const cur = G.menus?.current;
-    const armed = (G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title');
+    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn);
+    const armed = (G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title' && !portraitOk);
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.
     if (armed !== this._armed) { this._armed = armed; this.rotateEl?.classList.toggle('is-armed', armed); }

@@ -13,6 +13,7 @@ import { GLYPHS, SQUID } from './ui-icons.js';
 import { splatClip, splatCover, inkBurst } from './menu-art.js';
 import { BOSS_NAME, bossSilhouette } from './boss-art.js';
 import { G } from '../core/ctx.js';
+import { isZh } from './i18n.js';
 
 export const NEWS_ID = 'mp-expansion-1';
 const KEY = 'inkwave.news';
@@ -29,6 +30,8 @@ function gate() {
   if (p === 'force') return 'force';
   if (p === '1') return true;
   for (const k of ['skipTitle', 'netmock', 'autostart', 'autopilot']) if (q.has(k)) return false;
+  // 中文化 (docs/LEARN.md §15): the update cards are INKWAVE's English news — the Chinese shell (her side) skips them
+  if (isZh || q.has('learn') || q.get('from') === 'app') return false;
   return true;
 }
 

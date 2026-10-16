@@ -8,6 +8,9 @@ import { on, G } from '../core/ctx.js';
 
 const TRACK = { 1: 'boss', 2: 'boss_2', 3: 'boss_3' };
 let installed = false;
+// a boss match: Boss Battle (mode 'boss') or 关卡学习's 周考 (mode 'learn', learnKind 'boss' — HULLBREAKER and BossMode run
+// as they are, docs/LEARN.md §13 / §15), so the music director scores both
+export const isBossMatch = (m) => !!m && (m.mode === 'boss' || (m.mode === 'learn' && m.learnKind === 'boss'));
 
 export function installBossAudio() {
   if (installed) return;
@@ -68,7 +71,7 @@ export function installBossAudio() {
 
   on('match:state', ({ state, match }) => {
     if (!match || match.attract) return;
-    if (state === 'intro' || state === 'init') { stopAll(0.2); if (match.mode === 'boss') begin(match.boss || null); else if (st.active) end(); }
+    if (state === 'intro' || state === 'init') { stopAll(0.2); if (isBossMatch(match)) begin(match.boss || null); else if (st.active) end(); }
     if (!st.active) return;
     if (state === 'playing' && !st.dead) music(phaseTrack());
     if (state === 'finish') { stopAll(0.3); if (!st.dead) music(null, 0.6); }

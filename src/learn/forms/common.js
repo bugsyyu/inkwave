@@ -239,6 +239,7 @@ const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ')
 // the same mapping flow.js uses for its reworded forms: a picked word judged as the dictation, a typed word mapped
 // to its option, a reshuffled choice mapped back to the original index; everything through the one judge()
 export function judgeAnswer(item, p, ans) {
+  if (p._flip) return flipJudge(item, ans);
   if (p._alt === 'choice-of-typed') return judge(item, p.options[ans] ? p.options[ans].text : '');
   if (p._alt === 'typed-of-choice') return judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));
   if (p._perm) return judge(item, typeof ans === 'number' ? p._perm[ans] : ans);
@@ -247,10 +248,34 @@ export function judgeAnswer(item, p, ans) {
 // the right answer of a live prompt, for the audits (an option index for a choice, the text for a typed answer)
 export function rightAnswerOf(item, p) {
   if (!item || !p) return null;
+  if (p._flip) return true;   // (her own rating: 记得)
   if (p._alt === 'choice-of-typed') return (p.options || []).findIndex((o) => o.text === ((item.meta && item.meta.ref) || item.en));
   if (p._alt === 'typed-of-choice') return item.options[item.answer].en;
   if (p.type === 'choice') return p._perm ? p._perm.indexOf(item.answer) : item.answer;
   return (item.meta && item.meta.ref) || item.en;
+}
+
+// 快闪翻牌 (LEVELS §1.1, §3.1): the review day's 150-word flash step (mechanic 'flash-flip') is flip cards, not typing —
+// the Chinese on the front, think of the English, flip: the word, its IPA, its sound; then her own 「记得 / 不记得」.
+// That self-rating is the host's 看词自评, evidence mode F (store.recordFirst({ how: 'F' }), core.js mapEvidence).
+// A 「不记得」 is no mistake (no lock): the card comes straight back as the typed card (T / H — the day's first answer
+// is already the F, so the typing is practice), and a miss there goes the usual way (reworded, then 回炉).
+export const isFlipGate = (g) => !!(g && g.design && g.design.mechanic === 'flash-flip');
+export function flipPrompt(item) {
+  const m = (item && item.meta) || {}, zh = m.zhFull || item.zh || '';
+  return { type: 'flip', text: '看中文，想一想英文怎么说 — 想好了翻过来', zh, tts: null, back: { en: item.en, ipa: m.ipaUs || m.ipa || '', zh, tts: item.tts || item.en }, _flip: true };
+}
+export function flipJudge(item, ans) {
+  const m = (item && item.meta) || {}, zh = m.zhFull || item.zh || '';
+  const ok = ans === true || ans === 'yes' || ans === 1;
+  return { ok, canonical: item.en, why: ok ? `${item.en}（${zh}）— 记得，记进进度（自评）` : `${item.en}（${zh}）— 没关系，现在把它打一遍`, text: ok ? '记得！' : '没关系 — 马上打一遍' };
+}
+// which card to show for an item at a gate: the reworded form after a miss, the typed card after a 「不记得」, the flip
+// card on the flash-flip gate, else the engine's own prompt
+export function cardFor(g, item, base, alt) {
+  if (item._form === 'alt') return alt();
+  if (item._flipTyped || !isFlipGate(g)) return base();
+  return flipPrompt(item);
 }
 
 // the board (展板) before a gate's questions (LEVELS §2 学习在前): the step's content — words with IPA and meaning,
@@ -292,8 +317,10 @@ export function relearnTip(item) {
 }
 
 /* ───────────────────────────── shortened levels (?short=1) and small formatting ───────────────────────────── */
-export function shortenLevel(level, gates = 2, perGate = 2) {
-  const out = { ...level, short: true, gates: level.gates.slice(0, gates).map((g) => ({ ...g, items: g.items.slice(0, perGate) })) };
+export function shortenLevel(level, gates = 2, perGate = 2, from = 0) {
+  // (from: the audits' ?gate=N starts the short level at the N-th gate — e.g. the review day's flip cards, gate 3)
+  const at = Math.max(0, Math.min(level.gates.length - 1, from | 0));
+  const out = { ...level, short: true, gates: level.gates.slice(at, at + gates).map((g) => ({ ...g, items: g.items.slice(0, perGate) })) };
   out.minutes = Math.min(level.minutes || 1, 1);
   return out;
 }

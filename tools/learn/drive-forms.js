@@ -38,6 +38,7 @@
       const it = A.item;
       if (p._alt === 'choice-of-typed') return (p.options || []).findIndex((o) => o.text === (it.meta && it.meta.ref || it.en));
       if (p._alt === 'typed-of-choice') return it.options[it.answer].en;
+      if (p._flip) return true;   // (the flip card: her own 「记得」)
       if (p.type === 'choice') return p._perm ? p._perm.indexOf(it.answer) : it.answer;
       return (it.meta && it.meta.ref) || it.en;
     };
@@ -45,7 +46,13 @@
       const a = H()._ask, p = a.p;
       const want = rightOf(F, p);
       let picked = null;
-      if (p.type === 'choice') {
+      if (p.type === 'flip') {
+        document.querySelector('.iw-learn__flip').click();
+        await adv(100);
+        const back = document.querySelector('.iw-learn__face.is-back');
+        picked = (mode === 'right' ? '记得 ' : '不记得 ') + (back ? back.innerText.replace(/\s+/g, ' ') : '');
+        document.querySelector(mode === 'right' ? '.iw-learn__know' : '.iw-learn__forgot').click();
+      } else if (p.type === 'choice') {
         const btns = [...document.querySelectorAll('.iw-learn__opt')];
         let k = typeof want === 'number' ? want : btns.findIndex((b) => b.querySelector('.iw-learn__opten').textContent === String(want));
         if (k < 0) k = 0;
@@ -76,7 +83,10 @@
         if (F.autoWalk && !F.auto && (F.phase === 'walk' || F.phase === 'final')) F.autoWalk(true);
         await adv(1000); continue;
       }
-      const mode = !wrongDone ? 'wrong' : 'right';
+      // (an audit may stop at a kind of question to look at it — window.__driveStop(p) → true leaves it up; the next run of
+      // this script carries on from there)
+      if (W.__driveStop && W.__driveStop(H()._ask.p)) { out.stoppedAt = H()._ask.p.type; break; }
+      const mode = !wrongDone && !W.__driveNoWrong ? 'wrong' : 'right';
       const ok = await answer(mode);
       if (mode === 'wrong' && !ok) wrongDone = true;
       if (mode === 'wrong' && ok) wrongDone = true;   // (could not miss: fine)
@@ -84,7 +94,10 @@
       if (F.effects) out.effects.push(F.effects());
     }
     out.answered = n; out.tLoop = Date.now() - t0; out.simT = F.t;
-    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 8000 : 60000, 'results card');
+    if (out.stoppedAt) { if (frozen) { try { W.__inkwave.debug.step(16.7); } catch (e) { /* fine */ } } return JSON.stringify({ stoppedAt: out.stoppedAt, steps: out.steps, errors: out.errors }); }
+    // (the last answer → the round's close → the results: a few seconds of simulation, each stepped frame dearer than real
+    // time under software GL — so the wait is counted in simulated seconds as well as wall clock)
+    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 30000 : 60000, 'results card (finishT ' + (F.finishT != null ? (+F.finishT).toFixed(2) : '?') + ', phase ' + F.phase + ')');
     out.results = document.querySelector('.iw-learn__results') && document.querySelector('.iw-learn__results').innerText.slice(0, 400);
   } catch (e) { out.errors.push(String(e && e.message || e)); }
   if (frozen) { try { W.__inkwave.debug.step(16.7); W.__inkwave.debug.unfreeze(); } catch (e) { /* fine */ } }
