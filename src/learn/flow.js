@@ -27,7 +27,8 @@ import { LEARN } from '../config.js';
 import { puzzleLevel, prompt, judge, store } from './api.js';
 import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
 import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
-import { PlayRun } from './play/run.js';   // 题即玩法 (docs/PLAY.md): a choice item is ink targets, the world runs on
+import { PlayHost } from './play/host.js';
+import { isBanner } from './play/layout.js';   // (a word's 回炉 choice: which distractors stay ink balls)   // 题即玩法 (docs/PLAY.md): every item is a thing on the stage, the world runs on (play-wire, LEARN §22)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -61,7 +62,7 @@ export class LearnFlow {
     this._buildSigns();
     this.hud?.start(this);
     // (only the puzzle itself: race / duel / boss / coop2 extend this class and keep their cards until their phase)
-    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayRun(this) : null;
+    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayHost(this) : null;
   }
 
   // ---------------------------------------------------------------------------------------------- placement
@@ -254,13 +255,17 @@ export class LearnFlow {
     // 1/45 s — runs the match in two sub-steps, and the second one finds the first one's move still in the intent)
     const own = this._autoMove && Math.abs(it.move.x - this._autoMove.x) < 1e-6 && Math.abs(it.move.z - this._autoMove.z) < 1e-6;
     if (it.move.lengthSq() > 0.04 && !own) { this.autoWalk(false); return; }
+    // (题即玩法 play-wire: a board on the way is a stop — the walk goes to its viewing spot and ends there; 「自动走」 again goes on)
+    const tgt = this.play?.autoTarget?.(g) || null, node = tgt ? tgt.node : g.node;
+    if (this.autoPath && this._autoNode !== node) this.autoPath = null;
     if (!this.autoPath) {
       const from = nav.nearest(a.pos, 1.5, true);
-      this.autoPath = from >= 0 ? nav.path(from, g.node, 0, 40000, true) : null;
-      this.autoK = 1; this.autoStall = 0;
-      if (!this.autoPath) { this.autoPath = [from, g.node]; }
+      this.autoPath = from >= 0 ? nav.path(from, node, 0, 40000, true) : null;
+      this.autoK = 1; this.autoStall = 0; this._autoNode = node;
+      if (!this.autoPath) { this.autoPath = [from, node]; }
     }
     const path = this.autoPath;
+    if (tgt && tgt.stop) { const e = nav.nodes[path[path.length - 1]]; if (Math.hypot(e.x - a.pos.x, e.z - a.pos.z) < 0.7) { this.autoWalk(false); return; } }
     // advance past nodes already reached (xz within 0.6 m, or clearly behind on the way to the next one)
     while (this.autoK < path.length - 1) {
       const n = nav.nodes[path[this.autoK]];
@@ -322,14 +327,14 @@ export class LearnFlow {
 
   // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
   // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
-  _judgeRecord(g, item, p, ans) {
+  _judgeRecord(g, item, p, ans, o = {}) {
     let r;
     if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
     else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
     else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
     else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
     else r = judge(item, ans);
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date)
+    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.hinted ? { hinted: true } : {}), ...(o.self ? { self: true } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date; 题即玩法: a hint used → H, her own claim → S)
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
@@ -350,9 +355,16 @@ export class LearnFlow {
   _altPrompt(item) {
     const base = prompt(item);
     if (base.type !== 'choice') {   // ('type' from A's engine, 'typed' from the stub: anything she types)
+      // (题即玩法: a missed dictation sentence comes back as the same dictation, heard slowly — PLAY §4 「M4 慢速、逐词」; a
+      // choice of four sentences would be four long planks, which no mechanic shows)
+      if (this.play && item.meta && item.meta.kind === 'dict') return { ...base, text: '换个问法：慢一点再听一遍，把听到的句子写下来。', _tip: { zh: '回炉：慢速再听一遍 — ' + (item.zh || ''), variant: 'slow', slow: true } };
       const pool = this._wordPool(item);
       const opts = [{ text: item.en, zh: item.zh }];
-      for (const w of pool) { if (opts.length >= 4) break; if (norm(w.en) !== norm(item.en)) opts.push({ text: w.en, zh: w.zh }); }
+      // (题即玩法: the choice is M1 ink balls — a long word makes planks, at most LEARN.m1.bannerMax of them; with a short
+      // word every distractor stays a ball, so a long one is passed over)
+      const long = (w) => isBanner([{ text: String(w.en ?? w.text ?? ''), zh: String(w.zh || '') }]);
+      const want = this.play && long(item) ? LEARN.m1.bannerMax : 4;
+      for (const w of pool) { if (opts.length >= want) break; if (norm(w.en) === norm(item.en)) continue; if (this.play && (!/[a-z]/i.test(w.en) || (!long(item) && long(w)))) continue; opts.push({ text: w.en, zh: w.zh }); }
       shuffle(opts);
       return { type: 'choice', text: /\s/.test(item.en) ? '换个问法：再听一遍，选出你听到的那句' : '换个问法：再听一遍，选出你听到的词', zh: item.zh, tts: item.en, options: opts, _alt: 'choice-of-typed' };
     }
