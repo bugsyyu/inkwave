@@ -97,32 +97,40 @@ async function scenarioForms() {
   await ctx.close();
 }
 
-// the cost of each _frame (sim + render) in real time, after 3 s of play; the runner while she swims its rows
-async function sample(query, label, prep, learn = true) {
+// Frame time in real time (the loop not stepped), after the level is under way: the start board pressed, the sim run
+// on (frozen, without the renderer) to a busy moment — for the runner the first row up on the road — then sampled for
+// `perfSeconds` of wall clock. Two numbers: the interval between frames (requestAnimationFrame: the whole frame, the
+// software renderer included — on this box that is what dominates) and the cost of the game's own _frame call (the
+// simulation plus issuing the draw). SwiftShader numbers compare the three runs with each other, not with a phone.
+async function sample(query, label, prepSrc, learn = true) {
   const { ctx, page, bootS } = await open(query + '&quality=low&nofullscreen', learn);
   await page.waitForFunction(() => __inkwave.match.state === 'playing', null, { timeout: 300000, polling: 250 });
-  if (prep) await page.evaluate(prep);
+  const prep = prepSrc ? await page.evaluate(prepSrc) : null;
   const r = await page.evaluate(async (secs) => {
     const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    await sleep(3000);
     const ft = [], orig = I._frame.bind(I);
     I._frame = (dt) => { const t = performance.now(); orig(dt); ft.push(performance.now() - t); };
     const raf = []; let last = performance.now(), on = true;
     const tick = (t) => { raf.push(t - last); last = t; if (on) requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     await sleep(secs * 1000); on = false; I._frame = orig;
-    const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return +s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))].toFixed(1); };
+    const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.length ? +s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))].toFixed(1) : null; };
+    raf.shift();
     const F = I.match.learn, d = F && F.debug ? F.debug() : {};
-    return { actors: I.match.actors.length, frames: ft.length, p50: q(ft, 0.5), p95: q(ft, 0.95), max: +Math.max(...ft).toFixed(1), rafP50: q(raf, 0.5), rafP95: q(raf, 0.95), calls: I.perf && I.perf.calls, tris: I.perf && I.perf.tris, rowShown: !!(d.row), s: d.s, stage: I.mapDef.id };
+    return { actors: I.match.actors.length, frames: ft.length, frameP50: q(ft, 0.5), frameP95: q(ft, 0.95), frameMax: +Math.max(...ft).toFixed(1), rafP50: q(raf, 0.5), rafP95: q(raf, 0.95), calls: I.perf && I.perf.calls, tris: I.perf && I.perf.tris, rowShown: !!(d.row), s: d.s, paused: I.match.paused, stage: I.mapDef.id };
   }, PERF_S);
   await ctx.close();
-  return { label, query, bootS, ...r };
+  return { label, query, bootS, prep, ...r };
 }
+// (each prep: press 出发 / 走 while a board is up, then run the sim on — frozen, no renderer — to the busy moment)
+const FF = `const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const ff = (sec) => { I.debug.freeze(); I._skipRender = true; try { for (let i = 0; i < Math.round(sec * 30); i++) I._frame(1 / 30); } finally { I._skipRender = false; I.debug.unfreeze(); } };
+  const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) go.click(); else if (i > 2) break; await sleep(400); } };`;
 async function scenarioPerf() {
   const day = opt('day', 'w1d3');
-  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', () => { const F = __inkwave.match.learn; const go = document.querySelector('.iw-lf__go'); if (F.prep && F.prep() && go) go.click(); });
-  const race = await sample(`?learn=${day}&kind=race`, 'race', () => { const F = __inkwave.match.learn; const go = document.querySelector('.iw-lf__go'); if (go) go.click(); if (F.autoWalk) F.autoWalk(true); });
-  // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage
-  const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', null, false);
+  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!F._shown() && k++ < 40) ff(0.5); ff(0.6); return { s: +F.sNow.toFixed(1), row: !!F._shown(), started: F.started }; })()`);
+  const race = await sample(`?learn=${day}&kind=race`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); ff(4); return { phase: F.phase, cur: F.cur }; })()`);
+  // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight
+  const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', `(async () => { ${FF} ff(6); return { t: +I.match.time.toFixed(1) }; })()`, false);
   out.runs.push(runner, race, turf);
 }
 

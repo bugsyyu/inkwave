@@ -23,7 +23,7 @@ class Spring {   // exact critically-damped spring (cameraRig's)
 // framing presets: [back m, up m, look-ahead m, look height m, vertical fov °]. Wide screens are framed by a horizontal
 // field of view instead (WIDE_H): a landscape phone's 2.16 : 1 at a fixed vertical angle sees 90° across and the row
 // shrinks to a strip in the middle; 72° across puts a four-lane row over 40 % of the width a dozen metres out.
-const TALL = [5.2, 3.3, 9, 0, 70], WIDE = [4.6, 2.4, 9, 0.5, 0], WIDE_H = 72;
+const TALL = [5.2, 3.3, 8, -0.7, 70], WIDE = [4.8, 3.0, 6, -0.3, 0], WIDE_H = 72;
 const _p = {}, _v = new THREE.Vector3(), _b = new THREE.Vector3(), _probe = { hard: 0, soft: 0, floor: false };
 
 export class RunnerCam {
@@ -46,15 +46,20 @@ export class RunnerCam {
     return TALL.map((v, i) => v + (wide[i] - v) * k);
   }
 
-  // a: her actor; T + s: the road and where she is on it; yawRoad: an override heading (a detour branch) or null
-  update(dt, a, T, s, aspect, yawRoad = null) {
+  // a: her actor; T + s: the road and where she is on it; yawRoad: an override heading (a detour branch) or null;
+  // focus: { x, y, z, w } — the row being asked (PLAY §6.2 镜头框住题物): heading and look point lean towards it by w
+  update(dt, a, T, s, aspect, yawRoad = null, focus = null) {
     const rig = this.rig, cam = G.camera;
     if (!rig || !cam || !a) return;
     if (rig.mode !== 'path' || rig.path) { rig.mode = 'path'; rig.path = null; }
     // the road's heading: the tangent averaged 2–9 m ahead
     let tx = 0, tz = 0;
     if (yawRoad == null) { for (let d = 2; d <= 9; d += 1.75) { at(T, s + d, _p); tx += _p.tx; tz += _p.tz; } }
-    const yawT = yawRoad != null ? yawRoad : Math.atan2(tx, tz);
+    let yawT = yawRoad != null ? yawRoad : Math.atan2(tx, tz);
+    if (focus && focus.w > 0) {
+      let d = Math.atan2(focus.x - a.pos.x, focus.z - a.pos.z) - yawT; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      yawT += clamp(d, -0.6, 0.6) * focus.w;
+    }
     const p = a.visualPos ? a.visualPos(_v) : _v.copy(a.pos);
     const F = this.frame(aspect);
     if (this.fresh) {
@@ -86,7 +91,10 @@ export class RunnerCam {
     const kb = this.boom.step(k, k < this.boom.x ? 18 : 3, dt);
     cam.position.set(x + bx * kb, y + ph + by * kb, z + bz * kb);
     cam.up.set(0, 1, 0);
-    cam.lookAt(x + fx * ahead, y + lookH, z + fz * ahead);
+    let lx = x + fx * ahead, ly = y + lookH, lz = z + fz * ahead;
+    const fw = this.fw = (this.fw || 0) + ((focus ? focus.w : 0) - (this.fw || 0)) * Math.min(1, dt * 4);   // (eased in and out)
+    if (focus && fw > 0.001) { lx += (focus.x - lx) * fw * 0.5; ly += (focus.y - ly) * fw * 0.5; lz += (focus.z - lz) * fw * 0.5; }
+    cam.lookAt(lx, ly, lz);
     // field of view: rig fov = vBase + (fovKick − zoom) · 0.8 in path mode; a touch wider at swim speed
     const sp = Math.hypot(a.vel.x, a.vel.z);
     const want = vfov + clamp((sp - 8) * 0.6, 0, 4);

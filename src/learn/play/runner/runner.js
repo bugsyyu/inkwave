@@ -38,6 +38,7 @@ import { RunnerHud } from './hud.js';
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const _p = {}, _q = {}, _pr = {};
 const TAGS = ['A', 'B', 'C', 'D'];
+const FAR = new THREE.Vector3(1e6, 0, 1e6);
 
 // play-type's typing rig plugs in here (LEARN §20 「接口」): RunnerFlow.typed = async ({ items, gate, flow }) => { … }.
 // It answers each item through engine.judge → store.recordFirst itself and resolves when done; the 滑行段 lasts at least
@@ -148,6 +149,16 @@ export class RunnerFlow extends RaceFlow {
     this.cam.fresh = true; this.cam.take(G.rig);
   }
 
+  // The race's own bot (RaceFlow._bot, unchanged) on a lap run many times: it "arrives" at a checkpoint or the line by
+  // distance alone, and on a loop every spot comes round once a lap — so until a bot's place on the route is near its
+  // target's (path index), the target stands out of reach for that one call. Nothing else of _bot is touched.
+  _botLap(r, dt) {
+    const tgt = r.cp < this.gates.length ? this.gates[r.cp] : this.finish;
+    if (!tgt || r.k >= tgt.pathIndex - 8) { this._bot(r, dt); return; }
+    const p = tgt.pos; tgt.pos = FAR;
+    try { this._bot(r, dt); } finally { tgt.pos = p; }
+  }
+
   // ---------------------------------------------------------------------------------------------- input
   swipe(dir) { this._in.push(dir); }   // src/core/touch.js swipe hook
   _readInput() {
@@ -192,7 +203,7 @@ export class RunnerFlow extends RaceFlow {
     this.clock += dt;
     const txt = `圈 ${fmtClock(this.clock)}`;
     if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
-    for (const r of this.racers) this._bot(r, dt);
+    for (const r of this.racers) this._botLap(r, dt);
     if ((this._rankT -= dt) <= 0) { this._rankT = 0.5; this.me.progress = this.cum[this.pathIndexAt(Math.max(0, this.sNow))]; this._rank(); }
     this._propKey(a);
     this._readInput();
@@ -371,9 +382,17 @@ export class RunnerFlow extends RaceFlow {
       this._cross(this.sPrev, this.sNow);
       if (this.phase === 'final' && this.sNow >= this.finish.s) this._finishDone();
     }
-    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad);
-    this.mark.update(a, Math.atan2(a.vel.x, a.vel.z));
     const row = this._shown();
+    let focus = null;
+    if (row && row.kind !== 'glide' && !yawRoad) {   // frame the row being asked (fades out over its last metres)
+      const ahead = row.s - this.sNow;
+      at(T, row.s, _q);
+      const w = clamp((ahead - 2) / 6, 0, 1) * clamp((34 - ahead) / 8, 0, 1) * 0.75;
+      focus = this._focus || (this._focus = {});
+      focus.x = _q.x + _q.rx * row.c; focus.y = _q.y + 1.1; focus.z = _q.z + _q.rz * row.c; focus.w = w;
+    }
+    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus);
+    this.mark.update(a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);
   }
   _aspect() { const c = G.camera; return c && c.aspect ? c.aspect : (typeof innerWidth !== 'undefined' ? innerWidth / innerHeight : 16 / 9); }
@@ -413,10 +432,11 @@ export class RunnerFlow extends RaceFlow {
     row.view.pos(lane, _v);
     G.fx?.explosion?.(_v, col, 2.2);
     this._floodRow(row, lane);
-    if (beat) {   // on the beat: more speed and a flourish (a hop out of the ink with a little dance)
+    if (beat) {   // on the beat: more speed and a flourish — a dolphin hop out of the ink (squid form: the speed carries) + a burst
       this.stats.onBeat++;
       this.boostK = R.beatBoost[0]; this.boostT = R.beatBoost[1];
       this._jumpQ = true; this.popT = 0.7; a.character.setDance?.('victory');
+      _v2.copy(a.pos); _v2.y += 0.3; G.fx?.ring?.(_v2, _up, col, { radius: 1.8, life: 0.4 });
       this.rh.say(true, '对！踩在拍子上');
     } else {
       if (beat === false) this.stats.offBeat++;
@@ -605,7 +625,7 @@ export class RunnerFlow extends RaceFlow {
     }
     let dx = tx - a.pos.x, dz = tz - a.pos.z; const dl = Math.hypot(dx, dz) || 1;
     it.move.set(dx / dl, 0, dz / dl);
-    it.squid = this.popT <= 0;
+    it.squid = true;   // (a squid all the way: a kid on the ink walks at 6 m/s and no swim boost reaches her)
     let jump = this._jumpQ;
     if (!jump && a.grounded && !(D && D.line)) {   // the lap's jump-up edges (0.5–1.25 m): hop them like the auto-walk does
       const ahead = Math.max(1.4, sp * 0.16), base = Math.floor(this.sNow / T.len) * T.len;
@@ -622,6 +642,12 @@ export class RunnerFlow extends RaceFlow {
     let lo = -r.left, hi = r.right;
     if (row && row.kind !== 'glide' && s >= row.sAppear - 2 && s <= row.s + 1.5) { lo = Math.max(lo, row.centers[0] - 0.35); hi = Math.min(hi, row.centers[row.centers.length - 1] + 0.35); if (lo > hi) lo = hi = row.centers[0]; }
     else if (row && row.kind === 'glide') { const amp = Math.min(1.2, r.left, r.right); this.latT = amp * Math.sin(((s - row.s0) / Math.max(1, row.s1 - row.s0)) * Math.PI * 2); }
+    // onto the middle of the road for a jump-up edge just ahead and for the line (the lap's own way up a ledge / onto the
+    // start deck is the route's line; a metre off it the ledge may be a wall)
+    const T = this.T, base = Math.floor(s / T.len) * T.len;
+    let tight = this.phase === 'final' && this.finish && this.finish.s - s < 14;
+    for (const j of T.jumps) for (const sj of [base + j, base + T.len + j]) if (sj > s - 1 && sj - s < 5) tight = true;
+    if (tight) { lo = Math.max(lo, -0.35); hi = Math.min(hi, 0.35); if (lo > hi) lo = hi = 0; }
     return [lo, hi];
   }
 

@@ -39,7 +39,7 @@ const CSS = `
 .iw-run__verdict small { display: block; font-size: 13px; font-weight: 600; color: #cfc9dc; }
 .iw-run__hint { position: absolute; left: 50%; bottom: 28px; translate: -50% 0; padding: 10px 18px; border-radius: 999px; background: rgba(21,18,28,.72); font-size: 15px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .4s; }
 .iw-run__hint.is-on { opacity: 1; }
-.iw-run__rotate { position: absolute; left: 50%; bottom: 84px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: rgba(21,18,28,.82); border: 1px solid rgba(255,255,255,.14); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
+.iw-run__rotate { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: rgba(21,18,28,.82); border: 1px solid rgba(255,255,255,.14); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
 .iw-run__rotate.is-on { display: flex; }
 .iw-run__rotate i { font-style: normal; font-size: 18px; }
 .iw-run__rotate button { width: 44px; height: 44px; border: 0; background: none; color: #cfc9dc; padding: 13px; cursor: pointer; }
