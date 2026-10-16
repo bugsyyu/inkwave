@@ -18,6 +18,8 @@ export const RIG_POINTS = {
   platenTop: [0, 1.6, 1.7],
   paperTop: [[0.75, 2.3, 1.72], [-0.75, 2.3, 1.72]],
   typed10: [0.98, 1.72, 1.7],          // the typed line's first letter after ten letters (the carriage has slid left)
+  textLines: [[0.75, 1.95, 1.7], [-0.75, 1.95, 1.7]],   // the line being typed and the one above it (the blank top of
+                                                         // the sheet may run under the question strip)
   head: [0, 1.95, -0.06],
   midRow: [0, 1.08, 0.86],
 };
@@ -73,16 +75,28 @@ export function frameFor(o = {}) {
   const band = { aspect, vfov, yLo: -1 + 2 * kb + m, yHi: 1 - 2 * top - m, xLim: 1 - m };
   const R = RIG_POINTS;
   if (phase === 'word') {
+    // the sheet is gone (it is the shell): the word must clear the bare platen; the rig stays in the bottom of the
+    // frame. A wide (landscape) screen would show the word small: the frame may zoom in (a narrower FOV, cameraRig's
+    // zoom) until the word spans up to ~80 % of the width.
     const word = Object.assign({ w: 3.0, h: 0.9, y: 2.45 }, o.word || {});
     const ww = word.w / 2, y0 = word.y - word.h / 2, y1 = word.y + word.h / 2;
-    // the sheet is gone (it is the shell): the word must clear the bare platen; the rig stays in the bottom of the frame
-    const pts = [[ww, y0, dist], [-ww, y0, dist], [ww, y1, dist], [-ww, y1, dist], ...R.plate.slice(2), R.strike];
-    return search(pts, [(P) => P([0, y0, dist]) > P(R.platenTop) + 0.04], { ...band, cz: dist * 0.7, minH: 2.8 });
+    const box = [[ww, y0, dist], [-ww, y0, dist], [ww, y1, dist], [-ww, y1, dist]];
+    const pts = [...box, ...R.plate.slice(2), R.strike];
+    let best = null;
+    for (let fov = vfov; fov >= vfov * 0.55; fov -= 3) {
+      const f = search(pts, [(P) => P([0, y0, dist]) > P(R.platenTop) + 0.04], { ...band, vfov: fov, cz: dist * 0.7, minH: 2.8 });
+      if (!f.fits) continue;
+      const span = Math.max(...box.map((p) => Math.abs(project(p, f.pos, f.look, fov, aspect)[0])));
+      if (!best || (span <= 0.8 && span > best.span)) best = { ...f, span };
+      if (span > 0.8) break;
+    }
+    if (best) { delete best.span; return best; }
+    return search(pts, [], { ...band, cz: dist * 0.7, minH: 2.8 });
   }
   // the target is context (the shot's direction), wanted on screen above the paper when the band allows it — a
   // portrait band rarely does without pushing the camera far away, so the rig wins: typing frames the rig alone
   const ty = o.targetY ?? FRAME.targetY;
-  const pts = [...R.plate, R.strike, ...R.paperTop, R.typed10];
+  const pts = [...R.plate, R.strike, ...R.textLines, R.typed10];
   const head = (P) => P(R.head) < P(R.midRow);            // her head below the plate's middle row
   const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4 });
   const rigOnly = search(pts, [head], { ...band, cz: 1.0 });

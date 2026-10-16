@@ -80,7 +80,7 @@ test('camera frames: typing and word frames fit their band at 390×844, 844×390
     const f = frameFor({ phase: 'type', aspect, kbFrac: kb });
     assert.ok(f.fits, `type ${w}×${h}`);
     const yLo = -1 + 2 * kb;
-    for (const p of [...RIG_POINTS.plate, RIG_POINTS.strike, ...RIG_POINTS.paperTop]) {
+    for (const p of [...RIG_POINTS.plate, RIG_POINTS.strike, ...RIG_POINTS.textLines, RIG_POINTS.typed10]) {
       const [x, y, z] = projectRig(p, f.pos, f.look, f.fov, aspect);
       assert.ok(z > 0 && y > yLo && y < 1 && Math.abs(x) < 1, `type ${w}×${h}: ${p} on screen above the keyboard`);
     }

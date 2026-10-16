@@ -270,7 +270,7 @@ export class InkWord {
         // outward from the word's centre, up, a little toward the camera
         const dx = this.P[i * 3] - c.x, dy = this.P[i * 3 + 1] - c.y, dz = this.P[i * 3 + 2] - c.z;
         const l = Math.hypot(dx, dy, dz) || 1, sp = this.reduced ? 1.2 : 3.2 + ((k * 7) % 11) * 0.25;
-        this.Vv[i * 3] = dx / l * sp - this.fwd.x * -1.2; this.Vv[i * 3 + 1] = dy / l * sp + 3.2; this.Vv[i * 3 + 2] = dz / l * sp - this.fwd.z * -1.2;
+        this.Vv[i * 3] = dx / l * sp + this.fwd.x * 0.5; this.Vv[i * 3 + 1] = dy / l * sp + 3.2; this.Vv[i * 3 + 2] = dz / l * sp + this.fwd.z * 0.5;
         this.delay[i] = this.reduced ? 0 : ((k * 977) % 23) / 23 * 0.12;
       } else {
         this.delay[i] = this.ux[i] * 0.25;
@@ -280,6 +280,11 @@ export class InkWord {
     }
     const anyGood = this.burstN > 0, anyBad = this.burstN < row.n;
     const verdictOk = dict ? v.pct >= 100 : !!v.ok;
+    // her ink lands under the word: one big splat on the ground there (the flung blobs add their own small ones)
+    if (anyGood && G.paint?.splat) {
+      const r = Math.min(2.2, 0.7 + row.layout.width * 0.35) * (this.burstN / Math.max(1, row.n));
+      if (r > 0.3) G.paint.splat(_p.set(c.x, this.groundY + 0.1, c.z), r, this.team, { seed: 0.37 });
+    }
     if (anyGood && fx) {
       if (this.reduced) fx.ring?.(c, _p.set(0, 1, 0), this.color, { radius: 1.6, life: 0.4 });
       else {
@@ -344,7 +349,7 @@ export class InkWord {
       this.age[i] += dt;
       if (s === 1 || s === 2) {
         // assembling (1) → formed (2): a spring to the target after the delay; hidden before it
-        total++;
+        total++; live++;
         if (this.age[i] < this.delay[i]) { scale = 0; }
         else {
           const g = Math.min(1, (this.age[i] - this.delay[i]) * 6);

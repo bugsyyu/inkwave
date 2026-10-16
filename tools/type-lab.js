@@ -167,6 +167,7 @@ addEventListener('resize', () => { frame(camPhase); });
 
 // ------------------------------------------------------------------ clock
 let ballPop = 1;
+const cost = { sum: 0, max: 0, n: 0 };
 let frozen = false, simT = 0, last = performance.now(), fpsT = 0, frames = 0, fps = 0;
 const STEP = 1 / 60;
 function tick(dt) {
@@ -175,7 +176,7 @@ function tick(dt) {
   character.root.position.copy(actor.pos); character.root.position.y += actor.learnSeat || 0;
   character.root.rotation.y = actor.yaw;
   character.update(dt, anim);
-  shot.update(dt);
+  const c0 = performance.now(); shot.update(dt); const cd = performance.now() - c0; cost.sum += cd; cost.n++; if (cd > cost.max) cost.max = cd;
   if (ballPop < 1) { ballPop = Math.min(1, ballPop + dt * 2.5); const k = ballPop, e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2); ball.scale.setScalar(Math.max(0.001, e)); }
   fx?.update(dt, camera);
   if (paint) { paint.flush(dt); levelMat.userData.uniforms.uTime.value = simT; }
@@ -237,14 +238,19 @@ window.lab = {
   },
   /** next question: clear the word, fresh sheet, the target pops back, camera back to the typing frame */
   next(m = mode) { mode = m; shot.clear(); shot.begin({ mode, target: ball }); ball.visible = true; ballPop = 0; keys.setMode(mode); keys.clear(); keys.setHintUsed(false); keys.show(); window.__kbFrac = keys.frac; frame('type', true); return mode; },
-  /** draw calls / triangles of the rig + the word (on − off, main pass + shadow pass) and the JS cost of their update */
+  /** draw calls / triangles the rig and the word add (each toggled off and on, same frame), shadows as set */
   measure() {
-    const vis = (on) => { rig.root.visible = on; shot.word.mesh.visible = on; rig.shellG.visible = on && !!rig.shot; };
     const count = () => { renderer.info.reset(); R.render(); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; };
-    vis(true); const on = count(); vis(false); const off = count(); vis(true);
-    const t0 = performance.now(); for (let i = 0; i < 300; i++) shot.update(1 / 60); const ms = (performance.now() - t0) / 300;
-    return { calls: on.calls - off.calls, tris: on.tris - off.tris, shadows: renderer.shadowMap.enabled, updateMs: +ms.toFixed(3), blobs: shot.word.mesh.count };
+    const rv = rig.root.visible, wv = shot.word.mesh.visible, sv = rig.shellG.visible;
+    const all = count();
+    rig.root.visible = false; rig.shellG.visible = false; const noRig = count();
+    shot.word.mesh.visible = false; const none = count();
+    rig.root.visible = rv; rig.shellG.visible = sv; shot.word.mesh.visible = wv;
+    return { rigCalls: noRig.calls - none.calls >= 0 ? all.calls - noRig.calls : 0, wordCalls: noRig.calls - none.calls, totalCalls: all.calls - none.calls,
+      rigTris: all.tris - noRig.tris, wordTris: noRig.tris - none.tris, shadows: renderer.shadowMap.enabled, blobs: shot.word.mesh.count, phase: shot.phase };
   },
+  /** JS time of shot.update per frame since the last call (ms): mean / max / frames */
+  cost() { const r = { mean: +(cost.sum / Math.max(1, cost.n)).toFixed(3), max: +cost.max.toFixed(3), frames: cost.n }; cost.sum = 0; cost.max = 0; cost.n = 0; return r; },
   warm() { const t0 = performance.now(); return shot.warm(renderer, camera).then(() => +(performance.now() - t0).toFixed(0)); },
   info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs?.length, simT, text: rig.text, shot: !!rig.shot }; },
   state() { return { phase: shot.phase, text: shot.text, hinted: shot.hinted, wordPhase: shot.word.phase, blobs: shot.word.rows.map((r) => r.n), shot: rig.shot ? { t: +rig.shot.t.toFixed(2), launched: rig.shot.launched, landed: rig.shot.landed } : null }; },

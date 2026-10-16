@@ -121,3 +121,20 @@ test('reduced motion (LEVELS §5 REDUCED): no hop, no shake; the shot and the ve
   assert.equal(shakes.length, 0, 'no camera shake');
   assert.equal(shot.rig.reduced, true); assert.equal(shot.word.reduced, true);
 });
+
+test('a dictation where every typed word matched still shows the reference line with the missed token (it is not swept away)', async () => {
+  const { InkWord } = await import('../../src/learn/play/type/inkword.js');
+  const w = new InkWord({ team: 0, color: '#ff8a14', cap: 200 });
+  // Node has no canvas: stand in two rows of blobs by hand (row 0 = her text, row 1 = the correction)
+  w.text = 'i get up'; w.phase = 'shown'; w.anchor.set(0, 2.4, 6.5); w.from = w.anchor.clone();
+  w.rows[0].n = 30; w.rows[0].layout = { width: 2, height: 0.6, lineH: 0.6 }; w.rows[1].n = 0;
+  for (let i = 0; i < 30; i++) { w.st[i] = 2; w.rad[i] = 0.03; w.word[i] = i % 3; w.Tg[i * 3 + 1] = 2.4; w.P[i * 3 + 1] = 2.4; }
+  w.mesh.count = 30;
+  w._fill = function (r, text, c) { const row = this.rows[r]; row.n = 20; row.layout = { width: 2, height: 0.6, lineH: 0.6 }; for (let k = 0; k < 20; k++) { const i = row.base + k; this.st[i] = 1; this.rad[i] = 0.03; this.delay[i] = 0; this.Tg[i * 3 + 1] = c.y; this.P[i * 3 + 1] = c.y; } this.mesh.count = row.base + 20; return row; };
+  let done = false;
+  w.resolve({ ok: true, pct: 86, right: "I get up o'clock", toks: [{ ok: true }, { ok: true }, { ok: true }, { ok: false }] }, () => { done = true; });
+  for (let t = 0; t < 4; t += 0.05) w.update(0.05);
+  assert.ok(done, 'the show settles');
+  assert.equal(w.mesh.count, w.rows[1].base + 20, 'the correction row is still drawn');
+  assert.ok(w.st.slice(w.rows[1].base, w.rows[1].base + 20).every((s) => s === 2), 'and formed');
+});
