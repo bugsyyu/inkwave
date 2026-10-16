@@ -374,3 +374,86 @@ App 的「关卡」打开 `game/index.html?learn=w<n>d<d>&from=app`，iPhone 只
 7. 「我的写法也对」算打中 Boss 一下（和答对一样）；`engine.judge` 多了参数、`claimable` 的说明改了字，是 A 的文件。
 8. `?lang=en` 下 from=app 的主菜单「学习」那颗按钮的副标题（中文）被省略号截了（282 / 315 px）——不在她的路上，没改。
 9. 双人联机赛的审计里 HUD 用 `setVisible(true)` 显出来：`main.js` 的 `_intro` 是 3 秒墙钟，审计按两倍速步进时开场先走完、HUD 就一直藏着；手机上开场是真时间，不受影响。
+
+## 19. 字弹 M4 交付（2026-10-16，分支 `play-type`：打字蟹 type rig + 游戏键盘 + 3D 墨字——独立做好、在实验室里验过，接进门的流程是下一步）
+
+业主 10-16：「最好迅速做一个键盘模型或者更有游戏性的模型以及键盘按键映射动画，或者不需要按键映射 保留输入时的人物运用该模型武器的动画，直到输入好了就展现出立体的3d输出结果在游戏世界里，有真正的游戏性交互效果」。要打字的题占课程的一半（单词卡 900 记 `T`、听写句 206 记 `L` 带百分数、写句 102 记 `W` / `S`），所以打字本身得是玩法。PLAY §3 M4 已改成做出来的样子。
+
+**先读了什么**：PLAY 全文（§1 不变量、§3 M4、§6.4 键盘、§7 预算）；本文 §1、§5、§8（证据方式）、§15–§17；LEVELS §5（演出、声音、减少动效）；CONTRACTS（`trigger` / `setDance`、§2 的声音名）。代码：`special-props.js` 的 `buildCrab`、`specials.js` 的 `IMPL.crab`（`propMesh` / `partMesh`、`seatY` / `seat`、`weaponHidden`）、`actor.js` 第 1012 行的座高、`character-weapons.js` 的 `GEO_KIT`、`character-mats.js` 的塑料 / 墨 / 玻璃材质、`character.js` 的 `trigger`、`fx.js`、`paint.js`、`audio.js` 的声音表、`weapons.js` 的 `fireCustom`、`engine.js` 的 `judge`、`store.js` 的 `modeOf`、`vendor/ielts/host.js` 的 `dictScore` / `lcsOk`、`cameraRig.js`（视角是 Hor+：竖屏横向很窄）、`touch.js`（触屏层挂在 window 的捕获阶段）、`tools/fx-lab.js` / `core-lab.js`（实验室怎么照着游戏搭）。
+
+**先定的**：
+1. **提交前不给对错，做成结构上的**：打字蟹、键盘、墨字在「射」之前根本拿不到答案——`press(key)` 只有一个参数，`begin({ mode, target })` 不收答案（多给的字段也不看），答案只从 `resolve()` 进来。键帽亮的是她的队色（每个键一样），纸上的字是**一个**颜色 uniform（`LEARN.type.glyph`，中性灰，没有任何输入能改它），打出去的墨字在 `resolve` 之前一律中性灰（`LEARN.type.word`）。
+2. **键盘是游戏画的**（DOM，按模式建一次，按下只改 class）；每颗键的位置来自纯函数 `keyboardLayout()`，Node 测试量的就是画出来的东西。
+3. **打字蟹不另起炉灶**：壳、六条腿、迫击炮就是 `getSpecialProp('crab')` 的几何，和 Crab Rig 同一套玩具塑料和她的墨；静的部分（壳 + 腿 + 打字机外壳）合成一个塑料网格 + 一个墨网格，会动的部分用 instancing。舱盖拿掉了（它正好立在左手边那几颗键上）。
+4. **两个机位，不是一个**：一个画面同时框住键盘、纸和 6.5 m 外的字，竖屏里要退到 10 m 开外，键帽就小得看不见了——所以打字时框打字蟹，按「射」后弹簧过渡到墨字（键盘缩下去）。纯函数 `frameFor({ phase })`，交给 `cameraRig` 的弹簧过渡，不切镜头。
+5. **一题里的先后用同步回调串**（落地 → 长字 → 判，都在 `update()` 里），对外照样给 Promise；所以固定步长的实验室脚本能一帧不差地复现每个状态。
+
+**改了什么**（都在 `src/learn/play/type/` + `src/ui/play-keys.js`，别人的文件只有两行）：
+- `keys.js`（纯）：按键集合（a–z、空格、`'`、`-`；句子再加 `. , ?`；⌫、射）；3D 键盘四排（QWERTY + 空格，⌫ / 射在右边，34 颗）；游戏键盘竖横两套版式——竖屏一行 10 个、键约 34 × 50（iOS 系统键盘的大小），上面一条「打出来的字 + ▶ 再听 + 提示」，占屏 39%（iPhone SE 41%）；横屏三行宽键约 50 × 44，▶ / 提示在前两行行首，打出来的字只在世界里的纸上，占屏 44%；实体键映射 `keyOfEvent`（大小写、Enter = 射、Backspace、弯引号算 `'`、⌘ / Ctrl 组合不算、Esc 不碰）。
+- `deck-geo.js`：打字蟹的几何——蟹钳托着的打字机：键盘托（奶白壳 + 深色键槽 + 队色边条 + 螺丝）、字杆窝（深色半碗 + 奶白扇骨圈）、两根侧塔 + 托架导轨、两根插进蟹钳的立柱、墨罐托和软管；一颗键帽（厚圆角、微凹、顶上有字的 uv）；一根字杆（金属臂 + 深色字锤）和 31 根的半月扇（静止和敲击两个姿态，每根的锤正好落在滚筒的敲击点上——测试核）；滚筒 + 旋钮 + 压纸杆；墨罐玻璃和墨柱；纸卷成的弹。
+- `atlas.js`：一张字图（8 × 5 格、Titan One 小写；⌫、射画成图标，WebGL 里不需要中文字体），键帽和纸共用；字体加载完自动重画。
+- `mats.js`：键帽材质（塑料的光泽档 + 顶上的字 + `lit` 时染队色并自发光）；纸的材质（字从一张 14 × 32 的字格纹理读：打字机式的歪斜和深浅、刚打的字鼓一下、⌫ 的字往上飘走；撕纸、卷纸在顶点着色器里；字比格宽，每个片元看左右邻格）。采字图用 `textureGrad`、导数在统一控制流里取，格子之间不会出 mip 的方框；格号用整数安全的算法（第一版 `mod` 的浮点误差把第 0 列的 q / y / i 画成了乱码）。
+- `rig.js`：`TypeRig`——`mount(actor)` / `unmount()`（藏武器、`actor.learnSeat`）、`press(key)`（这一帧键帽下沉亮队色、字杆起甩、托架和纸在 50 ms 后敲上去那一刻印字、往左走一格）、`backspace()`、`fire(text, target, onLand)`（撕 → 卷 → 跳进炮 → 后坐 + 整台蹲一下 → 抛物线 → 落地溅灰墨，船身先转向靶子）、`reset()`（新纸从滚筒里升上来）、`update(dt)`、`warm()`、`dispose()`；纯的纸模型 `paperModel / paperType / paperBack`（空格到第 9 格以后是回车「叮」、满 14 格自动换行、⌫ 跨行时纸和字对得上——测试拿一长串打打删删核过）。
+- `inkword.js`：`InkWord`——`prepare(text)`（排版 + 画布 + 采样，按文字缓存：`TypeShot` 在「射」那一下、`resolve()` 在纸弹还在天上时就做，字出现的那一帧不卡）、`assemble(text, at, { from, face })`、`resolve(verdict)`、`clear()`（还在等这个字的 Promise 一律落地，流程不会卡住）、`update()`、`warm()`；墨珠 `InstancedMesh`（她的字一段、正确答案一段，同一个 draw call），iPhone low 用 20 面的珠子，其余 80 面；纯的 `layoutText`（一个词一行 0.62 m 高，长句先折行再缩，装进 4.4 × 1.9 m，不拆词）、`sampleMask`（六角格采样，间距自适应，永不超过上限，最小间距按米算——短词是饱满的墨珠不是沙子）、`typedMarks`（听写里她打的哪几个词对上了，只管显示，判分仍是宿主的 `dictScore`）、`wordBox`（给墨字机位）。
+- `shot.js`：纯状态机 `typeStep`（idle → typing → firing → assembling → shown → resolving → done；判早来了就等字长好）+ `TypeShot`（打字蟹 + 墨字）+ `isReduced()`（系统的减少动效或设置里镜头震动为 0）。
+- `frame.js`：两个机位（她右肩后上方；她的头要低于键盘中间那排——宽屏放宽到最远一排；打字时框住正在打的两行和十个字母后滑到左边的行首，纸上面空白的部分可以压在题条下；墨字机位在宽屏上可以拉近焦距，让字占到屏宽的八成左右，返回的 `fov` 交给 `cameraRig` 的 zoom）。
+- `src/ui/play-keys.js`：`PlayKeys`——`pointerdown` 就出字（两个拇指快打）、按下染她的队色 + 回弹、长按 ⌫ 连删、提示用过变暗、`show()` / `hide()` 是带回弹的滑入滑出（减少动效时只淡入淡出）、实体键盘在捕获阶段只接打字的键（不会变成走路，Esc 照旧是暂停）、`PlayKeys.owns(e)`。
+- 别人的两行：`actor.js` 第 1012 行的座高加上 `this.learnSeat`；`config.js` 加 `LEARN.type`（三个颜色、按键停留、印字延迟、回车格、墨珠上限、字高 / 框、飞行时间、判的演出时长）。
+- 实验室 `tools/type-lab.html` + `type-lab.js`：游戏自己的 `Renderer`（同一套后期和调色）、`Environment`、`FX`、声音、小鱿鱼 + 打字蟹 + 一个灰墨球靶子；默认一块轻甲板（地面墨点用 fx-lab 那种圆片代替），`?stage=tidewater` 换成真的 Tidewater 关卡 + 真的 `PaintSystem`；`?quality / ?mode / ?reduced / ?shadows=0`；`window.lab`：`freeze / step(ms) / render / type(str) / press / back / submit / resolve / demo('right'|'wrong'|'pct') / next(mode) / frame / measure / warm / state`。
+
+**接口（门的流程要调的）**：
+```js
+import { TypeShot } from './learn/play/type/shot.js';
+import { frameFor } from './learn/play/type/frame.js';
+import { wordBox } from './learn/play/type/inkword.js';
+import { PlayKeys } from './ui/play-keys.js';
+// 关卡载入时（或前两道门）：建好、预热——compileAsync 就地编译，不挪对象，在屏上也能跑
+const shot = new TypeShot({ scene: G.scene, team, color: G.teamColors[team], quality: G.settings.quality });   // reduced 默认 isReduced()
+await shot.warm(G.renderer, G.camera, G.scene);
+const keys = new PlayKeys(uiRoot, { mode: 'word', color: teamHex, replay: true }); keys.hide();
+// 一道要打字的题（单词卡 'word'；听写句、写句 'sentence'）
+shot.mount(G.local);                  // 进舱。流程负责：停住她的移动 / 开火输入、关掉触屏层（或让 touch.js 跳过 PlayKeys.owns(e)）
+shot.begin({ mode, target });         // target：字靶的 Object3D 或 Vector3；墨字长在它上方 shot.lift = 0.95 m
+keys.setMode(mode); keys.clear(); keys.setHintUsed(false); keys.show();
+cameraRig ← frameFor({ phase: 'type', aspect, kbFrac: keys.frac })        // 打字蟹坐标：原点在她脚下、+Z 朝靶子
+keys.onKey = (k) => shot.key(k);  keys.onBackspace = () => shot.back();
+keys.onHint = () => { shot.hint(); keys.setHintUsed(true); /* 题条给音标 / 首字母，这一题记 H */ };
+keys.onReplay = () => { /* 再放一遍 */ };
+keys.onSubmit = () => {
+  const text = shot.submit(); if (text == null) return;   // 空的不发
+  keys.hide();
+  cameraRig ← frameFor({ phase: 'word', aspect, word: { ...wordBox(text), y: targetY + shot.lift } });   // 带 fov（宽屏会拉近）
+  const v = judge(item, text);                            // 立刻判、立刻记首答：typed，hinted = shot.hinted
+  shot.resolve({ ok: v.ok, pct: v.pct, right: v.canonical, toks: v.toks }).then(nextItem);   // 字长好了才演，演完 resolve
+};
+// 每帧 shot.update(dt)；下一题 shot.clear(); shot.begin(...)；这段打完 shot.unmount()
+```
+接的时候要注意的三件事：① `frameFor` 给的 `fov` 不能直接写 `camera.fov`——`cameraRig` 每帧按 `vBase + (fovKick − zoom) × 0.8` 算 fov，所以设 `zoom = (vBase − fov) / 0.8`；机位是打字蟹坐标（原点她脚下、+Z 朝靶子），按她的位置和朝向换到世界里。② `PlayKeys` 在 `enabled && visible` 时接走实体键盘的字母：暂停菜单、设置一打开，流程要 `keys.enabled = false`（或 `hide()`），不然字母会穿过暂停屏打到打字蟹上。③ 船身跟着 `actor.yaw` 转（射的时候自己转向靶子）；出题时她的朝向、移动、开火、触屏层都归流程管（`touch.js` 在 window 捕获阶段收 pointerdown，键盘拦不住，用 `PlayKeys.owns(e)` 跳过或整层停掉）。
+
+**测试**：`npm run test:learn` 82 → 118（`type-keys` 18：8 种屏 × 两种模式的键盘版式——键 ≥ 44 高、≥ 30 宽、都在屏里且躲开安全区、不重叠、这个模式的每个键正好一次、竖屏 iOS 尺寸和占屏比例、横屏占屏比例——加模式的键集合、实体键映射；`type-rig` 7：每个键一颗键帽 / 每个能打字的键一根字杆 / 一个字图格、键帽不重叠、每根字杆落在敲击点上；Node 里按键：同一次调用里键帽动、亮、字杆起，50 ms 后印字、托架走、⌫ 擦掉，挂载 / 卸下时武器和座高；**不泄露**：同样的按键、两个不同的答案，每一帧的键帽颜色 / 矩阵 / 纸上的字 / 墨色一模一样，打错的前缀和打对的前缀一样，按键前后墨色不变，接口的参数个数，源码里没有判分字眼；珊瑚色离每个队色都远；纸模型（回车、自动换行、⌫ 跨行，一长串打打删删字和纸始终对得上）；声音名都在 CONTRACTS §2、不用 `ui_error`；`type-inkword` 5：排版、字的范围、采样上限和落点、听写的词对上、两个机位在三种屏上都框得住；`type-shot` 6：状态机、早到的判、乱序事件不改状态、固定步长下一题从打到判完（三种判）、减少动效（不跳、不震、照样打完）、听写全对上时参考句不会被一起收掉——这条是截图里抓到的 bug 的回归测试）；`npm run check` 222 个文件绿。
+
+**实测**（headless、都在 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10` 里，`/opt/pw-browsers/chromium` + SwiftShader、`?quality=high`（打字蟹那几张）/ `low`（Tidewater 那张）、固定步长 `lab.freeze() / step()`；截图看过）：
+- 竖 390 × 844 触屏：打字（键帽 s 下沉亮队色、它的字杆正甩向滚筒、纸上已经印好 beautifull、键盘上一条同样的字）、句子模式（三行：空格到第 9 格回车「叮」、纸往上卷）、打错（beautifull 变珊瑚色往下塌、几颗墨拉成滴，beautiful 在上方用她的墨长出来）、打对（jump 炸开成她的墨、字下面落一大片、飞散的墨珠在地上溅点）、听写 `i usualy get up at seven`（对上的五个词炸开，usualy 留着变珊瑚色；参考句两行长在上方，usually 和 o'clock. 是珊瑚色）。
+- 横 844 × 390 触屏：打字（三行宽键，打字蟹偏小，纸上的字认得出）、纸弹飞向靶子（墨字机位拉近了焦距）、打错（字占屏宽约一半）。
+- 桌面 1280 × 720：打字（打字蟹占屏宽约三分之一，最好看的一档）、打对的炸开。
+- 侧面特写：她坐在舱口里，每按一个键手臂就往前伸向键盘（`shoot` 让她进入 0.5 s 的举枪姿势，武器藏着，看起来是伸手去打字），字杆在敲。
+- 真关卡：`?stage=tidewater&quality=low&shadows=0`（真 `Level` + 真 `PaintSystem`）：打字、打对、打对以后地上真的涂上了她的墨。
+- 每组都在锁里一次一个，`4xx: 0`，控制台除了 SwiftShader 没有并行编译扩展的提示没有别的。留给主会话的 6 张见交付报告。
+- **draw call / 三角形**（`lab.measure()`：打字蟹 + 墨字，开关对比）：iPhone 档（`quality=low`、阴影关——触屏默认就是关）：打字时打字蟹 **10** 个 draw call（壳、壳的墨、炮 ×2、键帽、字杆、滚筒、纸、墨罐 ×2；纸弹在天上时 11），墨字 **1** 个（她的字和正确答案同一个 `InstancedMesh`），合计 ≤ 11；三角形：打字蟹 4.65 万（其中 Crab Rig 自己的壳和腿约 2.6 万），墨字 ≤ 1.9 万（≤ 954 颗 × 20 面）。桌面 `high`（阴影 + GTAO）：每个网格还会被 GTAO 再画一遍、投影体再进一次阴影图，打字蟹 22–28、墨字 4；只留壳、墨、纸、纸弹、墨字投影（第一版什么都投影时是 32–40）。
+- **每帧 JS**：`shot.update(dt)`（打字蟹 + 墨字，每帧不分配）平均 0.02–0.6 ms（打字时 0.02–0.04，两千颗墨珠在演的时候 0.3–0.6），单帧最长 ≤ 5.5 ms；这是这台机器的 CPU，不是手机。**光栅化（画布 + `getImageData` + 采样）没有消失，是挪了地方**：`submit()` 那一帧 6–11 ms（和键盘收起同一帧），`resolve()` 时正确答案那一份 3–8 ms（纸弹还在天上）；原来是在落地、字长出来的那一帧，约 9 ms。
+- **预热**：`shot.warm()`（`compileAsync` 就地编译打字蟹、纸弹、墨字的材质）在这台机器上 32 ms（low）/ 73 ms（high）；SwiftShader 没有 `KHR_parallel_shader_compile`，是同步编的。
+- 软件 GL 下没有帧率可言（一帧零点几秒），iPhone 上的帧时间要真机量（PLAY §7 的 p95 对比是接进流程以后的事）。
+
+**拿不准的**：
+1. **人物「操作」的样子**：只用了现成的一次性动作（每键 `shoot`、射 `throw`、对了 `jump`）。侧面看：每按一个键 `shoot` 让她进入 0.5 s 的举枪姿势（武器藏着），双手往前伸向键盘、一顿一顿，连着打就一直伸着——读得出「在操作」。但打字机位在她右肩后上方，从那里主要看到头发和肩膀，手臂只露一点；按「射」的 `throw` 也一样只在侧面看得清。要更明显得给 `character.js` 加一个打字的动作——那是别人的文件，这次没动。
+2. **横屏打字时打字蟹偏小**：题条和键盘之间只剩约 150 px 高，键盘托只占屏宽约 20%（竖屏约 80%、桌面约 35%）；纸上的字还认得出，但不如竖屏。横屏没有「打出来的字」那一条（放不下），字只在纸上。要更大，可以以后做横屏的分体键盘（左右两半贴屏幕两边，中间留给世界）。
+3. 打字机位竖屏里看不到靶子（靶子在画面上沿外面一点）：要把 6.5 m 外的靶子也框进来，相机得退到 8–10 m，键帽就小了。靶子在「射」之后的墨字机位里。如果业主要打字时也看见靶子，可以让字靶飘近到 4 m 再停（PLAY 的「飘近、停住等她」），或接受键帽小一点。
+4. 墨字的字高 0.62 m、竖屏墨字机位里一个 10 个字母的词约占屏宽 70%；听写长句缩到一行 0.3 m 上下，iPhone low 的 480 颗墨珠时笔画是一两颗珠子宽——能认，但不如单词饱满（截图 h4）。
+5. 听写里「她打的哪几个词炸开」用的是我这边的逐词对齐（`typedMarks`，只管显示）；份额和 `dictScore` 的百分数大体一致，英美拼写、数字写法不同时会差一两个词。要严格一致，流程可以用宿主的 `lcsOk` 算好传 `typedOk`（接口留了）。
+6. 打字蟹约 2.3 m 长、2 m 宽（托架滑到头时纸还要伸出半米）：要放在门前开阔处，靠墙会穿模（它只是画面，没有碰撞）。
+
+**没做的**：
+1. **接进门的流程**（`flow.js` 归 play-1）：上面的接口照着接；触屏层在键盘升起时要停（`touch.js` 在 window 捕获阶段收 pointerdown，键盘拦不住）。
+2. 回炉 M1 ↔ M4、跑酷的「滑行段」、联机里的打字（答案还是一串字，接法照旧）。
+3. 「我的写法也对」的按钮在题条上（play-1 的 `play-strip.js`）；这里只负责把对 / 错演出来。
+4. 真机：iPhone 的帧时间、触感（`pointerdown` 出字、长按连删）、横屏刘海两侧的安全区（版式测试按 47 px 算过）。

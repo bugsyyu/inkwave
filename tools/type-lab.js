@@ -167,7 +167,7 @@ addEventListener('resize', () => { frame(camPhase); });
 
 // ------------------------------------------------------------------ clock
 let ballPop = 1;
-const cost = { sum: 0, max: 0, n: 0 };
+const cost = { sum: 0, max: 0, n: 0, submit: 0, resolve: 0 };   // update() per frame; submit() / resolve() (the word raster) per call
 let frozen = false, simT = 0, last = performance.now(), fpsT = 0, frames = 0, fps = 0;
 const STEP = 1 / 60;
 function tick(dt) {
@@ -219,7 +219,7 @@ window.lab = {
   type(str, gap = 0.12) { for (const ch of String(str)) { const k = ch === '\b' ? 'back' : ch; keys._press(k, keys.keyEls.get(k)); this.step(gap * 1000); } return shot.text; },
   keys,
   submit() {
-    const text = shot.submit();
+    const s0 = performance.now(); const text = shot.submit(); cost.submit = Math.max(cost.submit, performance.now() - s0);
     if (text == null) return null;
     keys.hide();
     const box = wordBox(text);
@@ -228,15 +228,15 @@ window.lab = {
     return text;
   },
   /** the verdict as engine.judge would give it */
-  resolve(v) { return shot.resolve(v); },
+  resolve(v) { const s0 = performance.now(); const p = shot.resolve(v); cost.resolve = Math.max(cost.resolve, performance.now() - s0); return p; },
   /** canned verdicts for the demo texts: 'right' (what she typed), 'wrong' (beautiful), 'pct' (the o'clock sentence) */
   demo(kind) {
-    if (kind === 'right') return shot.resolve({ ok: true, right: shot.text });
-    if (kind === 'wrong') return shot.resolve({ ok: false, right: DEMO.word.right });
+    if (kind === 'right') return this.resolve({ ok: true, right: shot.text });
+    if (kind === 'wrong') return this.resolve({ ok: false, right: DEMO.word.right });
     // the host's per-token marks stand-in: a reference word is ok when the typed text has it (in order)
     const right = DEMO.sentence.right, oks = typedMarks(right, shot.text), toks = right.split(' ').map((t, i) => ({ t, ok: oks[i] }));
     const pct = Math.round(oks.filter(Boolean).length / oks.length * 100);
-    return shot.resolve({ ok: pct >= 80, pct, right, toks });
+    return this.resolve({ ok: pct >= 80, pct, right, toks });
   },
   /** next question: clear the word, fresh sheet, the target pops back, camera back to the typing frame */
   next(m = mode) { mode = m; shot.clear(); shot.begin({ mode, target: ball }); ball.visible = true; ballPop = 0; keys.setMode(mode); keys.clear(); keys.setHintUsed(false); keys.show(); window.__kbFrac = keys.frac; frame('type', true); return mode; },
@@ -252,7 +252,7 @@ window.lab = {
       rigTris: all.tris - noRig.tris, wordTris: noRig.tris - none.tris, shadows: renderer.shadowMap.enabled, blobs: shot.word.mesh.count, phase: shot.phase };
   },
   /** JS time of shot.update per frame since the last call (ms): mean / max / frames */
-  cost() { const r = { mean: +(cost.sum / Math.max(1, cost.n)).toFixed(3), max: +cost.max.toFixed(3), frames: cost.n }; cost.sum = 0; cost.max = 0; cost.n = 0; return r; },
+  cost() { const r = { mean: +(cost.sum / Math.max(1, cost.n)).toFixed(3), max: +cost.max.toFixed(3), frames: cost.n, submitMs: +cost.submit.toFixed(2), resolveMs: +cost.resolve.toFixed(2) }; cost.sum = 0; cost.max = 0; cost.n = 0; cost.submit = 0; cost.resolve = 0; return r; },
   warm() { const t0 = performance.now(); return shot.warm(renderer, camera).then(() => +(performance.now() - t0).toFixed(0)); },
   info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs?.length, simT, text: rig.text, shot: !!rig.shot }; },
   state() { return { phase: shot.phase, text: shot.text, hinted: shot.hinted, wordPhase: shot.word.phase, blobs: shot.word.rows.map((r) => r.n), shot: rig.shot ? { t: +rig.shot.t.toFixed(2), launched: rig.shot.launched, landed: rig.shot.landed } : null }; },
