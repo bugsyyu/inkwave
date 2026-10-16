@@ -1475,6 +1475,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 
 /* ---- the rest of the HUD / touch layer during a level: no weapon buttons (fire · sub · special · cheer are the
    1st, 4th, 5th and 7th buttons of touch.js's LAYOUT + TOP_LAYOUT order); jump, squid, map and pause stay */
+/* the clock reads the day / the round / the phase in a level (第 1 周 · 第 1 天, 第 2 轮 · 0:45, L 听力 · 13:20): one line */
+.iw-hud.is-learn .iw-timer { width: auto; min-width: calc(var(--u) * 9.6); padding: 0 calc(var(--u) * 1.8); }
+.iw-hud.is-learn .iw-timer__txt { white-space: nowrap; font-size: calc(var(--u) * 2.1); }
 .iw-touch.is-learn .iw-touch__btn:nth-child(1), .iw-touch.is-learn .iw-touch__btn:nth-child(4),
 .iw-touch.is-learn .iw-touch__btn:nth-child(5), .iw-touch.is-learn .iw-touch__btn:nth-child(7) { display: none; }
 

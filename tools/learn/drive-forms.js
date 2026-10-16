@@ -83,7 +83,10 @@
         if (F.autoWalk && !F.auto && (F.phase === 'walk' || F.phase === 'final')) F.autoWalk(true);
         await adv(1000); continue;
       }
-      const mode = !wrongDone ? 'wrong' : 'right';
+      // (an audit may stop at a kind of question to look at it — window.__driveStop(p) → true leaves it up; the next run of
+      // this script carries on from there)
+      if (W.__driveStop && W.__driveStop(H()._ask.p)) { out.stoppedAt = H()._ask.p.type; break; }
+      const mode = !wrongDone && !W.__driveNoWrong ? 'wrong' : 'right';
       const ok = await answer(mode);
       if (mode === 'wrong' && !ok) wrongDone = true;
       if (mode === 'wrong' && ok) wrongDone = true;   // (could not miss: fine)
@@ -91,6 +94,7 @@
       if (F.effects) out.effects.push(F.effects());
     }
     out.answered = n; out.tLoop = Date.now() - t0; out.simT = F.t;
+    if (out.stoppedAt) { if (frozen) { try { W.__inkwave.debug.step(16.7); } catch (e) { /* fine */ } } return JSON.stringify({ stoppedAt: out.stoppedAt, steps: out.steps, errors: out.errors }); }
     // (the last answer → the round's close → the results: a few seconds of simulation, each stepped frame dearer than real
     // time under software GL — so the wait is counted in simulated seconds as well as wall clock)
     await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 30000 : 60000, 'results card (finishT ' + (F.finishT != null ? (+F.finishT).toFixed(2) : '?') + ', phase ' + F.phase + ')');
