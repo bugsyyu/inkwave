@@ -563,6 +563,9 @@ export class RunnerFlow extends RaceFlow {
   _glideDone(row) {
     row.state = 'done'; row.doneT = 0;
     this.rh.clear();
+    // (a typing rig that took longer than the stretch: rows built behind where she now is go back to the queue)
+    for (let i = this.rows.length - 1; i >= 0; i--) { const r = this.rows[i]; if (r.state === 'built' && r.sAppear < this.sNow + 2) { r.view?.dispose(); this.rows.splice(i, 1); this.queue.unshift(r.e); } }
+    this.lastEnd = Math.max(this.lastEnd, this.sNow + 2);
     this._checkGates();
   }
 
