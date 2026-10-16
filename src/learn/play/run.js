@@ -370,6 +370,11 @@ export class PlayRun {
   _fire(k) {
     const a = this.match.local, P = G.projectiles; if (!a || !P) return;
     this.T.centre(k, a.aimPoint);
+    // her aim straight from the muzzle at it: Projectiles._aimFrom falls back to aimDir for a target under 2 m away (an
+    // object placed close in front of her), and aimDir is otherwise the camera's crosshair ray, which a muzzle beside
+    // the lens passes parallel to — wide of a small ball
+    a.aimDir.copy(a.aimPoint).sub(_m.set(a.pos.x, a.pos.y + 1.05, a.pos.z)).normalize();
+    if (P._muzzle) a.aimDir.copy(a.aimPoint).sub(P._muzzle(a, _m)).normalize();
     const w = a.weapon && a.weapon.kind === 'shooter' ? a.weapon : WEAPONS.shooter;
     const n0 = P.list.length;
     P.fireShooter(a, w, 0);
