@@ -1,6 +1,9 @@
 // src/learn/engine.js — the question engine (docs/LEARN.md §5): pure functions, no DOM.
 //   prompt(item) → { type, text, zh, tts, options?, placeholder?, hint? }   what to show / play / ask
 //   judge(item, answer) → { ok, why, canonical, … }                         what to say back, in Chinese
+//   judge(item, answer, { claimed: true })  「我的写法也对」: her claim on a near miss, re-checked by gen.js exactly as
+//                                            IELTS-Base's exam store claim() does — it stands only when check() calls the
+//                                            answer claimable (then { ok: true, claimed: true }); otherwise the plain verdict
 //
 // Judging is IELTS-Base's, never a rule set of our own (LEARN §3): every answer goes through gen.js's check() — the
 // sentence dictation (format LD) scored by the host's dictScore (vendor/ielts/host.js, DESIGN §7.13: British = American,
@@ -34,14 +37,14 @@ export function prompt(item) {
   return { type: 'read', text: item.en, zh: item.zh, tts: item.tts };
 }
 
-export function judge(item, answer) {
+export function judge(item, answer, opts) {
   const m = (item && item.meta) || {}, kind = m.kind, input = m.input;
   if (!m.scored) return { ok: true, why: '看完就好，不计分。', canonical: item.en || item.zh || '' };
-  const I = ieltsNow(), G = I.Gen, ctx = { dictScore: I.Host.dictScore };
+  const I = ieltsNow(), G = I.Gen, ctx = { dictScore: I.Host.dictScore }, claimed = !!(opts && opts.claimed);
   if (input === 'choice') return judgeChoice(G, ctx, item, answer);
   if (input === 'type' && kind === 'dict') return judgeDictation(G, ctx, item, answer);
   if (input === 'type') return judgeWord(G, ctx, item, answer);
-  if (input === 'write') return judgeWrite(G, ctx, item, answer);
+  if (input === 'write') return judgeWrite(G, ctx, item, answer, claimed);
   return { ok: false, why: '这种题还不会判。', canonical: item.en || '' };
 }
 
@@ -115,14 +118,16 @@ function formZh(f) {
   }
 }
 
-function judgeWrite(G, ctx, item, answer) {
+function judgeWrite(G, ctx, item, answer, claimed) {
   const typed = String(answer == null ? '' : answer).trim(), ref = item.meta.ref || item.en;
   if (!typed) return { ok: false, why: '还没写。', canonical: ref, zh: item.zh, forms: [], claimable: false };
-  const v = G.check({ fmt: 'WT', input: 'text', subs: ['W-sent'], main: item.id, ref }, typed, { ctx });
+  const v = G.check({ fmt: 'WT', input: 'text', subs: ['W-sent'], main: item.id, ref }, typed, { ctx, claimed });
   const forms = v.forms || [];
   let why;
+  if (v.claimed) return { ok: true, claimed: true, why: '记下了：这是你的写法（自评，周报里请老师看）。参考：' + ref, canonical: ref, zh: item.zh, forms, claimable: true, coverage: v.coverage };
   if (v.ok) why = '句子对了。';
   else if (forms.length) why = '还差一点：' + forms.map(formZh).join('；') + '。' + (v.claimable ? '意思到了；如果你觉得自己的写法也对，可以点「我的写法也对」。' : '');
+  else if (v.claimable) why = '意思到了，和参考句不完全一样（参考：' + ref + '）。如果你觉得自己的写法也对，可以点「我的写法也对」。';   // (I: no key form wrong — not「差得多」)
   else why = '和参考句差得多。参考：' + ref;
   return { ok: !!v.ok, why, canonical: ref, zh: item.zh, forms, claimable: !!v.claimable, coverage: v.coverage };
 }

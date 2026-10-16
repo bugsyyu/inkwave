@@ -9,6 +9,7 @@ import { BotBrain } from './bots.js';
 import { PlayerController } from './player.js';
 import { BossMode, BOSS_MODE } from '../boss/bossMode.js';
 import { LearnFlow } from '../learn/flow.js';
+import { botNames } from '../ui/i18n.js';   // 关卡学习 I (docs/LEARN.md §17): the bots' Chinese nicknames (?lang=en: their own names)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
@@ -61,7 +62,7 @@ export class Match {
       }
       return out;
     };
-    const names = shuffle([...BOT_NAMES]);
+    const names = shuffle([...botNames(BOT_NAMES)]);
     let ni = 0;
     const lk = this.learnKind;
     const boss = this.mode === 'boss' || lk === 'boss';

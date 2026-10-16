@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DICT, TIPS_ZH, t, LANG, gameName, teamName } from '../../src/ui/i18n.js';
-import { WEAPONS, SUBS, SPECIALS, MAPS, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, DIFFICULTY } from '../../src/config.js';
+import { DICT, TIPS_ZH, t, LANG, gameName, teamName, TITLE_ZH, BOT_ZH, botNames, LOOK_ZH, lookName, presetText } from '../../src/ui/i18n.js';
+import { WEAPONS, SUBS, SPECIALS, MAPS, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, DIFFICULTY, BOT_NAMES } from '../../src/config.js';
+import * as LOOK from '../../src/game/character-style.js';
 
 const CJK = /[㐀-鿿豈-﫿]/;
 const holes = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
@@ -44,6 +45,29 @@ test('every weapon, sub, special, stage, team ink and bot difficulty has a Chine
   for (const id of Object.keys(DIFFICULTY)) assert.ok(CJK.test(gameName('diff', id, DIFFICULTY[id].name)), `difficulty ${id}`);
 });
 
+// I (LEARN §17): the word lists that stand beside an English data list — index for index, nothing missing
+test('the bots, the splashtag titles, the locker options and every blurb have their Chinese, list for list', () => {
+  for (const n of BOT_NAMES) assert.ok(CJK.test(BOT_ZH[n] || ''), `bot ${n}`);
+  assert.equal(new Set(Object.values(BOT_ZH)).size, BOT_NAMES.length, 'two bots share a nickname');
+  assert.deepEqual(botNames(BOT_NAMES).length, BOT_NAMES.length);
+  const src = readFileSync(new URL('../../src/ui/menus.js', import.meta.url), 'utf8');
+  const list = (name) => JSON.parse(src.match(new RegExp(`^const ${name} = (\\[.*\\]);`, 'm'))[1].replace(/'/g, '"'));
+  assert.equal(TITLE_ZH.adj.length, list('TITLE_ADJ').length, 'TITLE_ADJ');
+  assert.equal(TITLE_ZH.noun.length, list('TITLE_NOUN').length, 'TITLE_NOUN');
+  const lists = { hair: LOOK.HAIR_STYLE_NAMES, hat: LOOK.HAT_NAMES, eyes: LOOK.IRIS_NAMES, brows: LOOK.BROW_NAMES, skin: LOOK.SKIN_NAMES, outfit: LOOK.OUTFIT_NAMES };
+  for (const [k, en] of Object.entries(lists)) {
+    assert.equal(LOOK_ZH[k].length, en.length, `LOOK_ZH.${k}`);
+    en.forEach((x, i) => assert.ok(CJK.test(lookName(k, i, x)), `${k} ${x}`));
+  }
+  for (const p of LOOK.PRESETS) { const [n, b] = presetText(p); assert.ok(CJK.test(n) && CJK.test(b), `preset ${p.id}`); }
+  for (const [kind, all] of [['wblurb', WEAPONS], ['sblurb', SUBS], ['spblurb', SPECIALS]]) for (const [id, o] of Object.entries(all)) {
+    const k = { wblurb: 'wb.', sblurb: 'sb.', spblurb: 'spb.' }[kind] + id;
+    assert.ok(DICT[k], `${k} missing`);
+    assert.equal(DICT[k][0], o.blurb, `${k}: the English column is config's own blurb`);
+    assert.ok(CJK.test(gameName(kind, id, o.blurb)), k);
+  }
+});
+
 // ---- the scan: string literals in UI code on her path that read as English words
 const read = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
 // strip comments (line and block), keeping string literals intact
@@ -71,7 +95,12 @@ function method(src, name) {
 const KEEP = new Set(['Enter', 'Esc', 'DPad', 'Start', 'View', 'SHIFT', 'SPACE', 'TAB', 'ESC', 'MOUSE', 'LMB', 'RMB', 'LS', 'RS', 'LT', 'RT', 'LB', 'RB',
   'INKWAVE', 'INKWAVE by Jayden Davis', 'MIT License · github.com/jaydendavisnc/inkwave', 'SIL Open Font License', 'three.js', 'Titan One — Font Diner', 'Rubik — Hubert & Fischer',
   'OT', 'II', 'III', 'Digit', 'Escape', 'KeyP', 'Rubik', 'Titan One', 'Titan One, sans-serif',
-  'Player', 'Sun', 'Sea']);   // (the stored default profile name, compared not shown; the colour-blind palette's own names, shown through teamName)
+  'Player', 'Sun', 'Sea',   // (the stored default profile name, compared not shown; the colour-blind palette's own names, shown through teamName)
+  // I (LEARN §17): key names compared in the room-code field, a tag name, the line-up's VS splat, two class names
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace', 'Delete', 'NumpadEnter', 'Tab', 'INPUT', 'VS', 'is-on is-ready',
+  // lookup keys, never shown: the session's own error / start-block messages that JOIN_ERR and BLOCK_KEY translate
+  'Room not found', 'Room is full', 'Match in progress', 'Could not connect', 'Room code taken', 'Lost connection to the room',
+  'Needs 2+ players — no bots on this stage', 'Needs a player on each team']);
 function englishLiterals(code) {
   const found = [];
   const re = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
@@ -88,8 +117,21 @@ function englishLiterals(code) {
 test('no English UI strings left on her path (the screens of menus.js she sees, the HUD layers, the portrait gate)', () => {
   const menus = read('src/ui/menus.js');
   const mod = menus.slice(menus.indexOf('const SETTINGS_TABS'), menus.indexOf('const durLabel'));   // the settings rows / blurbs
-  const screens = ['_scr_loading', '_scr_title', '_scr_main', '_scr_learn', '_scr_pause', '_scr_pauseLearn', '_learnSnapshot', '_scr_settings', '_controlsList', '_scr_howto', '_scr_credits', '_toggle', '_slider', '_seg', '_header', '_btn'];
+  const screens = ['_scr_loading', '_scr_title', '_scr_main', '_scr_learn', '_scr_pause', '_scr_pauseLearn', '_learnSnapshot', '_scr_settings', '_controlsList', '_scr_howto', '_scr_credits', '_toggle', '_slider', '_seg', '_header', '_btn',
+    // I (LEARN §17): every other screen reachable from the App's main menu — the online hub, the room, a lost room
+    '_scr_online', '_scr_lobby', '_roomGone', '_nameRow', '_scr_loadout', '_scr_locker', '_lockerSlots', '_scr_results'];
   const parts = [['menus.js settings rows', mod], ['menus.js MENU_DESC', menus.slice(menus.indexOf('const MENU_DESC'), menus.indexOf('const pctFmt'))], ...screens.map((n) => [`menus.js ${n}`, method(menus, n)])];
+  // the module's word tables those screens read: team labels, emotes, room-code errors (the splashtag titles' English list
+  // stays as the data: its Chinese is i18n.js TITLE_ZH, index for index), times of day, modes, stat names
+  const between = (a, b) => menus.slice(menus.indexOf(a), menus.indexOf(b));
+  parts.push(['menus.js TEAM_LABEL … JOIN_ERR', between('const TEAM_LABEL', 'const STAGE_DIR').split('\n').filter((l) => !/^const TITLE_(ADJ|NOUN)/.test(l)).join('\n')]);
+  parts.push(['menus.js TIME_INFO', between('const TIME_INFO', 'const TIPS_EN')]);
+  parts.push(['menus.js MODE_INFO', between('const MODE_INFO', 'const LEARN_MODE')]);
+  parts.push(['menus.js STAT_LABELS', menus.split('\n').filter((l) => /^const STAT_LABELS/.test(l)).join('\n')]);
+  parts.push(['menus.js LOCKER_TABS', between('const LOCKER_TABS', 'const MENU_DESC')]);
+  parts.push(['menus.js ZONE_REASON', between('const ZONE_REASON', 'const DIFF_INFO')]);
+  { const art = read('src/ui/menu-art.js'); parts.push(['menu-art.js awards', art.slice(art.indexOf('export const AWARDS'), art.indexOf('export function medalMarkup'))]); }
+  { const m = read('src/main.js'); parts.push(['main.js results (XP parts, stage name)', m.slice(m.indexOf('  async _judge('), m.indexOf("this.menus?.showResults(data);"))]); }
   for (const f of ['src/ui/hud.js', 'src/ui/hud-boss.js', 'src/ui/hud-learn.js', 'src/learn/forms/ui.js']) parts.push([f, read(f)]);
   const touch = read('src/core/touch.js'); parts.push(['touch.js rotate gate', touch.slice(touch.indexOf('const rotate'), touch.indexOf('this.rotateEl = rotate'))]);
   parts.push(['touch.js buttons', touch.split('\n').filter((l) => /\{ name: '\w+', label:/.test(l)).join('\n')]);

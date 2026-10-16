@@ -25,6 +25,8 @@ const MOVE_ZONE = 0.44;
 // turned, so the portrait gate there would be a dead end — over the pause menu when the App comes back from the background,
 // over the menus after a level — and the controls stay live in portrait for whatever she starts from the menu.
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';
+// menu screens with an upright layout of their own (styles/ui.css, the 关卡学习 G and I portrait blocks): no banner over them
+const PORTRAIT_SCREENS = new Set(['howto', 'credits', 'online', 'lobby', 'loadout', 'locker', 'results', 'pause']);
 
 // Button layout, anchored to the bottom-right corner (the right thumb's natural arc). x/y are distances from the
 // right / bottom edge in units of the step `u`, r is the radius in the same units, so the whole cluster scales
@@ -153,10 +155,14 @@ export class TouchControls {
     const u = (this.u = Math.max(TOUCH.minStep, Math.min(TOUCH.maxStep, Math.min(w, h) * TOUCH.stepFrac)));
     this.stickR = u * TOUCH.stickR;
     const m = Math.max(u * TOUCH.edgeSteps, TOUCH.edgeMin);   // absolute floor: the gesture-nav strip is fixed in dp, not in steps
+    // 关卡学习 I (LEARN §17): upright, the top row (pause · cheer · map) sits under the HUD's top band and a level's next-gate
+    // bar (the clock, the special gauge and the turf count are up there on a phone held this way), and every button is at
+    // least 44 pt across; the thumb cluster stays where it is
+    const topOff = this.portrait ? Math.round(Math.min(w, h) * 0.235) : 0;
     for (const b of this.buttons) {
       b.cx = w - m - b.ux * u;
-      b.cy = b.top ? m + b.uy * u : h - m - b.uy * u;
-      b.r = b.ur * u;
+      b.cy = b.top ? m + topOff + b.uy * u : h - m - b.uy * u;
+      b.r = this.portrait ? Math.max(b.ur * u, 22) : b.ur * u;
       b.el.style.width = b.el.style.height = `${(b.r * 2).toFixed(1)}px`;
       b.el.style.transform = `translate3d(${(b.cx - b.r).toFixed(1)}px,${(b.cy - b.r).toFixed(1)}px,0)`;
     }
@@ -298,7 +304,9 @@ export class TouchControls {
     // must be off — a thumb on the card is not a stick. A level also plays in portrait (the card is made for it, and
     // auto-walk stands in for the stick), so the gate stays down there.
     const learn = !!G.match?.learn;
-    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !(this.portrait && !learn && !FROM_APP) && !G.match.paused;
+    // I (LEARN §17): and while a question holds her (learn.hold — a 双人联机赛 / 道具赛 / 对抗赛 question, the match running on
+    // underneath: the controller is off then, match.js), a tap on the card must not also be a stick, a look or the fire button
+    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !(this.portrait && !learn && !FROM_APP) && !G.match.paused && !G.match.learn?.hold;
     // Arm the portrait gate only when there is something unusable underneath it — a real menu screen or a match.
     // NOT the loading screen: that is where a player looks to see whether the game is coming up at all, and covering
     // it turns "still loading" into "broken" (which is exactly what an earlier version of this gate did). The title
@@ -307,7 +315,9 @@ export class TouchControls {
     // learn screen, the settings, and a level's own pause — so the banner stays down over those; H: never from the App
     // (portrait-only; the App comes back from the background into a level's pause)
     const cur = G.menus?.current;
-    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn);
+    // I (LEARN §17): and every other screen she can reach from the App's main menu — the online hub and the room, the
+    // loadout, the locker, how to play, the credits, a match's pause and its results; only PLAY's own (mode / setup) are left
+    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn) || PORTRAIT_SCREENS.has(cur);
     const armed = !FROM_APP && ((G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title' && !portraitOk));
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.
