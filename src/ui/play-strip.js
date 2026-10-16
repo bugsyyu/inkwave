@@ -9,7 +9,7 @@
 //   S.show(p, { replay })          p = the prompt ({ text, zh, tts }); replay() is ▶ (shown only when p.tts)
 //   S.verdict({ ok, head, why })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
 //   S.rect() → the strip's box (CSS px) or null when hidden — the top of the safe area under it (src/learn/play/run.js)
-//   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show() / verdict
+//   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show()
 //   S.setInk(hex)                  her team colour
 import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
@@ -56,6 +56,7 @@ const CSS = `
 `;
 
 let cssDone = false;
+export const VERDICT_H = 86;   // px a verdict takes at most (its head and two lines of 为什么): the room kept under the strip
 function ensureCss() {
   if (cssDone || typeof document === 'undefined') return;
   cssDone = true;
@@ -91,9 +92,11 @@ export class PlayStrip {
     const b = this.box.getBoundingClientRect(), mid = b.left + b.width / 2;
     const upright = typeof matchMedia === 'function' && matchMedia('(orientation: portrait) and (max-width: 640px)').matches;
     if (upright) {
+      // (decided for the verdict too — 答对了 / 差一点 + a sentence of 为什么 is up to VERDICT_H tall — so the strip never
+      // jumps between the question and its verdict, and never slides down over the objects under it)
       let top = Infinity, bot = -Infinity;
       for (const k of this._keys) if (k.x < b.right && k.x + k.w > b.left && k.y + k.h > b.top) { top = Math.min(top, k.y); bot = Math.max(bot, k.y + k.h); }
-      if (top < Infinity && b.bottom > top - 4) this.box.style.top = `${Math.round(bot + 6)}px`;
+      if (top < Infinity && Math.max(b.bottom, b.top + VERDICT_H) > top - 4) this.box.style.top = `${Math.round(bot + 6)}px`;
       return;
     }
     let half = Infinity;
@@ -119,7 +122,6 @@ export class PlayStrip {
     this.el.classList.add('is-verdict');
     this.el.classList.toggle('is-ok', !!v.ok); this.el.classList.toggle('is-bad', !v.ok);
     if (v.ok && !prefersReducedMotion()) restartAnim(this.box, 'is-flash');
-    this.fit(this._keys);
   }
   playing(on) { this.play.classList.toggle('is-playing', !!on); }
   hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; }

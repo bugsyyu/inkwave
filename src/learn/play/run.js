@@ -31,7 +31,7 @@ import { LEARN, WEAPONS } from '../../config.js';
 import { EFFECTS } from '../design.js';
 import { prompt } from '../api.js';
 import { PlayTargets } from './targets.js';
-import { PlayStrip } from '../../ui/play-strip.js';
+import { PlayStrip, VERDICT_H } from '../../ui/play-strip.js';
 import { prefersReducedMotion } from '../../ui/ui-util.js';
 import { layoutTargets, isBanner } from './layout.js';
 import { pickTarget } from './pick.js';
@@ -138,7 +138,8 @@ export class PlayRun {
   // her on the screen, the live touch buttons, the minimap
   _screen(W, H) {
     const side = U.side, s = this.strip?.rect();
-    const top = Math.max(s ? s.bottom + 10 : 64, 48);
+    // (under the strip as its verdict will be: the objects are never covered when 差一点 and 为什么 come up)
+    const top = Math.max(s ? Math.max(s.bottom, s.y + VERDICT_H) + 10 : 64, 48);
     const avoid = [];
     const T = G.touch;
     if (T && T.enabled && T.buttons) for (const b of T.buttons) {
@@ -374,7 +375,6 @@ export class PlayRun {
       this._flood(g);
       if (E.trigger) a?.character?.trigger?.(E.trigger);
       this.strip?.verdict(v);
-      this.strip?.fit(this._topKeys());
       this.next = { t: (this.reduced ? 400 : M.nextMs) / 1000, stage: 1 };
     } else {
       const E = again ? EFFECTS.puzzle.wrong : EFFECTS.puzzle.wrong2;
@@ -384,7 +384,6 @@ export class PlayRun {
       if (right >= 0 && right !== k) this.T.state(right, 'right');
       g._lockPopAt = G.time;
       this.strip?.verdict(v);
-      this.strip?.fit(this._topKeys());
       this.next = { t: (this.reduced ? Math.min(LEARN.ui.verdictMs, 900) : LEARN.ui.verdictMs) / 1000, stage: 0 };
     }
   }
