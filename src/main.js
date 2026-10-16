@@ -32,6 +32,7 @@ import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
 import { buildLearn, buildNetLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
 import { t, gameName } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels
+import { FrameTimes } from './learn/play/frametime.js';   // 题即玩法 (docs/PLAY.md §7): debug.frameTimes
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -347,6 +348,8 @@ class Game {
       key: (code, down) => { if (down) { this.input.keys.add(code); this.input.pressed.add(code); } else this.input.keys.delete(code); },
       fire: (on) => { this.input.mouse.left = on; },
       freezeBots: () => { for (const a of G.actors) if (a.bot && !a.isLocal) a.bot.update = () => { a.intent.move.set(0, 0, 0); a.intent.fire = false; }; },
+      // 题即玩法 (docs/PLAY.md §7): every frame's cost in ms (_frame, first line to the HUD tail) → { n, p50, p95, max, mean }
+      frameTimes: { start: () => (this.ftSampler || (this.ftSampler = new FrameTimes())).start() && true, stop: () => (this.ftSampler ? this.ftSampler.stop() : null) },
     };
   }
 
@@ -1394,6 +1397,7 @@ class Game {
     // every probe reported the 3D scene as cheap. An unmeasured cost is an invisible one, so it is measured here.
     const tD = performance.now();
     ps.tail += (tD - tC - ps.tail) * 0.05;
+    this.ftSampler?.push(tD - tA);   // (debug.frameTimes: off unless an audit started it)
     // Worst-frame statistics, and only once play has settled. The first frame after the world is built, and again the
     // first after new content appears, take seconds — every shader compiles and every texture uploads on them — and
     // letting one into the maximum pins the reading at the boot cost forever, hiding the spikes the number exists to

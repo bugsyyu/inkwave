@@ -22,7 +22,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { drawLabelAtlas } from './atlas.js';
 import { plankSpheres } from './hit.js';
 
-const MAXO = 4, MAXB = 3;
+const MAXO = 4, MAXB = 3, NOUV = [0, 0, 0, 0];
 export const COLORS = { idle: '#a39db8', coral: '#f08a7a', ink: '#ff8a14' };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3();
 const _rot = new THREE.Matrix4(), _c = new THREE.Color(), _c2 = new THREE.Color();
@@ -125,7 +125,7 @@ export class PlayTargets {
     // per object: where it sits, how big, its state, its animation clock (preallocated, reused for every question)
     this.slots = Array.from({ length: MAXO }, () => ({
       on: false, kind: 'ball', key: '', pos: new THREE.Vector3(), r: 0.5, w: 1, h: 0.5, d: 0.14,
-      plate: { pos: new THREE.Vector3(), w: 1, h: 0.3 }, state: 'idle', t: 0, delay: 0, outAt: -1, gone: false, col: new THREE.Color(COLORS.idle), want: new THREE.Color(COLORS.idle), coral: 0, outline: 0, glow: 0,
+      plate: { pos: new THREE.Vector3(), w: 1, h: 0.3 }, uv: NOUV, state: 'idle', t: 0, delay: 0, outAt: -1, gone: false, col: new THREE.Color(COLORS.idle), want: new THREE.Color(COLORS.idle), coral: 0, outline: 0, glow: 0,
     }));
     this.n = 0; this.kind = 'ball'; this.time = 0; this.anim = false;
     this.basis = { right: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 1, 0), back: new THREE.Vector3(0, 0, 1) };
@@ -199,10 +199,8 @@ export class PlayTargets {
       S.r = o.r || 0.5; S.w = o.w || 1; S.h = o.h || 0.5; S.d = Math.max(0.12, (o.h || 0.5) * 0.22);
       S.plate.pos.set(o.plate.x, o.plate.y, o.plate.z); S.plate.w = o.plate.w; S.plate.h = o.plate.h;
       S.state = 'idle'; S.col.set(COLORS.idle); S.want.set(COLORS.idle); S.coral = 0; S.outline = 0; S.glow = 0;
-      const uv = A && A.uv.get(o.key);
-      this.plates.aUv.setXYZW(k, uv ? uv[0] : 0, uv ? uv[1] : 0, uv ? uv[2] : 0, uv ? uv[3] : 0);
+      S.uv = (A && A.uv.get(o.key)) || NOUV;
     }
-    this.plates.aUv.needsUpdate = true;
     this.halo.count = 0;
     this.group.visible = true;
     this.anim = true;
@@ -298,21 +296,22 @@ export class PlayTargets {
         S.slot = np++;
       }
       // the plate: a ball's below it, a banner's on the plank's face (a hair in front of it)
-      const sp = S.kind === 'ball' ? s : s;
+      const sp = s;
       _p.copy(S.kind === 'ball' ? S.plate.pos : S.pos);
       if (S.kind !== 'ball') _p.addScaledVector(this.basis.back, S.d * 0.5 * s + 0.012);
       _s.set(S.plate.w * sp, S.plate.h * sp, 1);
       _m.compose(_p, q, _s); this.plates.setMatrixAt(nl, _m);
       this.plates.aState.setXYZW(nl, S.gone ? 0 : Math.min(1, s * 1.4), S.outline, S.coral, S.plate.w / Math.max(1e-3, S.plate.h));
+      this.plates.aUv.setXYZW(nl, S.uv[0], S.uv[1], S.uv[2], S.uv[3]);
       nl++;
     }
     this.balls.count = nb; this.planks.count = np; this.plates.count = nl;
     let ring = false; for (let i = 0; i < MAXO; i++) { const S = this.slots[i]; if (S.on && S.outline > 0.02 && !S.gone) ring = true; }
     if (!ring) this.halo.count = 0;
-    for (const m of [this.balls, this.planks, this.plates]) { m.instanceMatrix.needsUpdate = true; }
+    this.balls.instanceMatrix.needsUpdate = true; this.planks.instanceMatrix.needsUpdate = true; this.plates.instanceMatrix.needsUpdate = true;
     if (this.balls.instanceColor) this.balls.instanceColor.needsUpdate = true;
     if (this.planks.instanceColor) this.planks.instanceColor.needsUpdate = true;
-    this.balls.aPlay.needsUpdate = true; this.planks.aPlay.needsUpdate = true; this.plates.aState.needsUpdate = true;
+    this.balls.aPlay.needsUpdate = true; this.planks.aPlay.needsUpdate = true; this.plates.aState.needsUpdate = true; this.plates.aUv.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------------------------------------- on screen

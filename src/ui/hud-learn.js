@@ -93,13 +93,22 @@ export class LearnHud {
   }
   end() {
     this.on = false; this.flow = null; this._ask = null;
-    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-ask', 'is-done');
+    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-ask', 'is-done', 'is-play'); this.playOn = false;
     this.el.setAttribute('aria-hidden', 'true');
     this.hud.el?.classList.remove('is-learn');
     G.touch?.el?.classList.remove('is-learn');
     window.removeEventListener('keydown', this._onKey, true);
     stopAudio();   // the recording or the device's voice
     clearTimeout(this._vT);
+  }
+
+  // 题即玩法 (docs/PLAY.md §2; src/learn/play/run.js): while a question is ink targets the strip (src/ui/play-strip.js) takes
+  // the walk bar's place — no card, no walk bar; off again when the gate opens or a card item comes
+  playMode(on) {
+    this.playOn = !!on;
+    this.el.classList.toggle('is-play', this.playOn);
+    if (this.playOn) this.el.classList.remove('is-walk', 'is-ask');
+    else if (this.on && !this.el.classList.contains('is-ask') && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
   }
 
   // ================================================================ walking

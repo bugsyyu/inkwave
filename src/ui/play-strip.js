@@ -9,7 +9,7 @@
 //   S.show(p, { replay })          p = the prompt ({ text, zh, tts }); replay() is ▶ (shown only when p.tts)
 //   S.verdict({ ok, head, why })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
 //   S.rect() → the strip's box (CSS px) or null when hidden — the top of the safe area under it (src/learn/play/run.js)
-//   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — called by run.js after show()
+//   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show() / verdict
 //   S.setInk(hex)                  her team colour
 import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
@@ -34,8 +34,6 @@ const CSS = `
 .iw-ps__text, .iw-ps__verdict { display: block; flex: 1 1 auto; min-width: 0; line-height: 1.28; }
 .iw-ps__q { display: block; font-size: 19px; font-weight: 800; letter-spacing: .01em; overflow-wrap: anywhere; }
 .iw-ps__zh { display: block; margin-top: 2px; font-size: 17px; font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
-.iw-ps__f1 { float: right; width: 0; height: 0; }
-.iw-ps__f2 { float: right; clear: right; width: 0; height: 0; }
 .iw-ps__zh:empty { display: none; }
 .iw-ps__verdict { display: none; }
 .iw-ps__head { display: block; font-size: 19px; font-weight: 800; }
@@ -74,10 +72,8 @@ export class PlayStrip {
     this.play.addEventListener('click', (e) => { e.stopPropagation(); this._replay?.(); });
     this.head = h('b', { class: 'iw-ps__head' });
     this.why = h('span', { class: 'iw-ps__why' });
-    // (two floats at the right of each text block keep its lines clear of the touch layer's top-row keys: see _fit)
-    this.fl = [h('i', { class: 'iw-ps__f1' }), h('i', { class: 'iw-ps__f2' }), h('i', { class: 'iw-ps__f1' }), h('i', { class: 'iw-ps__f2' })];
-    this.text = h('div', { class: 'iw-ps__text' }, this.fl[0], this.fl[1], this.q, this.zh);
-    this.verd = h('div', { class: 'iw-ps__verdict' }, this.fl[2], this.fl[3], this.head, this.why);
+    this.text = h('div', { class: 'iw-ps__text' }, this.q, this.zh);
+    this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why);
     this.box = h('div', { class: 'iw-ps__box' }, this.play, this.text, this.verd);
     this.el = h('div', { class: 'iw-ps is-off', role: 'status', 'aria-live': 'polite' }, this.box);
     (hud && hud.root ? hud.root : document.body).appendChild(this.el);
@@ -85,31 +81,24 @@ export class PlayStrip {
   }
   setInk(hex) { colorVars(this.el, 'self', hex || '#ff8a14'); }
 
-  // keep clear of the touch layer's top-row keys (pause / map: `keys` = [{ x, y, w, h }], CSS px): upright, where the strip
-  // spans the screen, its lines flow round them (two floats per text block); otherwise the centred strip is narrowed
+  // keep clear of the touch layer's top-row keys (pause / map: `keys` = [{ x, y, w, h }], CSS px), which draw under it:
+  // upright, where the strip spans the screen, a strip too tall for the room above them drops below them; otherwise the
+  // centred strip is narrowed so it never reaches one beside the band it sits in
   fit(keys) {
     this._keys = keys || [];
-    this.box.style.maxWidth = '';
-    for (const f of this.fl) { f.style.width = '0px'; f.style.height = '0px'; }
+    this.box.style.maxWidth = ''; this.box.style.top = '';
     if (!this.on || !this._keys.length) return;
     const b = this.box.getBoundingClientRect(), mid = b.left + b.width / 2;
     const upright = typeof matchMedia === 'function' && matchMedia('(orientation: portrait) and (max-width: 640px)').matches;
-    if (!upright) {
-      // centred: as wide as it may be without reaching a key beside the band it sits in
-      let half = Infinity;
-      for (const k of this._keys) if (k.y < b.top + 140 && k.y + k.h > b.top) half = Math.min(half, k.x > mid ? k.x - mid - 10 : mid - (k.x + k.w) - 10);
-      if (half < Infinity) this.box.style.maxWidth = `${Math.max(260, Math.floor(half * 2))}px`;
+    if (upright) {
+      let top = Infinity, bot = -Infinity;
+      for (const k of this._keys) if (k.x < b.right && k.x + k.w > b.left && k.y + k.h > b.top) { top = Math.min(top, k.y); bot = Math.max(bot, k.y + k.h); }
+      if (top < Infinity && b.bottom > top - 4) this.box.style.top = `${Math.round(bot + 6)}px`;
       return;
     }
-    for (const [t, i] of [[this.text, 0], [this.verd, 2]]) {
-      const r = t.getBoundingClientRect(); if (!(r.width > 0)) continue;
-      let top = Infinity, bot = -Infinity, left = Infinity;
-      for (const k of this._keys) if (k.x + k.w > r.left && k.x < r.right + 30) { top = Math.min(top, k.y); bot = Math.max(bot, k.y + k.h); left = Math.min(left, k.x); }
-      if (!(top < Infinity)) continue;
-      this.fl[i].style.height = `${Math.max(0, Math.round(top - r.top - 2))}px`;
-      this.fl[i + 1].style.width = `${Math.max(0, Math.round(r.right - left + 8))}px`;
-      this.fl[i + 1].style.height = `${Math.round(bot - top + 4)}px`;
-    }
+    let half = Infinity;
+    for (const k of this._keys) if (k.y < b.top + 140 && k.y + k.h > b.top) half = Math.min(half, k.x > mid ? k.x - mid - 10 : mid - (k.x + k.w) - 10);
+    if (half < Infinity) this.box.style.maxWidth = `${Math.max(260, Math.floor(half * 2))}px`;
   }
 
   show(p, { replay } = {}) {

@@ -197,6 +197,13 @@ export class TouchControls {
       e.preventDefault();                                        // also suppresses the synthesized mouse events
       return;
     }
+    // 题即玩法 (docs/PLAY.md §6.1): a finger landing on a question object is the level's tap-shot (G.playTap, src/learn/play/run.js
+    // — it decides on the way up whether it was a tap), not the stick; dragged, it looks round like the right half does
+    if (G.playTap && G.playTap.down(e.clientX, e.clientY, e.pointerId)) {
+      if (this.look.id === null) { this.roles.set(e.pointerId, 'look'); this.look.id = e.pointerId; this.look.x = e.clientX; this.look.y = e.clientY; }
+      else this.roles.set(e.pointerId, 'tap');
+      e.preventDefault(); return;
+    }
     const inLeft = e.clientX < innerWidth * MOVE_ZONE && e.clientY > innerHeight * TOUCH.topGuard;
     if (inLeft && this.move.id === null) {
       this.roles.set(e.pointerId, 'move');
@@ -236,6 +243,7 @@ export class TouchControls {
   _up(e) {
     const role = this.roles.get(e.pointerId);
     if (role === undefined) return;
+    G.playTap?.up(e.clientX, e.clientY, e.pointerId, e.type === 'pointercancel');   // (题即玩法: was it a tap on a question object?)
     this.roles.delete(e.pointerId);
     if (role === 'move') {
       this.move.id = null;
