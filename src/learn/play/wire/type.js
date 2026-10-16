@@ -58,21 +58,27 @@ export class TypeStation {
     const a = this.match.local, H = this.host;
     const ref = String((item.meta && item.meta.ref) || item.en || '');
     const mode = p.type === 'write' || /\s/.test(ref) ? 'sentence' : 'word';
-    // she faces the route past the gate; the word forms FRAME.dist m ahead, on the ground there
-    const yaw = H.facingYaw(g, a);
+    // she faces the route past the gate — or, when a wall / a ledge / a planter stands close that way, the nearest
+    // direction with the longest open stretch (the ink word is about 4 m wide); the word forms FRAME.dist m ahead (closer
+    // when the stretch is shorter), on ground near her own level, with a clear line from her head to it
+    const yaw0 = H.facingYaw(g, a);
+    const reach = (yaw) => {
+      let targetY = a.pos.y, dist = FRAME.dist, ok = false;
+      for (const d of [FRAME.dist, 5.2, 4.2, 3.4]) {
+        _v.set(a.pos.x + Math.sin(yaw) * d, a.pos.y, a.pos.z + Math.cos(yaw) * d);
+        const gy = G.level ? G.level.groundHeight(_v.x, _v.z, a.pos.y + 1.0) : -Infinity;
+        const near = gy > -Infinity && Math.abs(gy - a.pos.y) < 0.9;
+        const clear = !G.physics || !G.physics.los || (G.physics.los(_w.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _v.set(_v.x, (near ? gy : a.pos.y) + 1.4, _v.z)) && G.physics.los(_w.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _v.set(_v.x, (near ? gy : a.pos.y) + 2.4, _v.z)));
+        dist = d; targetY = near ? gy : a.pos.y; ok = near && clear;
+        if (ok) break;
+      }
+      return { yaw, dist: ok ? dist : 0, targetY };
+    };
+    let pick = reach(yaw0);
+    if (pick.dist < FRAME.dist) for (const dy of [0.45, -0.45, 0.9, -0.9, 1.4, -1.4]) { const r = reach(yaw0 + dy); if (r.dist > pick.dist) pick = r; if (pick.dist >= FRAME.dist) break; }
+    const yaw = pick.yaw, dist = pick.dist || 3.4, targetY = pick.targetY;
     if (!this.mounted) { a.yaw = a.aimYaw = yaw; this.shot.mount(a); this.mounted = true; }
     else if (Math.abs(((yaw - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.4) { a.yaw = a.aimYaw = yaw; this.shot.rig.hullYaw = yaw; }
-    // the spot the word grows on: FRAME.dist m ahead on ground near her own level, with a clear line from her head to it;
-    // a wall, a ledge or a planter there pulls it closer (the ink word is about 4 m wide: it wants an open stretch)
-    let targetY = a.pos.y, dist = FRAME.dist;
-    for (const d of [FRAME.dist, 5.2, 4.2, 3.4]) {
-      _v.set(a.pos.x + Math.sin(yaw) * d, a.pos.y, a.pos.z + Math.cos(yaw) * d);
-      const gy = G.level ? G.level.groundHeight(_v.x, _v.z, a.pos.y + 1.0) : -Infinity;
-      const near = gy > -Infinity && Math.abs(gy - a.pos.y) < 0.9;
-      const clear = !G.physics || !G.physics.los || G.physics.los(_w.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _v.set(_v.x, (near ? gy : a.pos.y) + 1.4, _v.z));
-      dist = d; targetY = near ? gy : a.pos.y;
-      if (near && clear) break;
-    }
     _v.set(a.pos.x + Math.sin(yaw) * dist, targetY + 0.1, a.pos.z + Math.cos(yaw) * dist);
     this.shot.opts.groundY = targetY;
     this.shot.begin({ mode, target: _v.clone() });
