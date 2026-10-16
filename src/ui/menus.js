@@ -893,6 +893,12 @@ export class Menus {
       { id: 'howto', label: t('main.howto'), icon: GLYPHS.question, cls: 'iw-btn--menu', accept: () => this._go('howto') },
       { id: 'credits', label: t('main.credits'), icon: GLYPHS.star, cls: 'iw-btn--menu', accept: () => this._go('credits') },
     ];
+    // opened from the IELTS-Base App (?from=app): she came to learn — 学习 is the big first button and 回课本 sits under it
+    if (FROM_APP) {
+      const pick = (id) => items.splice(items.findIndex((x) => x.id === id), 1)[0];
+      const learn = pick('learn'), book = pick('book'), play = pick('play');
+      items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, { ...play, cls: 'iw-btn--menu' });
+    }
     const tilts = [-2.2, 1.3, 1.4, -1.1, 1.6, -1.3, 1.1];
     const btns = items.map((it, i) => { const b = this._btn({ ...it, tilt: tilts[i % tilts.length] }); b.classList.add('iw-in', 'iw-in--left'); return b; });
     const descText = h('span', { class: 'iw-main__desctext' });

@@ -298,8 +298,11 @@ export class TouchControls {
     // NOT the loading screen: that is where a player looks to see whether the game is coming up at all, and covering
     // it turns "still loading" into "broken" (which is exactly what an earlier version of this gate did). The title
     // screen is left alone too — it advances on a tap anywhere, which portrait does fine.
+    // 关卡学习 G: the screens on her path have a portrait layout (styles/ui.css, the portrait block) — the main menu, the
+    // learn screen, the settings, and a level's own pause — so the banner stays down over those
     const cur = G.menus?.current;
-    const armed = (G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title');
+    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn);
+    const armed = (G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title' && !portraitOk);
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.
     if (armed !== this._armed) { this._armed = armed; this.rotateEl?.classList.toggle('is-armed', armed); }
