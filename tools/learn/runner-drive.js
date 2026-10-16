@@ -276,7 +276,7 @@
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)
-    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && g++ < 900) await step(200); }
+    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
   } catch (e) { S.errors.push(String(e && e.stack || e)); }
   const Fl = F();
   S.done = true;
@@ -284,7 +284,9 @@
   const firsts = {}; if (Fl) for (const e of Fl.log) if (e.name === 'learn:answer' && e.first) firsts[e.itemId] = (firsts[e.itemId] || 0) + 1;
   const twice = Object.keys(firsts).filter((k) => firsts[k] > 1); if (twice.length) S.errors.push('first answer recorded twice: ' + twice.join(', '));
   const xhAny = S.checks.filter((c) => c.crosshair).length;
-  const out = { boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
+  const resultsShown = !!(Fl && Fl._hudOn && Fl.finishT < 0 && M().paused);   // (the results card: the run is over, the match held — as every form ends)
+  if (!W.__runMaxRows && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  const out = { resultsShown, boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
