@@ -65,6 +65,9 @@ export class PlayHost {
     const kind = this.kindOf(item, p); if (!kind) return false;
     const m = this.match, F = this.flow;
     if (m.paused && m.state === 'playing') { m.paused = false; G.input?.requestLock?.(); }   // (after a card, under the flag)
+    // the gate's boards go as its questions start (she read them on the way): M1's framing looks for open ground past the
+    // gate and a board 5 m before it stood among the planks when the lens turned back
+    if (g._boards && g._boards.placed) this.boards.free(g);
     if (kind !== this.kind) this._clearStation();
     this.kind = kind; this.cur = { g, item, p };
     if (kind === 'm1') { this.cam.release(G.rig, m.local); this.m1.ask(g, item, p); }
