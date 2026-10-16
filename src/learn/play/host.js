@@ -193,13 +193,24 @@ export class PlayHost {
     // the spot hides the whole stage (the first version stood the pads under the harbour pavilion)
     const camL = stageLayout(n, innerWidth / innerHeight).cam.pos;
     let best = null, acc = 0;
+    const P = G.physics;
+    // every route point 2–14 m past the gate, and beside it (±1.6 / ±3.2 m, a little dearer): the first gate's plaza has
+    // its fountain right on the route, the open ground is beside it
+    const cands = [];
     for (let i = g.pathIndex + 1; i < path.length && acc < 14; i++) {
-      const p = nav.nodes[path[i - 1]], q = nav.nodes[path[i]];
-      acc += Math.hypot(q.x - p.x, q.z - p.z);
+      const p = nav.nodes[path[i - 1]], q0 = nav.nodes[path[i]];
+      acc += Math.hypot(q0.x - p.x, q0.z - p.z);
       if (acc < 2) continue;
-      const yaw = Math.atan2(q.x - p.x, q.z - p.z), sy = Math.sin(yaw), cy = Math.cos(yaw);
-      let ok = 0, dev = 0;
-      const P = G.physics;
+      const yaw = Math.atan2(q0.x - p.x, q0.z - p.z), sy = Math.sin(yaw), cy = Math.cos(yaw);
+      for (const side of [0, 1.6, -1.6, 3.2, -3.2]) {
+        const x = q0.x + cy * side, z = q0.z - sy * side;
+        if (side !== 0) { const k = nav.nearest(_v.set(x, q0.y, z), 0.8, true); if (k < 0 || Math.hypot(nav.nodes[k].x - x, nav.nodes[k].z - z) > 0.75) continue; }
+        cands.push({ q: side === 0 ? q0 : { x, y: nav.nodes[nav.nearest(_v.set(x, q0.y, z), 0.8, true)].y, z }, yaw, sy, cy, acc, side: Math.abs(side) });
+      }
+    }
+    for (const c of cands) {
+      const { q, yaw, sy, cy, acc } = c;
+      let ok = 0, dev = c.side * 0.3;
       for (const [lx, lz] of STAGE_PTS) {
         const x = q.x + cy * lx + sy * lz, z = q.z - sy * lx + cy * lz;
         // the pad and its rim near-flat at the stage's level (a fountain basin, a step: not flat), on the nav grid, and
@@ -216,11 +227,11 @@ export class PlayHost {
       const camSees = !P || !P.los || P.los(_w.set(q.x + cy * camL[0] + sy * camL[2], q.y + camL[1], q.z - sy * camL[0] + cy * camL[2]), _v.set(q.x, q.y + 0.6, q.z));
       if (!camSees) dev += 4;
       const score = ok * 2 - dev - acc * 0.04;
-      if (!best || score > best.score) best = { score, origin: new THREE.Vector3(q.x, q.y, q.z), yaw, ok, acc: +acc.toFixed(1) };
-      if (ok === STAGE_PTS.length) break;
+      if (!best || score > best.score) best = { score, origin: new THREE.Vector3(q.x, q.y, q.z), yaw, ok, acc: +acc.toFixed(1), side: c.side };
+      if (ok === STAGE_PTS.length && camSees && c.side === 0) break;
     }
     if (!best) return fallback;
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'stage', ok: best.ok, at: best.acc, n });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'stage', ok: best.ok, at: best.acc, side: best.side, n });
     return best;
   }
   // the voice: the course's recording or the device's (hud-learn's _speak), the strip's ▶ lit while it plays
