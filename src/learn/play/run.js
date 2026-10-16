@@ -280,6 +280,7 @@ export class PlayRun {
         const gy = L0 ? L0.groundHeight(o.x, o.z, bottom + 4) : -Infinity;
         if (gy > -Infinity) need = Math.max(need, gy + M.clear - bottom);
         if (P && (!P.los(_e, _c.set(o.x, o.y, o.z)) || !P.los(_o, _c) || !P.los(_m, _c))) blocked = true;
+        if (P && o.kind === 'ball' && !P.los(_o, _c.set(o.plate.x, o.plate.y, o.plate.z))) blocked = true;   // (its label too)
       }
       const dMin = boom + 1.6;
       if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
