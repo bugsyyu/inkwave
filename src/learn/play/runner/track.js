@@ -193,7 +193,8 @@ export function clearWidths(nav, T, opts = {}) {
 
 // a row of `lanes` lanes at arc length s: every sample over [s − runIn, s + runOut] must leave lanes × laneW between its
 // left and right edges for one common lateral centre c (the one nearest the centre line), the road may turn at most
-// `turn` rad across that stretch and climb at most `rise` m — curtains stand square across a straight, flat run
+// `turn` rad across that stretch and climb at most `rise` m — curtains stand square across a straight, flat run — and no
+// jump-up edge may lie in the `jumpClear` m before the run-in (she is held on the line there to hop it)
 // The grid's walkable band is where her centre can be — it already keeps the capsule (PLAYER.radius + 0.08) off every
 // wall — so the row needs the lanes' curtains (laneW − gap wide each) inside that band: lanes × laneW − gap of grid, which
 // is a corridor of more than lanes × laneW from wall to wall (PLAY's rule) once the capsule's room is added back.
@@ -213,6 +214,12 @@ export function rowFit(T, W, s, lanes, opts = {}) {
     if (Math.abs(da) > turn) return { ok: false };
   }
   if (lo > hi + 1e-6 || ymax - ymin > rise) return { ok: false };
+  // no jump-up edge over the approach (the runner keeps her on the road's line to hop it: no lane change there)
+  const jc = opts.jumpClear ?? 8;
+  for (const j of T.jumps || []) {
+    const d = (((s - j) % T.len) + T.len) % T.len;   // how far past the edge the row stands
+    if (d < runIn + jc || T.len - d < runOut + 1) return { ok: false };
+  }
   const c = Math.min(hi, Math.max(lo, 0));
   return { ok: true, c: +c.toFixed(3) };
 }

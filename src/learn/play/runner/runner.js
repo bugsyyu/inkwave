@@ -200,6 +200,7 @@ export class RunnerFlow extends RaceFlow {
     this.rh.update(dt);
     const m = this.match, a = m.local;
     for (const r of this.rows) r.view && r.view.update(G.time, r.kind === 'beat' && r.state === 'shown' && r.grid ? beatPulse(r.grid, G.time) : 0, dt);
+    for (const r of this.rows) if (r.view && r.state === 'built' && r.view.prepare()) break;   // one label a frame
     this._reap(dt);
     if (this.finishT >= 0) { this.finishT -= dt; this._steer(a, dt); if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;

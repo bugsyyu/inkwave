@@ -33,6 +33,8 @@ const FS = `
   }`;
 
 export const CORAL = new THREE.Color('#f08a7a');
+let BLANK = null;   // (a 1 × 1 stand-in with a label's colour space: swapping the real label in changes no program)
+const blankTex = () => { if (!BLANK) { BLANK = new THREE.DataTexture(new Uint8Array([21, 18, 28, 0]), 1, 1); BLANK.colorSpace = THREE.SRGBColorSpace; BLANK.needsUpdate = true; } return BLANK; };
 const GREY = new THREE.Color('#b9b2cc');
 const _p = {}, _q = {};
 let SHEET = null, BOARD = null;
@@ -64,15 +66,16 @@ export class RowView {
       const grp = new THREE.Group(); grp.position.set(x, y, z); grp.rotation.y = yaw;
       const mat = curtainMaterial(); this.mats.push(mat);
       const sheet = new THREE.Mesh(SHEET, mat); sheet.scale.set(w, h, 1); sheet.renderOrder = 2;
-      const L = labelTexture({ ...row.labels[i], banner: row.banner, tag: tags[i] || '' }); this.texs.push(L);
-      try { G.renderer?.initTexture?.(L.tex); } catch (e) { /* (uploaded on first draw instead) */ }   // up now, two rows ahead — not in the frame the row fades in
-      const bm = new THREE.MeshBasicMaterial({ map: L.tex, transparent: true, depthWrite: false, toneMapped: false }); this.mats.push(bm);
+      // the label is drawn later, one per frame (prepare): a placeholder map keeps the material's program the same
+      const bm = new THREE.MeshBasicMaterial({ map: blankTex(), transparent: true, depthWrite: false, toneMapped: false }); this.mats.push(bm);
       const bw = laneW - (row.banner ? 0.06 : 0.14);   // (boards nearly as wide as the lane: the curtains below show the gaps)
-      const board = new THREE.Mesh(BOARD, bm); board.scale.set(bw, bw * L.aspect, 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;
+      const board = new THREE.Mesh(BOARD, bm); board.scale.set(bw, bw * (row.banner ? 448 / 512 : 320 / 512), 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;
+      board.visible = false;
       grp.add(sheet, board);
       this.group.add(grp);
       this.curtains.push({ grp, sheet, board, mat, bm, state: 'idle', k: 0, glow: 0, drain: 0, x, y, z });
     });
+    this._todo = row.centers.map((_, i) => i);
     // guide lines on the ink between the lanes (and its two edges) over the run-in: where the gaps are
     this._lines(T, row, laneW);
     this.group.visible = false;
@@ -134,7 +137,17 @@ export class RowView {
     if (this.lineMat) this.lineMat.opacity = 0.42 * this.show * this.fade * (1 + pulse * 0.6);
   }
 
-  setVisible(v) { this.group.visible = v; }
+  // draw (and upload) one curtain's label: called every frame while the row waits two rows ahead, so a row of four
+  // canvases never lands in a single frame (PLAY §7: drawn ahead, no work in the frame the row fades in)
+  prepare() {
+    if (!this._todo.length) return false;
+    const i = this._todo.shift(), c = this.curtains[i], row = this.row;
+    const L = labelTexture({ ...row.labels[i], banner: row.banner, tag: (row.tags || [])[i] || '' }); this.texs.push(L);
+    try { G.renderer?.initTexture?.(L.tex); } catch (e) { /* (uploaded on first draw instead) */ }
+    c.bm.map = L.tex; c.board.visible = true;
+    return true;
+  }
+  setVisible(v) { if (v) while (this.prepare()) { /* (anything not drawn yet: now) */ } this.group.visible = v; }
   mark(i, state) { const c = this.curtains[i]; if (c) c.state = state; }
   pos(i, out) { const c = this.curtains[i]; return out.set(c.x, c.y + 1.1, c.z); }
 
