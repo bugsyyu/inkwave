@@ -515,7 +515,8 @@ export class RunnerFlow extends RaceFlow {
     if (this.cur >= this.gates.length && !this.queue.length && !this.rows.some((r) => r.state !== 'done') && this.phase !== 'final' && this.phase !== 'done') {
       if (this.relearn.length && !this.relearnAsked) {   // 回炉: the missed items once more, with their help, before the line
         this.relearnAsked = true;
-        for (const it of relearnPlan(this.relearn)) this.queue.push({ gate: this.gates.length, kind: it.meta && (it.meta.kind === 'pair' || it.meta.kind === 'sym') ? 'beat' : 'lane', item: it, tries: 1, noAns: 0, alt: true, relearn: true });
+        // (the item marked _relearn like the race's 回炉门: a miss there is not queued again and takes no detour)
+        for (const it of relearnPlan(this.relearn)) this.queue.push({ gate: this.gates.length, kind: it.meta && (it.meta.kind === 'pair' || it.meta.kind === 'sym') ? 'beat' : 'lane', item: { ...it, _relearn: true }, tries: 1, noAns: 0, alt: true, relearn: true });
         this.ui.say(`回炉：错过的 ${this.queue.length} 题再来一次`);
         return;
       }

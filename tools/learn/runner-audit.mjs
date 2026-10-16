@@ -62,11 +62,12 @@ async function scenarioRunner() {
   const q = opt('query', '?learn=w1d3&kind=runner&short=1') + '&quality=low&nofullscreen';
   const { ctx, page, bootS } = await open(q);
   // the plan per row, a row cap, and which rows (1-based, in the order they come up) get a screenshot
-  await page.evaluate(([plan, maxRows, rows]) => {
+  await page.evaluate(([plan, maxRows, rows, after]) => {
+    if (after) window.__runShotAfter = true;
     if (plan) window.__runPlan = plan.split(',');
     if (maxRows) window.__runMaxRows = maxRows;
     const want = new Set(rows); let seen = 0; window.__runShots = () => want.has(++seen);
-  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : []]);
+  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter')]);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/runner-drive.js'), 'utf8');
   let res, k = 0;
   for (;;) {
@@ -78,6 +79,10 @@ async function scenarioRunner() {
     const ui = await page.evaluate(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; }; return { strip: r('.iw-run__strip.is-on'), play: r('.iw-run__play'), rotate: r('.iw-run__rotate.is-on'), q: (document.querySelector('.iw-run__q') || {}).textContent, fontQ: getComputedStyle(document.querySelector('.iw-run__q')).fontSize }; });
     console.log('shot', file, JSON.stringify({ row: res.row, ui, dbg: { s: res.dbg.s, lat: res.dbg.lat, d: res.dbg.d, speed: res.dbg.speed, row: res.dbg.row } }));
     if (++k > 8) break;
+  }
+  if (SHOTS && flag('finalShot')) {   // the end: the results card over the finished run
+    const file = path.join(SHOTS, `runner-${Wd}x${Ht}-end.png`);
+    await page.screenshot({ path: file }); console.log('shot', file);
   }
   out.runs.push({ query: q, bootS, ...res });
   await ctx.close();

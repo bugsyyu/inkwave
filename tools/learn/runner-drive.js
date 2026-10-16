@@ -50,7 +50,12 @@
     if (!S.frozen) {
       const t = Date.now(); while (!F() && Date.now() - t < 120000) await sleep(200);
       I.debug.freeze(); S.frozen = true;
-      let sim = 0; while (M().state !== 'playing' && sim < 20000) { await step(500); sim += 500; }
+      let sim = 0; while (M().state !== 'playing' && sim < 20000 && !(M().state === 'intro' && M().stateT > 3.6)) { await step(500); sim += 500; }
+      // the hand-over from the intro's fly-in to the runner's camera: frame by frame across it, the largest jump of the
+      // lens between two frames (a cut would be metres; the spring moves a few centimetres a frame)
+      const cam = G.camera.position, jumps = []; let prev = cam.clone(), f = 0, at = -1;
+      while (f++ < 90) { const was = M().state; await step(17); jumps.push(+cam.distanceTo(prev).toFixed(3)); prev = cam.clone(); if (was !== 'playing' && M().state === 'playing') at = jumps.length; if (at > 0 && jumps.length > at + 30) break; }
+      S.camHandover = { atFrame: at, maxJump: Math.max(...jumps), aroundSwitch: jumps.slice(Math.max(0, at - 3), at + 4), mode: G.rig && G.rig.mode };
       const Fl = F();
       console.log('[run] playing after', ((Date.now() - S.t0) / 1000).toFixed(1), 's wall');
       S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode };
@@ -105,10 +110,13 @@
       rec.dCross = +Fl.dNow.toFixed(2);
       rec.states = row.view ? row.view.curtains.map((cc) => cc.state + (cc.k ? ':coral' + cc.k.toFixed(2) : '')) : null;
       rec.slowT = +Fl.slowT.toFixed(2); rec.boostT = +Fl.boostT.toFixed(2);
+      if (W.__runShotAfter && rec.ok && !S.afterShot) await step(250);
       await step(450); rec.vAfter = +spd().toFixed(2);
       rec.leavesAfter = leaves(row.item.id);
       rec.verdict = (document.querySelector('.iw-run__verdict.is-on') || {}).textContent || '';
       S.rows.push(rec);
+      // one shot just after the first right curtain: the burst into her ink (fx.explosion + paint.flood)
+      if (W.__runShotAfter && rec.ok && !S.afterShot) { S.afterShot = true; render(); S.shotsTaken++; return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug(), after: true }); }
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)
@@ -116,7 +124,7 @@
   } catch (e) { S.errors.push(String(e && e.stack || e)); }
   const Fl = F();
   S.done = true;
-  const out = { boot: S.boot, boards: S.boards || 0, rows: S.rows, checks: S.checks.length, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
+  const out = { boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, checks: S.checks.length, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
