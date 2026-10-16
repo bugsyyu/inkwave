@@ -70,7 +70,7 @@ export class EchoBooth {
     const m = (this.item && this.item.meta) || {};
     const end = () => { this.speaking = false; };
     this.on.speak?.(m.model || this.item?.tts || this.item?.en || '', { onEnd: end });
-    setTimeout(end, 9000 + 60 * String(m.model || '').length);   // (no onEnd from the voice: the rings stop anyway)
+    const h = setTimeout(end, 9000 + 60 * String(m.model || '').length); h?.unref?.();   // (no onEnd from the voice: the rings stop anyway)
   }
   _hot(id) {
     if (id === 'replay') { if (this.state !== 'done') this._play(); else this.on.speak?.((this.item.meta || {}).model || this.item.en, {}); return; }

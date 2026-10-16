@@ -89,12 +89,12 @@ export class BoardWalk {
     // the nearest board whose viewing spot she is at; she has to slow down (or linger) for the camera to come round,
     // and walk clear of the zone (a little past its edge) for it to let go
     let best = -1, bd = Infinity;
-    this.list.forEach((L, i) => {
-      const d = Math.hypot(her.x - L.view.x, her.z - L.view.z);
+    for (let i = 0; i < this.list.length; i++) {
+      const L = this.list[i], d = Math.hypot(her.x - L.view.x, her.z - L.view.z);
       const inside = d < BD.zone + (i === this.framed ? 0.4 : 0);
       L.inT = inside ? L.inT + dt : 0;
       if (inside && d < bd && (i === this.framed || speed < 1.6 || L.inT > 0.35)) { best = i; bd = d; }
-    });
+    }
     if (best !== this.framed) {
       if (best < 0) this._unframe();
       else { this.framed = best; this._frame(aspect); this.on.framed?.(best); }
@@ -165,9 +165,9 @@ export class BoardWalk {
       if (seq !== this._seq || i >= rows.length || this.framed < 0) return;
       const r = rows[i++];
       let ended = false;
-      const after = () => { if (ended) return; ended = true; setTimeout(next, 900 + 60 * String(r.en || '').length); };
+      const after = () => { if (ended) return; ended = true; setTimeout(next, 900 + 60 * String(r.en || '').length)?.unref?.(); };
       this.on.speak?.(r.tts || r.en, { slow: true, onEnd: after });
-      setTimeout(after, 2600);   // (no onEnd from the voice: go on anyway)
+      setTimeout(after, 2600)?.unref?.();   // (no onEnd from the voice: go on anyway)
     };
     next();
   }

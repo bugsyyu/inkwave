@@ -260,3 +260,21 @@ test('the stage: two silent bars defer the question — no answer handler, no ev
   assert.equal(s.key({ key: 'Escape' }), false, 'Esc stays the pause');
   assert.equal(s.key({ key: 'a', metaKey: true }), false);
 });
+
+test('the stage turns with the phone: pads glide to the other layout; the camera pose is the layout\'s, in the world', () => {
+  const { s } = stageOf();
+  s.open({ origin: new THREE.Vector3(4, 1, -2), yaw: Math.PI / 2, n: 4, aspect: 390 / 844 });
+  s.ask({ labels: SYMS[0].options, now: 0 });
+  const f = s.frame(390 / 844);
+  // the layout's camera, turned by the stage's yaw and moved to its origin
+  const L = s.layout.cam, c = Math.cos(Math.PI / 2), si = Math.sin(Math.PI / 2);
+  assert.ok(Math.abs(f.pos.x - (4 + L.pos[0] * c + L.pos[2] * si)) < 1e-6 && Math.abs(f.pos.y - (1 + L.pos[1])) < 1e-6);
+  const before = s.P[2].tx;
+  s.relayout(844 / 390);
+  assert.ok(s.P[2].tx > before + 0.5, 'the left pad moves out in landscape');
+  run(s, 0, 1);
+  assert.ok(Math.abs(s.P[2].x - s.P[2].tx) < 0.01, 'and glides there');
+  // a gate's atlas: one cell per (side, word), every label of every item found
+  const A = s.prepare('gate', SYMS.map((it) => it.options));
+  for (const it of SYMS) it.options.forEach((o, i) => assert.ok(A.uv.has(`${PAD_DIRS[4][i]}|${o.en}|${o.zh}`)));
+});

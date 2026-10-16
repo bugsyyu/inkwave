@@ -36,7 +36,8 @@ export class PadSet {
   clear() { this.pads.length = 0; this.base.count = this.face.count = 0; }
   update(dt, t, beat = 0) {
     this.faceMat.uniforms.uTime.value = t; this.faceMat.uniforms.uBeat.value = beat;
-    this.pads.forEach((p, i) => {
+    for (let i = 0; i < this.pads.length; i++) {
+      const p = this.pads[i];
       p.popT += dt; p.wave = Math.max(0, p.wave - dt * 0.9); p.waveT = Math.min(3, p.waveT + dt); p.streak = Math.max(0, p.streak - dt * 0.5);
       const k = p.popT >= 0.5 ? 1 : p.popT <= 0 ? 0.001 : easeOutBack(p.popT / 0.5), sc = Math.max(0.001, k) * p.r;
       _q.identity();
@@ -45,7 +46,7 @@ export class PadSet {
       this.aCol.setXYZ(i, p.col.r, p.col.g, p.col.b);
       this.aPad.setXYZW(i, p.glow, p.wave, p.waveT, p.ring);
       this.aSel.setXYZW(i, p.ink, p.glyph, p.streak, k);
-    });
+    }
     this.base.instanceMatrix.needsUpdate = true; this.face.instanceMatrix.needsUpdate = true;
     this.aCol.needsUpdate = this.aPad.needsUpdate = this.aSel.needsUpdate = true;
   }

@@ -63,6 +63,7 @@ export class Signs {
     }
     if (this.pads.pads.length) this.pads.update(dt, t, 0);
   }
+  free(key) { this.walk.free(key); }
   clear() { this.walk.clear(); this.pads.clear(); this.pad = null; this.signs = []; }
   warm(renderer, camera, target) { return Promise.all([this.walk.warm(renderer, camera, target), this.pads.warm(renderer, camera, target)]); }
   dispose() { this.clear(); this.walk.dispose(); this.pads.dispose(); }

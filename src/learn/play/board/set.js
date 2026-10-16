@@ -91,8 +91,8 @@ export class BoardSet {
       if (b.popT < 1) { b.popT += dt; b.pop = b.popT <= 0 ? 0.001 : b.popT >= 0.55 ? 1 : easeOutBack(b.popT / 0.55); busy = true; this.dirty = true; }
     }
     if (!this.dirty) return;
-    this.boards.forEach((b, i) => {
-      const k = Math.max(0.001, b.pop);
+    for (let i = 0; i < this.boards.length; i++) {
+      const b = this.boards[i], k = Math.max(0.001, b.pop);
       // the board's own frame, risen to k of its height (the posts grow, the slab rides up on them)
       _b.compose(b.group.position, _q.setFromAxisAngle(_up, b.yaw), _s.set(1, k, 1));
       b.group.scale.set(1, k, 1);
@@ -102,7 +102,7 @@ export class BoardSet {
         _m.compose(_p.set((s ? 1 : -1) * b.w * 0.3, 0, -0.03), _q.identity(), _s.set(1, b.bottom + 0.1, 1));
         this.posts.setMatrixAt(i * 2 + s, _m.premultiply(_b));
       }
-    });
+    }
     this.slabs.instanceMatrix.needsUpdate = true; this.posts.instanceMatrix.needsUpdate = true;
     this.dirty = busy;
   }

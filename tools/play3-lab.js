@@ -19,6 +19,12 @@ import { loadWeek, daySteps, prompt, judge } from '../src/learn/api.js';
 import { BeatStage } from '../src/learn/play/beat/stage.js';
 import { beatGrid } from '../src/learn/play/beat/clock.js';
 import { fontsReady } from '../src/learn/play/board/atlas.js';
+import { BoardWalk } from '../src/learn/play/board/walk.js';
+import { boardSpots } from '../src/learn/play/board/frame.js';
+import { wordsSpec, lessonSpec, noteSpec, passageSpec, soundsSpec } from '../src/learn/play/board/paint.js';
+import { EchoBooth } from '../src/learn/play/echo/booth.js';
+import { Signs } from '../src/learn/play/board/signs.js';
+import { FlipDeck } from '../src/learn/play/flip/deck.js';
 
 const params = new URLSearchParams(location.search);
 const qualityName = params.get('quality') || 'high';
@@ -199,7 +205,7 @@ M.beat = () => {
   beat.on.say = (text, o) => say(text, o);
   beat.open({ origin: ORIGIN, yaw: 0, n, aspect: innerWidth / innerHeight, her: actor.pos });
   const api = {
-    obj: beat, S,
+    obj: beat, S, dispose() { beat.dispose(); },
     ask(i = S.i) { S.i = i % items.length; S.item = items[S.i]; S.p = prompt(S.item); say(''); return beat.ask({ key: 'gate', labels: S.p.options, now: simT }); },
     // her hop at the downbeat + off s (freeze() first): steps the sim there, then the input
     hop(pad, off = 0) { const D = beat.round.D; if (simT < D + off) lab.step((D + off - simT) * 1000); return beat.input(pad, simT); },
@@ -214,6 +220,114 @@ M.beat = () => {
     resize() { beat.relayout(innerWidth / innerHeight); camTo(beat.frame(innerWidth / innerHeight)); },
   };
   camTo(beat.frame(innerWidth / innerHeight));
+  api.ask(0);
+  return api;
+};
+
+// ---- 展板路 M6: ?m=board (the day's five word boards), ?m=read (the grammar lesson, the reading passage, the check-in note)
+const uiRoot = document.getElementById('ui-root');
+function boardMech(specs) {
+  const W = new BoardWalk({ scene, camera, color: pal.a, reduced, root: uiRoot });
+  W.on.speak = (text, o) => { speak(text, o); setTimeout(() => o?.onEnd?.(), 1200); };
+  W.prepare('gate', specs);
+  const route = []; for (let z = -2; z <= 6 + specs.length * LEARN.board.gap; z += 0.5) route.push({ x: ORIGIN.x, y: ORIGIN.y, z: ORIGIN.z + z });
+  W.place('gate', boardSpots(route, specs.length));
+  actor.yaw = 0; actor.pos.copy(ORIGIN).add(new THREE.Vector3(0, 0, -2));
+  return {
+    obj: W,
+    goto(i) { const L = W.list[i]; actor.pos.set(L.view.x, L.view.y, L.view.z); actor.yaw = L.spot.yaw + Math.PI; walk.to = null; },
+    tap(x, y) { const a = W.tapApi.down(x, y, 1); W.tapApi.up(x, y, 1, false); return a; },
+    hot(id) { return W.activate(id); },
+    hotspots() { const i = W.framed; if (i < 0) return []; return W.set.project(W.list[i].b, camera, innerWidth, innerHeight).map((h) => ({ id: h.id, x: Math.round(h.rect.x), y: Math.round(h.rect.y), w: Math.round(h.rect.w), h: Math.round(h.rect.h) })); },
+    update(dt) { W.update(dt, actor.pos, { aspect: innerWidth / innerHeight, speed: walk.to ? walk.speed : 0 }); camTo(W.framing || followPose()); },
+    measureObjs: () => [W.set.group],
+    warm: () => W.warm(renderer, camera, scene),
+    state: () => ({ framed: W.framed, read: W.list.map((L) => L.read), strip: W.strip.isOpen, boards: W.list.map((L) => ({ H: L.b.entry.layout.H, cut: L.b.entry.layout.cut, minFont: L.b.entry.layout.minFont })), framing: W.framing ? { pos: W.framing.pos.toArray().map((v) => +v.toFixed(2)), fits: W.framing.frame.fits, rect: W.framing.frame.rect } : null }),
+    dispose() { W.dispose(); },
+  };
+}
+M.board = () => {
+  const items = stepOf('words').items, rows = items.map((it) => ({ en: it.en, ipa: it.meta.ipaUs || it.meta.ipa, zh: it.meta.zhFull || it.zh }));
+  const specs = []; for (let k = 0; k < rows.length; k += 5) specs.push(wordsSpec(rows.slice(k, k + 5), k / 5 + 1, Math.ceil(rows.length / 5)));
+  return boardMech(specs);
+};
+M.read = () => {
+  const g = stepOf('grammar'), r = stepOf('reading'), c = stepOf('checkin'), sy = stepOf('symbols');
+  const syRows = sy.items.slice(0, 2).map((it) => ({ ipa: it.en, name: it.meta.name, tip: it.meta.tip, examples: it.meta.examples }));
+  return boardMech([passageSpec(r.meta.passage), lessonSpec(g.title, g.meta.lesson), noteSpec(c.title, c.items[0].zh), soundsSpec(syRows, 1, 4)]);
+};
+
+// ---- 回声亭 M7: the day's speaking question
+M.echo = () => {
+  const item = stepOf('speak').items[0];
+  const E = new EchoBooth({ scene, camera, color: pal.a, reduced, root: uiRoot });
+  E.on.speak = (text, o) => { speak(text, o); say('跟着说 · 说完了就走出亭子', { sub: '不计分 · 评分在经典页' }); setTimeout(() => o?.onEnd?.(), 6000); };
+  E.on.done = (d) => say(d.how === 'out' ? '说完了（走出亭子）' : '说完了', { ok: true });
+  E.on.classic = () => say('开经典页（评分等语音服务器）');
+  const at = ORIGIN.clone().add(new THREE.Vector3(0, 0, 3));
+  E.open({ key: 'speak', item, at, yaw: 0 });
+  actor.yaw = 0; actor.pos.copy(ORIGIN);
+  return {
+    obj: E,
+    stepIn() { actor.pos.copy(at); walk.to = null; },
+    stepOut() { actor.pos.copy(at).add(new THREE.Vector3(0, 0, -3)); },
+    tap(x, y) { const a = E.tapApi.down(x, y, 1); E.tapApi.up(x, y, 1, false); return a; },
+    hot(id) { return E.walk.activate(id); },
+    hotspots() { const W = E.walk; if (W.framed < 0) return []; return W.set.project(W.list[0].b, camera, innerWidth, innerHeight).map((h) => ({ id: h.id, x: Math.round(h.rect.x), y: Math.round(h.rect.y), w: Math.round(h.rect.w), h: Math.round(h.rect.h) })); },
+    update(dt) { E.update(dt, simT, actor.pos, { aspect: innerWidth / innerHeight, speed: 0 }); camTo(E.framing || followPose()); },
+    measureObjs: () => [E.walk.set.group, E.pads.group],
+    warm: () => E.warm(renderer, camera, scene),
+    state: () => ({ state: E.state, framed: E.walk.framed, speaking: E.speaking, strip: E.strip.isOpen }),
+    dispose() { E.dispose(); },
+  };
+};
+
+// ---- 路标: the check-in pad, the weekly board, the placement board (day 7's exit area)
+M.signs = () => {
+  const d7 = daySteps(W1, 7), c = stepOf('checkin');
+  const S = new Signs({ scene, camera, color: pal.a, reduced, root: uiRoot });
+  S.on.checkin = () => say('这一天走完了 ★', { ok: true });
+  S.on.classic = (sg) => say(`开经典页 · ${sg.kind === 'weekly' ? '周报' : sg.kind === 'placement' ? '入门小测' : '打卡'}`);
+  const signs = [{ kind: 'checkin', title: c.title, text: c.items[0].zh }, { kind: 'weekly', title: d7.find((s) => s.meta.type === 'weekly').title }, { kind: 'placement', title: d7.find((s) => s.meta.type === 'placement').title }];
+  S.prepare('signs', signs);
+  S.place('signs', [-4.2, 0, 4.2].map((x) => ({ x: ORIGIN.x + x, y: ORIGIN.y, z: ORIGIN.z + 6, yaw: Math.PI, view: { x: ORIGIN.x + x, y: ORIGIN.y, z: ORIGIN.z + 6 - LEARN.board.view - 0.4 } })));
+  actor.yaw = 0; actor.pos.copy(ORIGIN);
+  return {
+    obj: S,
+    goto(i) { const L = S.walk.list[i]; actor.pos.set(L.view.x, L.view.y, L.view.z); actor.yaw = 0; walk.to = null; },
+    tap(x, y) { const a = S.tapApi.down(x, y, 1); S.tapApi.up(x, y, 1, false); return a; },
+    hot(id) { return S.walk.activate(id); },
+    update(dt) { S.update(dt, simT, actor.pos, { aspect: innerWidth / innerHeight, speed: 0 }); camTo(S.framing || followPose()); },
+    measureObjs: () => [S.walk.set.group, S.pads.group],
+    warm: () => S.warm(renderer, camera, scene),
+    state: () => ({ framed: S.walk.framed, checked: S.checked }),
+    dispose() { S.dispose(); },
+  };
+};
+
+// ---- 翻牌靶 M8: the review day's 150 words
+M.flip = () => {
+  const step = daySteps(W1, 7).find((s) => s.meta.type === 'flash' && s.items.length > 60);
+  const D = new FlipDeck({ scene, camera, color: INK, team: TEAM, reduced });
+  const S = { items: step.items, i: 0, last: null };
+  D.on.speak = (text) => speak(text);
+  D.on.rate = (ans) => { S.last = ans; const v = { ok: ans === true }; D.resolve(v); say(ans ? '记得 · 记进进度（自评 F）' : '没关系 — 马上打一遍', { ok: ans, sub: ans ? '' : '（打字蟹接手这个词）' }); };
+  D.on.typeIt = (it) => { S.typed = it.id; };
+  actor.yaw = 0; actor.pos.copy(ORIGIN);
+  const api = {
+    obj: D, S,
+    ask(i = S.i) { S.i = i % S.items.length; const it = S.items[S.i]; D.prepare(S.items.slice(S.i, S.i + 3)); D.ask({ item: it, at: ORIGIN.clone().add(new THREE.Vector3(0, 0, LEARN.flip.ahead)), yaw: Math.PI, aspect: innerWidth / innerHeight }); say('看中文，想英文 — 点卡片翻过来'); camTo(D.frame(innerWidth / innerHeight)); return it.en; },
+    flipCard() { return D.hit('card'); },
+    rate(k) { return D.hit(k); },
+    tap(x, y) { const a = D.tapApi.down(x, y, 1); D.tapApi.up(x, y, 1, false); return a; },
+    targets() { return D.T.project(camera, innerWidth, innerHeight).map((p) => ({ cx: Math.round(p.cx), cy: Math.round(p.cy), r: Math.round(p.r), label: { x: Math.round(p.label.x), y: Math.round(p.label.y), w: Math.round(p.label.w), h: Math.round(p.label.h) } })); },
+    update(dt) { D.update(dt); },
+    resize() { camTo(D.frame(innerWidth / innerHeight)); },
+    measureObjs: () => [D.group],
+    warm: () => D.warm(renderer, camera, scene),
+    state: () => ({ phase: D.phase, last: S.last, typed: S.typed || null, frame: D.frame(innerWidth / innerHeight).frame.rect }),
+    dispose() { D.dispose(); },
+  };
   api.ask(0);
   return api;
 };
@@ -296,5 +410,6 @@ for (const b of document.querySelectorAll('#panel button')) b.addEventListener('
   else if (a === 'next') mech?.ask?.((mech.S?.i ?? 0) + 1);
   else if (a === 'right' && MECH === 'beat') mech.hop(mech.S.item.answer, 0);
   else if (a === 'wrong' && MECH === 'beat') mech.hop((mech.S.item.answer + 1) % mech.S.n, 0.3);
+  else if ((a === 'right' || a === 'wrong') && MECH === 'flip') { if (mech.obj.phase === 'front') mech.flipCard(); else mech.rate(a === 'right' ? 0 : 1); }
 });
 window.__labReady = true;
