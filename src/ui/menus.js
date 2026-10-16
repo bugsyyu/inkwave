@@ -53,13 +53,14 @@ const EMOTES = [
 // splashtag title line ("Fresh Squidkid"): adjective + subject, picked from the player's name so everyone sees the same
 const TITLE_ADJ = ['Fresh', 'Inky', 'Turf', 'Splashy', 'Rad', 'Sneaky', 'Deep-Sea', 'Glossy', 'Tidal', 'Zesty', 'Mighty', 'Soggy', 'Speedy', 'Salty', 'Bubbly', 'Snazzy', 'Drippy', 'Sunny'];
 const TITLE_NOUN = ['Squidkid', 'Inkling', 'Turf Boss', 'Wave Rider', 'Splatter', 'Tentacle', 'Drip Lord', 'Sprayer', 'Rookie', 'Legend', 'Deck Hand', 'Sea Pickle', 'Kelp Fan', 'Ink Slinger', 'Plaza Star', 'Harbor Kid'];
+// (keyed by the session's own error messages; the words through the dictionary — i18n.js je.*)
 const JOIN_ERR = {
-  'Room not found': { title: 'ROOM NOT FOUND', text: 'No room uses that code. Double-check it with your friend — rooms close when everyone leaves.', icon: 'question' },
-  'Room is full': { title: 'ROOM IS FULL', text: 'All 8 spots are taken. Ask the host to make space, or open a room of your own.', icon: 'users' },
-  'Match in progress': { title: 'MATCH IN PROGRESS', text: 'They are mid-match right now. Try again in a few minutes — the room reopens after the results.', icon: 'clock' },
-  'Could not connect': { title: 'CAN\u2019T CONNECT', text: 'The INKWAVE servers didn\u2019t answer. Check your connection, then try again.', icon: 'signal' },
-  'Room code taken': { title: 'TRY AGAIN', text: 'That room code was just taken. Give it another go.', icon: 'reset' },
-  'Lost connection to the room': { title: 'CONNECTION LOST', text: 'The link to the room dropped. Check your connection and join again.', icon: 'signal' },
+  'Room not found': { title: t('je.notFound'), text: t('je.notFoundX'), icon: 'question' },
+  'Room is full': { title: t('je.full'), text: t('je.fullX'), icon: 'users' },
+  'Match in progress': { title: t('je.busy'), text: t('je.busyX'), icon: 'clock' },
+  'Could not connect': { title: t('je.conn'), text: t('je.connX'), icon: 'signal' },
+  'Room code taken': { title: t('je.taken'), text: t('je.takenX'), icon: 'reset' },
+  'Lost connection to the room': { title: t('je.lost'), text: t('je.lostX'), icon: 'signal' },
 };
 // Stage art rendered from the real game by tools/stage-shots.mjs: <id>-<day|dusk>[-sm].webp (resolved against this
 // module so the UI lab in tools/ finds them too). Missing art falls back to the layout thumbnail.
@@ -807,7 +808,7 @@ export class Menus {
   _header(title, { back = true, sub = null } = {}) {
     return h('header', { class: 'iw-head iw-in iw-in--down' },
       back ? h('button', {
-        class: 'iw-backbtn', type: 'button', tabindex: '-1',
+        class: 'iw-backbtn', type: 'button', tabindex: '-1', 'aria-label': t('p.back'),
         onmousedown: (e) => e.preventDefault(),
         onclick: () => this._back(),
         onpointerenter: () => this._sfx('ui_hover', 0.05),
@@ -2496,11 +2497,11 @@ export class Menus {
       h('span', { class: 'iw-hubcard__blob', html: splatSVG({ seed: 71, cls: 'iw-fa', r: 58, arms: 9, drops: 2 }) }),
       h('span', { class: 'iw-hubcard__icon' }, h('i', { html: GLYPHS.flag }), h('b', { class: 'iw-hubcard__spin', html: SQUID })),
       h('span', { class: 'iw-hubcard__text' },
-        h('span', { class: 'iw-hubcard__kicker iw-tape' }, h('i', { html: GLYPHS.crown }), 'YOU HOST'),
-        h('span', { class: 'iw-hubcard__title' }, 'CREATE A ROOM'),
-        h('span', { class: 'iw-hubcard__sub' }, 'Pick the stage, share the code, start when everyone’s ready.'),
+        h('span', { class: 'iw-hubcard__kicker iw-tape' }, h('i', { html: GLYPHS.crown }), t('on.host')),
+        h('span', { class: 'iw-hubcard__title' }, t('on.create')),
+        h('span', { class: 'iw-hubcard__sub' }, t('on.createSub')),
         createStatus),
-      h('span', { class: 'iw-hubcard__go' }, h('b', null, 'GO!'), this._hint('Enter', 'A')),
+      h('span', { class: 'iw-hubcard__go' }, h('b', null, t('on.go')), this._hint('Enter', 'A')),
       h('span', { class: 'iw-hubcard__drips', html: dripsSVG([[46, 1.1], [120, 1.7], [168, 0.8], [300, 1.3], [352, 0.9]], 'iw-fhv') }));
     create.dataset.cur = 'own';
     this._fx(create, { tilt: 5 });
@@ -2515,9 +2516,13 @@ export class Menus {
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); this._setFocus(join); enterEntry(i); });
       return b;
     });
-    const codeRow = h('div', { class: 'iw-code' }, boxes);
-    const pasteBtn = h('button', { class: 'iw-minibtn iw-noclick', type: 'button', tabindex: '-1' }, h('i', { html: GLYPHS.paste }), 'PASTE');
-    const joinBtn = h('button', { class: 'iw-minibtn is-go iw-noclick', type: 'button', tabindex: '-1' }, h('span', { class: 'iw-join__lbl' }, 'JOIN'), h('i', { html: GLYPHS.next }));
+    // 关卡学习 I (docs/LEARN.md §17): on a phone there is no keyboard to type into the five boxes — a real <input> lies over
+    // them (transparent), so a tap brings up the phone's own keyboard; what she types fills the boxes (fromInput below).
+    // Touch mode only: the desktop's boxes, typing and pad entry are unchanged.
+    const codeInput = G.touch ? h('input', { class: 'iw-code__input', type: 'text', inputmode: 'text', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'characters', spellcheck: 'false', enterkeyhint: 'go', maxlength: '8', 'aria-label': t('on.joinRoom') }) : null;
+    const codeRow = h('div', { class: 'iw-code' + (codeInput ? ' has-input' : '') }, boxes, codeInput);
+    const pasteBtn = h('button', { class: 'iw-minibtn iw-noclick', type: 'button', tabindex: '-1' }, h('i', { html: GLYPHS.paste }), t('on.paste'));
+    const joinBtn = h('button', { class: 'iw-minibtn is-go iw-noclick', type: 'button', tabindex: '-1' }, h('span', { class: 'iw-join__lbl' }, t('on.join')), h('i', { html: GLYPHS.next }));
     pasteBtn.addEventListener('mousedown', (e) => e.preventDefault());
     joinBtn.addEventListener('mousedown', (e) => e.preventDefault());
     pasteBtn.addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(join); readClipboard(); });
@@ -2529,8 +2534,8 @@ export class Menus {
       h('span', { class: 'iw-hubcard__bg' }, h('span', { class: 'iw-hubcard__ink' })),
       h('div', { class: 'iw-join__head' },
         h('span', { class: 'iw-hubcard__text' },
-          h('span', { class: 'iw-hubcard__kicker iw-tape' }, h('i', { html: GLYPHS.key }), 'GOT A CODE?'),
-          h('span', { class: 'iw-hubcard__title' }, 'JOIN A ROOM')),
+          h('span', { class: 'iw-hubcard__kicker iw-tape' }, h('i', { html: GLYPHS.key }), t('on.gotCode')),
+          h('span', { class: 'iw-hubcard__title' }, t('on.joinRoom'))),
         h('span', { class: 'iw-join__btns' }, pasteBtn, joinBtn)),
       codeRow,
       h('div', { class: 'iw-join__foot' }, hintEl, jstat));
@@ -2540,8 +2545,8 @@ export class Menus {
 
     // ---- how it works: three little stickers, comic-strip style
     const steps = h('div', { class: 'iw-hub__steps iw-in iw-in--up' },
-      [['1', 'Create or join', GLYPHS.flag], ['2', 'Share the code', GLYPHS.copy], ['3', 'Ready up & ink!', GLYPHS.check]].map(([n, t, ic], i) =>
-        h('div', { class: 'iw-hubstep', style: { '--tilt': `${[-2, 1.5, -1][i]}deg` } }, h('b', { html: splatSVG({ seed: 30 + i * 7, cls: 'iw-fa', r: 56, arms: 8, drops: 2 }) }, h('span', null, n)), h('i', { html: ic }), h('span', null, t))));
+      [['1', t('on.step1'), GLYPHS.flag], ['2', t('on.step2'), GLYPHS.copy], ['3', t('on.step3'), GLYPHS.check]].map(([n, txt, ic], i) =>
+        h('div', { class: 'iw-hubstep', style: { '--tilt': `${[-2, 1.5, -1][i]}deg` } }, h('b', { html: splatSVG({ seed: 30 + i * 7, cls: 'iw-fa', r: 56, arms: 8, drops: 2 }) }, h('span', null, n)), h('i', { html: ic }), h('span', null, txt))));
 
     const body = h('div', { class: 'iw-hub__body' }, create, join, steps);
 
@@ -2556,37 +2561,37 @@ export class Menus {
     const stag = h('div', { class: 'iw-stag iw-stag--big' },
       tagArtEl, h('span', { class: 'iw-stag__w', html: weaponIcon(W.kind || lo.weapon) }),
       h('span', { class: 'iw-stag__txt' }, tagTitleEl, nameRow), tagNumEl,
-      h('span', { class: 'iw-stag__lv' }, h('small', null, 'LV'), String(prof.level)));
+      h('span', { class: 'iw-stag__lv' }, h('small', null, t('main.lv')), String(prof.level)));
     colorVars(stag, 'tc', this._accent()[0]);
     const wChip = h('button', { class: 'iw-wchip iw-hub__chip iw-in iw-in--right' },
       h('span', { class: 'iw-wchip__icon', html: weaponIcon(W.kind || lo.weapon) }),
-      h('span', { class: 'iw-wchip__text' }, h('small', null, 'WEAPON'), h('b', null, W.name)),
+      h('span', { class: 'iw-wchip__text' }, h('small', null, t('on.weapon')), h('b', null, gameName('weapon', lo.weapon, W.name))),
       h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.pencil })));
     this._fx(wChip);
     this._bind(wChip, { id: 'weapon', accept: () => { this._sfx('ui_click'); this._go('loadout'); } });
     const lookAv = h('span', { class: 'iw-lchip__av' }, h('span', { class: 'iw-lchip__blob', html: splatSVG({ seed: 17, cls: 'iw-fa', r: 62, arms: 8, drops: 0 }) }), h('span', { class: 'iw-lchip__squid', html: SQUID }));
     const lChip = h('button', { class: 'iw-wchip iw-lchip iw-hub__chip iw-in iw-in--right' }, lookAv,
-      h('span', { class: 'iw-wchip__text' }, h('small', null, 'LOOK'), h('b', null, 'Locker')),
+      h('span', { class: 'iw-wchip__text' }, h('small', null, t('on.look')), h('b', null, t('on.locker'))),
       h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.hanger })));
     this._fx(lChip);
     this._bind(lChip, { id: 'look', accept: () => { this._sfx('ui_click'); this._go('locker'); } });
     this._portraitInto(lookAv, { kind: 'head', size: 128 });
     const me = h('div', { class: 'iw-hub__me' },
-      h('div', { class: 'iw-hub__metag iw-in iw-in--down' }, h('span', { class: 'iw-hub__metaglbl iw-tape' }, 'YOUR SPLASHTAG'), stag),
+      h('div', { class: 'iw-hub__metag iw-in iw-in--down' }, h('span', { class: 'iw-hub__metaglbl iw-tape' }, t('on.splashtag')), stag),
       h('div', { class: 'iw-hub__chips' }, wChip, lChip));
 
-    const promptsIdle = this._prompts([['Enter', 'A', 'Select'], ['Esc', 'B', 'Back']]);
-    const promptsEntry = this._prompts([['A–Z', null, 'Type'], [['↑', '↓'], 'DPad', 'Letter'], ['Enter', 'A', 'Join'], ['Esc', 'B', 'Cancel']]);
+    const promptsIdle = this._prompts([['Enter', 'A', t('p.select')], ['Esc', 'B', t('p.back')]]);
+    const promptsEntry = this._prompts([['A–Z', null, t('p.type')], [['↑', '↓'], 'DPad', t('p.letter')], ['Enter', 'A', t('p.join')], ['Esc', 'B', t('p.cancel')]]);
     promptsEntry.classList.add('is-entry');
     promptsEntry.children[0].classList.add('iw-kbm');
-    const padClear = this._hint([], 'X', 'Clear');
+    const padClear = this._hint([], 'X', t('p.clear'));
     padClear.classList.add('iw-padg');
     promptsEntry.insertBefore(padClear, promptsEntry.children[1]);
-    const promptsBusy = this._prompts([['Esc', 'B', 'Cancel']]);
+    const promptsBusy = this._prompts([['Esc', 'B', t('p.cancel')]]);
     promptsBusy.classList.add('is-busy');
     const el = h('div', { class: 'iw-screen iw-online' },
       h('div', { class: 'iw-scrim-left' }),
-      this._header('ONLINE', { sub: 'Private rooms · 4 v 4 · up to 8 squidkids' }),
+      this._header(t('on.title'), { sub: t('on.sub') }),
       body, me, promptsIdle, promptsEntry, promptsBusy);
 
     // ---- code entry
@@ -2604,11 +2609,12 @@ export class Menus {
       join.classList.toggle('is-entry', st.mode !== 'idle');
       joinBtn.classList.toggle('is-ready', full() && st.mode !== 'connecting');
       joinBtn.classList.toggle('is-cancel', st.mode === 'connecting');
-      joinBtn.firstChild.textContent = st.mode === 'connecting' ? 'CANCEL' : 'JOIN';
+      joinBtn.firstChild.textContent = st.mode === 'connecting' ? t('on.cancel') : t('on.join');
       el.classList.toggle('is-connecting', st.mode === 'connecting' || create.classList.contains('is-busy'));
       el.classList.toggle('is-entry', st.mode === 'entry' || st.mode === 'error');
-      if (st.mode === 'idle') hintEl.textContent = 'Room codes are 5 letters & numbers';
-      else if (st.mode === 'entry') hintEl.textContent = full() ? 'Press JOIN (or Enter) to hop in' : st.input === 'pad' ? '↑↓ pick a letter · A to confirm' : 'Type or paste the code';
+      if (st.mode === 'idle') hintEl.textContent = codeInput ? t('on.codeHintTouch') : t('on.codeHint');
+      else if (st.mode === 'entry') hintEl.textContent = full() ? t('on.pressJoin') : st.input === 'pad' ? t('on.padPick') : t('on.typeOrPaste');
+      if (codeInput) { const v = st.code.join(''); if (codeInput.value !== v) codeInput.value = v; }
     };
     const setMode = (m) => { st.mode = m; render(); };
     const clearError = () => { if (st.mode === 'error') { st.mode = 'entry'; join.classList.remove('is-err'); jstat.classList.remove('is-on'); } };
@@ -2621,12 +2627,13 @@ export class Menus {
     };
     const exitEntry = () => { clearError(); setMode('idle'); this._sfx('ui_back'); };
     const bump = (i) => { restartAnim(boxes[i], 'is-pop'); };
+    const badHint = (c) => (/[O0]/.test(c) ? t('on.noO') : /[I1]/.test(c) ? t('on.noI') : /[WASD]/.test(c) ? t('on.noWASD') : t('on.lettersOnly'));
     const type = (c) => {
       if (st.busy) return;
       if (st.mode === 'idle') enterEntry(firstEmpty());
       clearError();
       if (!CODE_ABC.includes(c)) {
-        const hint = /[O0]/.test(c) ? 'No O or 0 in room codes — try the letter next to it' : /[I1]/.test(c) ? 'No I or 1 in room codes' : /[WASD]/.test(c) ? 'Room codes never use W, A, S or D' : 'Letters and numbers only';
+        const hint = badHint(c);
         hintEl.textContent = hint; restartAnim(boxes[st.caret], 'is-shake'); this._sfx('ui_error', 0.12);
         return;
       }
@@ -2675,7 +2682,7 @@ export class Menus {
       let pick = (up.match(/\b[A-Z0-9]{5}\b/g) || []).reverse().find((w) => [...w].every((c) => CODE_ABC.includes(c)));
       if (!pick) { const raw = up.replace(/[^A-Z0-9]/g, ''); pick = raw.length <= 8 ? raw : ''; }
       const clean = [...pick].filter((c) => CODE_ABC.includes(c)).slice(0, 5);
-      if (!clean.length) { hintEl.textContent = 'Nothing that looks like a room code on the clipboard'; this._sfx('ui_error'); restartAnim(codeRow, 'is-shake'); return; }
+      if (!clean.length) { hintEl.textContent = t('on.noClip'); this._sfx('ui_error'); restartAnim(codeRow, 'is-shake'); return; }
       if (st.mode === 'idle') enterEntry(0);
       clearError();
       st.code = ['', '', '', '', ''];
@@ -2686,11 +2693,11 @@ export class Menus {
     };
     const readClipboard = () => {
       if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then(pasteCode, () => { enterEntry(firstEmpty()); hintEl.textContent = 'Press Ctrl+V (⌘V) to paste'; });
-      } else { enterEntry(firstEmpty()); hintEl.textContent = 'Press Ctrl+V (⌘V) to paste'; }
+        navigator.clipboard.readText().then(pasteCode, () => { enterEntry(firstEmpty()); hintEl.textContent = t('on.ctrlV'); });
+      } else { enterEntry(firstEmpty()); hintEl.textContent = t('on.ctrlV'); }
     };
     const showError = (msg) => {
-      const E = JOIN_ERR[msg] || { title: 'COULDN’T JOIN', text: msg || 'Something went wrong. Try again.', icon: 'close' };
+      const E = JOIN_ERR[msg] || { title: t('on.couldntJoin'), text: msg || t('on.wrong'), icon: 'close' };
       errIcon.innerHTML = GLYPHS[E.icon] || GLYPHS.close;
       errTitle.textContent = E.title; errText.textContent = E.text;
       jstat.classList.add('is-on'); restartAnim(jstat, 'is-in');
@@ -2705,7 +2712,7 @@ export class Menus {
       const code = st.code.join('');
       if (code.length < 5) {
         st.caret = firstEmpty(); render();
-        hintEl.textContent = `${5 - code.length} more character${5 - code.length > 1 ? 's' : ''} to go`;
+        hintEl.textContent = 5 - code.length > 1 ? t('on.moreN', { n: 5 - code.length }) : t('on.more1');
         restartAnim(boxes[st.caret], 'is-shake'); this._sfx('ui_error', 0.12);
         return;
       }
@@ -2714,7 +2721,7 @@ export class Menus {
       st.busy = true;
       const tok = ++st.token;
       jstat.classList.remove('is-on'); join.classList.remove('is-err');
-      hintEl.textContent = `Connecting to room ${code}…`;
+      hintEl.textContent = t('on.connecting', { code });
       setMode('connecting');
       this._sfx('ui_confirm');
       try {
@@ -2735,7 +2742,7 @@ export class Menus {
       safeCall(() => this._net() && this._net().leave());
       create.classList.remove('is-busy'); createStatus.textContent = '';
       el.classList.remove('is-connecting');
-      hintEl.textContent = 'Cancelled';
+      hintEl.textContent = t('on.cancelled');
       setMode(st.mode === 'connecting' ? 'entry' : st.mode);
       this._sfx('ui_back');
     };
@@ -2743,11 +2750,11 @@ export class Menus {
       if (st.busy) return;
       const net = this._net();
       create.classList.remove('is-err');
-      if (!net) { createStatus.textContent = 'Can’t reach the servers right now'; create.classList.add('is-err'); this._sfx('ui_error'); return; }
+      if (!net) { createStatus.textContent = t('on.noServer'); create.classList.add('is-err'); this._sfx('ui_error'); return; }
       st.busy = true;
       const tok = ++st.token;
       create.classList.add('is-busy');
-      createStatus.textContent = 'Opening a room';
+      createStatus.textContent = t('on.opening');
       el.classList.add('is-connecting');
       try {
         await net.create(this._profile().name);
@@ -2762,11 +2769,38 @@ export class Menus {
         el.classList.remove('is-connecting');
         create.classList.add('is-err');
         const E = JOIN_ERR[e && e.message];
-        createStatus.textContent = E ? `${E.title} — ${E.text}` : (e && e.message) || 'Couldn’t open a room';
+        createStatus.textContent = E ? `${E.title} — ${E.text}` : (e && e.message) || t('on.cantOpen');
         restartAnim(create, 'is-shake');
         this._sfx('ui_error');
       }
     };
+    // the phone's keyboard (codeInput, touch mode): what is in the field is the code — typed, pasted or deleted there
+    const fromInput = () => {
+      if (st.busy) { codeInput.value = st.code.join(''); return; }
+      const raw = codeInput.value.toUpperCase().replace(/\s+/g, '');
+      const bad = [...raw].find((c) => !CODE_ABC.includes(c));
+      const clean = [...raw].filter((c) => CODE_ABC.includes(c)).slice(0, 5);
+      if (st.mode === 'idle') enterEntry(clean.length);
+      clearError();
+      const before = st.code.slice();
+      st.code = [0, 1, 2, 3, 4].map((i) => clean[i] || '');
+      st.caret = Math.min(4, clean.length);
+      clean.forEach((c, i) => { st.pick[i] = CODE_ABC.indexOf(c); if (before[i] !== c) bump(i); });
+      render();
+      if (bad) { hintEl.textContent = badHint(bad); restartAnim(codeRow, 'is-shake'); this._sfx('ui_error', 0.12); }
+      else this._sfx('ui_toggle', 0.02);
+      clearTimeout(st.autoT);
+      if (full()) st.autoT = setTimeout(() => { if (st.alive && st.mode === 'entry' && full()) doJoin(); }, 320);
+    };
+    if (codeInput) {
+      codeInput.addEventListener('input', fromInput);
+      codeInput.addEventListener('focus', () => { this._setFocus(join); if (st.mode === 'idle') enterEntry(firstEmpty()); });
+      codeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === 'NumpadEnter') { e.preventDefault(); e.stopPropagation(); doJoin(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); codeInput.blur(); exitEntry(); }
+        else e.stopPropagation();   // (the letters are the field's, not the hub's own typing — onKey)
+      });
+    }
     this._bind(create, { id: 'create', accept: () => { if (st.mode !== 'idle' && !st.busy) setMode('idle'); doCreate(); } });
     this._bind(join, {
       id: 'join', accept: (src) => {
@@ -2779,7 +2813,7 @@ export class Menus {
 
     const onPaste = (e) => {
       const ae = document.activeElement;
-      if (ae && ae.tagName === 'INPUT') return; // pasting into the name field
+      if (ae && ae.tagName === 'INPUT') return; // pasting into the name field (or the phone's code field: its own input event)
       const text = e.clipboardData && e.clipboardData.getData('text');
       if (!text) return;
       e.preventDefault();
@@ -2850,6 +2884,7 @@ export class Menus {
         document.removeEventListener('paste', onPaste);
         const inp = nameRow._input;
         if (document.activeElement === inp) inp.blur();
+        if (codeInput && document.activeElement === codeInput) codeInput.blur();
         if (sc && !['loadout', 'locker', 'lobby'].includes(this.current)) safeCall(() => sc.hide());
       },
     };

@@ -2930,3 +2930,46 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-res__learnrow.is-self { box-shadow: 0 0 0 2px #fff; }
 .iw-res__learnrow small { font-weight: 600; opacity: .8; }
 .iw-res__learnme { flex-basis: 100%; color: #cfc9dc; font-weight: 500; }
+
+/* ------------------------------------------------------------------ 关卡学习 I: the rest of what she can reach, upright
+   (docs/LEARN.md §17) In her App (?from=app, portrait only) the main menu leads to 学习, 联机 (the hub, a room code, the
+   room, a match's pause and results), 装备, 换装, 设置, 怎么玩 and 制作人员. G gave the main menu, the learn screen, the
+   settings and a level's pause a column layout (the block above); these are the others. Same rules: --u re-based on the
+   width, px wherever a thumb or a 16 px minimum matters, every tap target ≥ 44 pt, no key-cap hints (no keys on a phone). */
+@media (orientation: portrait) and (max-width: 720px) {
+  .iw-howto, .iw-credits, .iw-online, .iw-lobby, .iw-loadout, .iw-locker, .iw-results, .iw-pause { --u: min(2.2vw, 1.1vh); }
+  /* the way back on every screen: a 44 pt pill with the arrow, no Esc / B cap; the key-hint bar is gone */
+  .iw-ui .iw-backbtn { height: 44px; min-width: 44px; padding: 0 12px 0 6px; gap: 8px; font-size: 15px; }
+  .iw-ui .iw-backbtn__arrow { width: 32px; height: 32px; }
+  .iw-ui .iw-backbtn .iw-hint, .iw-ui .iw-prompts { display: none; }
+  .iw-ui .iw-head { left: calc(16px + var(--sal)); right: 16px; top: calc(14px + var(--sat)); gap: 12px; }
+  .iw-ui .iw-head__titles { min-width: 0; }
+  .iw-ui .iw-head__title { font-size: 28px; }
+  .iw-ui .iw-head__sub { font-size: 12px; line-height: 1.35; }
+
+  /* 怎么玩: one scrolling column — the mode switch, the four rule cards two by two, the notes, then the controls */
+  .iw-howto__body { left: 16px; right: 16px; top: calc(100px + var(--sat)); bottom: 0; display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 calc(16px + var(--sab)); }
+  .iw-howto__left { gap: 12px; }
+  .iw-howto__modes .iw-seg__opt, .iw-howto__ctl .iw-ctl-switch .iw-seg__opt { min-height: 44px; font-size: 15px; padding: 4px 6px; }
+  .iw-howto__rules { gap: 12px 10px; }
+  .iw-rule { padding: 8px 8px 10px; border-radius: 14px; }
+  .iw-rule__art { height: 76px; margin-bottom: 6px; border-radius: 10px; }
+  .iw-rule__num { width: 26px; height: 26px; top: -8px; left: -6px; font-size: 14px; }
+  .iw-rule__title { font-size: 15px; }
+  .iw-rule__text { font-size: 13px; line-height: 1.4; }
+  .iw-howto__notes { gap: 8px; }
+  .iw-hnote { font-size: 13px; }
+  .iw-howto__ctl { padding: 12px 12px 8px; flex: none; }
+  .iw-ctl__row { min-height: 34px; }
+  .iw-ctl__act { font-size: 14px; }
+  .iw-ctl__keys { font-size: 13px; }
+
+  /* 制作人员: the roll over the full width */
+  .iw-cred__view { width: calc(100vw - 32px); top: calc(70px + var(--sat)); }
+  .iw-cred__sec h3 { font-size: 13px; }
+  .iw-cred__sec p { font-size: 18px; }
+  .iw-cred__sec p.dim { font-size: 13px; }
+  .iw-cred__cast { grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
+  .iw-cred__cast span { font-size: 14px; }
+}
