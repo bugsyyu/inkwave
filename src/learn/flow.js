@@ -13,6 +13,11 @@
 // gate } · learn:gate { id, index, total, locks, opened } · learn:done { done, total, due }. Everything emitted is also
 // kept in `this.log` so an audit can read the sequence back.
 //
+// 题即玩法 (docs/PLAY.md, LEARN.play — play-1 = docs/LEARN.md §18): with the flag on, a puzzle's choice items (单词选义 /
+// 语法小测 / 发音小测) are not cards: arriving holds nothing, the item is ink targets past the gate and a shot is the
+// answer (src/learn/play/run.js); an item that is not a play kind yet still holds the match for its card, item by item.
+// The judging is this file's _judgeRecord either way. Flag off (or a form built on this class): exactly the cards.
+//
 // Walking: the normal controls (WASD / the touch stick), or auto-walk (autoWalk(true), the HUD's 「自动走」 button):
 // the level steers the squidkid along the nav route to the next gate and jumps the jump-up edges. Moving the stick
 // takes control back. Phones in portrait have no stick, so there auto-walk is the way.
@@ -22,6 +27,7 @@ import { LEARN } from '../config.js';
 import { puzzleLevel, prompt, judge, store } from './api.js';
 import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
 import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
+import { PlayRun } from './play/run.js';   // 题即玩法 (docs/PLAY.md): a choice item is ink targets, the world runs on
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -54,6 +60,8 @@ export class LearnFlow {
     this._buildMeshes();
     this._buildSigns();
     this.hud?.start(this);
+    // (only the puzzle itself: race / duel / boss / coop2 extend this class and keep their cards until their phase)
+    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayRun(this) : null;
   }
 
   // ---------------------------------------------------------------------------------------------- placement
@@ -174,7 +182,8 @@ export class LearnFlow {
 
   _styleGates() {
     const col = G.teamColors[0] || new THREE.Color('#ff8a14');
-    const grey = new THREE.Color('#6b6680'), red = new THREE.Color('#ff3d5e');
+    // (题即玩法: a lock is coral — never a team's colour, PLAY §1 rule 6; the cards keep their red)
+    const grey = new THREE.Color('#6b6680'), red = new THREE.Color(this.play ? '#f08a7a' : '#ff3d5e');
     for (const g of this.gates) {
       const M = g.mesh; if (!M) continue;
       const next = g.state === 'next', open = g.state === 'open';
@@ -187,13 +196,24 @@ export class LearnFlow {
     }
   }
 
-  _animate() {
+  _animate(dt = 1 / 60) {
     const t = G.time;
     for (const g of this.gates) {
       const M = g.mesh; if (!M || g.state === 'open') continue;
       const next = g.state === 'next';
       M.lock.position.y = 1.7 + Math.sin(t * (next ? 2.4 : 1.2) + g.index) * 0.18;
       M.lock.rotation.y = t * (next ? 1.6 : 0.5);
+      if (this.play) {
+        const k = g._lockPopAt != null ? Math.max(0, 1 - (t - g._lockPopAt) / 0.55) : 0; M.lock.scale.setScalar(1 + 0.7 * k * k);   // a miss: the lock pops
+        // the follow camera standing in a gate (she stops just past it, the lens behind her) sees through its lock and beam
+        const c = G.camera, f = c ? Math.min(1, Math.max(0, (Math.hypot(c.position.x - g.pos.x, c.position.z - g.pos.z) - 1.5) / 1.8)) : 1;
+        // and while she stands at it answering, its beam (it finds the gate across the stage) goes and its lock steps
+        // back behind the question objects — full again only for the pop of a miss
+        const at = g === this.gates[this.cur] && this.phase !== 'walk' ? 0 : 1;
+        g._beamK = (g._beamK ?? 1) + (at - (g._beamK ?? 1)) * Math.min(1, dt * 6);
+        M.lock.material.opacity = 0.95 * f * (g._beamK + (1 - g._beamK) * Math.max(0.25, k));
+        M.beam.material.opacity = 0.22 * f * g._beamK;
+      }
       if (next) { const s = 1 + Math.sin(t * 3.2) * 0.08; M.ring.scale.set(s, s, 1); }
     }
   }
@@ -201,8 +221,9 @@ export class LearnFlow {
   // ---------------------------------------------------------------------------------------------- per frame
   update(dt) {
     this.t += dt;
-    this._animate();
+    this._animate(dt);
     this._pourInk();
+    this.play?.update(dt);
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
     if (this.phase !== 'walk') return;
     const a = this.match.local, g = this.gates[this.cur];
@@ -264,9 +285,11 @@ export class LearnFlow {
     this.phase = 'ask';
     const a = this.match.local;
     a.intent.move.set(0, 0, 0); a.intent.jump = a.intent.fire = false;
-    // hold the match BEFORE releasing the mouse: losing pointer lock on a live round opens the pause menu otherwise
-    this.match.paused = true;
-    G.input?.exitLock?.();
+    if (!this.play) {
+      // hold the match BEFORE releasing the mouse: losing pointer lock on a live round opens the pause menu otherwise
+      this.match.paused = true;
+      G.input?.exitLock?.();
+    }   // (题即玩法: nothing holds — a card item holds the match itself, in _askNext)
     G.audio?.play?.('ui_confirm', { volume: 0.7 });
     this._emit('learn:gate', { id: g.id, index: g.index + 1, total: this.gates.length, locks: g.locks, opened: false });
     this._askNext(g);
@@ -279,6 +302,10 @@ export class LearnFlow {
     this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
+    if (this.play) {
+      if (this.play.canAsk(g, item, p)) { this.play.ask(g, item, p); return; }   // ink targets: the world runs on
+      this.play.toCard();   // not a play kind yet: the card, the match held for it
+    }
     this.hud?.ask(p, {
       gate: { index: g.index + 1, total: this.gates.length, locks: g.locks, title: g.title },
       item: { n: this.asked, total: this.total + this._retriesLeft(), retry: item._form === 'alt' },
@@ -288,6 +315,14 @@ export class LearnFlow {
   _retriesLeft() { let n = 0; for (const g of this.gates) for (const it of g.queue) if (it._form === 'alt') n++; return n; }
 
   _answer(g, item, p, ans) {
+    const { r, again } = this._judgeRecord(g, item, p, ans);
+    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
+  }
+
+  // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
+  // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
+  _judgeRecord(g, item, p, ans) {
     let r;
     if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
     else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
@@ -305,8 +340,7 @@ export class LearnFlow {
       if (item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; }
       this._styleGates();
     }
-    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
+    return { r, first, again };
   }
 
   // The other form of an item (asked when the first answer was wrong), judged through the same judge():
@@ -359,6 +393,7 @@ export class LearnFlow {
     G.paint?.splat(_v.set(g.pos.x, g.pos.y + 0.05, g.pos.z), this.P.inkRadius * 1.6, 0, { kind: 'blast' });
     this.hud?.hide();
     this.cur++;
+    this.play?.gateOpened(g);   // (its objects go, its atlas is freed, the gate now 2 ahead gets one)
     const next = this.gates[this.cur];
     if (next) { next.state = 'next'; this._trail(g, next); }
     this._styleGates();
@@ -408,6 +443,7 @@ export class LearnFlow {
   _emit(name, payload) { this.log.push({ t: +this.t.toFixed(2), name, ...payload }); emit(name, payload); }
 
   dispose() {
+    this.play?.dispose(); this.play = null;
     this.hud?.end?.();
     G.scene.remove(this.group);
     if (this.signGroup) G.scene.remove(this.signGroup);

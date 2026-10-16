@@ -375,6 +375,112 @@ App 的「关卡」打开 `game/index.html?learn=w<n>d<d>&from=app`，iPhone 只
 8. `?lang=en` 下 from=app 的主菜单「学习」那颗按钮的副标题（中文）被省略号截了（282 / 315 px）——不在她的路上，没改。
 9. 双人联机赛的审计里 HUD 用 `setVisible(true)` 显出来：`main.js` 的 `_intro` 是 3 秒墙钟，审计按两倍速步进时开场先走完、HUD 就一直藏着；手机上开场是真时间，不受影响。
 
+## 18. play-1 交付（2026-10-16，分支 `play-1`：题即玩法第 1 期——开关、题物系统、题条，解谜里的选择题走 M1 墨靶）
+
+业主 10-16：门是弹窗卡片、游戏暂停，「完全就不是一个游戏，而是拼接了两个不同的东西」。[PLAY.md](PLAY.md) 是第二版的设计；这一期是它 §9 的第 1 项：解谜里的选择题不再是卡片，是门后浮着的墨靶——不暂停、不定身、不弹卡，点一下（桌面上准星压着按开火）她转身打一颗墨弹，墨弹真打到那一刻才判。
+
+**先读了什么**：PLAY.md 全文（§1 的硬约束一条条核）；本文 §1、§5、§7–§9、§13、§15–§17；LEVELS §2（含 §2.6 回炉）、§5（演出、声音、相机、减少动效）；CONTRACTS（角色的 `trigger`、音效名）、EVENTS；代码：`flow.js`（门、自动走、`paused` + 卡片）、`hud-learn.js`、`engine.js` / `store.js`（`judge`、`recordFirst`）、`design.js`（`EFFECTS` / `REDUCED`）、`forms/common.js`（换问法）、`weapons.js`（`Projectiles`、`fireShooter`、`_step` / `_impact` / `_blastBurst`）、`boss.js`（`segHit` / `rayDist`）、`player.js` / `actor.js`（`aimFace*` 弹簧）、`cameraRig.js`（跟随、探杆、`dampAngle` 的超级跳取景）、`physics.js`（`cameraProbe`、`los`）、`touch.js` / `input.js`、`fx.js`、`paint.js flood`。先在两个方向各截了一张走路的图，量她和 HUD / 触屏键在屏幕上的位置，再定题物能放哪。
+
+**先量了的（三周的真数据）**：这一期管的条目 664 个——单词选义 `choice · word` 450（都是 4 个选项，中文义项最长 6 个汉字，没有一个要横幅）、语法小测 `choice · quiz` 138（**都是 3 个选项**）、发音小测 `pron · quiz` 76（2–4 个）；两种小测合起来 35 个要横幅，都是 3 个选项。没有一个题干以「哪一个是」开头——`flow.js _altPrompt` 里「选择题换成打字」那条分支在真内容上走不到，**答错后的换问法就是同一题重排选项**（`p._perm`），所以回炉照样是墨靶。每个选项的英文都配中文、没有「看中文选英文」的题，所以靶子上英文、中文两行一起写不泄露答案。
+
+**先定的**：
+1. 开关 `LEARN.play`（`config.js`，默认开；`?play=0` / `?play=1` 盖过它）。关掉 = 和原来一字不差（同一个 `_answer`、红锁、`ui_error`；审计 `puzzle-flagoff` 跑过）。
+2. 只管解谜本身：`LearnFlow` 自己（`this.constructor === LearnFlow` 且 `match.mode === 'learn'`）才有题物层；道具赛 / 对抗赛 / Boss / 双人两种都继承它，照旧是卡片，到它们那一期再换。
+3. **判分只有一条路**：把 `_answer` 里「判 → 首答 → 锁 / 换问法」抽成 `_judgeRecord(g, item, p, ans) → { r, first, again }`，卡片和墨靶都调它（原想叫 `_settle`，和 Boss 的 `_settle` 撞名，改了）；墨靶交的就是选项序号（第 k 个靶 = 第 k 个选项，重排过的照卡片一样经 `p._perm` 映回）。
+4. **只有有意的直接命中才答**：点在题物上（或桌面上准星压着它按下开火）→ 她转身（`aimYaw / aimPitch` + `fireFacing`，走 `actor._face` 的 `aimFace*` 弹簧，最多等 `LEARN.m1.turnFor` 0.26 s）→ 从枪口打出一颗墨弹（`Projectiles.fireShooter`，零散布、不扣墨——墨罐空了不能挡住答题），弹上记「第几题 · 第几个」（`playTag`）；`weapons.js _step` 里墨弹先问题物（在撞世界之前），打到才判。打歪落到别的题物上、她自己喷的墨、上一题还在飞的墨弹、溅射、炸弹、特殊武器都不算，只在题物上溅一点墨。**这一颗墨弹不被场景挡**（`ShotTargets.through(p)`：第一道门前的喷泉柱子挡在她枪口和题物之间时，原来点了没反应、怎么点都没反应）——它还是要真飞到题物上才判。
+5. **先在屏幕上排，再放进世界**：相机用 `cameraRig` 自己的 `yaw / pitch` 缓过去（`dampAngle`，和它的超级跳取景一样；她自己一拖视角就停），停稳后**按相机此刻的样子**把排好的像素反投到前方一个平面上——探杆缩短、镜头抬升、肩后偏移都不会让题物离开排好的位置（第一版先预测取景再放，题物大了 1.4 倍、跑出屏幕）。取景的姿势是在 7 个朝向 × 4 个俯仰里挑的，每个都用 rig 自己的探杆从她站的地方试：镜杆够长（身后的台阶不把镜头顶进她头发里）、看得见她、看得见题物那片地方（近处 / 远处各六个点，喷泉、地面挡着扣分）、镜头不站在门里、转得少。她走到门口还在减速时挑的那个，等她站住再挑一次。放的时候每个题物都要离地 `LEARN.m1.clear`、她和镜头、枪口都看得见它：先拉近（最近到她前面 1.6 m），再把排布区收短（题物小一点、高一点），最后才整体抬高、而且不抬出安全区。
+6. **排布**（`layoutTargets`）：安全区 = 题条（按判定出来时的高度留）下面、两边 16 px、底边以上；躲开她的身影、触屏键、小地图。竖屏 2 × 2 / 2 + 1，横屏一排（她两边各两个），横幅是图集里那块板、竖屏一行一块；放不下时先盖住她的身影（`cover: 'her'`），再不行谁都不躲（`cover: 'all'`）——**从来不丢一个选项**。超过 `LEARN.m1.bannerMax`（3）个的横幅题走卡片（三周里没有）。
+7. 错是珊瑚色（`#f08a7a`），门上的锁在开关下也是珊瑚色（原来 `#ff3d5e`，太像对面的队色），错了锁弹一下；对的那个球不染她的墨（她的队色是橙的时候和珊瑚色分不开），只有外圈、牌子描边和边缘光是她的墨。镜头站进门里（1.5–3.3 m）时门上的锁和光柱淡掉。声音照 `EFFECTS.puzzle`（对 `splat_big`、错 `ui_back`、第二次错 `ui_toggle`）。
+
+**改了什么**：
+- `src/learn/play/`（纯模块都能在 Node 里跑）：`layout.js`（`layoutTargets` 等）、`pick.js`（`pickTarget`）、`hit.js`（`Boss.segHit / rayDist` 的算术、横幅的一排命中球、`ShotTargets` 登记处）、`atlas.js`（一道门一张标签图集：去重、货架式装箱、2 texel / px，装不下按 1.75 / 1.5 / … 缩）、`m1.js`（哪些条目是墨靶、题条的字）、`frametime.js`（帧时间采样）；`targets.js` `PlayTargets`（three.js：墨球 = 二十面体细分球 + 子弹墨同款清漆材质 + 慢慢晃 + 边缘光，配标签牌；长标签换圆角墨板；全是 InstancedMesh，同时最多 4 个 draw call；图集在门还差两道时画好、`renderer.initTexture` 当场上传、门开就释放；三个程序关卡加载时 `compileAsync` 预热；每帧不分配）；`run.js` `PlayRun`（出题、取景、排布 → 放置、点射、开火、判、演出、下一题、门开、`debug()`）。
+- `src/ui/play-strip.js` `PlayStrip`：题条，唯一的新 DOM（`engine.prompt` 的题干 + 中文、▶ 再听 44 pt；答完在同一处写「答对了」或「差一点：是 ___」+「为什么」第一句；竖屏在钟那一排下面、挡到暂停 / 地图键时一开始就放在它们下面，横屏顶部正中、收窄不碰键；字 ≥ 17 pt；只有按钮吃触摸）。
+- `src/learn/flow.js`：`this.play`；`_arrive` 在开关下不暂停、不松鼠标；`_askNext` 每题看能不能当墨靶，不能（音标、听辨、阅读、听写、单词卡、写句、课文、翻牌……）就照旧暂停 + 卡片，一题一题地切；`_judgeRecord`；锁的颜色、弹一下、近处淡掉；门开时题物收、图集放、再往后两道门画图集。
+- `src/ui/hud-learn.js`：`playMode(on)`（题条出来时走路条让位）。
+- `tools/learn/play-audit.mjs`：浏览器审计（见「实测」）。
+
+**动了别人地盘的**（都很小）：`src/game/weapons.js` 三行（`_new` 里清 `playTag`；`_step` 里撞世界前先问 `G.playTargets.shotHit(p)`；撞世界那一行多问一句 `G.playTargets.through(p)`）；`src/core/touch.js` 两处（`_down` 在按钮之后、摇杆 / 看之前先问 `G.playTap.down`，点中题物的手指不出摇杆；`_up` 告诉它抬起了）；`src/main.js` 三行（`debug.frameTimes.start / stop`、每帧把 `_frame` 的耗时交给采样器）；`src/config.js` 只加了 `LEARN.play`、`LEARN.playUi`、`LEARN.m1`；`docs/PLAY.md` 更正了 3 处事实（4 个地方，见下）。
+
+**PLAY.md 的更正**（只改事实，都标了「play-1 更正」）：
+1. §1 第 1 条、§10：「DOM 里没有 `.iw-learn__panel`」→「没有显示出来的」——这个元素 `hud-learn.js` 建一次、一直在 DOM 里，用 CSS 藏。
+2. §4 表：语法小测「2–3 个选项」→ 三周都是 3 个。
+3. §6.1：「没点中题物 → 右半边看 / 射」→ 学习关里开火键从 B 起就藏着，没有「射」。
+
+**给另外两期接的接口**（都在 `src/learn/play/`，纯的在 Node 里能 import）：
+- `layout.js`：`layoutTargets(n, labels, aspect, safe, opts?) → { kind: 'ball' | 'banner', fits, cover?, items: [{ i, kind, x, y, r?, w, h, label: { x, y, w, h }, rect }], font, font2, rows?, d? }`（`labels = [{ text, zh }]`，`safe = { x, y, w, h }` CSS px，`opts = { avoid: [{ x, y, w, h, what? }], font, font2, bannerW, banner, maxD }`；`what: 'her'` 的框放不下时可以盖）；`isBanner(labels)`、`textWidth(s, px)`、`labelBox(label, font?, font2?)`、`bannerBox(label, w, font?, font2?)`、`wrapLines(s, maxW, px)`、`asProjected(items)`、`insideSafe(rect, safe)`、`overlaps(a, b)`。
+- `pick.js`：`pickTarget(x, y, projected, opts?) → i | -1`（`projected = [{ i, kind: 'ball', cx, cy, r, label? } | { i, kind: 'banner', x, y, w, h } | { off: true }]`，`opts = { slop, minHit }`，默认 `LEARN.playUi`）。
+- `hit.js`：`segSpheres(a, b, pad, spheres, out?)`、`raySpheres(o, d, max, spheres, out?)`、`plankSpheres(c, axis, w, h, target, out, k)`、`class ShotTargets`（`set(spheres, serial)`、`tag(p, target)`、`tagOf(target)`、`shotHit(p)`、`through(p)`、`clear()`、`onHit(target, point, deliberate, p)`）。挂上 `G.playTargets = registry`，`weapons.js` 就每颗墨弹问它；字弹（play-type）同样：`fireShooter` 之后 `registry.tag(list[n0], k)`。
+- `atlas.js`：`gateLabels(items, promptOf, canPlay, bannerW?)`、`labelKey(label, banner)`、`packLabels(boxes, scale?, max?)`、`fitAtlas(boxes)`、`drawLabelAtlas(labels, opts?)`（DOM）、`LABEL_FONT`。
+- `m1.js`：`M1_KINDS`、`isM1Item(item)`、`canPlayM1(item, p)`、`targetLabels(p)`、`answerOfTarget(p, k)`、`verdictLines(r, item) → { ok, head, why }`、`firstSentence(s, max?)`。
+- `frametime.js`：`FrameTimes`、`percentile`；页面里 `__inkwave.debug.frameTimes.start()` / `.stop() → { n, p50, p95, max, mean, lost }`。
+- `targets.js` `PlayTargets`（见文件头）；`run.js` `PlayRun`（`canAsk / ask / toCard / update / gateOpened / shoot / debug / dispose`）、`floodRegion(c, R)`（一块能交给 `paint.flood` 的圆）。
+- `src/ui/play-strip.js`：`PlayStrip`（`show(p, { replay })`、`verdict({ ok, head, why })`、`question()`、`fit(keys)`、`rect()`、`playing(on)`、`hide()`、`setInk(hex)`、`dispose()`）、`VERDICT_H`。
+- `flow.js`：`_judgeRecord(g, item, p, ans) → { r, first, again }`——唯一的判分路（字弹交一串字也走它）；`this.play`。`hud-learn.js`：`playMode(on)`。
+- 触屏：`G.playTap = { down(x, y, id) → bool, up(x, y, id, cancel) }`——`touch.js` 在按钮之后、摇杆 / 看之前先问它（跑酷的滑动可以挂在同一个位置）。
+
+**测试**（`npm run test:learn` 82 → 93，`tests/learn/play.test.mjs` 11 条；`npm run check` 222 个文件绿）：
+1. `layoutTargets`：四个墨球在 390 × 844 竖屏（2 × 2 绕开她）、844 × 390 横屏（一排、她两边各两个）、iPad 820 × 1180 / 1180 × 820；三个、两个也各跑一遍——每个都在安全区里、互不重叠、不碰她 / 触屏键 / 小地图、≥ 44 pt、按选项顺序；墨球够大（手机 ≥ 56 px、iPad ≥ 80 px）又不超过标签高的 2.6 倍。
+2. 63 个字符的横幅（比课程里最长的 54 还长）：四种屏都是横幅、字 ≥ 14 px、两行都在、竖屏手机一行一块、板子是图集的宽度（最多缩 20%）。
+3. 她占满屏幕时（第一道门镜杆短）：横幅 / 四个 / 三个 / 两个墨球都盖住她、不盖触屏键、一个选项都不丢；整个安全区都要躲时也不丢；绕得开她时不盖。
+4. `pickTarget`：中心、标签牌、外扩 16 px、小目标的 44 pt 下限、两个重叠选近的、横幅的角、两块横幅之间选近的、藏着的跳过。
+5. 命中：400 条随机线段 / 射线，`segSpheres` 和 `Boss.prototype.segHit`、`raySpheres` 和 `Boss.prototype.rayDist` 逐条一样（`boss.js` 一字没动）；横幅的一排球中段都打得到、过了板头打不到。
+6. 只有有意的直接命中才答：点射打中自己那个算；瞄 1 偏到 0 只溅、不答；没标记的、上一题标记的、别人的幽灵墨弹不答；穿过两个之间什么都没打到；只有这一题的那颗能穿过场景（上一题的、没标记的、题物收了以后的都不能）。扫 `weapons.js`：登记处只出现在 `_new` 和 `_step` 的三行，`_blastBurst` / `_sloshSplash` / `_updateBombs` / `applyHit` / `_impact` 里都没有——**溅射不会答题**是代码结构保证的。
+7. 第 1 期的分类：三周 `canPlayM1` 的正好是 单词选义 450、语法小测 138、发音小测 76；换问法都是重排、没有一个变成打字；音标、阅读、听辨、听写、单词卡、写句、口语、课文都还是卡片；翻牌、打字换问法、5 个选项的不算。
+8. **等价**：单词、语法、发音各一题 × 对 / 错，再加一个重排过的换问法：「卡片点第 k 个按钮」和「墨靶：竖屏排布 → 点第 k 个题物的中心 → `pickTarget` → `answerOfTarget`」交给同一个 `LearnFlow.prototype._judgeRecord`——`judge` 的结果、`store.recordFirst` 的参数和写下的叶子、`first`、锁、换问法、`learn:answer` 事件逐项相等；当天第二次都是 `first: false`。
+9. 题条的字：错 = 「差一点：是 <对的选项>」+ 课程自己的「为什么」第一句；对 = 「答对了」。
+10. 图集：三周每道 M1 门的标签去重后都装得下（≤ 1024 × 1024），单词门在 2 texel / px 下都在 1024 × 320 以内，全是球的门都是满比例，最挤的门（9 块长横幅）≥ 1.5。
+11. 帧时间采样：nearest-rank 的 p50 / p95、没开不记、满了只计数不长。
+
+**实测**（`tools/learn/play-audit.mjs`，静态服务把这个工作树放在 `/game/` 下，Chromium 软件 GL（SwiftShader）、`?quality=low`、阴影 / 泛光关、时钟冻住手动步进；`?learn=w1d1&kind=puzzle&short=1&gate=2`，两道门：单词选义 2 题 + 语法小测 2 题；横幅用 `w2d2` 第 2 道门；每次：先点错一个，再全点对走完两道门；2026-10-16 UTC，跑在哪个提交上写在括号里）：
+
+| 视图 | 结果 | 第一道门的排布 | 出题 → 题物出来 | 点 → 墨弹出膛 / 墨弹 → 命中 / 命中 → 判 | draw call |
+|---|---|---|---|---|---|
+| 竖屏 390 × 844 触屏（13:50，`913916e`） | 全过，4xx 0，控制台错误 0 | 2 × 2 墨球，直径 60–62 px；第二道门 2 + 1、51 px | 1.85 s（她还在减速，站住后重挑取景），之后 0.27–0.31 s | 0.15 / 0.23 / 0 s | 58–59，第二道门 73 |
+| 横屏 844 × 390 触屏（13:58，`99b0abf`） | 全过，4xx 0，错误 0 | 一排 4 个、60 px；第二道门一排 3 个 | 1.52 s，之后 0.27 s | 0.13 / 0.05 / 0 s | 81–83 / 71 |
+| 桌面 1280 × 720 鼠标（14:04，`99b0abf`） | **7 条红**：第二题「准星压着按开火」的墨弹从球边擦过去、没答（题物被拉到她前面 1.6 m，`_aimFrom` 对 2 m 以内的目标改用镜头准星那条线）。`96266ca` 改成从枪口直接瞄，**改后桌面没在浏览器里重跑** | 一排 4 个、96 px | 1.5 s | 第一题 0.15 / 0.03 / 0 s | 79–81 |
+| 横幅 竖屏（14:14，`d08d007`） | 全过 | 3 块横幅一行一块；图集 1024 × 576（2 texel / px） | 1.9 s，之后 0.26 s | 0.12 / 0.11 / 0 s | 60–61 |
+| 横幅 横屏（14:19，`96266ca`） | 全过 | 两块并排 + 一块 | 1.51 s，之后 0.26 s | 0.04 / 0.05 / 0 s | 82–84 |
+
+每次都核了：出题时没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、触屏层活着、题条在、每个题物的投影都在安全区里；点错 → 墨弹落到才判、`learn:answer` 只一次且 `first: true`、点的那个珊瑚色、对的那个描她的墨、门上一把锁（珊瑚色）、题条「差一点：是 ___」+ 为什么；之后全对，换问法那题 `first: false`，两道门都开。截图都自己看过（竖横、对错、横幅），看完删了，留了 4 张给主会话（见报告）。
+
+**帧时间**（竖屏，同一个舞台，`debug.frameTimes` 记 `main.js _frame` 里 CPU 这边一帧的毫秒数——SwiftShader 下只能比相对值，真机另说）：先空走 30 帧再采 60 帧。普通走路 p50 3.7 / p95 7.1 ms；第一道门出题、题物在（不动）p50 2.9 / p95 6.3 ms——**比走路还低**（−22% / −11%）：站着不动比走着省（没有脚步、跟随、地面探测的那部分），题物自己最多 4 个 draw call。PLAY §7 的「p95 不差过 10%」在这台机器上是满足的；它没有量到 GPU 那边（软件 GL 的时间在 `_frame` 之外）。
+
+**其它形式的审计**（`play-audit.mjs --script` 重放现有的步骤脚本，14:25 起，`ec0b343`）：解谜卡片路（`play-desktop.json`，开关开着、卡片题照旧）、道具赛、对抗赛、Boss、道具赛竖屏（`play-forms-phone.json`）、开关关掉的解谜（`&play=0`）六个全过，4xx 0、控制台错误 0。
+
+**在 `ec0b343` 之后没在浏览器里重跑的改动**：门的光柱 / 锁在答题时淡掉（`99b0abf`、`d08d007`，横幅两次跑过）、标签牌也要镜头看得见（`d08d007`）、点射从枪口直接瞄（`96266ca`，只有横幅横屏跑过）、答错的标签牌只洗底色（`ec0b343`）。
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **阅读题没进第 1 期**：PLAY §9 第 1 项把阅读题列进 M1；这一期的任务书只要单词选义、语法小测、发音小测（阅读题要先看课文，是 M6 展板 → M1 横幅，和展板一起做更顺）。`listen · read` 60 个条目在开关下照旧是卡片；要加只改 `m1.js` 的 `M1_KINDS`（54 个字符的横幅已经按这个测过）。
+2. **点射那颗墨弹穿过场景**：照任务书「墨弹真打到才判」，但第一道门前的喷泉柱子挡在她枪口和题物之间时（镜头看得见题物，枪口看不见），这一下就永远答不了。现在这颗记着这一题的墨弹不被场景挡（`weapons.js` 多一行），取景和放置也先避开挡着的姿势——正常情况下它本来就不穿什么；穿的时候是一帧的事。不想要这个就删那一行 + `ShotTargets.through`，代价是这种门会点了没反应。
+3. **答错的珊瑚色只停 `LEARN.ui.verdictMs`（1.1 秒）**：照任务书。题条上 1.1 秒读一句「为什么」偏短——要更长改 `LEARN.ui.verdictMs`（卡片答对的自动继续也用它），或者给墨靶单独一个数。
+4. **点射打的是一颗 shooter 墨弹**：她拿着别的武器时也一样（她的武器是 shooter 就用她武器的参数），不扣墨。桌面上「准星压着按开火」是同一颗（她自己的武器照样开火，那些墨落到题物上只溅、不算答）——按住开火扫过去不算，要压着再按。
+5. **一道门一张图集最大 1024 × 1024**（PLAY §7 写的是 ≤ 1024 × 512）：按 2 texel / px 画（3 倍屏上标签不糊）；单词门都是 1024 × 128–320，语法 / 发音门有的要更高，两道装了 9 块长横幅的门缩到 1.5–1.75。同时活着的最多 3 张。要守 512 就把 `LEARN.m1.atlasScale` 降到 1.5。
+6. **题物出现的时机**：题条和读音先出来，相机缓到取景、停稳后（实测 0.26–1.9 秒，见上：长的那次是她到门口还在减速）题物才弹出来；比「到门前立刻出现」慢一点，但一出来就在排好的位置上、不会跟着相机漂。第一道门那种身后是台阶、面前是喷泉的地方，镜头会侧过去 50° 左右去找一片空的地方。
+7. **挤的时候题物可以盖住她**（`cover: 'her'`），不盖触屏键和小地图；她自己挡着的那个题物照样点得到（点的是题物的投影）。
+8. 墨球的颜色：中性的淡紫灰（`#a39db8`，HUD 的 muted 那一路），舞台的环境反射会把它染一点，看着像墨，没去压。
+
+**只代码审过、没在浏览器里看到的**：第二次答错（`wrong2`：`ui_toggle`、不再排回、门照开——和卡片同一个 `_judgeRecord`，单元测试里核了锁和队列）；减少动态效果（不缓相机、按当前相机直接放、只有一圈 `fx.ring`、flood 直接到终态）；转屏时正在问的题重新排布；她拿着非 shooter 武器时的点射；iPad 只在 Node 的排布测试里。
+
+**没做的**：
+1. 阅读题（`listen · read`）、音标、听辨、听写、单词卡、写句、课文、口语、翻牌、打卡 / 周报牌——这一期在开关下照旧是卡片（一题一题地暂停），各等自己的那一期。
+2. 选择题答错后的「回炉」：解谜本来就没有回炉门，换问法后第二次错就给答案——照旧。PLAY §4 的「单词选义回炉换成 M4 打这个词」等 play-type 的键盘接进来。
+3. 道具赛、对抗赛、Boss、双人两种：照旧卡片（`this.play` 只给解谜本身）。
+4. 连对 3 / 连对 5 的演出（`EFFECTS.puzzle.streak3 / streak5`）：解谜里 B 本来没做，这一期也没加。
+5. `play-quiz-chain.json`（解谜 → 小考）没重跑：`drive-forms.js` 等的是卡片，开关下解谜的墨靶它不会答，要一个认墨靶的驱动（或者加 `&play=0`）；小考本身是对抗赛那一轮，`play-forms.json` 的对抗赛跑过了。
+6. 真机：iPhone 上的帧时间、手指点小球的手感、`quality=low` 下的清漆材质——SwiftShader 只能比相对值。
+
+**交接**（收尾时写；分支 `play-1`，没推）：
+- **已完成**：开关 + 题物系统 + 题条 + 解谜里三种选择题（单词选义、语法小测、发音小测）走 M1 墨靶，竖横和桌面都能答；判分和卡片同一条路（`_judgeRecord`，Node 测试逐条对拍）；其它条目在开关下照旧暂停 + 卡片；开关关掉一字不差。`npm run test:learn` 93 / 93，`npm run check` 222 个文件绿。
+- **还缺**：(1) 桌面「准星压着开火」在 `96266ca` 的修法之后没在浏览器里重跑——先跑 `node tools/learn/play-audit.mjs --view desktop`（要加 `--shots <dir>` 才截图）；(2) 竖屏 / 横屏的最终截图是 `913916e` / `99b0abf` 上的，之后的四个小改动（锁和光柱淡掉、标签可见、枪口瞄准、错牌只洗底色）没截图；(3) 上面「没做的」那几条。
+- **先看哪些文件**：`src/learn/play/run.js`（运行层：出题、取景 `_frame`、放置 `_place`、点射 `shoot` / `_fire`、判 `_answer`、`debug()`）→ `layout.js`（排布）→ `targets.js`（三维）→ `hit.js`（命中、`through`）；`src/learn/flow.js` 里 `this.play` 出现的地方；`tests/learn/play.test.mjs`；审计 `tools/learn/play-audit.mjs`。
+- **已知坑**：
+  1. 第一道门（`tidewater` 出生台阶底下、面前是喷泉）最难：她到门口还在减速，镜杆被身后台阶顶到 2–2.9 m；取景会侧过去 50° 左右找一片空地方，横屏 / 桌面有时不转（镜杆短、题物被拉近到她前面 1.6 m）。`place` 日志（`debug().log`）里有 `D`、`boom`、`blocked`、`cover`、`avoid`、`rows`、`d`，先看它。
+  2. `Projectiles._aimFrom` 对 2 m 以内的目标用 `aimDir`——点射前 `_fire` 已把 `aimDir` 设成从枪口指向题物；改武器代码时别把这个顺序弄反。
+  3. 点射那颗墨弹不被场景挡（`ShotTargets.through`，`weapons.js` 一行）——它要是没打到题物，会一直飞到 `life` 用完；`shot` 1.4 s 后清掉、她可以再点。
+  4. 桌面上按开火时她自己的武器也开一枪（不算答），那颗常常先到、先在题物上溅一下；有意的那颗随后到才判。
+  5. 审计要等题物出来再核（`untilPlaced`）——出题到题物出来 0.26–1.9 s；固定等 1.25 s 会偶尔核到还没放的题物。
+  6. `LEARN.m1` 的数（`near / far / clear / frameFor / turnFor …`）都在 `config.js`，改取景先改它们。
+
 ## 19. 字弹 M4 交付（2026-10-16，分支 `play-type`：打字蟹 type rig + 游戏键盘 + 3D 墨字——独立做好、在实验室里验过，接进门的流程是下一步）
 
 业主 10-16：「最好迅速做一个键盘模型或者更有游戏性的模型以及键盘按键映射动画，或者不需要按键映射 保留输入时的人物运用该模型武器的动画，直到输入好了就展现出立体的3d输出结果在游戏世界里，有真正的游戏性交互效果」。要打字的题占课程的一半（单词卡 900 记 `T`、听写句 206 记 `L` 带百分数、写句 102 记 `W` / `S`），所以打字本身得是玩法。PLAY §3 M4 已改成做出来的样子。
