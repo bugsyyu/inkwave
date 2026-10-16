@@ -6,6 +6,12 @@
 
 ## 2026-10-16
 
+### 00:45 G 工作流：游戏壳中文化（分支 `learn-g`，LEARN §15）
+
+- **为什么**：她从雅思 App 的「关卡」进来，英文只能出现在题目本身里（LEARN §1.4）；业主今天发版，这一条先做先交。
+- **改了什么**：`src/ui/i18n.js` 一张表（键 → 英文 / 中文），默认中文，`?lang=en` 是原来的英文；载入页、标题、主菜单、学习屏、暂停（学习局有了自己的面板）、设置（含实时预览的说明）、怎么玩、制作人员、HUD 的横幅 / 区域播报 / 裁判 / 被击倒卡 / 连杀、Boss 的 HUD、触屏键、竖屏提示条都走 `t()`；武器 / 舞台 / 队名有中文名；汉字的显示字体（`Titan One` 的汉字别名到系统粗黑体）。
+- **验证**：`tests/learn/i18n.test.mjs` 5 条（键全有中文、占位符一致、专名全有中文、扫描她路上的代码没有漏网的英文字符串）；`npm run test:learn` 48 / 48，`npm run check` 200 文件绿。浏览器（锁里，390 × 844 触屏，`?learn=w1d1&kind=puzzle&short=1&from=app`）：关卡、暂停、主菜单、学习屏、设置五屏都是中文，没有溢出 / 折行的按钮字；**但竖屏下 INKWAVE 的菜单是 16:9 的缩小版**（主菜单按钮一百来像素宽），下一步做竖屏排版。
+
 ### 00:20 E 工作流交付：道具赛、对抗赛、Boss 战三种形式 + 今日小考（分支 `learn-e`，LEARN §13）
 
 - **先读了什么**：LEARN §1 / §4 / §5 / §8 / §9 / §12，LEVELS 全文（§2.2–§2.8 的规则、§3 的表、§5 的演出名、§6 的数据形状），`design.js`、`flow.js`、`hud-learn.js`、`match.js`、`zones.js`、`bots.js`（`zonePlan` / `hotspot`、`_bossTick` 认 `G.boss`）、`boss.js` / `bossMode.js` / `bossBrain.js`（`force`、`checkPhase`、`applyDamage`）、`nav.js`、`paint.js`（`flood` 只要 `region.cells`）、`main.js`（指针锁丢了就暂停的那一处）。

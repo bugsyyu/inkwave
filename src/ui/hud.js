@@ -37,6 +37,7 @@ import { BossHud } from './hud-boss.js';
 import { LearnHud } from './hud-learn.js';
 import { installBossAudio } from '../audio/bossAudio.js';
 import { bossEmblem, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
+import { t as tx, isZh, gameName, teamName } from './i18n.js';   // 中文化 (docs/LEARN.md §15): every label below
 
 let HUD_ID = 0;
 const BUMP = { duration: 320, easing: 'cubic-bezier(.34,1.8,.64,1)' };
@@ -47,7 +48,7 @@ const TWIN_KICK_T = { duration: 130, easing: 'cubic-bezier(.2,.8,.3,1)' };
 const MITT_KICK = [[{ transform: 'translateX(4px) scale(1.35)' }, { transform: 'none' }], [{ transform: 'translateX(-4px) scale(1.35)' }, { transform: 'none' }]];
 const MITT_KICK_T = { duration: 150, easing: 'cubic-bezier(.2,.8,.3,1)' };
 const TAU = Math.PI * 2;
-const STREAKS = { 2: 'DOUBLE SPLAT!', 3: 'TRIPLE SPLAT!', 4: 'QUAD SPLAT!' };
+const STREAKS = { 2: tx('kill.double'), 3: tx('kill.triple'), 4: tx('kill.quad') };
 const kindOf = (w) => (WEAPONS[w] && WEAPONS[w].kind) || w || 'shooter';
 // super-jump map slots: 3 teammates, base, then up to 6 team jump beacons (keys 1–9, 0)
 const NB = 10;
@@ -71,10 +72,10 @@ export const DEATH_MARK_SVG = `<svg viewBox="0 0 64 60" aria-hidden="true"><path
 const SJ_ICON = `<svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="42" cy="50" rx="15" ry="6" fill="none" stroke="${K}" stroke-width="7"/><ellipse cx="42" cy="50" rx="15" ry="6" fill="none" stroke="currentColor" stroke-width="3.6"/><path d="M8 52 C9 22 30 6 42 36" fill="none" stroke="${K}" stroke-width="10" stroke-linecap="round"/><path d="M8 52 C9 22 30 6 42 36" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M33 31 L42.5 40 L47.5 27.5" fill="none" stroke="${K}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 31 L42.5 40 L47.5 27.5" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 // splat-screen cause for the sea (fell / knocked off the stage): a curling wave over a swell line
 const SEA_ICON = `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M5 45 C12 45 13 32 22 24 C31 16 46 16 52 27 C45 23 37 26 36 33 C35 40 42 44 48 42 C53 40.5 56 43 59 45 L59 51 L5 51 Z" fill="currentColor" stroke="${K}" stroke-width="4.2" stroke-linejoin="round"/><path d="M24 30 Q28 24 35 22.5" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3.4" stroke-linecap="round"/><path d="M6 58 Q12.5 53 19 58 T32 58 T45 58 T58 58" fill="none" stroke="${K}" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 58 Q12.5 53 19 58 T32 58 T45 58 T58 58" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="54" cy="16" r="4.2" fill="currentColor" stroke="${K}" stroke-width="3"/><circle cx="45" cy="9" r="2.8" fill="currentColor" stroke="${K}" stroke-width="2.6"/></svg>`;
-const ZONE_LABEL = { center: 'CENTRE', home: 'YOUR SIDE', away: 'ENEMY SIDE' };
+const ZONE_LABEL = { center: tx('zn.centre'), home: tx('zn.home'), away: tx('zn.away') };
 // main-weapon icon for an id or kind (kit weapons register WEAPON_ICONS[kind] themselves; unknown → the shooter)
 const mainIcon = (id) => WEAPON_ICONS[id] || WEAPON_ICONS[(WEAPONS[id] || {}).kind] || weaponIcon(kindOf(id));
-const ENV_CAUSES = { water: 'Fell in the sea', sea: 'Fell in the sea', fall: 'Fell off the stage', oob: 'Out of bounds', bounds: 'Out of bounds' };
+const ENV_CAUSES = { water: tx('cause.sea'), sea: tx('cause.sea'), fall: tx('cause.fall'), oob: tx('cause.oob'), bounds: tx('cause.oob') };
 /**
  * What splatted you, for the splat screen: the 'splatted' event's cause (= the finishing hit's weaponId, or 'water') →
  * { kind: 'main' | 'sub' | 'special' | 'env', id, name, tag, icon } (null when there's nothing to show). Sub and special
@@ -86,11 +87,11 @@ const ENV_CAUSES = { water: 'Fell in the sea', sea: 'Fell in the sea', fall: 'Fe
  */
 export function splatCause(cause, attacker) {
   const c = typeof cause === 'string' ? cause : null;
-  if (c && ENV_CAUSES[c]) return { kind: 'env', id: c, name: attacker ? 'Knocked into the sea' : ENV_CAUSES[c], tag: '', icon: SEA_ICON };
-  if (c && SUB[c]) return { kind: 'sub', id: c, name: SUB[c].name || c, tag: 'SUB', icon: SUB_ICONS[SUB[c].kind] || SUB_ICONS[c] || SUB_ICONS.bomb };
-  if (c && SPECIALS[c]) return { kind: 'special', id: c, name: SPECIALS[c].name || c, tag: 'SPECIAL', icon: specialIcon(c) };
+  if (c && ENV_CAUSES[c]) return { kind: 'env', id: c, name: attacker ? tx('cause.knocked') : ENV_CAUSES[c], tag: '', icon: SEA_ICON };
+  if (c && SUB[c]) return { kind: 'sub', id: c, name: gameName('sub', c, SUB[c].name || c), tag: tx('hud.tagSub'), icon: SUB_ICONS[SUB[c].kind] || SUB_ICONS[c] || SUB_ICONS.bomb };
+  if (c && SPECIALS[c]) return { kind: 'special', id: c, name: gameName('special', c, SPECIALS[c].name || c), tag: tx('hud.tagSpecial'), icon: specialIcon(c) };
   const w = (attacker && attacker.weaponId) || (c && WEAPONS[c] ? c : null);
-  if (w) return { kind: 'main', id: w, name: (WEAPONS[w] || {}).name || '', tag: '', icon: mainIcon(w) };
+  if (w) return { kind: 'main', id: w, name: gameName('weapon', w, (WEAPONS[w] || {}).name || ''), tag: '', icon: mainIcon(w) };
   return null;
 }
 // "Can't use" (a kit sub refused the throw, e.g. one already out): a soft, low two-note bonk — quieter than ui_error's buzz
@@ -179,13 +180,13 @@ export class HUD {
       h('i', { class: 'iw-zc__hold', html: ZONE_ICON }));
     this.zc = [zcounter('a'), zcounter('b')];
     this.zoIcons = h('span', { class: 'iw-zo__icons' });
-    this.zoLabel = h('span', { class: 'iw-zo__lbl' }, 'CENTRE');
+    this.zoLabel = h('span', { class: 'iw-zo__lbl' }, tx('zn.centre'));
     this.zoShiftN = h('b', null, '5');
     this.zoOtBar = h('i', { class: 'iw-zo__otbar' }, h('i'));
     this.zo = h('div', { class: 'iw-zo' },
-      h('div', { class: 'iw-zo__ot' }, h('span', { class: 'iw-display' }, 'OVERTIME'), this.zoOtBar),
+      h('div', { class: 'iw-zo__ot' }, h('span', { class: 'iw-display' }, tx('zn.overtime')), this.zoOtBar),
       h('div', { class: 'iw-zo__chip' }, this.zoIcons, this.zoLabel),
-      h('div', { class: 'iw-zo__shift' }, h('i', { html: GLYPHS.clock || '' }), h('span', null, 'ZONE SHIFT IN '), this.zoShiftN));
+      h('div', { class: 'iw-zo__shift' }, h('i', { html: GLYPHS.clock || '' }), h('span', null, tx('zn.shiftIn')), this.zoShiftN));
     this.timer.appendChild(this.zo);
     this.top = h('div', { class: 'iw-hud__top' }, this.squads[0], this.zc[0], this.timer, this.zc[1], this.squads[1]);
 
@@ -212,7 +213,7 @@ export class HUD {
       h('i', { class: 'iw-sp__ring' }),
       h('span', { class: 'iw-sp__icon' }),
       h('span', { class: 'iw-sp__pct' }),
-      h('div', { class: 'iw-sp__ready' }, h('span', null, 'READY!'), h('span', { html: keycap('F') })));
+      h('div', { class: 'iw-sp__ready' }, h('span', null, tx('hud.spReady')), h('span', { html: keycap('F') })));
     this.spLiquid = this.sp.querySelector('.iw-sp__liquid');
     this.spIcon = this.sp.querySelector('.iw-sp__icon');
     this.spPct = this.sp.querySelector('.iw-sp__pct');
@@ -236,15 +237,15 @@ export class HUD {
     this.shield = h('div', { class: 'iw-shield', html: '<svg viewBox="-50 -50 100 100" aria-hidden="true"><circle r="36" pathLength="100"/></svg>' });
     this.subChip = h('div', { class: 'iw-subaim' }, h('i', { html: SUB_ICONS.bomb }), h('span', { class: 'iw-subaim__bar' }, h('i')), h('b', null, `${Math.round(SUB.bomb.inkCost)}%`));
     // status badges (tracked by the enemy / poisoned) + the poison vignette
-    this.statusEl = h('div', { class: 'iw-status' }, h('span', { class: 'iw-status__b is-tracked' }, 'TRACKED'), h('span', { class: 'iw-status__b is-poison' }, 'POISONED'));
+    this.statusEl = h('div', { class: 'iw-status' }, h('span', { class: 'iw-status__b is-tracked' }, tx('hud.tracked')), h('span', { class: 'iw-status__b is-poison' }, tx('hud.poisoned')));
     this.poisonVig = h('div', { class: 'iw-poison' });
     this.tankCanvas = h('canvas', { class: 'iw-tank__cv' });
     this.tankCtx = this.tankCanvas.getContext('2d');
-    this.tank = h('div', { class: 'iw-tank' }, this.tankCanvas, h('div', { class: 'iw-tank__low' }, 'LOW INK'));
+    this.tank = h('div', { class: 'iw-tank' }, this.tankCanvas, h('div', { class: 'iw-tank__low' }, tx('hud.lowInk')));
     this.tpops = h('div', { class: 'iw-tpops' });
     // "Can't use": a kit sub refused the throw (sub:cantuse) — a short callout where the sub-aim chip sits
     this.denyIcon = h('span', { class: 'iw-deny__i', html: SUB_ICONS.bomb });
-    this.denyEl = h('div', { class: 'iw-deny' }, h('span', { class: 'iw-deny__b' }, this.denyIcon, h('i', { class: 'iw-deny__no' })), h('b', null, 'CAN’T USE'));
+    this.denyEl = h('div', { class: 'iw-deny' }, h('span', { class: 'iw-deny__b' }, this.denyIcon, h('i', { class: 'iw-deny__no' })), h('b', null, tx('hud.cantUse')));
     this.xh = h('div', { class: 'iw-xh' }, this.shield, this.ret, this.hitEl, this.killEl, this.tank, this.subChip, this.denyEl, this.tpops);
     this.ddLayer = h('div', { class: 'iw-dds' });
 
@@ -255,14 +256,14 @@ export class HUD {
     // death markers on the minimap (under the player dots)
     this.mapDms = Array.from({ length: 12 }, () => h('i', { class: 'iw-mdm', html: DEATH_MARK_SVG }));
     this.mapFrame = h('div', { class: 'iw-map__frame' }, this.mapSlot, h('div', { class: 'iw-map__dms' }, this.mapDms), h('div', { class: 'iw-map__dots' }, this.mapDots), h('i', { class: 'iw-map__gloss' }));
-    this.mapLabel = h('div', { class: 'iw-map__label' }, h('span', { html: keycap('TAB') }), h('span', null, 'MAP'));
+    this.mapLabel = h('div', { class: 'iw-map__label' }, h('span', { html: keycap('TAB') }), h('span', null, tx('hud.map')));
     this.beacons = Array.from({ length: NB }, (_, i) => {
       const b = h('div', { class: 'iw-bcn' + (i === 3 ? ' iw-bcn--home' : i > 3 ? ' iw-bcn--dev' : '') },
         h('span', { class: 'iw-bcn__stem' }, h('i')),
         h('span', { class: 'iw-bcn__pulse' }),
         h('span', { class: 'iw-bcn__disc' }, h('span', { class: 'iw-bcn__icon', html: i === 3 ? SPAWN_ICON : i > 3 ? SUB_ICONS.beacon || '' : '' })),
         h('span', { class: 'iw-bcn__key' }, slotKey(i)),
-        h('span', { class: 'iw-bcn__label' }, h('small', null, 'SUPER JUMP'), h('b', null, i === 3 ? 'Base' : '')));
+        h('span', { class: 'iw-bcn__label' }, h('small', null, tx('hud.superJump')), h('b', null, i === 3 ? tx('hud.base') : '')));
       b.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       b.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
       b.addEventListener('click', (e) => { e.stopPropagation(); this._jumpTo(i); });
@@ -274,7 +275,7 @@ export class HUD {
       const row = h('div', { class: 'iw-lg__row' + (i === 3 ? ' is-home' : '') },
         h('span', { class: 'iw-lg__key', html: keycap(slotKey(i)) }),
         h('span', { class: 'iw-lg__w', html: i === 3 ? SPAWN_ICON : i > 3 ? SUB_ICONS.beacon || '' : '' }),
-        h('span', { class: 'iw-lg__name' }, i === 3 ? 'Base' : '—'),
+        h('span', { class: 'iw-lg__name' }, i === 3 ? tx('hud.base') : '—'),
         h('span', { class: 'iw-lg__st' }));
       row.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       row.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
@@ -282,10 +283,10 @@ export class HUD {
       return row;
     });
     this.mapLegend = h('div', { class: 'iw-map__legend' },
-      h('div', { class: 'iw-lg__title iw-display' }, 'SUPER JUMP'),
-      h('div', { class: 'iw-lg__sub' }, 'Pick a landing spot'),
+      h('div', { class: 'iw-lg__title iw-display' }, tx('hud.superJump')),
+      h('div', { class: 'iw-lg__sub' }, tx('hud.pickSpot')),
       h('div', { class: 'iw-lg__rows' }, this.legendRows),
-      h('div', { class: 'iw-lg__foot', html: richText('Press [1] – [4] or click · release [TAB] to cancel') }));
+      h('div', { class: 'iw-lg__foot', html: richText(tx('hud.jumpFoot')) }));
     this.map = h('div', { class: 'iw-map' }, this.mapFrame, this.mapJumpLine, h('div', { class: 'iw-map__bcns' }, this.beacons), this.mapCursor, this.mapLabel, this.mapLegend);
     this.mapDim = h('div', { class: 'iw-map-dim' });
     this._mapT = 0; this._mapV = 0;
@@ -293,7 +294,7 @@ export class HUD {
     this.markers = Array.from({ length: 8 }, () => h('div', { class: 'iw-mk' }, h('span', { class: 'iw-mk__tag' }, h('i', { class: 'iw-mk__w' }), h('b')), h('i', { class: 'iw-mk__arrow' })));
     this.markerLayer = h('div', { class: 'iw-mks' }, this.markers);
     // "Yeah!" cheers: speech bubbles over whoever signalled
-    this.cheerEls = Array.from({ length: 8 }, () => h('div', { class: 'iw-cheer' }, 'YEAH!'));
+    this.cheerEls = Array.from({ length: 8 }, () => h('div', { class: 'iw-cheer' }, tx('hud.yeah')));
     this.cheerLayer = h('div', { class: 'iw-cheers' }, this.cheerEls);
     // death markers in the world view: a fixed pool, one per record of frame.deaths
     this.dms = Array.from({ length: 12 }, () => {
@@ -341,7 +342,7 @@ export class HUD {
     this.el.classList.toggle('is-practice', on);
     this.timer.classList.remove('is-last', 'is-final');
     this._L.fin = false; this._L.lastMin = false; this._L.timer = null;
-    this.timerTxt.textContent = on ? 'PRACTICE' : '3:00';
+    this.timerTxt.textContent = on ? tx('hud.practice') : '3:00';
   }
 
   /** ScreenFX takes over the lens-ink damage smears, the low-HP vignette and the splatted desaturation. */
@@ -387,11 +388,11 @@ export class HUD {
   banner(kind = 'custom', text) {
     if (kind === 'timesup' && this.boss.timesUp()) { this.el.classList.remove('is-live'); return; }
     const k = ['ready', 'go', 'one_minute', 'timesup', 'special', 'custom'].includes(kind) ? kind : 'custom';
-    const defaults = { ready: 'READY?', go: 'GO!', one_minute: '1 minute left!', timesup: "TIME'S UP!", special: 'SPECIAL!', custom: '' };
+    const defaults = { ready: tx('bn.ready'), go: tx('bn.go'), one_minute: tx('bn.oneMinute'), timesup: tx('bn.timesup'), special: tx('bn.special'), custom: '' };
     let label = text != null && text !== '' ? String(text) : defaults[k];
     // Zone Control decided by a knockout: the time's-up horn reads KNOCKOUT! instead
     const ko = k === 'timesup' && this._zKO != null && performance.now() - this._zKO < 4000;
-    if (ko && (text == null || text === '')) label = 'KNOCKOUT!';
+    if (ko && (text == null || text === '')) label = tx('bn.knockout');
     const group = k === 'one_minute' ? 'side' : k === 'special' ? 'low' : 'center';
     this.bannerLayer.querySelectorAll(`.iw-bn[data-g="${group}"]`).forEach((b) => b.remove());
     let el;
@@ -480,7 +481,7 @@ export class HUD {
     this.hideSplatted(true);
     const C = 2 * Math.PI * 44;
     const num = h('b', { class: 'iw-spl__num' }, String(Math.ceil(respawn)));
-    const ring = h('div', { class: 'iw-spl__ring', html: `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="fg" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};animation-duration:${Math.max(0.1, respawn)}s"/></svg>` }, num, h('small', null, 'RESPAWN'));
+    const ring = h('div', { class: 'iw-spl__ring', html: `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="fg" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};animation-duration:${Math.max(0.1, respawn)}s"/></svg>` }, num, h('small', null, tx('hud.respawn')));
     const tint = h('div', { class: 'iw-spl__tint' });
     this.el.prepend(tint);
     const killer = attacker !== undefined ? attacker : this._kills.lastKiller;
@@ -492,11 +493,11 @@ export class HUD {
         h('div', { class: 'iw-spl__splat', html: splatSVG({ seed: 64, cls: 'iw-fby', r: 62, arms: 11, drops: 5, viewBox: 240 }) }),
         kw,
         h('div', { class: 'iw-spl__text' },
-          h('div', { class: 'iw-spl__by' }, by ? 'SPLATTED BY' : 'SPLATTED!'),
+          h('div', { class: 'iw-spl__by' }, by ? tx('hud.splattedBy') : tx('hud.splatted')),
           by ? h('div', { class: 'iw-spl__name iw-display' }, String(by)) : null,
           why && why.name ? h('div', { class: `iw-spl__wn iw-spl__wn--${why.kind}` }, why.tag ? h('i', { class: 'iw-spl__wk' }, why.tag) : null, why.name) : null),
         ring),
-      (hint = h('div', { class: 'iw-spl__hint', html: richText('Hold [TAB] to plan a Super Jump') })));
+      (hint = h('div', { class: 'iw-spl__hint', html: richText(tx('hud.planJump')) })));
     colorVars(el, 'by', toHex(byColor, '#2f5bff'));
     this.splatLayer.appendChild(el);
     const st = { el, tint, hint, qkey: '', end: this._fxTime + Math.max(0, respawn), num, last: Math.ceil(respawn) };
@@ -507,7 +508,7 @@ export class HUD {
       const n = Math.max(0, Math.ceil(st.t));
       if (n !== st.last) {
         st.last = n;
-        num.textContent = n > 0 ? String(n) : 'GO';
+        num.textContent = n > 0 ? String(n) : tx('hud.go');
         num.animate([{ transform: 'scale(1.5)' }, { transform: 'scale(1)' }], BUMP);
         if (n > 0 && n <= 3) this._snd('countdown_tick', { volume: 0.5 });
       }
@@ -540,17 +541,17 @@ export class HUD {
       const barB = h('div', { class: 'iw-jd__bar b' });
       const edgeA = h('i', { class: 'iw-jd__edge a' }), edgeB = h('i', { class: 'iw-jd__edge b' });
       const clash = h('div', { class: 'iw-jd__clash', html: splatSVG({ seed: 99, fill: '#fff', r: 50, arms: 10, drops: 8 }) });
-      const wText = winner < 0 ? "IT'S A TIE!" : `${(names[winner] || TEAM_NAMES[winner] || '').toUpperCase()} WINS!`;
+      const wText = winner < 0 ? tx('jd.tie') : tx('jd.wins', { team: isZh ? teamName(names[winner] || TEAM_NAMES[winner]) : (names[winner] || TEAM_NAMES[winner] || '').toUpperCase() });
       const win = h('div', { class: 'iw-jd__win' + (winner === 1 ? ' is-b' : winner === 0 ? ' is-a' : ' is-tie') },
         h('div', { class: 'iw-jd__winsplat', html: splatSVG({ seed: 5, cls: 'iw-fwin', r: 58, arms: 11, drops: 5 }) }),
         h('div', { class: 'iw-jd__wintext iw-display' }, wText));
       const el = h('div', { class: 'iw-jd' },
         h('div', { class: 'iw-jd__bg' }),
-        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, 'JUDGING'), h('span', { class: 'iw-jd__dots' }, h('i'), h('i'), h('i'))),
+        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, tx('jd.judging')), h('span', { class: 'iw-jd__dots' }, h('i'), h('i'), h('i'))),
         h('div', { class: 'iw-jd__arena' },
           h('div', { class: 'iw-jd__labels' },
-            h('div', { class: 'iw-jd__side a' }, h('span', { class: 'iw-jd__name' }, names[0] || TEAM_NAMES[0]), numA),
-            h('div', { class: 'iw-jd__side b' }, numB, h('span', { class: 'iw-jd__name' }, names[1] || TEAM_NAMES[1]))),
+            h('div', { class: 'iw-jd__side a' }, h('span', { class: 'iw-jd__name' }, teamName(names[0] || TEAM_NAMES[0])), numA),
+            h('div', { class: 'iw-jd__side b' }, numB, h('span', { class: 'iw-jd__name' }, teamName(names[1] || TEAM_NAMES[1])))),
           h('div', { class: 'iw-jd__track' }, h('div', { class: 'iw-jd__clip' }, barA, barB), edgeA, edgeB, clash)),
         win);
       colorVars(el, 'ja', ca); colorVars(el, 'jb', cb);
@@ -710,14 +711,14 @@ export class HUD {
       // callouts, most important first
       let call = null, sub = null;
       const enemies = this._actors().filter((a) => a.team !== me.team);
-      if (enemies.length >= 4 && enemies.every((a) => !a.alive)) { call = 'WIPEOUT!'; sub = 'The whole team is splatted'; }
+      if (enemies.length >= 4 && enemies.every((a) => !a.alive)) { call = tx('kill.wipeout'); sub = tx('kill.wipeoutSub'); }
       else if (multi >= 2) call = STREAKS[Math.min(4, multi)];
-      else if (!K.first) { call = 'FIRST SPLAT!'; }
-      else if (K.lastKiller && victim === K.lastKiller) { call = 'REVENGE!'; K.lastKiller = null; }
-      else if (vStreak >= 3) { call = 'SHUTDOWN!'; sub = `Ended ${victim.name}'s streak`; }
-      else if (K.streak >= 3 && K.streak % 2 === 1) { call = `SPLAT STREAK ×${K.streak}`; }
+      else if (!K.first) { call = tx('kill.first'); }
+      else if (K.lastKiller && victim === K.lastKiller) { call = tx('kill.revenge'); K.lastKiller = null; }
+      else if (vStreak >= 3) { call = tx('kill.shutdown'); sub = tx('kill.shutdownSub', { name: victim.name }); }
+      else if (K.streak >= 3 && K.streak % 2 === 1) { call = tx('kill.streak', { n: K.streak }); }
       K.first = true;
-      if (call) this._callout(call, sub, multi >= 3 || call === 'WIPEOUT!');
+      if (call) this._callout(call, sub, multi >= 3 || call === tx('kill.wipeout'));
       return;
     }
     if (me && attacker && attacker.team === me.team && K.dealt.has(victim) && now - K.dealt.get(victim) < 4) {
@@ -733,8 +734,8 @@ export class HUD {
       h('span', { class: 'iw-kcard__splat', html: splatSVG({ seed: 30 + ((Math.random() * 40) | 0), cls: 'iw-fself', r: 56, arms: 9, drops: 4 }) }),
       h('span', { class: 'iw-kcard__w', html: weaponIcon(kindOf(victim.weaponId)) }),
       h('span', { class: 'iw-kcard__txt' },
-        h('small', null, kind === 'assist' ? 'ASSIST' : 'SPLATTED'),
-        h('b', null, victim.name || 'Squidkid')));
+        h('small', null, kind === 'assist' ? tx('kill.assist') : tx('kill.splatted')),
+        h('b', null, victim.name || tx('kill.squidkid'))));
     colorVars(card, 'v', col);
     this.kcards.prepend(card);
     const cards = [...this.kcards.children].filter((c) => !c._out);
@@ -772,11 +773,11 @@ export class HUD {
     const side = (t) => {
       const list = actors.filter((a) => a.team === t);
       const wrap = h('div', { class: `iw-lu__team iw-lu__team--${t ? 'b' : 'a'}` },
-        h('div', { class: 'iw-lu__name iw-display' }, (names[t] || TEAM_NAMES[t] || '').toUpperCase()),
+        h('div', { class: 'iw-lu__name iw-display' }, isZh ? teamName(names[t] || TEAM_NAMES[t]) : (names[t] || TEAM_NAMES[t] || '').toUpperCase()),
         list.map((a, i) => h('div', { class: 'iw-lu__card' + (a.isLocal ? ' is-self' : ''), style: { '--i': i } },
           h('span', { class: 'iw-lu__w', html: weaponIcon(kindOf(a.weaponId)) }),
-          h('span', { class: 'iw-lu__txt' }, h('b', null, a.name), h('small', null, (WEAPONS[a.weaponId] || {}).name || '')),
-          a.isLocal ? h('em', null, 'YOU') : null)));
+          h('span', { class: 'iw-lu__txt' }, h('b', null, a.name), h('small', null, gameName('weapon', a.weaponId, (WEAPONS[a.weaponId] || {}).name || ''))),
+          a.isLocal ? h('em', null, tx('lu.you')) : null)));
       colorVars(wrap, 't', col(t));
       return wrap;
     };
@@ -784,13 +785,13 @@ export class HUD {
       // boss mode: the whole squad (two columns) vs HULLBREAKER
       const squad = side(0);
       squad.classList.add('is-squad');
-      squad.querySelector('.iw-lu__name').textContent = 'YOUR SQUAD';
+      squad.querySelector('.iw-lu__name').textContent = tx('lu.squad');
       const foe = h('div', { class: 'iw-lu__team iw-lu__team--b iw-lu__foe' },
         h('div', { class: 'iw-lu__name iw-display' }, BOSS_NAME),
         h('div', { class: 'iw-lu__bosscard' }, h('span', { class: 'iw-lu__bossart', html: bossEmblem() }), h('small', null, BOSS_EPITHET)));
       colorVars(foe, 't', col(1));
       const bel = h('div', { class: 'iw-lineup is-boss' }, squad,
-        h('div', { class: 'iw-lu__vs' }, h('span', { class: 'iw-lu__vsplat', html: splatSVG({ seed: 77, fill: '#fff', r: 56, arms: 10, drops: 6 }) }), h('span', { class: 'iw-display' }, 'VS')),
+        h('div', { class: 'iw-lu__vs' }, h('span', { class: 'iw-lu__vsplat', html: splatSVG({ seed: 77, fill: '#fff', r: 56, arms: 10, drops: 6 }) }), h('span', { class: 'iw-display' }, tx('lu.vs'))),
         foe);
       this.overLayer.appendChild(bel);
       // out before HULLBREAKER bursts up (boss time 1.8 s) so the title card has the stage
@@ -800,7 +801,7 @@ export class HUD {
     }
     const el = h('div', { class: 'iw-lineup' },
       side(this._myTeam()),
-      h('div', { class: 'iw-lu__vs' }, h('span', { class: 'iw-lu__vsplat', html: splatSVG({ seed: 77, fill: '#fff', r: 56, arms: 10, drops: 6 }) }), h('span', { class: 'iw-display' }, 'VS')),
+      h('div', { class: 'iw-lu__vs' }, h('span', { class: 'iw-lu__vsplat', html: splatSVG({ seed: 77, fill: '#fff', r: 56, arms: 10, drops: 6 }) }), h('span', { class: 'iw-display' }, tx('lu.vs'))),
       side(1 - this._myTeam()));
     this.overLayer.appendChild(el);
     [0, 1, 2, 3].forEach((i) => setTimeout(() => { if (el.isConnected) this._snd('ui_hover', { volume: 0.5, pitch: 0.9 + i * 0.08 }); }, 250 + i * 90));
@@ -901,14 +902,14 @@ export class HUD {
     st.qkey = key;
     const hint = st.hint;
     hint.classList.toggle('is-queued', !!q);
-    if (!q) { hint.innerHTML = richText('Hold [TAB] to plan a Super Jump'); return; }
+    if (!q) { hint.innerHTML = richText(tx('hud.planJump')); return; }
     hint.textContent = '';
     hint.append(
       h('i', { class: 'iw-spl__sj', html: SJ_ICON }),
-      h('b', { class: 'iw-spl__sjk' }, 'SUPER JUMP'),
+      h('b', { class: 'iw-spl__sjk' }, tx('hud.superJump')),
       h('span', { class: 'iw-spl__sja' }, '\u2192'),
       h('strong', { class: 'iw-spl__sjn iw-display' }, q.name),
-      h('em', { class: 'iw-spl__sjw' }, '\u2014 on respawn'));
+      h('em', { class: 'iw-spl__sjw' }, tx('hud.onRespawn')));
     hint.animate([{ scale: had ? '1.08' : '1.2' }, { scale: '1' }], BUMP);
   }
 
@@ -1050,30 +1051,30 @@ export class HUD {
     if (this._zObj && objective && objective !== this._zObj) return;   // a rotation resets control: ZONE SHIFTED says it
     const me = this._zMe(), them = 1 - me;
     // four distinct cues (src/audio/audio.js): we take it · they take it · our hold broken · their hold broken
-    if (owner === me) { this._zCall("WE'VE GOT CONTROL!", { team: me }); this._snd('zone_ours'); }
-    else if (owner === them) { this._zCall("THEY'VE GOT CONTROL!", { team: them, kind: 'bad' }); this._snd('zone_theirs'); }
-    else if (prev === me) { this._zCall('WE LOST CONTROL!', { team: them, kind: 'bad' }); this._snd('zone_lost'); }
-    else if (prev === them) { this._zCall('THEY LOST CONTROL!', { team: me, small: true }); this._snd('zone_broken'); }
+    if (owner === me) { this._zCall(tx('zn.ours'), { team: me }); this._snd('zone_ours'); }
+    else if (owner === them) { this._zCall(tx('zn.theirs'), { team: them, kind: 'bad' }); this._snd('zone_theirs'); }
+    else if (prev === me) { this._zCall(tx('zn.lost'), { team: them, kind: 'bad' }); this._snd('zone_lost'); }
+    else if (prev === them) { this._zCall(tx('zn.broken'), { team: me, small: true }); this._snd('zone_broken'); }
   }
   _zPenalty({ team, penalty }) {
     if (!this._zLive() || !(penalty > 0) || (team !== 0 && team !== 1)) return;
     const me = this._zMe();
-    this._zCall(`PENALTY +${Math.round(penalty)}`, { team, sub: team === me ? 'WE COUNT IT OFF FIRST' : 'THEY COUNT IT OFF FIRST', small: true, kind: 'pen' });
+    this._zCall(tx('zn.penalty', { n: Math.round(penalty) }), { team, sub: team === me ? tx('zn.penUs') : tx('zn.penThem'), small: true, kind: 'pen' });
     this._snd('zone_penalty', { volume: team === me ? 0.9 : 0.65, pitch: team === me ? 0.94 : 1.06 });
   }
   _zActive({ objective, final, moved }) {
     if (!this._zLive()) return;
     this._zObj = objective;
     // the last 30 s lock (zones.js): a note, and the shift call-out only if it actually moved the objective
-    if (final) { this.banner('one_minute', 'FINAL 30 — CENTRE ONLY'); this._snd('zone_final'); }
+    if (final) { this.banner('one_minute', tx('zn.final30')); this._snd('zone_final'); }
     if (moved === false) return;
-    this._zCall(`ZONE SHIFTED → ${this._zLabel(objective, this._zMe())}`, { kind: 'shift' });
+    this._zCall(tx('zn.shifted', { where: this._zLabel(objective, this._zMe()) }), { kind: 'shift' });
     if (!final) this._snd('zone_shift');
     this._restart(this.zo, 'is-moved');
   }
   _zOvertime() {
     if (!this._zLive()) return;
-    this._zBanner('OVERTIME!');
+    this._zBanner(tx('zn.overtimeBang'));
     this._snd('zone_overtime');
     G.music?.setOvertime?.(true);
   }
@@ -1106,23 +1107,23 @@ export class HUD {
         const num = h('b', { class: 'iw-jz__num' }, '100');
         const fill = h('i', { class: 'iw-jz__fill' }), penBar = h('i', { class: 'iw-jz__penbar' });
         const el = h('div', { class: `iw-jz__team ${t ? 'b' : 'a'}` },
-          h('span', { class: 'iw-jd__name' }, names[t] || TEAM_NAMES[t]),
+          h('span', { class: 'iw-jd__name' }, teamName(names[t] || TEAM_NAMES[t])),
           h('div', { class: 'iw-jz__badge' }, h('span', { class: 'iw-jz__plate' }), num, pen[t] > 0 ? h('span', { class: 'iw-jz__pen' }, `+${pen[t]}`) : null),
           h('div', { class: 'iw-jz__bar' }, fill, penBar),
-          h('small', { class: 'iw-jz__cap' }, pen[t] > 0 ? `COUNT LEFT · +${pen[t]} PENALTY` : 'COUNT LEFT'));
+          h('small', { class: 'iw-jz__cap' }, pen[t] > 0 ? tx('jd.countPen', { n: pen[t] }) : tx('jd.countLeft')));
         return { el, num, fill, penBar };
       };
       const A = side(0), B = side(1);
-      const sub = ko ? '' : ({ comeback: 'OVERTIME COMEBACK!', retake: 'RETAKEN IN OVERTIME', neutralised: 'HELD ON THROUGH OVERTIME', 'overtime-cap': 'OVERTIME LIMIT' }[reason] || (overtime ? 'OVERTIME' : ''));
-      const wText = win < 0 ? "IT'S A TIE!" : `${(names[win] || TEAM_NAMES[win] || '').toUpperCase()} WINS!`;
+      const sub = ko ? '' : ({ comeback: tx('jd.comeback'), retake: tx('jd.retake'), neutralised: tx('jd.held'), 'overtime-cap': tx('jd.otCap') }[reason] || (overtime ? tx('jd.ot') : ''));
+      const wText = win < 0 ? tx('jd.tie') : tx('jd.wins', { team: isZh ? teamName(names[win] || TEAM_NAMES[win]) : (names[win] || TEAM_NAMES[win] || '').toUpperCase() });
       const el = h('div', { class: 'iw-jd iw-jz' + (ko ? ' is-ko' : '') },
         h('div', { class: 'iw-jd__bg' }),
-        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, 'FINAL COUNT')),
+        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, tx('jd.final'))),
         sub ? h('div', { class: 'iw-jz__sub' }, sub) : null,
         h('div', { class: 'iw-jz__arena' }, A.el, h('div', { class: 'iw-jz__vs', html: ZONE_ICON }), B.el),
         ko ? h('div', { class: 'iw-jz__ko' },
           h('div', { class: 'iw-jz__kosplat', html: splatSVG({ seed: 31, cls: 'iw-fwin', r: 60, arms: 12, drops: 8 }) }),
-          h('div', { class: 'iw-jz__kotxt iw-display' }, 'KNOCKOUT!')) : null,
+          h('div', { class: 'iw-jz__kotxt iw-display' }, tx('bn.knockout'))) : null,
         h('div', { class: 'iw-jd__win' + (win === 1 ? ' is-b' : win === 0 ? ' is-a' : ' is-tie') },
           h('div', { class: 'iw-jd__winsplat', html: splatSVG({ seed: 5, cls: 'iw-fwin', r: 58, arms: 11, drops: 5 }) }),
           h('div', { class: 'iw-jd__wintext iw-display' }, wText)));
@@ -1459,7 +1460,7 @@ export class HUD {
     if (f.subKind && subKey !== L.subKey) {
       L.subKey = subKey;
       this.subChip.firstChild.innerHTML = SUB_ICONS[f.subKind] || SUB_ICONS.bomb;
-      this.subChip.lastChild.textContent = f.subCost === 0 ? 'FREE' : `${Math.round((f.subCost ?? 0.7) * 100)}%`;
+      this.subChip.lastChild.textContent = f.subCost === 0 ? tx('hud.free') : `${Math.round((f.subCost ?? 0.7) * 100)}%`;
     }
     const tr = !!f.tracked, po = !!f.poisoned;
     if (tr !== L.stTr) { L.stTr = tr; this.statusEl.classList.toggle('show-tracked', tr); }
@@ -1709,8 +1710,8 @@ export class HUD {
     if (strike !== L.mapStrike) {
       L.mapStrike = strike;
       this.map.classList.toggle('is-strike', strike);
-      this.mapLegend.querySelector('.iw-lg__title').textContent = strike ? 'VORTEX STRIKE' : 'SUPER JUMP';
-      this.mapLegend.querySelector('.iw-lg__sub').textContent = strike ? 'Move the mouse to aim · click to launch' : 'Pick a landing spot';
+      this.mapLegend.querySelector('.iw-lg__title').textContent = strike ? tx('hud.strike') : tx('hud.superJump');
+      this.mapLegend.querySelector('.iw-lg__sub').textContent = strike ? tx('hud.strikeSub') : tx('hud.pickSpot');
     }
     // the big map only opens during live play (the controller's TAB state can stay latched through time's up)
     const target = m.expanded && (this.lab || !G.match || G.match.state === 'playing') ? 1 : 0;
@@ -1786,12 +1787,12 @@ export class HUD {
       out[i] = { x: tc.x / mm.w, y: tc.y / mm.h, name: o.name, weapon: o.weaponId, ok: !!(o.alive && !o.superJumpState), respawn: o.alive ? 0 : Math.ceil(o.respawnTimer || 0), actor: o };
     }
     const pad = G.level && G.level.spawnPads && G.level.spawnPads[me.team];
-    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[3] = { x: tc.x / mm.w, y: tc.y / mm.h, name: 'Base', ok: true, home: true, pad }; }
+    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[3] = { x: tc.x / mm.w, y: tc.y / mm.h, name: tx('hud.base'), ok: true, home: true, pad }; }
     // team jump beacons (oldest first — the same order the number keys use)
     const bs = G.subs && mm ? G.subs.beaconsFor(me.team).sort((x, y) => x.born - y.born).slice(0, NB - 4) : [];
     bs.forEach((b, k) => {
       mm.toCanvas(b.pos.x, b.pos.z, tc);
-      out[4 + k] = { x: tc.x / mm.w, y: tc.y / mm.h, name: `${b.owner === me ? 'Your' : b.owner.name + "'s"} beacon · ${b.uses}`, ok: true, dev: true, beacon: b };
+      out[4 + k] = { x: tc.x / mm.w, y: tc.y / mm.h, name: tx('hud.beacon', { who: b.owner === me ? tx('hud.your') : tx('hud.someone', { name: b.owner.name }), n: b.uses }), ok: true, dev: true, beacon: b };
     });
     return out;
   }
@@ -1880,7 +1881,7 @@ export class HUD {
     if (!b) return;
     if (!b.home && !b.dev && row._w !== b.weapon) { row._w = b.weapon; row.querySelector('.iw-lg__w').innerHTML = weaponIcon(kindOf(b.weapon)); }
     row.querySelector('.iw-lg__name').textContent = b.name;
-    const st = !canJump ? '—' : b.ok ? 'READY' : b.respawn ? `${b.respawn}s` : 'BUSY';
+    const st = !canJump ? '—' : b.ok ? tx('pause.ready') : b.respawn ? `${b.respawn}s` : tx('hud.busy');
     row.querySelector('.iw-lg__st').textContent = st;
     row.classList.toggle('is-off', !b.ok || !canJump);
     row.classList.toggle('is-hover', M.hover === i && b.ok && canJump);
