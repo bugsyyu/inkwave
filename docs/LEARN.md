@@ -812,7 +812,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - `src/learn/flow.js`：`new PlayHost(this)`；`_place` 追加写字墙门、`total` 在 `_place` 后算；`_judgeRecord(…, o)`；`_altPrompt` 听写慢速 / 单词回炉的选项过滤；`_autoWalk` 的停点；`_open` 进出口阶段；`_exitUpdate`；开关下不建占位路标。
 - `src/learn/play/m1.js`：`M1_KINDS` 加 `read`；`canPlayM1` 收 `choice-of-typed`。`src/learn/play/flip/deck.js`：靶子挂场景。`src/learn/design.js`：`PLAY` 表 + `playOf`。`src/config.js`：`LEARN.flip.pitch`。`tools/play3-lab.js`：`measure()` 多画一帧。`tests/learn/play.test.mjs`、`design.test.mjs`：阅读题进 M1、`playOf` 全覆盖。`docs/PLAY.md`：§4 表写句 / 课文 / 翻牌三行、路标一段标「play-wire 更正」。
 
-**动了别人地盘的**：`src/core/touch.js` 三行（两个 import + `_down` 里 `if (PlayKeys.owns(e) || ReadStrip.owns(e)) return;`，在 `enabled` 之后、跑酷的滑动钩子之前）。`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` 没动。
+**动了别人地盘的**：`src/core/touch.js` 三行（两个 import + `_down` 里一句：`PlayKeys.owns(e) || ReadStrip.owns(e)`，或开关下点在题条的 ▶ / 关卡 HUD 自己的按钮上 → `return`，在 `enabled` 之后、跑酷的滑动钩子之前——不然节拍台在时点 ▶ 也算跳台）。`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` 没动。`tools/learn/play-audit.mjs` 的 M1 审计读的是 `F.play.cur / T / debug()`，现在 `F.play` 是宿主（M1 在 `F.play.m1`），它只剩 `--script` 那条路（其它形式的回放）还能用；解谜的审计是 `wire-audit.mjs`。
 
 **测试**：`npm run test:learn` 170 → 177（`play-wire` 6 条：三周每个条目每种形式都有玩法且答案形状对得上输入；解谜每道门能问的每个 prompt——引擎的、换问法的、翻牌的、「不熟」后的打字——都有站；打字证据 `T / H / L(pct) / W / S` 和不给 `o` 时与卡片同一个调用；听辨 174 · 音标 96、重排后还在台上、不是墨靶；展板数；`touch.js` 的跳过在滑动钩子之前、各站源码里没有判分；`design.test` 多一条 `playOf` 全覆盖）；`npm run check` 270 个文件绿。
 
