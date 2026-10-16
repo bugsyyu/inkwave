@@ -1512,3 +1512,8 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
   .iw-hud { --u: min(1.6vw, 1.1vh); }
   .iw-learn__walk { top: calc(var(--hudtop, 58px) + env(safe-area-inset-top)); left: 10px; right: auto; max-width: calc(100vw - 20px); }
 }
+/* 「我的写法也对」 under a near-miss sentence (hud-learn.js _claimOffer): her own call, 44 pt, with what it means beside it */
+.iw-learn__claimrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.iw-learn__claim { pointer-events: auto; }
+.iw-learn__claimnote { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.iw-learn__claimrow.is-shake { animation: iw-learn-shake .3s; }

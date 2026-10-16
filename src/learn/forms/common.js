@@ -245,6 +245,19 @@ export function judgeAnswer(item, p, ans) {
   if (p._perm) return judge(item, typeof ans === 'number' ? p._perm[ans] : ans);
   return judge(item, ans);
 }
+// 「我的写法也对」 (IELTS-Base app/exam/ui.js paintVerdict ~1154, app/exam/store.js answer() / claim()): a written sentence
+// that gen.js check() calls claimable — the meaning is there (content words ≥ 60 %), no key form (be / -s / article /
+// preposition) wrong — may be claimed as right on her own judgement. Until she claims it or goes on, nothing is written
+// (the exam store holds it as pending); a claim is re-checked by check() itself (judge(…, { claimed: true })) and stands
+// only if it really is claimable: then the day's first answer is [1, 'S'] (the store's self mode: 自评, the weekly
+// report asks the teacher to look), and going on without claiming writes the miss as usual, [0, 'W'].
+// Only the sentence as asked (not a reworded card — that one is a choice), and not on the 回炉门 (the exam's relearn rounds
+// have no claim either).
+export function canClaim(item, p, r) {
+  return !!(item && item.meta && item.meta.input === 'write' && p && !p._alt && !p._flip && !item._relearn && r && !r.ok && r.claimable);
+}
+export function claimJudge(item, p, ans) { return judge(item, ans, { claimed: true }); }
+
 // the right answer of a live prompt, for the audits (an option index for a choice, the text for a typed answer)
 export function rightAnswerOf(item, p) {
   if (!item || !p) return null;

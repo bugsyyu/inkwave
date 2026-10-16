@@ -16,7 +16,7 @@ import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store, bossLevel, daySteps } from '../api.js';
 import { EFFECTS } from '../design.js';
-import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, judgeAnswer, rightAnswerOf, relearnTip } from './common.js';
+import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, judgeAnswer, rightAnswerOf, relearnTip, canClaim, claimJudge } from './common.js';
 import { FormsUi } from './ui.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -155,12 +155,28 @@ export class BossFlow extends LearnFlow {
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
 
   _answer(g, item, p, ans) {
-    const r = judgeAnswer(item, p, ans), P = this.perPhase[g.phase];
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now() });
+    const r = judgeAnswer(item, p, ans);
+    // 「我的写法也对」 (I, docs/LEARN.md §17 — forms/common.js canClaim): a near-miss sentence is held — nothing recorded, no
+    // lock, no boss move yet — until she claims it (S: a hit, like a right answer) or goes on (W: the miss, as usual)
+    if (canClaim(item, p, r)) {
+      let claimed = null;
+      this._claimHeld = { itemId: item.id };   // (the audits read it)
+      this.hud?.verdict({ ok: false, text: '差一点 — 意思到了', why: r.why, canonical: r.canonical, locks: g.locks, again: false },
+        () => { this._claimHeld = null; this._settle(g, item, p, claimed || r, !!claimed, false); },
+        { onClaim: () => { const c = claimJudge(item, p, ans); if (!c.ok) return null; claimed = c; return { ok: true, why: c.why, text: '记下了 — 你的写法也对' }; } });
+      return;
+    }
+    this._settle(g, item, p, r, false, true);
+  }
+  // the answer's consequences: the day's first answer into her progress, the hit or the boss's move, the verdict card
+  // (self: she claimed it — evidence S; showVerdict false when the card is already up: the claim path)
+  _settle(g, item, p, r, self, showVerdict) {
+    const P = this.perPhase[g.phase];
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(self ? { self: true } : {}) });
     const first = !!rec.first;
     if (first) { this.firsts++; if (r.ok) { this.firstRight++; P.firstRight++; } }
     if (r.ok) { this.right.add(item.id); P.right++; }
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, phase: g.phase });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, phase: g.phase, ...(self ? { self: true } : {}) });
     let again = false, move = false;
     if (r.ok) {
       if (item._relearn) this.relearnRight++;
@@ -172,7 +188,8 @@ export class BossFlow extends LearnFlow {
       if (!item._relearn && item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; G.audio?.play?.(EFFECTS.boss.wrong.sfx, { volume: 0.6 }); }
       else { G.audio?.play?.(EFFECTS.boss.wrong2.sfx, { volume: 0.6 }); if (!item._relearn) this.relearn.push(item); }
     }
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._after(g, move));
+    if (showVerdict) this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._after(g, move));
+    else this._after(g, move);
   }
   _after(g, move) {
     this.asking = null; this.hold = false;

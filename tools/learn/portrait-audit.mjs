@@ -15,7 +15,7 @@
 //            question up, play, the room's pause (G.netm stood in: the battle pause), the results of a 双人联机赛 (its data
 //            injected: the Zone Control results with the questions strip)
 //   level    ?learn=w1d1&kind=puzzle&short=1 → the walk HUD (the clock vs the next-gate bar) → a question → the level's pause
-//   boss     ?learn=w1&kind=boss&short=1 → the W phase's write question → a near miss → 「我的写法也对」
+//   boss     ?learn=w1&kind=boss&short=1 → the W phase: a near miss claimed with 「我的写法也对」 (S), one gone on from (W)
 // Needs puppeteer-core and Chrome (CHROME_PATH); software GL is fine: ?quality=low, shadows / bloom off, the game clock frozen
 // (debug.freeze) and stepped by hand. Reduced motion is emulated (no wipes / pop-ins: stable boxes) unless --motion.
 import puppeteer from 'puppeteer-core';

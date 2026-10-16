@@ -55,7 +55,11 @@ export class LearnHud {
     this.vWhy = h('div', { class: 'iw-learn__why' });
     this.nextBtn = h('button', { class: 'iw-learn__btn iw-learn__next', type: 'button' }, h('span', null, '继续'), h('i', { html: GLYPHS.next }));
     this.nextBtn.addEventListener('click', () => this._continue());
-    this.verdictEl = h('div', { class: 'iw-learn__verdict' }, h('div', { class: 'iw-learn__vline' }, this.vIcon, this.vText), this.vWhy, this.nextBtn);
+    // 「我的写法也对」 (a written sentence check() calls claimable — forms/common.js canClaim): her own call, recorded as S
+    this.claimBtn = h('button', { class: 'iw-learn__btn iw-learn__claim is-dim', type: 'button' }, h('i', { html: GLYPHS.check }), h('span', null, '我的写法也对'));
+    this.claimNote = h('small', { class: 'iw-learn__claimnote' });
+    this.claimEl = h('div', { class: 'iw-learn__claimrow' }, this.claimBtn, this.claimNote);
+    this.verdictEl = h('div', { class: 'iw-learn__verdict' }, h('div', { class: 'iw-learn__vline' }, this.vIcon, this.vText), this.vWhy, this.claimEl, this.nextBtn);
     this.panel = h('div', { class: 'iw-learn__panel', role: 'dialog', 'aria-label': '题目' },
       h('div', { class: 'iw-learn__head' }, this.kind, this.prog, this.locks),
       this.qText, this.qZh, this.playBtn, this.form, this.verdictEl);
@@ -215,9 +219,12 @@ export class LearnHud {
     a.opts.onAnswer(ans);
   }
 
-  verdict(v, next) {
+  // claim (optional): { onClaim() → the verdict after her claim ({ ok, why, text? }) or null when check() refuses it } — offered
+  // on a near miss only; 继续 without it goes on as a miss (the flow's next() reads which happened)
+  verdict(v, next, claim) {
     const a = this._ask; if (!a) return;
     a.next = next;
+    this._claimOffer(a, v, claim);
     this.vIcon.innerHTML = v.ok ? GLYPHS.check : GLYPHS.close;
     this.vText.textContent = v.text || (v.ok ? '对了！' : v.again ? '不对，门上多了一道锁。待会儿换个问法再来' : '不对，记住正确的写法');
     this.vWhy.textContent = v.why ? `为什么：${v.why}` : '';
@@ -230,9 +237,36 @@ export class LearnHud {
       this.choices.forEach((b) => { const en = b.querySelector('.iw-learn__opten')?.textContent || ''; b.classList.toggle('is-right', en === want); });
     }
     if (!prefersReducedMotion()) restartAnim(this.verdictEl, 'is-pop');
+    // (I: on a phone the card is the bottom half and scrolls — a sentence, its verdict and 「我的写法也对」 run past it: bring
+    // the verdict and 「继续」 into view, as IELTS-Base's exam does with its result)
+    try { this.nextBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* old engines */ }
     // a wrong answer waits for 「继续」 so the correction is actually read; a right one moves on by itself
     clearTimeout(this._vT);
     if (v.ok) this._vT = setTimeout(() => this._continue(), prefersReducedMotion() ? 500 : LEARN.ui.verdictMs);
+  }
+
+  _claimOffer(a, v, claim) {
+    const on = !!(claim && !v.ok);
+    this.claimEl.style.display = on ? '' : 'none';
+    this.claimBtn.style.display = '';
+    this.claimBtn.disabled = !on;
+    this.claimNote.textContent = '点了算自评，周报里请老师看';
+    this.claimBtn.onclick = on ? () => {
+      if (a !== this._ask || a.claimed) return;
+      const nv = claim.onClaim && claim.onClaim();
+      if (!nv || !nv.ok) { restartAnim(this.claimEl, 'is-shake'); this._snd('ui_error'); return; }
+      a.claimed = true;
+      this.claimBtn.style.display = 'none';
+      this.claimNote.textContent = '已记下：你的写法（周报里请老师看）';
+      this.vIcon.innerHTML = GLYPHS.check;
+      this.vText.textContent = nv.text || '记下了 — 你的写法也对';
+      this.vWhy.textContent = nv.why ? `为什么：${nv.why}` : '';
+      this.verdictEl.classList.remove('is-bad'); this.verdictEl.classList.add('is-ok');
+      if (!prefersReducedMotion()) restartAnim(this.verdictEl, 'is-pop');
+      this._snd('ui_confirm');
+      clearTimeout(this._vT);
+      this._vT = setTimeout(() => this._continue(), prefersReducedMotion() ? 500 : LEARN.ui.verdictMs);
+    } : null;
   }
 
   _continue() {

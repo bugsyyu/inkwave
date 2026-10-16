@@ -128,6 +128,23 @@ export const GROUPS = {
     await c.ev(async () => { const L = __inkwave.match.learn; L.autoWalk(true); for (let i = 0; i < 60 && !(L.phase === 'ask' && __G.hud.learn._ask); i++) { __inkwave.debug.step(1000); await new Promise((r) => setTimeout(r, 0)); } });
     const q = await c.measure('level-question', { scopes: HUD, extra: await c.ev(() => ({ phase: __inkwave.match.learn.phase, type: __G.hud.learn._ask && __G.hud.learn._ask.p.type })) });
     q.backOk = null;
+    // answer every question right (auto-walk between the gates) to the end card, then 回到菜单 → the main menu
+    await c.ev(async () => {
+      const L = __inkwave.match.learn, H = __G.hud.learn, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      for (let i = 0; i < 160 && !document.querySelector('.iw-learn.is-done'); i++) {
+        const A = H._ask;
+        if (A && !A.answered) {
+          const p = A.p, want = p.type === 'flip' ? true : (L.asking && (p.type === 'choice' ? (p._perm ? p._perm.indexOf(L.asking.item.answer) : p._alt === 'choice-of-typed' ? p.options.findIndex((o) => o.text === ((L.asking.item.meta && L.asking.item.meta.ref) || L.asking.item.en)) : L.asking.item.answer) : ((L.asking.item.meta && L.asking.item.meta.ref) || L.asking.item.en)));
+          if (p.type === 'choice' && H.choices) H.choices[Math.max(0, want)].click(); else if (H.input) { H.input.value = String(want); H._submit(H.input.value); }
+          await sleep(30);
+        } else if (A && A.answered) H._continue();
+        else { if (!L.auto) L.autoWalk(true); }
+        __inkwave.debug.step(1000); await sleep(0);
+      }
+    });
+    const done = await c.ev(() => !!document.querySelector('.iw-learn.is-done'));
+    const rc = await c.measure('level-results', { scopes: ['.iw-learn'], reached: done, back: '.iw-learn__results .iw-learn__big.is-dim', extra: await c.ev(() => ({ score: (document.querySelector('.iw-learn__rscore') || {}).textContent })) });
+    if (done) { await c.tap('.iw-learn__results .iw-learn__big.is-dim', '回到菜单'); rc.backOk = await c.waitFor(() => __inkwave.menus.current === 'main', 20000, 'main menu after the level'); }
   },
   // a real 双人联机赛 on the phone: a room on this run's relay, 双人联机赛 short (2 questions) against the bots, started from
   // the session API (the room screen's own countdown runs on the menus' clock, frozen here); the match stepped at ≤ 2×
@@ -183,6 +200,83 @@ export const GROUPS = {
     await c.ev(() => { const r = document.querySelector('.iw-results'); if (r) { r.classList.remove('is-intro'); r.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); } });
     const rs = await c.measure('v2-results', { back: '.iw-res__btns [data-id="toroom"], .iw-res__btns [data-id="leave"]', extra: await c.ev(() => ({ title: (document.querySelector('.iw-res__title') || {}).textContent, tags: [...document.querySelectorAll('.iw-res__tag')].map((e) => e.textContent.trim()), strip: (document.querySelector('.iw-res__learn') || {}).textContent, online: !!document.querySelector('.iw-res__lobby') })) });
     rs.backOk = null;
+  },
+  // the week's 周考 on the phone (?learn=w1&kind=boss&short=1&from=app): L and R answered right, then the W phase's two
+  // sentences — the first a near miss claimed with 「我的写法也对」 (evidence S, a hit), the second a near miss she goes on from
+  // (evidence W, a miss) — the card with the claim measured, and the two leaves read back from the store
+  async boss(c) {
+    await c.waitFor(() => !!(__inkwave.match && __inkwave.match.learn), 90000, 'the level built');
+    await c.ev(() => { if (__inkwave.debug.freezeBots) __inkwave.debug.freezeBots(); });
+    const out = await c.ev(async () => {
+      const W = window, L = __inkwave.match.learn, H = __G.hud.learn, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const adv = async (ms) => { const I = __inkwave; I._skipRender = true; try { for (let i = 0; i < Math.round(ms / 16.7); i++) I._frame(1 / 60); } finally { I._skipRender = false; } await sleep(0); };
+      const o = { steps: [] };
+      for (let i = 0; i < 200; i++) {
+        const A = H._ask;
+        if (A && !A.answered && L.asking) {
+          const p = A.p, it = L.asking.item;
+          if (p.type === 'write') { o.write = { id: it.id, ref: (it.meta && it.meta.ref) || it.en, phase: L.asking.gate && L.asking.gate.phase }; break; }
+          const want = L.rightAnswer();
+          if (p.type === 'choice' && H.choices) H.choices[Math.max(0, want)].click(); else if (H.input) { H.input.value = String(want); H._submit(H.input.value); }
+          o.steps.push(p.type);
+          await adv(100); H._continue(); await adv(200);
+        } else if (L.prep && L.prep()) { const go = document.querySelector('.iw-lf__go'); if (go) go.click(); await adv(800); }
+        else await adv(800);
+      }
+      return o;
+    });
+    c.say('to the W phase', JSON.stringify(out));
+    if (!out.write) return;
+    // a near miss: the first variant of the reference (a word left out, or one swapped for another) that IELTS-Base's own
+    // check() calls claimable — asked of the page's engine module (the same instance the level judges with)
+    const nearOf = (id) => c.ev(async (id) => {
+      const { judge } = await import('/src/learn/engine.js');
+      const it = __inkwave.match.learn.asking.item, ref = (it.meta && it.meta.ref) || it.en, ws = ref.replace(/[.?!]$/, '').split(' ');
+      const tries = [], end = /\?$/.test(ref) ? '?' : '.';
+      const put = (arr) => tries.push(arr.filter((x) => x !== null).join(' ') + end);
+      for (let i = 0; i < ws.length; i++) put(ws.map((w, k) => (k === i ? null : w)));                          // one word left out
+      for (let i = 0; i < ws.length; i++) put(ws.map((w, k) => (k === i ? 'stuff' : w)));                       // one swapped
+      for (let i = 0; i < ws.length; i++) for (let j = i + 1; j < ws.length; j++) {
+        put(ws.map((w, k) => (k === i || k === j ? null : w)));                                                  // two left out
+        put(ws.map((w, k) => (k === i || k === j ? 'stuff' : w)));                                               // two swapped
+        put(ws.map((w, k) => (k === i ? null : k === j ? 'stuff' : w)));                                         // one of each
+      }
+      for (const t of tries) { const r = judge(it, t); if (!r.ok && r.claimable) return t; }
+      return null;
+    }, id);
+    const near1 = await nearOf(out.write.id);
+    c.say('near miss', near1);
+    await c.ev((a) => { const H = __G.hud.learn; H.input.value = a; H._submit(a); }, near1 || 'zzz');
+    await c.step(2);
+    const held = await c.ev(() => ({ claimShown: getComputedStyle(__G.hud.learn.claimEl).display !== 'none', held: !!__inkwave.match.learn._claimHeld, verdict: __G.hud.learn.vText.textContent, why: __G.hud.learn.vWhy.textContent }));
+    const card = await c.measure('boss-claim', { scopes: ['.iw-learn'], reached: held.claimShown, extra: held });
+    card.backOk = null;
+    const before = await c.ev((id) => { const s = JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}'); return JSON.stringify(s.ev || {}).includes(id); }, out.write.id);
+    await c.tap('.iw-learn__claim', '我的写法也对');
+    const after = await c.ev(() => ({ verdict: __G.hud.learn.vText.textContent, note: __G.hud.learn.claimNote.textContent, ok: __G.hud.learn.verdictEl.classList.contains('is-ok') }));
+    await c.ev(() => __G.hud.learn._continue());
+    await c.step(3);
+    // the second sentence: a near miss again, and 继续 without claiming
+    const out2 = await c.ev(async () => {
+      const L = __inkwave.match.learn, H = __G.hud.learn, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const adv = async (ms) => { const I = __inkwave; I._skipRender = true; try { for (let i = 0; i < Math.round(ms / 16.7); i++) I._frame(1 / 60); } finally { I._skipRender = false; } await sleep(0); };
+      for (let i = 0; i < 60 && !(H._ask && !H._ask.answered && H._ask.p.type === 'write'); i++) await adv(800);
+      return H._ask && H._ask.p.type === 'write' ? { id: L.asking.item.id, ref: (L.asking.item.meta && L.asking.item.meta.ref) || L.asking.item.en } : null;
+    });
+    let leaves = null, second = null;
+    if (out2) {
+      const near2 = await nearOf(out2.id);
+      c.say('near miss 2', near2);
+      await c.ev((a) => { const H = __G.hud.learn; H.input.value = a; H._submit(a); }, near2 || 'zzz');
+      await c.step(2);
+      second = await c.ev(() => ({ claimShown: getComputedStyle(__G.hud.learn.claimEl).display !== 'none', verdict: __G.hud.learn.vText.textContent }));
+      await c.tap('.iw-learn__next', '继续 (no claim)');
+      await c.step(3);
+    }
+    leaves = await c.ev((ids) => { const s = JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}'), out = {}; for (const d of Object.values(s.ev || {})) for (const id of ids) if (d.it && d.it[id]) out[id] = d.it[id]; return out; }, [out.write.id, out2 && out2.id].filter(Boolean));
+    const log = await c.ev(() => (__inkwave.match.learn.log || []).filter((e) => e.name === 'learn:answer').slice(-3));
+    c.rows.push({ name: 'boss-claim → S / W', reached: true, backOk: null, extra: { first: out.write, heldBeforeClaim: !before, afterClaim: after, second: out2, secondCard: second, leaves, log } });
+    c.say('claim', JSON.stringify({ heldBeforeClaim: !before, after, second, leaves }));
   },
 };
 
