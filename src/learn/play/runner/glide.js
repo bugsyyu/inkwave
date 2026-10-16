@@ -229,11 +229,12 @@ export class GlideStation {
   // in the runner it sits under the standings, ~ a quarter down — frame.js's default 0.1 would put the rig under it) and
   // the keyboard's share. The search runs once per band / aspect (frameFor is a search); the typing pose is re-based on
   // her every frame. After 射 the word's frame is taken once, in the world: play-type's 'word' composition (the word
-  // big in the upper screen, the rig at the bottom edge) for a rig FRAME.dist (6.5 m) short of the spot the word forms,
-  // on the line from her at 射 (frame.js wants the word dead ahead; on the road it may stand a little to the side). The
-  // word lands ~13 m ahead of her, so she is not there yet: the lens holds while she swims on into that composition —
-  // the word forms over her as she arrives — until she is at the word (2.5 m): then it hands back to the chase camera
-  // (a held sentence may wait there for her tap). cam.js eases one pose into the next.
+  // big in the upper screen, the rig at the bottom edge) for the rig where she will be as the word has formed (≈ 2.8 s
+  // on at her pace, never nearer the word than FRAME.dist 6.5 m), on the line from her at 射 to the word (frame.js wants
+  // the word dead ahead; on the road it may stand a little to the side). The word lands ~18 m ahead of her: the lens
+  // holds while she swims on into that composition — the word forms over her as she arrives — until she is at the word
+  // (2.5 m): then it hands back to the chase camera (a held sentence may wait there for her tap). The pose is checked
+  // for a clear view first (a roof, a wall by a bend): blocked → the chase camera. cam.js eases one pose into the next.
   _framed() {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = typeof innerWidth !== 'undefined' ? innerWidth : 1280, H = typeof innerHeight !== 'undefined' ? innerHeight : 720, aspect = W / H;
@@ -249,7 +250,10 @@ export class GlideStation {
       if (C.passed) return null;
       if (C.wpose === undefined) {   // (once: false = no clear word frame)
         const dx = C.word.x - a.pos.x, dz = C.word.z - a.pos.z, dist = Math.max(3, Math.hypot(dx, dz)), wy = Math.atan2(dx, dz), s2 = Math.sin(wy), c2 = Math.cos(wy);
-        const D = Math.min(FRAME.dist, dist), ox = C.word.x - s2 * D, oz = C.word.z - c2 * D, oy = a.pos.y;   // (the rig's spot in the composition)
+        // (the rig's spot in the composition: where she will be as the word has formed — ≈ 2.8 s on at her pace —
+        // never nearer the word than FRAME.dist)
+        const sp0 = Math.max(1.5, Math.hypot(a.vel.x, a.vel.z)), D = clamp(dist - sp0 * 2.8, Math.min(FRAME.dist, dist), dist);
+        const ox = C.word.x - s2 * D, oz = C.word.z - c2 * D, oy = a.pos.y;
         const b = wordBox(C.text || 'word');
         const f = frameFor({ phase: 'word', aspect, kbFrac: 0, topFrac: top, dist: D, word: { w: b.w, h: b.h, y: C.word.y - oy } });
         const pose = { pos: new THREE.Vector3(ox + c2 * f.pos[0] + s2 * f.pos[2], oy + f.pos[1], oz - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
