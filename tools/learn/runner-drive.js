@@ -113,7 +113,7 @@
       if (W.__runShotAfter && rec.ok && !S.afterShot) { await step(80); render(); rec.burstShot = true; S.burstPending = true; }
       if (!S.burstPending) { await step(450); rec.vAfter = +spd().toFixed(2); }
       rec.leavesAfter = leaves(row.item.id);
-      rec.verdict = (document.querySelector('.iw-run__verdict.is-on') || {}).textContent || '';
+      rec.verdict = ((document.querySelector('.iw-ps.is-verdict:not(.is-off) .iw-ps__verdict') || document.querySelector('.iw-ps__note.is-on') || {}).textContent || '').trim();
       S.rows.push(rec);
       // one shot just after the first right curtain: the burst into her ink (fx.explosion + paint.flood)
       if (W.__runShotAfter && rec.ok && !S.afterShot && rec.burstShot) { S.afterShot = true; S.burstPending = false; S.shotsTaken++; return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug(), after: true }); }

@@ -11,6 +11,14 @@
 //   S.rect() → the strip's box (CSS px) or null when hidden — the top of the safe area under it (src/learn/play/run.js)
 //   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show()
 //   S.setInk(hex)                  her team colour
+// 墨浪跑酷 (play-4, docs/LEARN.md §20 「接口」: the runner asks two things more of the strip, inside the same box):
+//   S.show(p, { replay, tag: { text, kind }, lanes: [{ tag, en, zh }], lite })   a chip before the question (选一条道 /
+//                                  踩拍换道 / 打字 · 射) and the options by lane under it (lite: only on a phone held
+//                                  upright — the curtains read on their own once the phone is turned)
+//   S.here(i)                      the lane she is lined up with (its cell brightens)
+//   S.verdict(v, { ms })           a timed verdict: the strip hides itself after ms — unless the next question comes
+//                                  first, then the verdict moves to a note line under the box for the rest of its time
+//                                  (she is still moving: the next row's reading lead must not wait). S.update(dt) counts.
 import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
 
@@ -52,6 +60,24 @@ const CSS = `
   .iw-ps__box.is-enter { animation-name: iw-ps-in-up; }
   @keyframes iw-ps-in-up { from { opacity: 0; translate: 0 -8px; } }
 }
+/* 墨浪跑酷: the chip, the lanes' cells, the note line (all inside the strip's own layer) */
+.iw-ps__tag { display: none; flex: 0 0 auto; align-self: center; padding: 4px 9px; border-radius: 999px; background: var(--self); color: var(--self-ink); font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+.iw-ps__tag.is-on { display: block; }
+.iw-ps__tag.is-beat { background: #ffd21a; color: #15121c; }
+.iw-ps__tag.is-type { background: #e9e5f4; color: #15121c; }
+.iw-ps__lanes { display: none; gap: 6px; align-items: stretch; margin-top: 6px; }
+.iw-ps__lanes.is-on { display: flex; }
+.iw-ps__lanes span { flex: 1; min-width: 0; padding: 5px 8px; border-radius: 10px; background: rgba(255,255,255,.08); font-size: 14px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+.iw-ps__lanes span b { color: var(--self); margin-right: 4px; }
+.iw-ps__lanes span small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+.iw-ps__lanes span.is-here { background: rgba(255,255,255,.22); }
+@media (orientation: landscape) { .iw-ps__lanes.is-lite { display: none !important; } }
+.iw-ps.is-verdict .iw-ps__lanes { display: none; }
+.iw-ps__note { position: absolute; left: 50%; top: 0; translate: -50% 0; max-width: calc(100vw - 32px); padding: 8px 16px; border-radius: 999px; background: var(--lk); font-size: 17px; font-weight: 800; opacity: 0; transition: opacity .2s; text-align: center; }
+.iw-ps__note.is-on { opacity: 1; }
+.iw-ps__note.is-ok { color: var(--self); }
+.iw-ps__note.is-bad { color: var(--coral); }
+.iw-ps__note small { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .iw-ps__box.is-enter, .iw-ps__box.is-flash { animation: none; } }
 `;
 
@@ -73,12 +99,16 @@ export class PlayStrip {
     this.play.addEventListener('click', (e) => { e.stopPropagation(); this._replay?.(); });
     this.head = h('b', { class: 'iw-ps__head' });
     this.why = h('span', { class: 'iw-ps__why' });
-    this.text = h('div', { class: 'iw-ps__text' }, this.q, this.zh);
+    this.tag = h('span', { class: 'iw-ps__tag' });
+    this.lanes = h('div', { class: 'iw-ps__lanes' });
+    this.text = h('div', { class: 'iw-ps__text' }, this.q, this.zh, this.lanes);
     this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why);
-    this.box = h('div', { class: 'iw-ps__box' }, this.play, this.text, this.verd);
-    this.el = h('div', { class: 'iw-ps is-off', role: 'status', 'aria-live': 'polite' }, this.box);
+    this.box = h('div', { class: 'iw-ps__box' }, this.play, this.tag, this.text, this.verd);
+    this.note = h('div', { class: 'iw-ps__note' });
+    this.el = h('div', { class: 'iw-ps is-off', role: 'status', 'aria-live': 'polite' }, this.box, this.note);
     (hud && hud.root ? hud.root : document.body).appendChild(this.el);
     this.on = false;
+    this._vT = 0; this._nT = 0;   // the timed verdict / the note line (s left)
   }
   setInk(hex) { colorVars(this.el, 'self', hex || '#ff8a14'); }
 
@@ -104,27 +134,51 @@ export class PlayStrip {
     if (half < Infinity) this.box.style.maxWidth = `${Math.max(260, Math.floor(half * 2))}px`;
   }
 
-  show(p, { replay } = {}) {
+  show(p, { replay, tag = null, lanes = null, lite = false } = {}) {
+    // a timed verdict still up (the runner's last row): it goes on as the note line under the new question
+    if (this._vT > 0 && this.el.classList.contains('is-verdict')) { this._noteFromVerdict(this._vT); this._vT = 0; }
     this._replay = replay || null;
     this.q.textContent = p.text || '';
     this.zh.textContent = p.zh && p.zh !== p.text ? p.zh : '';
     const canPlay = !!(p.tts && replay);
     this.play.style.display = canPlay ? '' : 'none';
     this.box.classList.toggle('is-noplay', !canPlay);
+    this.tag.className = 'iw-ps__tag' + (tag ? ' is-on' + (tag.kind ? ' is-' + tag.kind : '') : '');
+    this.tag.textContent = tag ? tag.text || '' : '';
+    this.lanes.innerHTML = '';
+    if (lanes && lanes.length) for (const o of lanes) this.lanes.append(h('span', null, h('b', null, o.tag || ''), o.en || '', o.zh ? h('small', null, o.zh) : null));
+    this.lanes.className = 'iw-ps__lanes' + (lanes && lanes.length ? ' is-on' : '') + (lite ? ' is-lite' : '');
     this.el.classList.remove('is-off', 'is-verdict', 'is-ok', 'is-bad');
     this.on = true;
     if (!prefersReducedMotion()) restartAnim(this.box, 'is-enter');
   }
+  here(i) { const c = this.lanes.children; for (let k = 0; k < c.length; k++) c[k].classList.toggle('is-here', k === i); }
   question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); }
-  verdict(v) {
+  verdict(v, { ms = 0 } = {}) {
     this.head.textContent = v.head || '';
     this.why.textContent = v.why || '';
     this.el.classList.add('is-verdict');
     this.el.classList.toggle('is-ok', !!v.ok); this.el.classList.toggle('is-bad', !v.ok);
     if (v.ok && !prefersReducedMotion()) restartAnim(this.box, 'is-flash');
+    this._vT = ms > 0 ? ms / 1000 : 0;
+    if (ms > 0 && !this.on) { this.on = true; this.el.classList.remove('is-off'); }   // (a verdict after the question was cleared: the strip comes back for it)
+  }
+  _noteFromVerdict(s) {
+    this.note.innerHTML = '';
+    this.note.append(h('span', null, this.head.textContent));
+    if (this.why.textContent) this.note.append(h('small', null, this.why.textContent));
+    this.note.className = 'iw-ps__note is-on ' + (this.el.classList.contains('is-ok') ? 'is-ok' : 'is-bad');
+    this._nT = s;
+    this._placeNote();
+  }
+  _placeNote() { const r = this.box.getBoundingClientRect(); this.note.style.top = `${Math.round(r.bottom + 8)}px`; }
+  // per frame (only the timed verdict and the note line need it: the runner calls it)
+  update(dt) {
+    if (this._vT > 0 && (this._vT -= dt) <= 0) { this._vT = 0; if (this.el.classList.contains('is-verdict')) this.hide(); }
+    if (this._nT > 0 && (this._nT -= dt) <= 0) { this._nT = 0; this.note.classList.remove('is-on'); }
   }
   playing(on) { this.play.classList.toggle('is-playing', !!on); }
-  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; }
+  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; this._vT = 0; }
   rect() {
     if (!this.on) return null;
     const b = this.box.getBoundingClientRect();

@@ -22,7 +22,8 @@ import { SUBS, SPECIALS, OFFLINE_MAPS, DIFFICULTY, TIMES, LEARN } from '../confi
 const N = LEARN;
 
 export const FORMS = ['puzzle', 'race', 'duel', 'boss'];
-export const FORM_ZH = { puzzle: '解密闯关', race: '道具赛', duel: '对抗赛', boss: 'Boss 战（周考）' };
+// (题即玩法 PLAY §5.2, play-4: under LEARN.play the race is 墨浪跑酷 — the id stays 'race'; flag off, 道具赛 as before)
+export const FORM_ZH = { puzzle: '解密闯关', race: N.play ? '墨浪跑酷' : '道具赛', duel: '对抗赛', boss: 'Boss 战（周考）' };
 // the stages a learning level may use: the offline ones (cargo is online-only, humans-only, never a boss stage)
 export const STAGE_IDS = OFFLINE_MAPS.map((m) => m.id);
 

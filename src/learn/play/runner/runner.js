@@ -33,7 +33,9 @@ import { detourBranch, branchLine, branchAt } from './detour.js';
 import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, rowAnswer, planCourse } from './rows.js';
 import { RowView, HerMark } from './view.js';
 import { RunnerCam } from './cam.js';
-import { RunnerHud } from './hud.js';
+import { RunnerTips } from './tips.js';
+import { PlayStrip } from '../../../ui/play-strip.js';   // play-1's question strip: the one strip of every play kind (play-4)
+import { say, stop as stopVoice } from '../../audio.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const _p = {}, _q = {}, _pr = {};
@@ -66,7 +68,8 @@ export class RunnerFlow extends RaceFlow {
     this.stop = false; this.boards = null; this.phase = 'walk';
     this.cam = new RunnerCam();
     this.mark = new HerMark(); G.scene.add(this.mark.mesh);
-    this.rh = new RunnerHud(G.hud);
+    this.strip = new PlayStrip(G.hud); this.strip.el.classList.add('is-runner'); this.strip.setInk((G.teamHex || [])[0]);
+    this.tips = new RunnerTips(G.hud);
     this.ui.el?.classList.add('is-runner');
     G.hud?.el?.classList.add('is-learn', 'is-runner');   // (hud-learn's start() did is-learn: the clock's width; is-runner: no crosshair)
     G.touch?.el?.classList.add('is-runner');       // only ⏸ of the thumb cluster (hud.js CSS)
@@ -197,7 +200,7 @@ export class RunnerFlow extends RaceFlow {
   update(dt) {
     this.t += dt;
     this._pourInk();
-    this.rh.update(dt);
+    this.strip.update(dt); this.tips.update(dt);
     const m = this.match, a = m.local;
     for (const r of this.rows) r.view && r.view.update(G.time, r.kind === 'beat' && r.state === 'shown' && r.grid ? beatPulse(r.grid, G.time) : 0, dt);
     for (const r of this.rows) if (r.view && r.state === 'built' && r.view.prepare()) break;   // one label a frame
@@ -268,8 +271,8 @@ export class RunnerFlow extends RaceFlow {
     G.hud?.banner?.('go', '出发');
     G.audio?.play?.('go_horn', { volume: 0.8 });
     const touch = !!(G.input && G.input.touch && G.input.touch.active);
-    this.rh.showHint(touch ? '左右滑 换道 · 上滑 跳 · 下滑 潜' : 'A / D 换道 · W 跳 · S 潜（也可以用方向键）', 5);
-    this.rh.maybeRotate();
+    this.tips.showHint(touch ? '左右滑 换道 · 上滑 跳 · 下滑 潜' : 'A / D 换道 · W 跳 · S 潜（也可以用方向键）', 5);
+    this.tips.maybeRotate();
   }
 
   // ---------------------------------------------------------------------------------------------- rows
@@ -322,7 +325,7 @@ export class RunnerFlow extends RaceFlow {
     this.asking = { gate: g || { id: 'gate:relearn', index: this.gates.length }, item, p, row };
     this.asked++; this.stats.rows++;
     this.latT = dividerStart(row.lanes, R.laneW, row.c, this.latT);   // the ink road carries her onto a divider
-    this.rh.ask(row.kind, p, row.labels.map((l, i) => ({ tag: TAGS[i], en: l.en, zh: l.zh })), row.banner);
+    this._ask(row.kind, p, row.labels.map((l, i) => ({ tag: TAGS[i], en: l.en, zh: l.zh })), row.banner);
     G.audio?.play?.('ui_confirm', { volume: 0.45 });
     if (row.kind === 'beat') {
       row.grid = this._grid();
@@ -345,11 +348,11 @@ export class RunnerFlow extends RaceFlow {
     if (!row.spoken && G.time >= row.wordAt - 0.02) {
       row.spoken = true;
       const tip = p._tip;
-      if (tip && tip.speakBoth && row.item.meta && row.item.meta.pair) this.rh.speak(row.item.meta.pair.join(', '));
-      else if (p.tts) this.rh.speak(p.tts, { slow: !!(tip && tip.slow) });
+      if (tip && tip.speakBoth && row.item.meta && row.item.meta.pair) this._speak(row.item.meta.pair.join(', '));
+      else if (p.tts) this._speak(p.tts, { slow: !!(tip && tip.slow) });
     }
-    if (row.echoAt && G.time >= row.echoAt) { row.echoAt = 0; this.rh.speak(p.tts); }
-    this.rh.here(laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap));
+    if (row.echoAt && G.time >= row.echoAt) { row.echoAt = 0; this._speak(p.tts); }
+    this.strip.here(laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap));
   }
   // the music's grid on the game clock (a synth track carries its bpm and its first downbeat on the audio clock)
   _grid() {
@@ -357,6 +360,30 @@ export class RunnerFlow extends RaceFlow {
     try { if (cur && cur.song && cur.song.bpm && cur.t0 != null && mu.ctx) return beatGrid(cur.song.bpm, cur.t0 + (G.time - mu.now())); } catch (e) { /* no audio clock */ }
     if (!this._fallbackGrid) this._fallbackGrid = beatGrid(this.RR.bpm, G.time);
     return this._fallbackGrid;
+  }
+
+  // ---------------------------------------------------------------------------------------------- the strip
+  // a row's question on play-1's strip: a chip for the kind (选一条道 / 踩拍换道 / 打字 · 射), the question as the engine
+  // words it, ▶ 再听, and the options by lane (always for banner rows — a 41-character curtain reads only at the last
+  // second on a 390 px phone — otherwise only upright)
+  _ask(kind, p, lanes = null, banner = false) {
+    const tag = kind === 'beat' ? { text: '踩拍换道', kind: 'beat' } : kind === 'glide' ? { text: '滑行段 · 打字', kind: 'type' } : { text: '选一条道', kind: 'lane' };
+    this.strip.show(p, { replay: p.tts ? () => { G.hud?.playSound?.('ui_click'); this._speak(p.tts, { slow: !!(p._tip && p._tip.slow) }); } : null, tag, lanes, lite: !banner });
+    this.strip.fit(this._topKeys());
+  }
+  // the verdict line: 「对！」 in her ink, 「差一点：是 ___」 (+ the why) in coral — for ms, then gone (or on as a note
+  // under the next question, the strip's own rule)
+  _say(ok, text, why = '', ms = 2400) { this.strip.verdict({ ok, head: text, why }, { ms }); }
+  _speak(text, o = {}) {
+    if (!text) return;
+    this.strip.playing(true);
+    say(text, { slow: !!o.slow, onEnd: () => this.strip.playing(false) });
+  }
+  // the touch layer's live top-row keys (⏸ here): the strip keeps clear of them (as play-1's run.js does)
+  _topKeys() {
+    const T = G.touch, out = [];
+    if (T && T.enabled && T.buttons) for (const b of T.buttons) if (b.top && b.r > 0 && b.el && b.el.getClientRects().length) out.push({ x: b.cx - b.r, y: b.cy - b.r, w: b.r * 2, h: b.r * 2 });
+    return out;
   }
 
   // ---------------------------------------------------------------------------------------------- after her update
@@ -414,7 +441,7 @@ export class RunnerFlow extends RaceFlow {
   _settle(row, d) {
     const R = this.RR, item = row.item, p = row.p, g = this.gates[row.gate];
     row.state = 'done'; row.doneT = 0;
-    this.rh.clear(); this.asking = null;
+    this.strip.hide(); this.asking = null;
     const lane = laneOf(d, row.lanes, R.laneW, row.c, R.gap);
     const res = rowAnswer(item, p, lane, { hinted: !!p._hinted, at: Date.now() });
     if (!res.answered) { this._noAnswer(row); return; }
@@ -442,11 +469,11 @@ export class RunnerFlow extends RaceFlow {
       this.boostK = R.beatBoost[0]; this.boostT = R.beatBoost[1];
       this._jumpQ = true; this.popT = 0.7; a.character.setDance?.('victory');
       _v2.copy(a.pos); _v2.y += 0.3; G.fx?.ring?.(_v2, _up, col, { radius: 1.8, life: 0.4 });
-      this.rh.say(true, '对！踩在拍子上');
+      this._say(true, '对！踩在拍子上');
     } else {
       if (beat === false) this.stats.offBeat++;
       this.boostK = R.boost[0]; this.boostT = R.boost[1];
-      this.rh.say(true, beat === false ? '对！（下次踩在拍子上更快）' : '对！', '', 1200);
+      this._say(true, beat === false ? '对！（下次踩在拍子上更快）' : '对！', '', 1200);
     }
     this._onRight();   // the race's: splat_big, the burst, the jump trigger, 答对了, a prop from the drop table, streaks
   }
@@ -463,7 +490,7 @@ export class RunnerFlow extends RaceFlow {
     const right = row.labels[rl] || { en: r.canonical };
     // the why, without what the line already says (the right answer): its first sentence that adds something
     const why = String(r.why || '').replace(/^不对。/, '').replace(/正确答案：[^。]*。/, '').split(/(?<=[。！？])/).map((x) => x.trim()).filter(Boolean)[0] || '';
-    this.rh.say(false, `差一点：是 ${[right.en, right.zh].filter(Boolean).join(' ')}`, why, R.verdictMs);
+    this._say(false, `差一点：是 ${[right.en, right.zh].filter(Boolean).join(' ')}`, why, R.verdictMs);
     if (!row.e.relearn && row.e.tries < this.P.retries) {
       G.audio?.play?.(EFFECTS.race.wrong.sfx, { volume: 0.6 });
       this._requeue({ ...row.e, tries: row.e.tries + 1, alt: true, noAns: 0 });
@@ -481,9 +508,9 @@ export class RunnerFlow extends RaceFlow {
     row.view.fade = 0.999;
     this._emit('learn:noanswer', { itemId: row.item.id, gate: this.gates[row.gate] ? this.gates[row.gate].id : 'gate:relearn', n: e.noAns + 1 });
     G.audio?.play?.('ui_back', { volume: 0.35 });
-    if (e.noAns === 0) { this.queue.unshift({ ...e, noAns: 1 }); this.rh.say(true, '没选 — 这一题马上再来一次', '游进一道幕才算答'); }
-    else if (e.noAns === 1) { this._requeue({ ...e, noAns: 2 }); this.rh.say(true, '没选 — 这一题放到这一站最后', '游进一道幕才算答'); }
-    else { this.stats.skipped.push(row.item.id); this.rh.say(true, '没选 — 这一题留到下次', ''); }
+    if (e.noAns === 0) { this.queue.unshift({ ...e, noAns: 1 }); this._say(true, '没选 — 这一题马上再来一次', '游进一道幕才算答'); }
+    else if (e.noAns === 1) { this._requeue({ ...e, noAns: 2 }); this._say(true, '没选 — 这一题放到这一站最后', '游进一道幕才算答'); }
+    else { this.stats.skipped.push(row.item.id); this._say(true, '没选 — 这一题留到下次', ''); }
     this._checkGates();
   }
   // after the last pending entry of the same checkpoint (「换个问法」 comes later in the stretch, not straight away)
@@ -555,14 +582,14 @@ export class RunnerFlow extends RaceFlow {
   _glide(row) {
     this.stats.glides++;
     const items = row.e.items, g = this.gates[row.gate];
-    this.rh.ask('glide', { text: `滑行段：这一站的 ${items.length} 个打字题`, zh: '字弹（游戏键盘）在下一期接上 · 这一次先滑过去，不计分', tts: null });
+    this._ask('glide', { text: `滑行段：这一站的 ${items.length} 个打字题`, zh: '字弹（游戏键盘）在下一期接上 · 这一次先滑过去，不计分', tts: null });
     this._emit('learn:glide', { gate: g ? g.id : null, items: items.length, stub: this.typed === typedStub });
     row.typedDone = false;
     Promise.resolve().then(() => this.typed({ items, gate: g, flow: this })).catch((e) => console.warn('[runner] typed', e)).then(() => { row.typedDone = true; });
   }
   _glideDone(row) {
     row.state = 'done'; row.doneT = 0;
-    this.rh.clear();
+    this.strip.hide();
     // (a typing rig that took longer than the stretch: rows built behind where she now is go back to the queue)
     for (let i = this.rows.length - 1; i >= 0; i--) { const r = this.rows[i]; if (r.state === 'built' && r.sAppear < this.sNow + 2) { r.view?.dispose(); this.rows.splice(i, 1); this.queue.unshift(r.e); } }
     this.lastEnd = Math.max(this.lastEnd, this.sNow + 2);
@@ -740,7 +767,7 @@ export class RunnerFlow extends RaceFlow {
     this.finishT = -1;
     this.match.paused = true;   // (the run is over: the results card, as every form ends)
     G.input?.exitLock?.();
-    this.ui.say(''); this.rh.clear();
+    this.ui.say(''); this.strip.hide();
     const summary = { gates: this.gates.length, visited: this.gates.length, signs: null, seen: 0, scored: this.scoredN, firstRight: this.firstRight, relearn: this.relearn.length, relearnRight: this.relearnRight };
     const stars = starsOf(summary);
     const st = writeStars(this.dayKey, stars, null, { trophy: this.place });
@@ -753,7 +780,7 @@ export class RunnerFlow extends RaceFlow {
     const H = this.hud;
     H?.start?.(this);
     H?.results(data, {
-      again: () => G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: 'runner' }),
+      again: () => G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: this.match.learnKind === 'runner' ? 'runner' : 'race' }),
       menu: () => G.game?.api?.quitMatch?.(),
     });
     this.ui.resultsExtra([
@@ -800,7 +827,7 @@ export class RunnerFlow extends RaceFlow {
     this.rows = [];
     this.cam.release(G.rig, this.match.local);
     this.mark.dispose();
-    this.rh.end();
+    stopVoice(); this.strip.dispose(); this.tips.end();
     G.hud?.el?.classList.remove('is-learn', 'is-runner');
     G.touch?.el?.classList.remove('is-runner');
     super.dispose();

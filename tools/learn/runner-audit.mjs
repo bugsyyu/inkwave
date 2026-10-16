@@ -76,7 +76,7 @@ async function scenarioRunner() {
     const file = path.join(SHOTS, `runner-${Wd}x${Ht}-${res.shot}.png`);
     fs.mkdirSync(SHOTS, { recursive: true });
     await page.screenshot({ path: file });
-    const ui = await page.evaluate(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; }; return { strip: r('.iw-run__strip.is-on'), play: r('.iw-run__play'), rotate: r('.iw-run__rotate.is-on'), q: (document.querySelector('.iw-run__q') || {}).textContent, fontQ: getComputedStyle(document.querySelector('.iw-run__q')).fontSize }; });
+    const ui = await page.evaluate(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; }; return { strip: r('.iw-ps:not(.is-off) .iw-ps__box'), play: r('.iw-ps:not(.is-off) .iw-ps__play'), rotate: r('.iw-run__rotate.is-on'), q: (document.querySelector('.iw-ps__q') || {}).textContent, fontQ: getComputedStyle(document.querySelector('.iw-ps__q')).fontSize, lanes: r('.iw-ps__lanes.is-on'), tag: (document.querySelector('.iw-ps__tag.is-on') || {}).textContent }; });
     console.log('shot', file, JSON.stringify({ row: res.row, ui, dbg: { s: res.dbg.s, lat: res.dbg.lat, d: res.dbg.d, speed: res.dbg.speed, row: res.dbg.row } }));
     if (++k > 8) break;
   }
