@@ -84,7 +84,9 @@
       if (F.effects) out.effects.push(F.effects());
     }
     out.answered = n; out.tLoop = Date.now() - t0; out.simT = F.t;
-    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 8000 : 60000, 'results card');
+    // (the last answer → the round's close → the results: a few seconds of simulation, each stepped frame dearer than real
+    // time under software GL — so the wait is counted in simulated seconds as well as wall clock)
+    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 30000 : 60000, 'results card (finishT ' + (F.finishT != null ? (+F.finishT).toFixed(2) : '?') + ', phase ' + F.phase + ')');
     out.results = document.querySelector('.iw-learn__results') && document.querySelector('.iw-learn__results').innerText.slice(0, 400);
   } catch (e) { out.errors.push(String(e && e.message || e)); }
   if (frozen) { try { W.__inkwave.debug.step(16.7); W.__inkwave.debug.unfreeze(); } catch (e) { /* fine */ } }

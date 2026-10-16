@@ -76,8 +76,12 @@ export class DuelFlow extends LearnFlow {
     if (g._relearnGate) {
       this.ui.showBoard({ title: '回炉门', head: `错过的 ${g.items.length} 个再来一次`, rows: g.items.map((it) => ({ en: it.en.length > 48 ? it.zh : it.en, zh: it.en.length > 48 ? '' : it.zh, tts: it.tts || it.en })), go: '开始回炉' }, () => this._roundStart());
     } else {
-      const board = boardOf(g, this.level) || { title: '备战', head: g.title, rows: [{ text: `这一轮 ${g.items.length} 题：答对一题，区域里最缺的那块涂成你的墨。` }] };
-      this.ui.showBoard({ ...board, title: `${board.title} · 第 ${this.round + 1} / ${this.gates.length} 轮`, go: this.round === 0 ? '开始第 1 轮' : '开始这一轮' }, () => this._roundStart());
+      // 今日小考 (LEVELS §1.2): one round, no board of a step — what it is, and that it is optional
+      if (this.level.quiz) this.ui.showBoard({ title: '今日小考 · 傍晚一轮对抗赛', head: `${g.items.length} 题：今天学的、到期的、答错过的`, rows: [{ text: '答对一题，区域里最缺墨的那块涂成你的颜色。可做可不做；今天第一次答的照样记进进度，课上答过的再答只算练习。' }], go: '开始小考' }, () => this._roundStart());
+      else {
+        const board = boardOf(g, this.level) || { title: '备战', head: g.title, rows: [{ text: `这一轮 ${g.items.length} 题：答对一题，区域里最缺的那块涂成你的墨。` }] };
+        this.ui.showBoard({ ...board, title: `${board.title} · 第 ${this.round + 1} / ${this.gates.length} 轮`, go: this.round === 0 ? '开始第 1 轮' : '开始这一轮' }, () => this._roundStart());
+      }
     }
     this.prepOn = true; this.hold = true; this.phase = 'prep';
     for (const a of this.match.actors) if (a.isBot && a.alive) a.character.setDance?.('lobby_pose');
@@ -182,6 +186,7 @@ export class DuelFlow extends LearnFlow {
     }
   }
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
+  firstsN() { return this.firsts; }
 
   _answer(g, item, p, ans) {
     const r = judgeAnswer(item, p, ans);
@@ -278,8 +283,10 @@ export class DuelFlow extends LearnFlow {
     this.ui.say('');
     const played = this.rounds.filter((r) => !String(r.gate).includes('relearn')).length;
     const summary = { gates: this.level.gates.length, visited: played, signs: null, seen: 0, scored: this.scoredN, firstRight: this.firstRight, relearn: this.relearn.length, relearnRight: this.relearnRight };
-    const stars = starsOf(summary);
-    const st = writeStars(this.dayKey, stars, null, { trophy: `${this.wins}/${played}` });
+    // (the 今日小考 is an extra, not the day: its result is a trophy of its own and never the day's stars)
+    const quiz = !!this.level.quiz;
+    const stars = quiz ? 0 : starsOf(summary);
+    const st = writeStars(quiz ? `${this.dayKey}:quiz` : this.dayKey, stars, null, { trophy: `${this.wins}/${played}` });
     let dueIds = []; try { dueIds = store.due(this.level.weekRef || this.week); } catch (e) { dueIds = []; }
     const byId = new Map(); for (const g of this.level.gates) for (const it of g.items) byId.set(it.id, it);
     const due = dueIds.map((id) => byId.get(id)).filter(Boolean).map((it) => ({ en: it.en, zh: it.zh }));
@@ -290,7 +297,13 @@ export class DuelFlow extends LearnFlow {
       menu: () => G.game?.api?.quitMatch?.(),
     });
     if (this.hud && this.level.quiz) this.hud.rTitle.textContent = '今日小考做完了';
-    this.ui.resultsExtra([
+    if (quiz) this.ui.resultsExtra([
+      { b: `${this.wins} / ${played} 轮`, t: '区域赢了（只是奖杯）' },
+      { b: `${this.firstRight} / ${this.firstsN()}`, t: '今天第一次答的里答对了（记进进度）' },
+      this.firsts < this.total ? `另外 ${this.total - this.firsts} 题课上答过了，这次只算练习` : '每一题都是今天第一次答',
+      '小考不算这一天的星星',
+    ], null);
+    else this.ui.resultsExtra([
       { b: `${this.wins} / ${played} 轮`, t: '区域赢了（输赢只是奖杯，不进星）' },
       { b: `${this.firstRight} / ${this.scoredN}`, t: '首答答对' },
       this.relearn.length ? { b: `${this.relearnRight} / ${this.relearn.length}`, t: '回炉清了' } : '没有要回炉的',
