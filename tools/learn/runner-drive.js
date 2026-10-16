@@ -233,6 +233,10 @@
         const right = Fl.rightAnswer();
         const want = mode === 'right' ? right : mode === 'wrong' ? (right === 0 ? 1 : right - 1) : null;
         rec = { key, n: S.n, item: row.item.id, kind: row.kind, lanes: row.lanes, mode, right, want, banner: row.banner, lead: row.lead, D: +row.D.toFixed(1), q: row.p.text, labels: row.labels.map((l) => [l.en, l.zh].filter(Boolean).join(' ')), leavesBefore: leaves(row.item.id) };
+        // (LEARN §20, re-checked in the browser by play-4: no row on a jump-up edge's approach — runIn + 8 m past one, 2 m before one)
+        { const T = Fl.T, R = Fl.RR; let past = Infinity, before = Infinity; for (const j of T.jumps || []) { const d = (((row.s - j) % T.len) + T.len) % T.len; past = Math.min(past, d); before = Math.min(before, T.len - d); }
+          rec.jumpPast = past === Infinity ? null : +past.toFixed(1); rec.jumpBefore = before === Infinity ? null : +before.toFixed(1);
+          if (past < R.runIn + 8 || before < R.runOut + 1) S.errors.push('a row on a jump edge\'s approach: ' + JSON.stringify({ item: rec.item, past, before })); }
         // a screenshot while the row is up and readable (the harness takes it and runs this script again)
         if (W.__runShots && W.__runShots(row, S.shotsTaken)) {
           let g = 0; while (row.s - Fl.sNow > (W.__runShotAt || 9) && g++ < 300) await step(50);
