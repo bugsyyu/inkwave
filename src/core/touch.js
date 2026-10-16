@@ -185,6 +185,16 @@ export class TouchControls {
     // The controls are invisible unless the layer is live, so they must be untouchable too — a hidden control that
     // still fires is how a tap lands on a button nobody can see (and, for the map latch, one that then gets wiped).
     if (!this.enabled) return;
+    // ---- 墨浪跑酷 swipe hook (src/learn/play/runner, docs/LEARN.md §20): a level that steers by swipes exposes
+    // match.learn.swipe(dir). Then a finger is a swipe wherever it lands — no stick, no look — except on ⏸ and on the
+    // level's own DOM buttons (▶ 再听, the prop bag), which keep their click.
+    const swipeTo = G.match?.learn?.swipe ? G.match.learn : null;
+    if (swipeTo) {
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      const pb = this._btnAt(e.clientX, e.clientY);
+      if (!(pb && pb.name === 'pause')) { this.roles.set(e.pointerId, 'swipe'); (this._sw || (this._sw = new Map())).set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); return; }
+    }
+    // ---- (end of the swipe hook)
     const b = this._btnAt(e.clientX, e.clientY);
     if (b) {
       // The fire button is also a look origin: touch it and drag, and you fire while aiming with the same thumb.
@@ -214,6 +224,15 @@ export class TouchControls {
   _move(e) {
     const role = this.roles.get(e.pointerId);
     if (role === undefined) return;
+    if (role === 'swipe') {   // 墨浪跑酷 swipe hook: past TOUCH.swipe px → one swipe; a flick is one, a long drag on (3.5× as far again) one more
+      const o = this._sw && this._sw.get(e.pointerId), L = G.match?.learn;
+      if (!o || !L || !L.swipe) return;
+      const dx = e.clientX - o.x, dy = e.clientY - o.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < TOUCH.swipe * (o.n ? 3.5 : 1)) return;
+      L.swipe(Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
+      o.x = e.clientX; o.y = e.clientY; o.n = (o.n || 0) + 1;
+      return;
+    }
     if (role === 'look' || role === 'fire') {
       // Raw pixels into the field the camera and both map cursors read. The camera applies the touch gain itself
       // (see player.js), which keeps the map cursors' existing screen-normalized feel intact.
@@ -237,6 +256,7 @@ export class TouchControls {
     const role = this.roles.get(e.pointerId);
     if (role === undefined) return;
     this.roles.delete(e.pointerId);
+    if (role === 'swipe') { this._sw?.delete(e.pointerId); this.input.touch.fingers = this.roles.size; return; }   // (墨浪跑酷 swipe hook)
     if (role === 'move') {
       this.move.id = null;
       this.input.touch.mx = 0; this.input.touch.mz = 0;
@@ -277,6 +297,7 @@ export class TouchControls {
   releaseAll() {
     for (const b of this.buttons) b.el.classList.remove('is-down');
     this.roles.clear();
+    this._sw?.clear();   // (墨浪跑酷 swipe hook)
     this.move.id = null; this.look.id = null;
     this.input.touch.mx = 0; this.input.touch.mz = 0;
     this.input.touch.fingers = 0;

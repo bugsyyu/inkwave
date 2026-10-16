@@ -672,6 +672,28 @@ export const LEARN = {
     side: 1.35,               // m either side of the card the two rating targets float
     ball: 0.38,               // m: a rating target's radius
   },
+  // 墨浪跑酷 (docs/PLAY.md §3 M2 / M3, §5.2; src/learn/play/runner, LEARN §20): the race as a lane runner — she swims the
+  // lap on her own ink, every question a row of curtains across the road; ?learn=w1d3&kind=runner while race.js stays
+  runner: {
+    laneW: 1.5,               // m a lane takes: a row needs a clear width of lanes × laneW (the clearance scan, track.js)
+    gap: 0.5,                 // m of open ink between two curtains (she starts on it; straight through = no answer)
+    runIn: 3, runOut: 1,      // m before / after a row that must be as wide (she steers into a lane; the curtains stand)
+    slide: 10,                // m a row may slide on to keep every lane before it drops one (never under 2)
+    lead: { base: 2.5, perChar: 0.06, cap: 6 },   // s of reading time before a row: + per character of its longest label
+    tide: 0.6,                // the ink tide in a question zone: × her swim speed (slow, never stopped)
+    firstRow: 26,             // m of road before the first row's reading zone begins (she gets up to speed)
+    after: 4,                 // m past a row before the next one starts showing
+    boost: [1.3, 1.2],        // a right curtain: swim speed × 1.3 for 1.2 s
+    beatBoost: [1.45, 1.4],   // … on the beat (a pair / sound row's lane change inside the window): more, and a dance
+    slow: [0.4, 0.9],         // a wrong (coral) curtain: swim speed × 0.4 for 0.9 s, shed at PLAYER.enemyInkDecel
+    verdictMs: 2400,          // the 「差一点：是 ___」 line stays this long (she is moving: longer than a card's)
+    glide: 34,                // m of the 滑行段 (typed items; the typing weapon is the next workstream's — a stub for now)
+    banner: { en: 12, zh: 8, max: 3 },   // longer labels make banner curtains, at most three in a row
+    road: 1.25,               // m: half-width of the ink road between rows (rows widen it to their lanes)
+    paintAhead: 18,           // m of road painted ahead of her (the tide pours on as she swims)
+    detour: { reach: [12, 18, 24, 30], away: 2.2, tide: 0.6 },   // 走远路: rejoin distances to try, m off the road, its tide
+    bpm: 128,                 // the beat grid when no synth track is playing (a recording carries no tempo)
+  },
   // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
   // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question
   // to both players at once; the first right answer (by each player's own time, LEARN §14) floods the live zone
@@ -732,6 +754,9 @@ export const TOUCH = {
   // Camera gain for touch look. The mouse path is calibrated for pointer-lock counts, which are unbounded; a drag is
   // bounded by the screen, so a full-width swipe has to be able to turn you around. Scaled by settings.touchSensitivity.
   lookSens: 0.0052,         // radians per CSS pixel (~2.5x the mouse's 0.0021)
+  // 墨浪跑酷 (src/learn/play/runner): a drag past this many px is one swipe (left / right = a lane, up = jump, down = dive);
+  // a flick is one lane, however long; a slow drag on for 3.5× as far again is one more
+  swipe: 26,
   // Floors for the RENDERER's image settings on a touch device (see rendererQuality). A 3x phone screen shows the
   // tier's desktop-calibrated 0.75 pixel ratio and zero anti-aliasing as heavy jaggies; these raise only those two.
   minPixelRatio: 1.5,
