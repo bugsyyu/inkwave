@@ -148,12 +148,12 @@ const ZONE_RULE_ART = {
 };
 // how a Zone Control match was decided, in plain words (winner's view / loser's view)
 const ZONE_REASON = {
-  knockout: ['KNOCKOUT!', 'Knocked out'],
-  time: ["Time's up", "Time's up"],
-  comeback: ['Comeback in overtime!', 'Overtaken in overtime'],
-  retake: ['Held on in overtime', 'Stopped in overtime'],
-  neutralised: ['Held on in overtime', 'Pushed off the zone in overtime'],
-  'overtime-cap': ['Won at the overtime limit', 'Lost at the overtime limit'],
+  knockout: [t('zr.knockout'), t('zr.knockedOut')],
+  time: [t('zr.time'), t('zr.time')],
+  comeback: [t('zr.comeback'), t('zr.overtaken')],
+  retake: [t('zr.heldOn'), t('zr.stopped')],
+  neutralised: [t('zr.heldOn'), t('zr.pushedOff')],
+  'overtime-cap': [t('zr.capWon'), t('zr.capLost')],
   answered: ['题都答完了 · 区域领先', '题都答完了'],   // 双人联机赛: the host called it when the questions ran out
 };
 const DIFF_INFO = {
@@ -3787,7 +3787,7 @@ export class Menus {
         }
         return {
           live: true, time: Math.max(0, +m.time || 0), duration: Math.max(1, +m.duration || 180), mode: modeOf(m.mode), zones,
-          map: (game.mapDef && game.mapDef.name) || '', difficulty: m.opts && m.opts.difficulty,
+          map: (game.mapDef && gameName('map', game.mapDef.id, game.mapDef.name)) || '', difficulty: m.opts && m.opts.difficulty,
           colors: [toHex(hex[0] || a), toHex(hex[1] || b)],
           names: (game.palette && game.palette.names) || this._accentNames(),
           players: m.actors.map((x) => {
@@ -4117,25 +4117,25 @@ export class Menus {
       const why = ZONE_REASON[zd.reason] || ZONE_REASON.time;
       const icon = zd.reason === 'knockout' ? 'star' : zd.reason === 'time' ? 'stopwatch' : zd.reason === 'comeback' ? 'wave' : 'shield';
       awards.match = [{ id: 'zreason', icon, label: why[win ? 0 : 1].toUpperCase(), value: '' }];
-      if (zd.overtime) awards.match.push({ id: 'zot', icon: 'stopwatch', label: 'OVERTIME', value: zd.overtimeT > 0 ? `+${fmtTime(zd.overtimeT)}` : '' });
+      if (zd.overtime) awards.match.push({ id: 'zot', icon: 'stopwatch', label: t('rs.overtime'), value: zd.overtimeT > 0 ? `+${fmtTime(zd.overtimeT)}` : '' });
     }
 
     // ---- title block: VICTORY/DEFEAT, stage, match tags, your medals
-    const titleEl = h('div', { class: 'iw-res__title iw-display' }, win ? 'VICTORY!' : 'DEFEAT');
+    const titleEl = h('div', { class: 'iw-res__title iw-display' }, win ? t('rs.victory') : t('rs.defeat'));
     const clock = (t) => { t = Math.max(0, +t || 0); const m = Math.floor(t / 60), ss = Math.floor(t % 60); return `${m}:${ss < 10 ? '0' : ''}${ss}`; };
     const tags = boss
       ? [B.defeated
-        ? h('span', { class: 'iw-res__tag iw-res__tag--sunk' }, h('i', { html: awardIcon('stopwatch') }), `${B.name} SUNK`, h('small', null, `in ${clock(B.time)}`))
-        : h('span', { class: 'iw-res__tag iw-res__tag--escaped' }, h('i', { html: BOSS_GLYPH }), 'IT GOT AWAY', h('small', null, `${Math.max(1, Math.round((B.hpLeft || 0) * 100))}% HP left`))]
-      : awards.match.map((t) => h('span', { class: `iw-res__tag iw-res__tag--${t.id}` }, h('i', { html: awardIcon(t.icon) }), t.label, t.value ? h('small', null, t.value) : null));
+        ? h('span', { class: 'iw-res__tag iw-res__tag--sunk' }, h('i', { html: awardIcon('stopwatch') }), t('rs.sunk', { name: B.name }), h('small', null, t('rs.inTime', { t: clock(B.time) })))
+        : h('span', { class: 'iw-res__tag iw-res__tag--escaped' }, h('i', { html: BOSS_GLYPH }), t('rs.away'), h('small', null, t('rs.hpLeft', { n: Math.max(1, Math.round((B.hpLeft || 0) * 100)) })))]
+      : awards.match.map((tg) => h('span', { class: `iw-res__tag iw-res__tag--${tg.id}` }, h('i', { html: awardIcon(tg.icon) }), tg.label, tg.value ? h('small', null, tg.value) : null));
     const myAwards = (self ? self._aw : []).slice(0, 4);
     const medals = myAwards.map((aw, i) => { const m = h('div', { class: 'iw-medalwrap', html: medalMarkup(aw, i) }).firstElementChild; return m; });
-    const medalRow = medals.length ? h('div', { class: 'iw-res__medals' + (medals.length > 3 ? ' is-4' : '') }, h('div', { class: 'iw-res__medalcap' }, 'YOUR MEDALS'), h('div', { class: 'iw-res__medallist' }, medals)) : null;
+    const medalRow = medals.length ? h('div', { class: 'iw-res__medals' + (medals.length > 3 ? ' is-4' : '') }, h('div', { class: 'iw-res__medalcap' }, t('rs.medals')), h('div', { class: 'iw-res__medallist' }, medals)) : null;
     const head = h('div', { class: 'iw-res__head iw-in iw-in--pop' + (win ? ' is-win' : ' is-lose') },
       h('div', { class: 'iw-res__splat', html: splatSVG({ seed: win ? 9 : 14, cls: 'iw-fta', r: 60, arms: 10, drops: 4 }) }),
       titleEl,
       h('div', { class: 'iw-res__metarow' }, h('div', { class: 'iw-res__meta' }, h('i', { html: GLYPHS.map }), `${d.mapName || MODE_INFO[resMode].name} · ${MODE_INFO[resMode].name}`), tags,
-        boss ? h('span', { class: 'iw-beta iw-res__beta' }, 'PUBLIC BETA') : null),
+        boss ? h('span', { class: 'iw-beta iw-res__beta' }, t('lb.beta')) : null),
       medalRow);
 
     // ---- coverage bar (JS-driven growth so the numbers + sound land together)
@@ -4148,8 +4148,8 @@ export class Menus {
       h('i', { class: 'iw-cover__mid' }));
     let cover = boss ? null : h('div', { class: 'iw-res__cover iw-in' + (pa >= pb ? ' is-a' : ' is-b') },
       h('div', { class: 'iw-cover__names' },
-        h('span', { class: 'ta' + (pa >= pb ? ' is-win' : '') }, pa >= pb ? crownA : null, names[0] || 'Alpha', numA),
-        h('span', { class: 'tb' + (pb > pa ? ' is-win' : '') }, numB, names[1] || 'Bravo', pb > pa ? crownB : null)),
+        h('span', { class: 'ta' + (pa >= pb ? ' is-win' : '') }, pa >= pb ? crownA : null, teamName(names[0]) || t('lb.alpha'), numA),
+        h('span', { class: 'tb' + (pb > pa ? ' is-win' : '') }, numB, teamName(names[1]) || t('lb.bravo'), pb > pa ? crownB : null)),
       coverBar);
     // Zone Control: a race to the middle — each bar is how far that team counted down from 100 (the score; hatched block
     // ahead of it = the penalty it still had to count off, not part of the score); the numbers count down from 100 to
@@ -4168,9 +4168,9 @@ export class Menus {
       coverBar.append(h('i', { class: 'iw-zbar__pen is-a' }), h('i', { class: 'iw-zbar__pen is-b' }));
       cover = h('div', { class: 'iw-res__cover iw-res__cover--zones iw-in' + (W === 0 ? ' is-a' : ' is-b') },
         h('div', { class: 'iw-cover__names' },
-          h('span', { class: 'ta' + (W === 0 ? ' is-win' : '') }, W === 0 ? crownA : null, names[0] || 'Alpha', numA, pens[0]),
-          h('span', { class: 'iw-zres__mid' }, h('i', { html: ZONE_GLYPH }), 'COUNT TO ZERO'),
-          h('span', { class: 'tb' + (W === 1 ? ' is-win' : '') }, pens[1], numB, names[1] || 'Bravo', W === 1 ? crownB : null)),
+          h('span', { class: 'ta' + (W === 0 ? ' is-win' : '') }, W === 0 ? crownA : null, teamName(names[0]) || t('lb.alpha'), numA, pens[0]),
+          h('span', { class: 'iw-zres__mid' }, h('i', { html: ZONE_GLYPH }), t('rs.toZero')),
+          h('span', { class: 'tb' + (W === 1 ? ' is-win' : '') }, pens[1], numB, teamName(names[1]) || t('lb.bravo'), W === 1 ? crownB : null)),
         coverBar);
     }
     // boss: HULLBREAKER's HP drains to what was left, the clock counts up, then SUNK! / ESCAPED is stamped on it
@@ -4179,13 +4179,13 @@ export class Menus {
       const fill = h('i', { class: 'iw-rb__fill' });
       const hpNum = h('b', null, '100%'), tNum = h('b', null, '0:00');
       const pips = [1, 2, 3].map((n) => h('i', { class: 'iw-rb__pip' + (n <= (B.phase || 1) ? ' is-on' : '') }));
-      const stamp = h('span', { class: 'iw-rb__stamp iw-display' }, B.defeated ? 'SUNK!' : 'ESCAPED');
+      const stamp = h('span', { class: 'iw-rb__stamp iw-display' }, B.defeated ? t('rs.sunkBang') : t('rs.escaped'));
       const panel = h('div', { class: 'iw-res__cover iw-res__boss iw-in' + (B.defeated ? ' is-win' : ' is-lose') },
         h('span', { class: 'iw-rb__emb', html: bossEmblem({ cracked: !!B.defeated || (B.phase || 1) >= 3 }) }),
         h('div', { class: 'iw-rb__main' },
-          h('div', { class: 'iw-rb__row' }, h('span', { class: 'iw-rb__name iw-display' }, B.name), h('span', { class: 'iw-rb__phase' }, h('small', null, 'PHASE'), pips), h('span', { class: 'iw-rb__hp' }, h('small', null, 'HP'), hpNum)),
+          h('div', { class: 'iw-rb__row' }, h('span', { class: 'iw-rb__name iw-display' }, B.name), h('span', { class: 'iw-rb__phase' }, h('small', null, t('rs.phase')), pips), h('span', { class: 'iw-rb__hp' }, h('small', null, t('rs.hp')), hpNum)),
           h('div', { class: 'iw-rb__bar' }, fill, h('i', { class: 'iw-rb__notch', style: { left: '66.67%' } }), h('i', { class: 'iw-rb__notch', style: { left: '33.33%' } }))),
-        h('div', { class: 'iw-rb__time' }, h('i', { html: awardIcon('stopwatch') }), h('small', null, B.defeated ? 'CLEAR TIME' : 'TIME UP'), tNum),
+        h('div', { class: 'iw-rb__time' }, h('i', { html: awardIcon('stopwatch') }), h('small', null, B.defeated ? t('rs.clearTime') : t('rs.timeUp')), tNum),
         stamp);
       const endHp = clamp(+B.hpLeft || 0), endT = Math.max(0, +B.time || 0);
       let lastHp = -1, lastT = -1;
@@ -4210,10 +4210,10 @@ export class Menus {
       const isWin = team === winTeam;
       return h('div', { class: `iw-ttable iw-ttable--${team ? 'b' : 'a'} ${isWin ? 'is-win' : 'is-lose'}` },
         h('div', { class: 'iw-ttable__head iw-in' },
-          h('span', { class: 'iw-ttable__team' }, h('i', { class: 'iw-ttable__dot' }), names[team] || TEAM_NAMES[team], isWin ? h('em', { class: 'iw-ttable__win' }, h('i', { html: GLYPHS.crown }), 'WIN') : null),
-          h('span', { class: 'iw-ttable__col', title: 'Turf inked' }, h('i', { html: GLYPHS.drop }), 'TURF'),
-          h('span', { class: 'iw-ttable__col', title: 'Splats' }, h('i', { html: SPLAT_ICON })),
-          h('span', { class: 'iw-ttable__col', title: 'Times splatted' }, h('i', { html: DEATH_ICON }))),
+          h('span', { class: 'iw-ttable__team' }, h('i', { class: 'iw-ttable__dot' }), teamName(names[team] || TEAM_NAMES[team]), isWin ? h('em', { class: 'iw-ttable__win' }, h('i', { html: GLYPHS.crown }), t('rs.win')) : null),
+          h('span', { class: 'iw-ttable__col', title: t('rs.turfT') }, h('i', { html: GLYPHS.drop }), t('rs.turf')),
+          h('span', { class: 'iw-ttable__col', title: t('rs.splatsT') }, h('i', { html: SPLAT_ICON })),
+          h('span', { class: 'iw-ttable__col', title: t('rs.deathsT') }, h('i', { html: DEATH_ICON }))),
         rows.map((p, ri) => {
           const turfNum = h('b', null, '0');
           const turfBar = h('i', { class: 'iw-prow__turfbar' });
@@ -4223,7 +4223,7 @@ export class Menus {
           const isMvp = p._aw.some((a) => a.id === 'mvp');
           const row = h('div', { class: 'iw-prow iw-in iw-in--left' + (p.isSelf ? ' is-self' : '') + (isMvp ? ' is-mvp' : '') },
             h('span', { class: 'iw-prow__w', html: weaponIcon((this._weapons()[p.weapon] || {}).kind || p.weapon) }),
-            h('span', { class: 'iw-prow__name' }, h('span', { class: 'iw-prow__nm' }, p.name), p.isSelf ? h('em', null, 'YOU') : null, badges),
+            h('span', { class: 'iw-prow__name' }, h('span', { class: 'iw-prow__nm' }, p.name), p.isSelf ? h('em', null, t('rs.you')) : null, badges),
             h('span', { class: 'iw-prow__turf' }, turfBar, turfNum, h('small', null, 'p')),
             nSplat, nDeath);
           rowFx.push({ row, turfNum, turfBar, nSplat, nDeath, badges, turf: p.turf || 0, rel: (p.turf || 0) / best, aws: p._aw.slice(0, 3), start: 0.8 + ri * 0.13, shown: -1, done: false });
@@ -4237,10 +4237,10 @@ export class Menus {
       const colIco = (html, title) => h('span', { class: 'iw-ttable__col', title }, h('i', { html }));
       return h('div', { class: `iw-ttable iw-ttable--a iw-ttable--boss ${win ? 'is-win' : 'is-lose'}` },
         h('div', { class: 'iw-ttable__head iw-in' },
-          h('span', { class: 'iw-ttable__team' }, h('i', { class: 'iw-ttable__dot' }), start ? 'SQUAD · 5–8' : 'SQUAD · TOP 4', !start && win ? h('em', { class: 'iw-ttable__win' }, h('i', { html: GLYPHS.crown }), 'SUNK IT') : null),
-          h('span', { class: 'iw-ttable__col', title: 'Damage to the boss' }, h('i', { html: awardIcon('pow') }), 'DAMAGE'),
-          colIco(awardIcon('crit'), 'Weak-point hits'), colIco(SPLAT_ICON, 'Splats (crablets)'), colIco(DEATH_ICON, 'Times splatted'),
-          h('span', { class: 'iw-ttable__col', title: 'Turf inked' }, h('i', { html: GLYPHS.drop }), 'TURF')),
+          h('span', { class: 'iw-ttable__team' }, h('i', { class: 'iw-ttable__dot' }), start ? t('rs.squad58') : t('rs.squadTop'), !start && win ? h('em', { class: 'iw-ttable__win' }, h('i', { html: GLYPHS.crown }), t('rs.sunkIt')) : null),
+          h('span', { class: 'iw-ttable__col', title: t('rs.damageT') }, h('i', { html: awardIcon('pow') }), t('rs.damage')),
+          colIco(awardIcon('crit'), t('rs.weakT')), colIco(SPLAT_ICON, t('rs.crabT')), colIco(DEATH_ICON, t('rs.deathsT')),
+          h('span', { class: 'iw-ttable__col', title: t('rs.turfT') }, h('i', { html: GLYPHS.drop }), t('rs.turf'))),
         rows.map((p, ri) => {
           const dmgNum = h('b', null, '0');
           const dmgBar = h('i', { class: 'iw-prow__turfbar' });
@@ -4252,10 +4252,10 @@ export class Menus {
           const isMvp = p._aw.some((a) => a.id === 'mvp');
           const row = h('div', { class: 'iw-prow iw-in iw-in--left' + (p.isSelf ? ' is-self' : '') + (isMvp ? ' is-mvp' : '') },
             h('span', { class: 'iw-prow__w', html: weaponIcon((this._weapons()[p.weapon] || {}).kind || p.weapon) }),
-            h('span', { class: 'iw-prow__name' }, h('span', { class: 'iw-prow__rank' }, String(start + ri + 1)), h('span', { class: 'iw-prow__nm' }, p.name), p.isSelf ? h('em', null, 'YOU') : null, badges),
+            h('span', { class: 'iw-prow__name' }, h('span', { class: 'iw-prow__rank' }, String(start + ri + 1)), h('span', { class: 'iw-prow__nm' }, p.name), p.isSelf ? h('em', null, t('rs.you')) : null, badges),
             h('span', { class: 'iw-prow__turf' }, dmgBar, dmgNum),
             nWeak, nSplat, nDeath, nTurf,
-            isMvp ? h('span', { class: 'iw-prow__stamp iw-display' }, 'MVP') : null);
+            isMvp ? h('span', { class: 'iw-prow__stamp iw-display' }, t('rs.mvp')) : null);
           rowFx.push({ row, turfNum: dmgNum, turfBar: dmgBar, waits: [nWeak, nSplat, nDeath, nTurf], badges, turf: p.damage || 0, rel: (p.damage || 0) / best, aws: p._aw.slice(0, 3), start: 0.8 + (start + ri) * 0.1, shown: -1, done: false });
           return row;
         }));
@@ -4264,11 +4264,11 @@ export class Menus {
     // ---- XP
     const xp = { gained: 0, levelBefore: 1, levelAfter: 1, xpBefore: 0, xpAfter: 0, xpToNextBefore: 1000, xpToNextAfter: 1000, ...(d.xp || {}) };
     const lvlNum = h('span', { class: 'iw-lvl__n' }, String(xp.levelBefore));
-    const lvl = h('span', { class: 'iw-lvl iw-lvl--big' }, h('small', null, 'LV'), lvlNum, h('i', { class: 'iw-lvl__burst', html: GLYPHS.star }));
+    const lvl = h('span', { class: 'iw-lvl iw-lvl--big' }, h('small', null, t('rs.lv')), lvlNum, h('i', { class: 'iw-lvl__burst', html: GLYPHS.star }));
     const bar = h('span', { class: 'iw-xpbar iw-xpbar--big' }, h('i'));
-    const gainEl = h('b', { class: 'iw-xp__gain' }, '+0 XP');
+    const gainEl = h('b', { class: 'iw-xp__gain' }, t('rs.xp', { n: 0 }));
     const nextEl = h('span', { class: 'iw-xp__next' });
-    const lvUp = h('span', { class: 'iw-xp__lvup' }, 'LEVEL UP!');
+    const lvUp = h('span', { class: 'iw-xp__lvup' }, t('rs.levelUp'));
     // honest XP breakdown (only when the parts add up to the reported gain)
     const bd = [];
     if (self && Array.isArray(xp.parts)) {
@@ -4279,10 +4279,10 @@ export class Menus {
       const tx = Math.round((self.turf || 0) * PROGRESSION.xpPerTurfPoint), sx = Math.round((self.splats || 0) * PROGRESSION.xpPerSplat);
       const dx = boss ? Math.round((self.damage || 0) * 0.04) : 0;   // main.js _bossResults: damage × 0.04 XP
       if (xp.gained > 0 && Math.abs(base + tx + sx + dx - xp.gained) <= 2) {
-        bd.push([win ? 'WIN BONUS' : 'MATCH', base]);
-        if (dx) bd.push(['DAMAGE', dx]);
-        bd.push([`TURF`, tx]);
-        if (sx) bd.push(['SPLATS', sx]);
+        bd.push([win ? t('rs.winBonus') : t('rs.match'), base]);
+        if (dx) bd.push([t('rs.damage'), dx]);
+        bd.push([t('rs.turf'), tx]);
+        if (sx) bd.push([t('rs.splats'), sx]);
       }
     }
     let acc = 0;
@@ -4295,23 +4295,23 @@ export class Menus {
     const online = !!(d.online || G.netm || (G.net && (G.net.state === 'match' || G.net.state === 'starting')));
     const backIn = online ? 12 : 0;
     const lobbySecs = h('b', null, String(backIn));
-    const lobbyPill = online ? h('div', { class: 'iw-res__lobby iw-in iw-in--pop' }, h('span', { class: 'iw-res__lobbyring', style: { '--f': 1 } }), h('span', { class: 'iw-res__lobbytxt' }, h('small', null, 'BACK TO THE ROOM IN'), lobbySecs)) : null;
+    const lobbyPill = online ? h('div', { class: 'iw-res__lobby iw-in iw-in--pop' }, h('span', { class: 'iw-res__lobbyring', style: { '--f': 1 } }), h('span', { class: 'iw-res__lobbytxt' }, h('small', null, t('rs.backIn')), lobbySecs)) : null;
     const hostBack = online && G.net && G.net.isHost && typeof this.api.netBackToLobby === 'function';
     const rematch = hostBack
-      ? this._btn({ id: 'toroom', label: 'TO THE ROOM', icon: GLYPHS.users, cls: 'iw-btn--wide iw-btn--primary iw-btn--toroom iw-in iw-in--pop', sound: 'ui_confirm', accept: () => safeCall(() => this.api.netBackToLobby()) })
-      : online ? null : this._btn({ id: 'rematch', label: 'REMATCH', icon: GLYPHS.reset, cls: 'iw-btn--wide iw-btn--primary iw-in iw-in--pop', sound: 'ui_confirm', accept: () => {
+      ? this._btn({ id: 'toroom', label: t('rs.toRoom'), icon: GLYPHS.users, cls: 'iw-btn--wide iw-btn--primary iw-btn--toroom iw-in iw-in--pop', sound: 'ui_confirm', accept: () => safeCall(() => this.api.netBackToLobby()) })
+      : online ? null : this._btn({ id: 'rematch', label: t('rs.rematch'), icon: GLYPHS.reset, cls: 'iw-btn--wide iw-btn--primary iw-in iw-in--pop', sound: 'ui_confirm', accept: () => {
         safeCall(() => this.api.rematch && this.api.rematch());
       } });
-    if (hostBack) rematch.querySelector('.iw-btn__text').appendChild(h('span', { class: 'iw-btn__sub' }, 'Everyone comes with you'));
+    if (hostBack) rematch.querySelector('.iw-btn__text').appendChild(h('span', { class: 'iw-btn__sub' }, t('rs.everyone')));
     const home = online
-      ? this._btn({ id: 'leave', label: 'LEAVE ROOM', icon: GLYPHS.exit, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => this._openModal({
-        title: 'LEAVE ROOM?', danger: true, text: 'You\u2019ll head back to the main menu. Your friends stay in the room.',
+      ? this._btn({ id: 'leave', label: t('rs.leaveRoom'), icon: GLYPHS.exit, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => this._openModal({
+        title: t('pause.leaveRoomQ'), danger: true, text: t('rs.leaveText'),
         buttons: [
-          { label: 'STAY', accept: () => this._closeModal(), sound: null },
-          { label: 'LEAVE', cls: 'iw-btn--danger', sound: 'ui_confirm', accept: () => { this._closeModal(true); safeCall(() => this.api.quitMatch && this.api.quitMatch()); } },
+          { label: t('lb.stay'), accept: () => this._closeModal(), sound: null },
+          { label: t('lb.leave'), cls: 'iw-btn--danger', sound: 'ui_confirm', accept: () => { this._closeModal(true); safeCall(() => this.api.quitMatch && this.api.quitMatch()); } },
         ],
       }) })
-      : this._btn({ id: 'home', label: 'MAIN MENU', icon: GLYPHS.back, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => {
+      : this._btn({ id: 'home', label: t('rs.mainMenu'), icon: GLYPHS.back, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => {
         safeCall(() => this.api.toMainMenu && this.api.toMainMenu());
         if (this.current === 'results') this.show('main', { wipe: true });
       } });
@@ -4332,7 +4332,7 @@ export class Menus {
         boss ? h('div', { class: 'iw-res__teams is-boss' }, bossTable(players.slice(0, 4), 0), bossTable(players.slice(4, 8), 4))
           : h('div', { class: 'iw-res__teams' }, table(0), table(1)),
         h('div', { class: 'iw-res__foot' }, xpPanel, h('div', { class: 'iw-res__btns' }, hostBack ? null : lobbyPill, rematch, home))),
-      this._prompts([['Enter', 'A', 'Skip · Select'], [['←', '→'], 'DPad', 'Move']]));
+      this._prompts([['Enter', 'A', t('p.skipSelect')], [['←', '→'], 'DPad', t('p.move')]]));
     colorVars(el, 'ta', colors[0]);
     colorVars(el, 'tb', colors[1]);
     colorVars(el, 'tw', boss && !win ? colors[1] : colors[0]);   // boss defeat: the title splat is the boss's ink
@@ -4418,7 +4418,7 @@ export class Menus {
     }
     const totalFill = segs.reduce((a, s) => a + Math.max(0, s.to - s.from), 0) || 1;
     let si = 0, cur = segs[0].from, filled = 0, pause = 0, xpTick = 0, done = false;
-    const setBar = (v, max) => { bar.style.setProperty('--t', clamp(v / Math.max(1, max)).toFixed(4)); nextEl.textContent = `${fmtInt(Math.max(0, max - v))} XP to next level`; };
+    const setBar = (v, max) => { bar.style.setProperty('--t', clamp(v / Math.max(1, max)).toFixed(4)); nextEl.textContent = t('rs.toNext', { n: fmtInt(Math.max(0, max - v)) }); };
     setBar(cur, segs[0].max);
     const showBd = (frac) => { for (const b of bdEls) if (!b.shown && frac >= b.at - 1e-6) { b.shown = true; b.el.classList.add('is-in'); } };
     const finish = () => {
@@ -4431,7 +4431,7 @@ export class Menus {
       const last = segs[segs.length - 1];
       if (segs.length > 1 && lvlNum.textContent !== String(last.lv)) { lvlNum.textContent = String(last.lv); xpPanel.classList.add('is-levelup'); }
       si = segs.length - 1; cur = last.to; setBar(cur, last.max);
-      gainEl.textContent = `+${fmtInt(xp.gained)} XP`;
+      gainEl.textContent = t('rs.xp', { n: fmtInt(xp.gained) });
       showBd(1);
       done = true; xpPanel.classList.add('is-done');
       el.classList.add('is-done');
@@ -4449,7 +4449,7 @@ export class Menus {
           lobbyT += dt;
           const left = Math.max(0, backIn - lobbyT), sec = Math.ceil(left);
           if (String(sec) !== lobbySecs.textContent && sec > 0) { lobbySecs.textContent = String(sec); if (sec <= 3) restartAnim(lobbySecs, 'is-tick'); }
-          if (left <= 0 && !lobbyPill.classList.contains('is-due')) { lobbyPill.classList.add('is-due'); lobbyPill.querySelector('small').textContent = 'HEADING BACK'; lobbySecs.textContent = '\u2026'; }
+          if (left <= 0 && !lobbyPill.classList.contains('is-due')) { lobbyPill.classList.add('is-due'); lobbyPill.querySelector('small').textContent = t('rs.headingBack'); lobbySecs.textContent = '\u2026'; }
           lobbyPill.firstChild.style.setProperty('--f', (left / backIn).toFixed(4));
         }
         if (done) return;
@@ -4493,7 +4493,7 @@ export class Menus {
         cur += step; filled += step;
         setBar(cur, s.max);
         const frac = Math.min(1, filled / totalFill);
-        gainEl.textContent = `+${fmtInt(Math.min(xp.gained, frac * xp.gained))} XP`;
+        gainEl.textContent = t('rs.xp', { n: fmtInt(Math.min(xp.gained, frac * xp.gained)) });
         showBd(frac);
         xpTick += dt;
         if (xpTick > 0.065) { xpTick = 0; this._sfx('xp_tick', 0.05); }

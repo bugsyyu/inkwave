@@ -59,7 +59,9 @@ window.__iwMeasure = function (scopes, back) {
       if (sc) { const q = sc.getBoundingClientRect(); if (r.top < q.top - 1 || r.bottom > q.bottom + 1 || r.left < q.left - 1 || r.right > q.right + 1) { t.out = false; t.scroll = true; } }
       const cx = Math.min(vw - 1, Math.max(0, r.left + r.width / 2)), cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
       const hit = document.elementFromPoint(cx, cy);
-      if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !t.scroll) t.covered = label(hit) + ' ' + String(hit.className || '').split(' ')[0];
+      // (the touch controls are pointer-events: none by design — touch.js hit-tests geometrically on window — so a DOM
+      // hit test can't tell whether they are covered; they are left out of that check)
+      if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !t.scroll && !el.classList.contains('iw-touch__btn')) t.covered = label(hit) + ' ' + String(hit.className || '').split(' ')[0];
       out.targets.push(t);
       if (t.small) out.small.push(t);
       if (t.covered) out.covered.push(t);
@@ -99,7 +101,11 @@ window.__iwMeasure = function (scopes, back) {
   }
   if (back) {
     const el = [...document.querySelectorAll(back)].find(shown);
-    if (el) { const r = el.getBoundingClientRect(); out.back = { name: label(el), ...box(r), ok: r.width >= 43.5 && r.height >= 43.5 && r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1 }; }
+    if (el) {
+      const r = el.getBoundingClientRect(), sc = scroller(el), big = r.width >= 43.5 && r.height >= 43.5;
+      const inView = r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1;
+      out.back = { name: label(el), ...box(r), ok: big && (inView || !!sc), ...(sc && !inView ? { scroll: true } : {}) };   // (in a scroller: reachable by scrolling)
+    }
     else out.back = { found: false };
   }
   const m = out.targets.filter((x) => !x.scroll).sort((a, b) => Math.min(a.w, a.h) - Math.min(b.w, b.h))[0];

@@ -31,7 +31,7 @@ import { Showcase } from './game/showcase.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
 import { buildLearn, buildNetLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
-import { t } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels
+import { t, gameName } from './ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the loading labels
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -1183,8 +1183,8 @@ class Game {
       // Zone Control: less per point of turf (a 5 min match), extra for ink laid on the live zone, a knockout bonus
       const ZX = PROGRESSION.zones || { turfScale: 0.6, xpPerZoneTurfPoint: 1, xpKnockout: 300 };
       const zoneTurf = Math.round(local.stats.zoneTurf || 0);
-      xpParts = [[won ? 'WIN BONUS' : 'MATCH', won ? PROGRESSION.xpWin : PROGRESSION.xpLose], ['TURF', Math.round(turf * PROGRESSION.xpPerTurfPoint * ZX.turfScale)],
-        ['ZONE INK', Math.round(zoneTurf * ZX.xpPerZoneTurfPoint)], ['SPLATS', Math.round(local.stats.splats * PROGRESSION.xpPerSplat)], ['KNOCKOUT', won && zr.reason === 'knockout' ? ZX.xpKnockout : 0]].filter(([, v], i) => i < 2 || v > 0);
+      xpParts = [[won ? t('rs.winBonus') : t('rs.match'), won ? PROGRESSION.xpWin : PROGRESSION.xpLose], [t('rs.turf'), Math.round(turf * PROGRESSION.xpPerTurfPoint * ZX.turfScale)],
+        [t('rs.zoneInk'), Math.round(zoneTurf * ZX.xpPerZoneTurfPoint)], [t('rs.splats'), Math.round(local.stats.splats * PROGRESSION.xpPerSplat)], [t('rs.knockout'), won && zr.reason === 'knockout' ? ZX.xpKnockout : 0]].filter(([, v], i) => i < 2 || v > 0);
       gained = xpParts.reduce((a, [, v]) => a + v, 0);
     }
     const before = { level: p.level, xp: p.xp, toNext: PROGRESSION.xpForLevel(p.level) };
@@ -1195,7 +1195,7 @@ class Game {
       win: won, percents: [cov[0] * 100, cov[1] * 100], colors: [G.teamHex[0], G.teamHex[1]], teamNames: this.palette.names || TEAM_NAMES,
       players: m.actors.map((a) => ({ name: a.name, team: a.team, weapon: a.weaponId, turf: Math.round(a.stats.turf), splats: a.stats.splats, deaths: a.stats.deaths, isSelf: a.isLocal, bot: !!a.isBot, ...(zr ? { zoneTurf: Math.round(a.stats.zoneTurf || 0) } : {}) })),
       xp: { gained, levelBefore: before.level, levelAfter: p.level, xpBefore: before.xp, xpAfter: p.xp, xpToNextBefore: before.toNext, xpToNextAfter: PROGRESSION.xpForLevel(p.level), ...(xpParts ? { parts: xpParts } : {}) },
-      mapName: this.mapDef.name,
+      mapName: gameName('map', this.mapDef.id, this.mapDef.name),
       ...(zr ? { mode: 'zones', zones: zr } : {}),
       ...(m.learn && m.learn.resultsData ? { learn: m.learn.resultsData() } : {}),   // 双人联机赛: who inked first, who answered right
     };

@@ -119,7 +119,7 @@ test('no English UI strings left on her path (the screens of menus.js she sees, 
   const mod = menus.slice(menus.indexOf('const SETTINGS_TABS'), menus.indexOf('const durLabel'));   // the settings rows / blurbs
   const screens = ['_scr_loading', '_scr_title', '_scr_main', '_scr_learn', '_scr_pause', '_scr_pauseLearn', '_learnSnapshot', '_scr_settings', '_controlsList', '_scr_howto', '_scr_credits', '_toggle', '_slider', '_seg', '_header', '_btn',
     // I (LEARN §17): every other screen reachable from the App's main menu — the online hub, the room, a lost room
-    '_scr_online', '_scr_lobby', '_roomGone', '_nameRow', '_scr_loadout', '_scr_locker', '_lockerSlots'];
+    '_scr_online', '_scr_lobby', '_roomGone', '_nameRow', '_scr_loadout', '_scr_locker', '_lockerSlots', '_scr_results'];
   const parts = [['menus.js settings rows', mod], ['menus.js MENU_DESC', menus.slice(menus.indexOf('const MENU_DESC'), menus.indexOf('const pctFmt'))], ...screens.map((n) => [`menus.js ${n}`, method(menus, n)])];
   // the module's word tables those screens read: team labels, emotes, room-code errors (the splashtag titles' English list
   // stays as the data: its Chinese is i18n.js TITLE_ZH, index for index), times of day, modes, stat names
@@ -129,6 +129,9 @@ test('no English UI strings left on her path (the screens of menus.js she sees, 
   parts.push(['menus.js MODE_INFO', between('const MODE_INFO', 'const LEARN_MODE')]);
   parts.push(['menus.js STAT_LABELS', menus.split('\n').filter((l) => /^const STAT_LABELS/.test(l)).join('\n')]);
   parts.push(['menus.js LOCKER_TABS', between('const LOCKER_TABS', 'const MENU_DESC')]);
+  parts.push(['menus.js ZONE_REASON', between('const ZONE_REASON', 'const DIFF_INFO')]);
+  { const art = read('src/ui/menu-art.js'); parts.push(['menu-art.js awards', art.slice(art.indexOf('export const AWARDS'), art.indexOf('export function medalMarkup'))]); }
+  { const m = read('src/main.js'); parts.push(['main.js results (XP parts, stage name)', m.slice(m.indexOf('  async _judge('), m.indexOf("this.menus?.showResults(data);"))]); }
   for (const f of ['src/ui/hud.js', 'src/ui/hud-boss.js', 'src/ui/hud-learn.js', 'src/learn/forms/ui.js']) parts.push([f, read(f)]);
   const touch = read('src/core/touch.js'); parts.push(['touch.js rotate gate', touch.slice(touch.indexOf('const rotate'), touch.indexOf('this.rotateEl = rotate'))]);
   parts.push(['touch.js buttons', touch.split('\n').filter((l) => /\{ name: '\w+', label:/.test(l)).join('\n')]);

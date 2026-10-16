@@ -2946,10 +2946,14 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-ui .iw-head__titles { min-width: 0; }
   .iw-ui .iw-head__title { font-size: 28px; }
   .iw-ui .iw-head__sub { font-size: 12px; line-height: 1.35; }
+  /* (G's learn screen and settings: their week / day options and 恢复默认 up to 44 pt) */
+  .iw-learnsel .iw-setrow--stack .iw-seg__opt { min-height: 44px; }
+  .iw-settings .iw-btn--small { min-height: 44px; }
 
   /* 怎么玩: one scrolling column — the mode switch, the four rule cards two by two, the notes, then the controls */
   .iw-howto__body { left: 16px; right: 16px; top: calc(100px + var(--sat)); bottom: 0; display: flex; flex-direction: column; gap: 14px;
-    overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 calc(16px + var(--sab)); }
+    overflow-y: auto; overscroll-behavior: contain; padding: 10px 0 calc(16px + var(--sab)) 8px; }
+  .iw-howto__ctl { width: auto; align-self: stretch; }
   .iw-howto__left { gap: 12px; }
   .iw-howto__modes .iw-seg__opt, .iw-howto__ctl .iw-ctl-switch .iw-seg__opt { min-height: 44px; font-size: 15px; padding: 4px 6px; }
   .iw-howto__rules { gap: 12px 10px; }
@@ -3221,4 +3225,64 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-lbtn { height: 48px; font-size: 17px; padding: 0 16px; }
   .iw-lbtn__key { display: none; }
   .iw-lsaved { font-size: 12px; }
+}
+@media (orientation: portrait) and (max-width: 720px) {
+  /* a match's pause (a 双人联机赛 / 双人合作赛 room: the match runs on underneath): title and buttons on top, the match's
+     panel (mode, stage, clock, you, both teams) below them, scrolling if it must; no key list */
+  .iw-pause:not(.iw-pause--learn) .iw-pause__dim { background: rgba(8, 6, 14, .82); }
+  .iw-pause:not(.iw-pause--learn) .iw-pause__col { left: 16px; right: 16px; width: auto; top: calc(20px + var(--sat)); transform: none; gap: 12px; }
+  .iw-pause:not(.iw-pause--learn) .iw-pause__title { font-size: 32px; }
+  .iw-pause:not(.iw-pause--learn) .iw-pause__menu { gap: 8px; }
+  .iw-pause:not(.iw-pause--learn) .iw-btn--menu { height: 50px; font-size: 18px; padding: 0 16px; gap: 12px; --tilt: 0deg; }
+  .iw-pause__live { font-size: 12px; }
+  .iw-pause__ref, .iw-pctl { display: none; }
+  .iw-pmatch { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(14px + var(--sab)); transform: none; max-height: 46%; overflow-y: auto; padding: 12px; gap: 10px; }
+  .iw-pmatch__tag { font-size: 13px; }
+  .iw-pmatch__diff { font-size: 11px; }
+  .iw-pmatch__map { font-size: 17px; }
+  .iw-pclock { width: 56px; height: 56px; }
+  .iw-pclock__num { font-size: 15px; }
+  .iw-pclock__txt small { font-size: 9px; }
+  .iw-pyou { padding: 8px 10px; gap: 8px; }
+  .iw-pyou__av { width: 30px; height: 30px; }
+  .iw-pyou__id small { font-size: 10px; }
+  .iw-pyou__id b { font-size: 15px; }
+  .iw-pyou .iw-pstat > b { font-size: 14px; }
+  .iw-pyou .iw-pstat > small { font-size: 9px; }
+  .iw-pstat { min-width: 44px; }
+  .iw-pteams { gap: 8px; }
+  .iw-roster__head { font-size: 11px; }
+  .iw-rrow { height: 26px; font-size: 12px; grid-template-columns: 22px 1fr auto; gap: 4px; padding: 0 6px; }
+  .iw-rrow__w { height: 18px; }
+  .iw-st { font-size: 9px; }
+  .iw-st i { width: 12px; height: 12px; }
+
+  /* 结算 (a 双人联机赛 ends on INKWAVE's Zone Control results): the verdict and your medals on top, then one scrolling
+     column — the counts, the questions strip, both teams one under the other, XP, and the buttons full width */
+  .iw-res__head { left: 16px; right: 16px; top: calc(14px + var(--sat)); }
+  .iw-res__title { font-size: 40px; }
+  .iw-res__metarow { gap: 6px; margin-top: 8px; }
+  .iw-res__meta, .iw-res__tag { font-size: 12px; }
+  .iw-res__medals { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+  .iw-res__medalcap { font-size: 11px; }
+  .iw-res__medallist { display: flex; gap: 6px; }
+  .iw-medal { width: 64px; font-size: 10px; }
+  .iw-res__body { left: 16px; right: 16px; top: calc(176px + var(--sat)); bottom: 0; overflow-y: auto; overscroll-behavior: contain; gap: 12px; padding-bottom: calc(14px + var(--sab)); }
+  .iw-results.is-intro .iw-res__body { translate: 0 60vh; }
+  .iw-cover__names { font-size: 15px; }
+  .iw-cover { height: 16px; }
+  .iw-zres__mid { font-size: 10px; }
+  .iw-res__learn { font-size: 13px; padding: 8px 10px; gap: 6px 8px; }
+  .iw-res__learnhd { font-size: 14px; }
+  .iw-res__teams, .iw-res__teams.is-boss { grid-template-columns: 1fr; gap: 10px; }
+  .iw-ttable__head { font-size: 12px; }
+  .iw-prow, .iw-results .iw-prow { height: 30px; margin-top: 4px; padding: 0 8px 0 6px; font-size: 13px; }
+  .iw-res__foot { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 4px; }
+  .iw-xp { width: auto; padding: 10px 12px; gap: 10px; }
+  .iw-xp__gain { font-size: 16px; }
+  .iw-xp__next { font-size: 12px; }
+  .iw-lvl--big { font-size: 14px; }
+  .iw-res__btns { flex-direction: column; gap: 8px; }
+  .iw-res__btns .iw-btn--wide, .iw-results .iw-btn--wide { height: 52px; font-size: 18px; justify-content: center; --tilt: 0deg; }
+  .iw-res__lobby { align-self: center; font-size: 13px; }
 }

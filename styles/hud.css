@@ -1503,3 +1503,12 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 @media (prefers-reduced-motion: reduce) {
   .iw-learn *, .iw-learn *::before, .iw-learn *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- 关卡学习 I (docs/LEARN.md §17): a phone held upright. The HUD's unit is 1/100 of a 16:9 frame fitted to the
+   screen — 3.9 px on a 390 px phone, so the counts and the clock were a squint; re-based on the width here. The level's
+   next-gate bar moves below the HUD's top row (the clock sat under it — B's layout, noted by G and H), and keeps the
+   right edge clear of the special gauge. */
+@media (orientation: portrait) and (max-width: 640px) {
+  .iw-hud { --u: min(1.6vw, 1.1vh); }
+  .iw-learn__walk { top: calc(var(--hudtop, 58px) + env(safe-area-inset-top)); left: 10px; right: auto; max-width: calc(100vw - 20px); }
+}

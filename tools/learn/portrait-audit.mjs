@@ -10,7 +10,10 @@
 //   online   联机 hub · the code typed on the phone's keyboard (a wrong one) · create a room → the room · its weapon drawer ·
 //            the locker from the room and back                          (a Node relay of its own on a free port)
 //   room     create → the room · the emote wheel · MODE ▶ 双人合作赛 · leave (the modal) → the hub → main   (relay too)
-//   versus2  a room → 双人联机赛 against the bots (short) → the match HUD and a question → the room's pause → the results
+//   zone     a Zone Control match on the phone (the 对抗赛 level: Zone Control + the question layer, standing in for a 双人联机赛,
+//            which is the same HUD and the same card): the fire / sub / special / cheer keys shown as versus2 shows them, a
+//            question up, play, the room's pause (G.netm stood in: the battle pause), the results of a 双人联机赛 (its data
+//            injected: the Zone Control results with the questions strip)
 //   level    ?learn=w1d1&kind=puzzle&short=1 → the walk HUD (the clock vs the next-gate bar) → a question → the level's pause
 //   boss     ?learn=w1&kind=boss&short=1 → the W phase's write question → a near miss → 「我的写法也对」
 // Needs puppeteer-core and Chrome (CHROME_PATH); software GL is fine: ?quality=low, shadows / bloom off, the game clock frozen
@@ -76,10 +79,11 @@ async function shot(name) {
   await page.screenshot({ path: `${SHOTS}/${GROUP}-${name}.png` });
   say('shot', `${SHOTS}/${GROUP}-${name}.png`);
 }
-async function measure(name, { scopes = null, back = null, reached = true, note = '', extra = null, settle = 0 } = {}) {
+async function measure(name, { scopes = null, back = null, reached = true, note = '', extra = null, settle = 0, noStep = false } = {}) {
   // settle: ms of game clock first, one render at the end (the 3D pedestal / line-up camera glides in over ~1.5 s)
+  // noStep: measure the page as it stands (no game frames — e.g. while an audit stand-in is in place)
   if (settle) await ev((ms) => __inkwave.debug.step(ms), settle);
-  await step(2);
+  if (!noStep) await step(2);
   const m = await ev((s, b) => window.__iwMeasure(s, b), scopes, back);
   const row = { name, reached, m, note, extra };
   rows.push(row);
@@ -113,7 +117,7 @@ try {
     relayQ = `&relay=ws://127.0.0.1:${rport}`;
   }
   await waitHttp(`http://127.0.0.1:${hport}/index.html`);
-  const q = GROUP === 'level' ? 'learn=w1d1&kind=puzzle&short=1' : GROUP === 'boss' ? 'learn=w1&kind=boss&short=1' : 'skipTitle';
+  const q = GROUP === 'level' ? 'learn=w1d1&kind=puzzle&short=1' : GROUP === 'boss' ? 'learn=w1&kind=boss&short=1' : GROUP === 'zone' ? 'learn=w1d6&kind=duel&short=1' : 'skipTitle';
   const url = `http://127.0.0.1:${hport}/?${q}&from=app&quality=low${LANG ? '&lang=' + LANG : ''}${relayQ}`;
   browser = await puppeteer.launch({ executablePath: chromePath(), headless: 'new', defaultViewport: { width: W, height: H, deviceScaleFactor: 1, isMobile: true, hasTouch: true },
     args: gpuArgs([`--window-size=${W},${H}`, '--disable-background-timer-throttling', '--disable-renderer-backgrounding']) });
