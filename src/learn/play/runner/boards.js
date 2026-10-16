@@ -1,18 +1,26 @@
 // 墨浪跑酷 — the 看板段 (docs/PLAY.md §3 M6, §5.2 「看板段」; LEARN §21 BoardWalk's contract, play-4): a checkpoint's boards —
-// the word boards (5 words a board), the sounds (2 a board), the grammar lesson's lines — stand along the straight
-// before its first row (play-3's BoardWalk: the slab, the posts, the canvas face, the framing camera, the hotspots).
-// The ink road carries her past them at LEARN.runner.boards.tide (slow, never stopped — PLAY §1.1) and the racer bots
-// slow by the same factor (fair, §5.2); while she is in a board's zone the lens springs round to frame it (walking on
-// lets go: the page turn, no 下一页); a tap on a row replays its word, 「跟读」 says them with gaps, 「读全文」 opens the
-// reading strip (never while a row is asked). Nothing here is judged or recorded. The reading passage (阅读课文) stays
-// the board before the start (PLAY §4 「M6（起跑前）」, play-runner).
+// the word boards (5 words a board), the sounds (2 a board), the grammar lesson's lines — stand along the road before its
+// first row (play-3's BoardWalk: the slab, the posts, the canvas face, the framing camera, the hotspots). The ink road
+// carries her past them at LEARN.runner.boards.tide (slow, never stopped — PLAY §1.1) and the racer bots slow by the same
+// factor (fair, §5.2). The board she is coming up to is framed: BoardWalk frames the board whose viewing spot she stands
+// at — here the runner hands it that spot while she is on the board's own stretch of road (from the board before it to
+// just past it: ≈ gap / her pace seconds each) and nothing once she is past the last one, so swimming on is the page
+// turn (no 下一页); the lens springs to the framing pose and back (runner/cam.js, never a cut). A tap on a row replays
+// its word, 「跟读」 says them with gaps, 「读全文」 opens the reading strip (never while a row or a typed item is up) — the
+// taps come from this module's own pointer listeners while a board is framed (touch.js's swipe hook takes every finger
+// in the runner and would never reach G.playTap). Nothing here is judged or recorded. The reading passage (阅读课文)
+// stays the board before the start (PLAY §4 「M6（起跑前）」, play-runner).
 //
 //   boardSpecsOf(g, level) → specs           pure: what a checkpoint's boards say (play-wire's gateSpecs, the same chunking)
+//   withBoards(entries, counts, o) → entries pure: a { kind: 'boards', gate, n, len } entry in front of each checkpoint
+//                                            that has boards (counts[k] = its number of boards)
 //   boardSpots(T, W, s0, n, o) → spots       pure: n boards from road length s0 on, on the roomier side (her right first),
 //                                            facing back down the road; view = the road beside each (the zone she drifts through)
 //   boardLength(n, o) → m                    the road a stretch of n boards takes (planCourse / _build reserve it)
-//   const B = new RunnerBoards(flow)         B.prepare(g) → n · B.place(g, s0) → { s0, s1 } · B.free(g) · B.update(dt, her, aspect, speed)
-//                                            B.framing · B.framed · B.tapApi · B.questionUp = bool · B.debug() · B.dispose()
+//   boardAt(spots, s, o) → index | −1         pure: the board whose stretch of road s is on
+//   const B = new RunnerBoards(flow)         B.prepare(g) → n · B.place(g, s0) → { s0, s1 } · B.free(g) · B.unplace(g)
+//                                            B.update(dt, s, aspect) · B.framing · B.framed · B.questionUp = bool
+//                                            B.zoneAt(s) · B.debug() · B.dispose()
 import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { daySteps } from '../../api.js';
@@ -48,6 +56,26 @@ export function boardSpecsOf(g, level) {
 
 export function boardLength(n, o = LEARN.runner.boards) { return n > 0 ? o.lead + (n - 1) * o.gap + o.tail : 0; }
 
+// the run's queue with a 看板段 in front of each checkpoint that has boards (before its first row or glide)
+export function withBoards(entries, counts = [], o = LEARN.runner.boards) {
+  const out = [], seen = new Set();
+  for (const e of entries) {
+    const k = e.gate;
+    if (!seen.has(k)) { seen.add(k); const n = counts[k] || 0; if (n > 0) out.push({ gate: k, kind: 'boards', n, len: boardLength(n, o) }); }
+    out.push(e);
+  }
+  return out;
+}
+
+// the board whose stretch of road s is on: from the board before it (or the stretch's start) to just past it
+export function boardAt(spots, s, o = LEARN.runner.boards) {
+  for (let k = 0; k < spots.length; k++) {
+    const sp = spots[k], from = k > 0 && Math.abs(spots[k - 1].s0 - sp.s0) < 1e-6 ? spots[k - 1].s + o.past : sp.s0 - 1;
+    if (s >= from && s <= sp.s + o.past) return k;
+  }
+  return -1;
+}
+
 // n boards from road length s0 on: the first `lead` m in, then `gap` apart; each on the side with more clearance (her
 // right when it has the room: the board stands `side` m off the centre line, past the road's walkable band when it can)
 export function boardSpots(T, W, s0, n, o = LEARN.runner.boards) {
@@ -61,14 +89,24 @@ export function boardSpots(T, W, s0, n, o = LEARN.runner.boards) {
     const x = _p.x + _p.rx * off, z = _p.z + _p.rz * off;
     // facing back down the road, turned a little towards the road's middle (the tangent points on; she comes from −t)
     const yaw = Math.atan2(-_p.tx - _p.rx * dir * 0.35, -_p.tz - _p.rz * dir * 0.35);
-    out.push({ x, y: _p.y, z, yaw, s, side: dir, view: { x: _p.x, y: _p.y, z: _p.z } });
+    out.push({ x, y: _p.y, z, yaw, s, s0, side: dir, view: { x: _p.x, y: _p.y, z: _p.z } });
   }
   return out;
 }
 
+const FAR = { x: 1e6, y: 0, z: 1e6 };
+
 export class RunnerBoards {
   constructor(flow) {
     this.flow = flow; this.walk = null; this.zones = []; this.log = [];
+    this.spots = [];   // placed, in road order: { s, s0, key, view } (the same order as walk.list)
+    this.cur = -1;
+    // taps on the framed board (its hotspots); every pointer, a finger or the mouse — before touch.js's swipe hook
+    // (capture phase on the window; nothing is stopped: a drag that starts on a board is still a swipe, and a tap moves
+    // less than BoardWalk's 18 px)
+    this._pd = (e) => { const W = this.walk; if (W && W.framed >= 0 && W.tapApi.down(e.clientX, e.clientY, e.pointerId)) this.log.push({ t: +this.flow.t.toFixed(2), ev: 'tap' }); };
+    this._pu = (e) => { const W = this.walk; if (W) W.tapApi.up(e.clientX, e.clientY, e.pointerId, e.type === 'pointercancel'); };
+    if (typeof addEventListener === 'function') { addEventListener('pointerdown', this._pd, true); addEventListener('pointerup', this._pu, true); addEventListener('pointercancel', this._pu, true); }
   }
   _ensure() {
     if (this.walk) return;
@@ -77,6 +115,7 @@ export class RunnerBoards {
     W.on.speak = (text, o) => this.flow._speak(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
     W.on.framed = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i });
     W.on.read = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i });
+    W.on.more = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'more', i });
   }
   warm() { try { this._ensure(); } catch (e) { console.warn('[runner] boards warm', e); } }
   get framing() { return this.walk && this.walk.framing ? this.walk.framing : null; }
@@ -84,7 +123,7 @@ export class RunnerBoards {
   get tapApi() { return this.walk && this.walk.framed >= 0 ? this.walk.tapApi : null; }
   set questionUp(on) { if (this.walk) this.walk.questionUp = !!on; }
 
-  // a checkpoint's boards painted (two checkpoints ahead; the canvases, not the meshes)
+  // a checkpoint's boards painted ahead (the canvases, not the meshes): → how many
   prepare(g) {
     this._ensure();
     if (g._boards) return g._boards.n;
@@ -100,28 +139,51 @@ export class RunnerBoards {
     if (!g._boards.n || g._boards.placed) return null;
     const F = this.flow, o = LEARN.runner.boards;
     const spots = boardSpots(F.T, F.W, s0, g._boards.n, o);
+    const before = this.walk.list.length;
     this.walk.place(g.id, spots);
+    for (const L of this.walk.list.slice(before)) this.spots.push({ s: L.spot.s, s0: L.spot.s0, key: g.id, L });
     const zone = { gate: g, s0: s0 - 1, s1: s0 + boardLength(g._boards.n, o) };
     g._boards.placed = true; g._boards.zone = zone;
     this.zones.push(zone);
     this.log.push({ t: +F.t.toFixed(2), ev: 'place', gate: g.id, n: spots.length, s0: +s0.toFixed(1) });
     return zone;
   }
+  // gone for good (she is past them): the canvases freed
   free(g) {
     if (!this.walk || !g._boards) return;
     this.walk.free(g.id);
     g._boards.placed = false; g._boards.freed = true;
+    this._drop(g);
+  }
+  // taken down to stand again further on (a detour or a long 滑行段 passed them before she reached them): painted again then
+  unplace(g) {
+    if (!this.walk || !g._boards) return;
+    this.walk.free(g.id);
+    g._boards = null;
+    this._drop(g);
+  }
+  _drop(g) {
     this.zones = this.zones.filter((z) => z.gate !== g);
+    this.spots = this.spots.filter((sp) => sp.key !== g.id);
+    this.cur = -1;
   }
   // the stretch she is on (the tide slows there, the bots too), or null
   zoneAt(s) { for (const z of this.zones) if (s >= z.s0 && s <= z.s1) return z; return null; }
-  update(dt, her, aspect, speed) {
+  // every frame: the board whose stretch of road she is on is the one framed (BoardWalk is handed its viewing spot and a
+  // standstill — the runner never stands); none → BoardWalk lets go
+  update(dt, s, aspect) {
     const W = this.walk; if (!W) return;
-    W.update(dt, her, { aspect, speed });
+    const k = boardAt(this.spots, s);
+    this.cur = k;
+    const her = k >= 0 && this.spots[k].L ? this.spots[k].L.view : FAR;
+    W.update(dt, her, { aspect, speed: 0 });
   }
   debug() {
     const W = this.walk;
-    return W ? { framed: W.framed, n: W.list.length, read: W.list.filter((L) => L.read).length, zones: this.zones.map((z) => [+z.s0.toFixed(1), +z.s1.toFixed(1)]), framing: W.framing ? { fits: W.framing.frame.fits, rect: W.framing.frame.rect && { x: Math.round(W.framing.frame.rect.x), y: Math.round(W.framing.frame.rect.y), w: Math.round(W.framing.frame.rect.w), h: Math.round(W.framing.frame.rect.h) } } : null, strip: W.strip.isOpen, log: this.log.slice(-6) } : { idle: true };
+    return W ? { framed: W.framed, cur: this.cur, n: W.list.length, read: W.list.filter((L) => L.read).length, zones: this.zones.map((z) => [+z.s0.toFixed(1), +z.s1.toFixed(1)]), spots: this.spots.map((sp) => +sp.s.toFixed(1)), framing: W.framing ? { fits: W.framing.frame.fits, rect: W.framing.frame.rect && { x: Math.round(W.framing.frame.rect.x), y: Math.round(W.framing.frame.rect.y), w: Math.round(W.framing.frame.rect.w), h: Math.round(W.framing.frame.rect.h) } } : null, strip: W.strip.isOpen, log: this.log.slice(-8) } : { idle: true };
   }
-  dispose() { this.walk?.dispose(); this.walk = null; this.zones = []; }
+  dispose() {
+    if (typeof removeEventListener === 'function') { removeEventListener('pointerdown', this._pd, true); removeEventListener('pointerup', this._pu, true); removeEventListener('pointercancel', this._pu, true); }
+    this.walk?.dispose(); this.walk = null; this.zones = []; this.spots = [];
+  }
 }

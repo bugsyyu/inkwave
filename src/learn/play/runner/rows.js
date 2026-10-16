@@ -16,7 +16,8 @@
 //                                    answer does (race.js _answer); lane −1 (the gap between curtains) = no answer, nothing
 //                                    written. Beat timing never comes in here (PLAY §1 rule 4: timing ≠ correctness)
 //   planCourse(entries, T, W, R)     where every row would stand on the lap (no retries): the checkpoints for the bots
-//                                    and how many laps the run needs
+//                                    and how many laps the run needs (a 'boards' entry — boards.js withBoards — takes
+//                                    its e.len of road)
 import { prompt, store } from '../../api.js';
 import { judgeAnswer } from '../../forms/common.js';
 import { readLead, leadDistance } from './lanes.js';
@@ -113,6 +114,13 @@ export function planCourse(entries, T, W, R, opts = {}) {
   let cur = opts.start ?? R.firstRow;
   const rows = [], gateS = [];
   for (const e of entries) {
+    if (e.kind === 'boards') {   // a 看板段 (boards.js): its boards' stretch of road, the checkpoint starts with it
+      const s0 = cur + 4;
+      if (gateS[e.gate] == null) gateS[e.gate] = s0;
+      rows.push({ entry: e, s: s0 + e.len, s0, s1: s0 + e.len });
+      cur = s0 + e.len + R.after;
+      continue;
+    }
     if (e.kind === 'glide') {
       const s0 = cur + 4;
       if (gateS[e.gate] == null) gateS[e.gate] = s0;

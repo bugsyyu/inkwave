@@ -697,6 +697,11 @@ export const LEARN = {
     paintAhead: 18,           // m of road painted ahead of her (the tide pours on as she swims)
     detour: { reach: [12, 18, 24, 30], away: 2.2, tide: 0.6 },   // 走远路: rejoin distances to try, m off the road, its tide
     bpm: 128,                 // the beat grid when no synth track is playing (a recording carries no tempo)
+    // 看板段 (play-4, src/learn/play/runner/boards.js; PLAY §5.2): a checkpoint's word boards / sounds / grammar lesson
+    // stand along the road before its first row; the tide (and the bots) slow there. The first board `lead` m in, the
+    // others `gap` apart, `tail` m after the last; `side` m off the road's middle; the board she is coming up to is framed
+    // from the board before it to `past` m beyond it (≈ gap / her pace — 2.7 s at 0.25 × 11.8 m/s)
+    boards: { lead: 7, gap: 8, tail: 3, side: 2.6, tide: 0.25, past: 0.5 },
   },
   // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
   // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question
