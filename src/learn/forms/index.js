@@ -25,7 +25,7 @@ import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
 export const LEARN_KINDS = [...FORMS, 'quiz'];   // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2)
 const FLOWS = { puzzle: LearnFlow, race: RaceFlow, duel: DuelFlow, boss: BossFlow };
 
-export async function buildLearn({ week, day, kind, short = false }) {
+export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);
   if (kind === 'quiz') return buildQuiz(w, week, day, short);
   if (kind === 'boss') {
@@ -36,7 +36,7 @@ export async function buildLearn({ week, day, kind, short = false }) {
   }
   let level = planDay(w, day, kind);   // (a kind outside the four forms — 'plan', none given — is the day's planned form)
   if (!FORMS.includes(kind)) kind = level.kind || 'puzzle';
-  if (short) level = shortenLevel(level);
+  if (short) level = shortenLevel(level, 2, 2, gate > 0 ? gate - 1 : 0);
   // the numeric week / day the flows and the HUD read (A's head() writes week: 'w1'); the week object for store.due
   Object.assign(level, { week, day, weekRef: w });
   return { kind, level, Flow: FLOWS[kind] || LearnFlow, time: level.time || 'day', duration: kind === 'duel' ? (short ? 60 : undefined) : undefined, world: kind === 'duel' ? 'zones' : 'turf', short, weekRef: w };

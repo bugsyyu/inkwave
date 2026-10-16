@@ -1396,6 +1396,30 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 .iw-learn__input:disabled { opacity: .6; }
 .iw-learn__form.is-shake { animation: iw-learn-shake .3s; }
 @keyframes iw-learn-shake { 25% { translate: -6px 0; } 75% { translate: 6px 0; } }
+/* write (a sentence): three lines, so the whole sentence stays in view; 提交 sits under it */
+.iw-learn__form.is-write { flex-direction: column; align-items: stretch; }
+.iw-learn__input.is-area { min-height: 96px; padding: 12px 16px; resize: none; font: 600 18px/1.4 'Rubik', system-ui, sans-serif; }
+.iw-learn__form.is-write .iw-learn__submit { align-self: flex-end; }
+/* flip (快闪翻牌): the Chinese on the front; 翻过来 shows the word, its IPA (and its sound); then 记得 / 不记得 */
+.iw-learn__form.is-flip { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.iw-learn__card { position: relative; min-height: 112px; border-radius: 18px; pointer-events: auto; cursor: pointer; perspective: 800px; -webkit-tap-highlight-color: transparent; }
+.iw-learn__face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px;
+  border-radius: 18px; border: 2px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .08); text-align: center;
+  backface-visibility: hidden; transition: transform .45s var(--out); }
+.iw-learn__face small { font-size: 13px; color: var(--muted); font-weight: 700; }
+.iw-learn__face.is-front b { font-size: 26px; font-weight: 800; line-height: 1.25; }
+.iw-learn__face.is-back { transform: rotateY(180deg); border-color: var(--self); background: rgba(var(--self-rgb), .16); }
+.iw-learn__backen { font-size: 30px; font-weight: 900; letter-spacing: .01em; }
+.iw-learn__backipa { font-size: 15px; color: var(--muted); }
+.iw-learn__form.is-flipped .iw-learn__face.is-front { transform: rotateY(-180deg); }
+.iw-learn__form.is-flipped .iw-learn__face.is-back { transform: rotateY(0deg); }
+.iw-learn__flip { align-self: center; background: rgba(255, 255, 255, .12); color: #fff; min-width: 140px; }
+.iw-learn__rate { display: none; gap: 10px; }
+.iw-learn__rate .iw-learn__btn { flex: 1; min-height: 52px; font-size: 18px; }
+.iw-learn__form.is-flipped .iw-learn__flip { display: none; }
+.iw-learn__form.is-flipped .iw-learn__rate { display: flex; }
+.iw-learn__rate .iw-learn__btn.is-picked { outline: 3px solid #fff; outline-offset: 2px; }
+.iw-learn__rate .iw-learn__btn:disabled { opacity: .7; cursor: default; }
 /* choice: the English on top, its Chinese under it once answered */
 .iw-learn__form.is-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .iw-learn__opt {

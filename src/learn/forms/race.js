@@ -16,7 +16,7 @@ import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, propOnRight, useProp, streakKind, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip } from './common.js';
+import { loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, propOnRight, useProp, streakKind, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
 import { FormsUi } from './ui.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -205,9 +205,9 @@ export class RaceFlow extends LearnFlow {
   _askNext(g) {
     if (!g.queue.length) { this._open(g); return; }
     const item = g.queue.shift();
-    const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    const p = cardFor(g, item, () => prompt(item), () => this._altPrompt(item));
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
-    if (this.hintNext && p.type !== 'choice') { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
+    if (this.hintNext && p.type !== 'choice' && !p._flip) { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
     this.asking = { gate: g, item, p };
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._relearn ? 'relearn' : item._form || 'normal' });
@@ -226,23 +226,26 @@ export class RaceFlow extends LearnFlow {
 
   _answer(g, item, p, ans) {
     const r = judgeAnswer(item, p, ans);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now() });
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });
     const first = !!rec.first;
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, flip: !!p._flip });
     let again = false;
     if (r.ok) {
       if (item._relearn) this.relearnRight++;
       this.streak++; this.rightN++;
       this._onRight();
+    } else if (p._flip) {   // 不记得 (her own rating): no lock, no detour — the typed card comes right away
+      item._flipTyped = true; g.queue.unshift(item); again = true;
+      G.audio?.play?.('ui_toggle', { volume: 0.5 });
     } else {
       this.streak = 0; g.locks++;
       if (!item._relearn && item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; G.audio?.play?.(EFFECTS.race.wrong.sfx, { volume: 0.6 }); }
       else this._onWrong2(item);
       this._styleGates();
     }
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._askNext(g));
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
   }
 
   _onRight() {

@@ -38,6 +38,7 @@
       const it = A.item;
       if (p._alt === 'choice-of-typed') return (p.options || []).findIndex((o) => o.text === (it.meta && it.meta.ref || it.en));
       if (p._alt === 'typed-of-choice') return it.options[it.answer].en;
+      if (p._flip) return true;   // (the flip card: her own 「记得」)
       if (p.type === 'choice') return p._perm ? p._perm.indexOf(it.answer) : it.answer;
       return (it.meta && it.meta.ref) || it.en;
     };
@@ -45,7 +46,13 @@
       const a = H()._ask, p = a.p;
       const want = rightOf(F, p);
       let picked = null;
-      if (p.type === 'choice') {
+      if (p.type === 'flip') {
+        document.querySelector('.iw-learn__flip').click();
+        await adv(100);
+        const back = document.querySelector('.iw-learn__face.is-back');
+        picked = (mode === 'right' ? '记得 ' : '不记得 ') + (back ? back.innerText.replace(/\s+/g, ' ') : '');
+        document.querySelector(mode === 'right' ? '.iw-learn__know' : '.iw-learn__forgot').click();
+      } else if (p.type === 'choice') {
         const btns = [...document.querySelectorAll('.iw-learn__opt')];
         let k = typeof want === 'number' ? want : btns.findIndex((b) => b.querySelector('.iw-learn__opten').textContent === String(want));
         if (k < 0) k = 0;

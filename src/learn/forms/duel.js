@@ -16,7 +16,7 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip } from './common.js';
+import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
 import { FormsUi } from './ui.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -165,9 +165,9 @@ export class DuelFlow extends LearnFlow {
   // ---------------------------------------------------------------------------------------------- her questions
   _ask(g) {
     const item = g.queue.shift(), a = this.match.local;
-    const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    const p = cardFor(g, item, () => prompt(item), () => this._altPrompt(item));
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
-    if (this.hintNext && p.type !== 'choice') { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
+    if (this.hintNext && p.type !== 'choice' && !p._flip) { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
     this.asking = { gate: g, item, p };
     this.hold = true; a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.jump = false;
     G.input?.exitLock?.();
@@ -190,19 +190,20 @@ export class DuelFlow extends LearnFlow {
 
   _answer(g, item, p, ans) {
     const r = judgeAnswer(item, p, ans);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now() });
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });
     const first = !!rec.first;
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, flip: !!p._flip });
     let again = false;
     if (r.ok) { if (item._relearn) this.relearnRight++; this.streak++; this.rightN++; this._onRight(); }
+    else if (p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; G.audio?.play?.('ui_toggle', { volume: 0.5 }); }   // 不记得: type it right away
     else {
       this.streak = 0; g.locks++;
       if (!item._relearn && item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; G.audio?.play?.(EFFECTS.duel.wrong.sfx, { volume: 0.6 }); }
       else { G.audio?.play?.(EFFECTS.duel.wrong2.sfx, { volume: 0.6 }); if (!item._relearn) this.relearn.push(item); if (this.shield) { this.shield = false; this.enemyT += this.model.duelCadence; this.ui.say('护盾：对面这一次没得「答题」'); } }
     }
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._after());
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._after());
   }
   _after() {
     this.asking = null; this.hold = false; this.askT = this.D.askGap;

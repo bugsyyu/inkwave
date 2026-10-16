@@ -322,7 +322,7 @@ class Game {
     // (?learn=w1&kind=boss is the week's 周考; &short=1 is the audits' shortened level: 2 gates, a 60 s clock)
     if (params.has('learn')) {
       const m = /^w?(\d+)(?:d(\d+))?$/i.exec(params.get('learn') || '') || [];
-      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'plan', short: params.has('short') });
+      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'plan', short: params.has('short'), gate: +params.get('gate') || 0 });
     } else if (params.has('autostart')) {
       const pm = params.get('mode');
       this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
@@ -886,7 +886,7 @@ class Game {
     const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
     const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'plan';   // ('plan': buildLearn takes the day's planned form)
     let learn = null;
-    try { learn = await buildLearn({ week, day, kind, short: !!o.short }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
+    try { learn = await buildLearn({ week, day, kind, short: !!o.short, gate: o.gate | 0 }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
     return this.startMatch({ mode: 'learn', mapId: learn.level.stage || 'tidewater', time: learn.time || 'day', duration: learn.duration, learn });
   }
 

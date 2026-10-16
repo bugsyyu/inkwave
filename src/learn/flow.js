@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import { G, emit } from '../core/ctx.js';
 import { LEARN } from '../config.js';
 import { puzzleLevel, prompt, judge, store } from './api.js';
+import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -230,7 +231,7 @@ export class LearnFlow {
   _askNext(g) {
     if (!g.queue.length) { this._open(g); return; }
     const item = g.queue.shift();
-    const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    const p = cardFor(g, item, () => prompt(item), () => this._altPrompt(item));
     this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
@@ -244,22 +245,24 @@ export class LearnFlow {
 
   _answer(g, item, p, ans) {
     let r;
-    if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
+    if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
+    else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
     else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
     else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
     else r = judge(item, ans);
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now() });   // (A's store: the dictation percent is the leaf; the day is today's date)
+    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date)
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
     let again = false;
-    if (!r.ok) {
+    if (!r.ok && p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; }   // 不记得: no lock, type it right away
+    else if (!r.ok) {
       g.locks++;
       if (item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; }
       this._styleGates();
     }
-    G.audio?.play?.(r.ok ? 'hit_marker' : 'ui_error', { volume: 0.8 });
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again }, () => this._askNext(g));
+    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
   }
 
   // The other form of an item (asked when the first answer was wrong), judged through the same judge():
