@@ -16,6 +16,7 @@ import { G } from '../../core/ctx.js';
 import { PlayRun } from './run.js';
 import { PlayCam } from './cam.js';
 import { canPlayM1 } from './m1.js';
+import { stageLayout } from './beat/pads.js';
 import { TypeStation } from './wire/type.js';
 import { BeatStation, isBeatItem } from './wire/beat.js';
 import { FlipStation } from './wire/flip.js';
@@ -184,6 +185,9 @@ export class PlayHost {
     const nav = G.nav, L = G.level, path = this.flow.path || [];
     const fallback = { origin: (g._play && g._play.anchor ? g._play.anchor : g.pos).clone(), yaw: this.facingYaw(g, this.match.local) };
     if (!nav || !L || path.length < 2) return fallback;
+    // the stage camera's spot (stage frame) at this aspect: it must see the home pad — a roof, a bridge, a gazebo over
+    // the spot hides the whole stage (the first version stood the pads under the harbour pavilion)
+    const camL = stageLayout(n, innerWidth / innerHeight).cam.pos;
     let best = null, acc = 0;
     for (let i = g.pathIndex + 1; i < path.length && acc < 14; i++) {
       const p = nav.nodes[path[i - 1]], q = nav.nodes[path[i]];
@@ -200,8 +204,12 @@ export class PlayHost {
         for (const [rx, rz] of [[0, 0], [0.65, 0], [-0.65, 0], [0, 0.65], [0, -0.65]]) { const gy = L.groundHeight(x + rx, z + rz, q.y + 1.2); if (!(gy > -Infinity && Math.abs(gy - q.y) < 0.3)) { flat = false; break; } }
         const walk = nav.nearest(_v.set(x, q.y, z), 0.8, true) >= 0;
         const clear = !P || !P.los || (P.los(_w.set(q.x, q.y + 0.4, q.z), _v.set(x, q.y + 0.4, z)) && P.los(_w.set(q.x, q.y + 1.1, q.z), _v.set(x, q.y + 1.1, z)));
-        if (flat && walk && clear) ok++; else dev += flat && clear ? 0.5 : 1;
+        // and open sky over it (5 m): nothing between the stage camera and the pads
+        const sky = !P || !P.los || P.los(_w.set(x, q.y + 0.5, z), _v.set(x, q.y + 5.5, z));
+        if (flat && walk && clear && sky) ok++; else dev += flat && clear && sky ? 0.5 : 1;
       }
+      const camSees = !P || !P.los || P.los(_w.set(q.x + cy * camL[0] + sy * camL[2], q.y + camL[1], q.z - sy * camL[0] + cy * camL[2]), _v.set(q.x, q.y + 0.6, q.z));
+      if (!camSees) dev += 4;
       const score = ok * 2 - dev - acc * 0.04;
       if (!best || score > best.score) best = { score, origin: new THREE.Vector3(q.x, q.y, q.z), yaw, ok, acc: +acc.toFixed(1) };
       if (ok === STAGE_PTS.length) break;

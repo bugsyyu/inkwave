@@ -47,6 +47,7 @@ export class ExitStation {
       this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
       this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
       this.echo.on.classic = () => this._classic('speak', speak);
+      this.echo.walk.on.framed = () => F.hud?.playMode?.(true); this.echo.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
       const at = spot(boards.length ? -2.4 : 0, -3.2);
       this.echoAt = at;
       this.echo.open({ key: speak.id, item, at: new THREE.Vector3(at.x, at.y, at.z), yaw: Math.atan2(fx, fz) });
@@ -58,6 +59,7 @@ export class ExitStation {
       this.signs.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
       this.signs.on.classic = (sg) => this._classic(sg.kind, sg);
       this.signs.on.checkin = (sg) => this._checkin(sg);
+      this.signs.walk.on.framed = () => F.hud?.playMode?.(true); this.signs.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
       const list = boards.map((s) => ({ id: s.id, kind: s.design.mechanic === 'checkin-pad' ? 'checkin' : s.design.mechanic === 'weekly-sign' ? 'weekly' : 'placement', title: s.title, text: s.items[0] && s.items[0].zh }));
       this.signs.prepare('exit', list);
       const yaw = Math.atan2(-fx, -fz);   // the boards face back along the route, towards her

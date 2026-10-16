@@ -57,7 +57,9 @@ export class BoardStation {
     const W = (this.walk = new BoardWalk({ scene: G.scene, camera: G.camera, color: G.teamHex?.[0] || '#ff8a14', reduced: this.host.reduced, root: (G.hud && G.hud.root) || document.body, max: BOARDS_MAX }));
     try { W.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     W.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-    W.on.framed = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i });
+    // (the HUD's walk bar goes while a board is framed — in landscape it sat over the board's top edge; back when she walks on)
+    W.on.framed = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i }); this.flow.hud?.playMode?.(true); };
+    W.on.unframed = () => { if (this.flow.phase === 'walk' || this.flow.phase === 'exit') this.flow.hud?.playMode?.(false); };
     W.on.read = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i });
   }
   warm() { this._ensure(); }
