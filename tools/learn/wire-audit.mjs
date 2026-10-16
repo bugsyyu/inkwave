@@ -190,7 +190,9 @@ async function kbSettled() {
 async function answerType(s, right) {
   const d = s.dbg.station;
   s.kb = await kbSettled();
-  check(!!s.kb && s.kb[0] >= 0 && s.kb[1] >= 0 && s.kb[0] + s.kb[2] <= s.W + 1 && s.kb[1] + s.kb[3] <= s.H + 1, 'M4: the game keyboard up, inside the screen', s.kb);
+  // (the panel's slide-in overshoots a few px on its bounce; what must be on the screen is every key)
+  const keysOut = await ev(() => { const out = []; for (const el of document.querySelectorAll('.iw-pk__k, .iw-pk__b')) { if (el.style.display === 'none') continue; const r = el.getBoundingClientRect(); if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) out.push([el.dataset.k || el.dataset.b, Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)]); } return out; });
+  check(!!s.kb && keysOut.length === 0, 'M4: the game keyboard up, every key inside the screen', { kb: s.kb, out: keysOut });
   check(d.phase === 'typing' && d.pose && d.pose.fits !== false, `M4: typing (${d.mode}), the type frame`, d.pose);
   check(s.rigMode === 'path', 'M4: the lens is the station\'s (rig in path mode)', s.rigMode);
   await shot('m4-type-' + d.mode);
