@@ -254,7 +254,12 @@ export class RunnerFlow extends RaceFlow {
     if (Math.hypot(a.pos.x - P.x, a.pos.z - P.z) > 0.8) { P.x = a.pos.x; P.z = a.pos.z; this._stuckT = 0; return; }
     const was = this._stuckT || 0;
     this._stuckT = was + dt;
-    if (was < 0.6 && this._stuckT >= 0.6) { this._jumpQ = true; this.latT = 0; }
+    // at the line (the start deck's edge on halyard: play-4's audits stopped 0.04 m short of it, the super jump not
+    // ready): she is there — the line counts as crossed
+    if (this.phase === 'final' && this.finish && this.finish.s - this.sNow < 3 && this._stuckT >= 0.6) { this._stuckT = 0; this._emit('learn:unstick', { s: +this.sNow.toFixed(1), line: true }); this._finishDone(); return; }
+    // a hop at 0.6 s and every second after it (one hop was all there was: a ledge she met off-centre held her for good
+    // while the super jump was not ready)
+    if (this._stuckT >= 0.6 && Math.floor(was - 0.6) !== Math.floor(this._stuckT - 0.6)) { this._jumpQ = true; this.latT = 0; }
     if (this._stuckT >= 2 && a.canSuperJump()) {
       this._stuckT = 0;
       const s = this.sNow + 6;
@@ -456,6 +461,8 @@ export class RunnerFlow extends RaceFlow {
       if (a.grounded && _pr.dist < 3) this.lastGoodS = this.sNow;
       this._cross(this.sPrev, this.sNow);
       if (this.phase === 'final' && this.sNow >= this.finish.s) this._finishDone();
+      // (the last 3 m for 2 s — against the deck's edge, sliding along it: she is at the line)
+      else if (this.phase === 'final' && this.finish.s - this.sNow < 3) { if ((this._lineT = (this._lineT || 0) + dt) > 2) this._finishDone(); }
     }
     const row = this._shown();
     let focus = null;
