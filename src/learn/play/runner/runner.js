@@ -102,6 +102,7 @@ export class RunnerFlow extends RaceFlow {
     const nav = G.nav, R = LEARN.runner, et = (a, b) => nav.edgeType(a, b), loop = this.route.loop;
     this.loop = loop; this.loopN = loop.length;
     this.T = buildTrack(nav.nodes, loop, { keep: straighten(nav, loop, { edgeType: et }), edgeType: et });
+    this.loopEdges = {}; for (let k = 1; k < loop.length; k++) { const t = et(loop[k - 1], loop[k]); this.loopEdges[t] = (this.loopEdges[t] || 0) + 1; }   // (the audits: which ledges the lap has)
     this.W = clearWidths(nav, this.T);
     // (the 看板段: a stretch of boards in front of each checkpoint that has any — word boards, sounds, a grammar lesson)
     this.boardN = this.level.gates.map((g) => { try { return boardSpecsOf(g, this.level).length; } catch (e) { return 0; } });
@@ -249,9 +250,11 @@ export class RunnerFlow extends RaceFlow {
   // she should never stand: pushed against something for 0.6 s → a hop; 2 s → the game's own super jump back onto the
   // road a few metres on (a railing, a prop the lap brushes, a ledge she met off-centre)
   _unstick(a, dt) {
-    if (!a.alive || a.superJumpState || this.stop || this.fairK < 1) { this._stuckT = 0; return; }   // (a slow stretch is not a snag)
-    const P = this._stuckP || (this._stuckP = { x: a.pos.x, z: a.pos.z });
-    if (Math.hypot(a.pos.x - P.x, a.pos.z - P.z) > 0.8) { P.x = a.pos.x; P.z = a.pos.z; this._stuckT = 0; return; }
+    if (!a.alive || a.superJumpState || this.stop || (this.detour && this.detour.line)) { this._stuckT = 0; this._stuckS = this.sNow; return; }
+    // stuck = no progress ALONG THE ROAD (play-4: sliding along a ledge / circling at halyard's start deck moved her
+    // more than 0.8 m a time, so by her position alone she was never "stuck" — and stayed there for good). The slowest
+    // stretch (a 看板段, 0.25 × 11.8 m/s) still makes 1.8 m in 0.6 s.
+    if (this._stuckS == null || this.sNow - this._stuckS > 0.8 || this.sNow < this._stuckS - 5) { this._stuckS = this.sNow; this._stuckT = 0; return; }
     const was = this._stuckT || 0;
     this._stuckT = was + dt;
     // at the line (the start deck's edge on halyard: play-4's audits stopped 0.04 m short of it, the super jump not

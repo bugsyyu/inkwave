@@ -207,7 +207,7 @@
       S.camHandover = { atFrame: at, maxJump: Math.max(...jumps), aroundSwitch: jumps.slice(Math.max(0, at - 3), at + 4), mode: G.rig && G.rig.mode };
       const Fl = F();
       console.log('[run] playing after', ((Date.now() - S.t0) / 1000).toFixed(1), 's wall');
-      S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode };
+      S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode, loopEdges: Fl.loopEdges, jumps: (Fl.T.jumps || []).map((j) => +j.toFixed(1)) };
       // a reading board before the start (PLAY §4: M6 before the run): 出发
       let k = 0; while (Fl.prep && Fl.prep() && k++ < 6) { const go = document.querySelector('.iw-lf__go'); if (go) go.click(); await step(200); }
       await step(300);

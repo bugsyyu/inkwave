@@ -153,7 +153,7 @@ export class RunnerBoards {
     const zone = { gate: g, s0: s0 - 1, s1: s0 + boardLength(g._boards.n, o) };
     g._boards.placed = true; g._boards.zone = zone;
     this.zones.push(zone);
-    this.log.push({ t: +F.t.toFixed(2), ev: 'place', gate: g.id, n: spots.length, s0: +s0.toFixed(1) });
+    this.log.push({ t: +F.t.toFixed(2), ev: 'place', gate: g.id, n: spots.length, s0: +s0.toFixed(1), noFrame: this.walk.list.slice(before).filter((L) => L.noFrame).length });
     return zone;
   }
   _clear(f, L) {
