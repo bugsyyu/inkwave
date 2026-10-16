@@ -2689,6 +2689,12 @@ export class Showcase {
       R.r = W - 2.4 * u;
       R.t = Math.max(top && top.b < H * 0.4 ? top.b : 9 * u, stat && stat.b < H * 0.4 ? stat.b : 0) + 0.4 * u;
       R.b = (bar && bar.t > H * 0.5 ? bar.t : H - 13 * u) - 0.8 * u;
+      // 关卡学习 I (docs/LEARN.md §17): a phone held upright — the settings are a sheet under the line-up, not a rail beside
+      // it (styles/ui.css, the portrait block): the line-up gets the band between the room code and that sheet
+      if (H > W && side && side.r > W * 0.6) {
+        R.l = 2.4 * u;
+        if (side.t > R.t + 8 * u) R.b = side.t - 0.4 * u;
+      }
     }
     return R;
   }
@@ -2734,6 +2740,14 @@ export class Showcase {
       if (PEDESTAL.has(this.mode) || PEDESTAL.has(this._lastMode)) {
         const b = box('.iw-locker:not(.is-leaving) .iw-locker__body') || box('.iw-loadout:not(.is-leaving) .iw-loadout__body') || box('.iw-online:not(.is-leaving) .iw-hub__body');
         if (b && b.r > W * 0.2 && b.r < W * 0.8) U.panelR = b.r;
+        // 关卡学习 I (docs/LEARN.md §17): a phone held upright — the panel runs the full width under the kid, so the free
+        // area is the band between the header (the locker's name tag) and the panel's top (styles/ui.css, portrait block)
+        U.band = null;
+        if (H > W && b && b.r > W * 0.8) {
+          const hd = box('.iw-locker:not(.is-leaving) .iw-ltag') || box('.iw-loadout:not(.is-leaving) .iw-head');
+          const t0 = hd ? hd.b : 0.12 * H;
+          if (b.t - t0 > 0.15 * H) U.band = { t: t0, b: b.t };
+        }
       } else {
         const tt = box('.iw-results:not(.is-leaving) .iw-res__title'), hd = box('.iw-results:not(.is-leaving) .iw-res__head'), bd = box('.iw-results:not(.is-leaving) .iw-res__body');
         if (tt && tt.r < W * 0.75) U.titleR = tt.r;
@@ -2771,12 +2785,13 @@ export class Showcase {
   _pedestalShot(mode, W, H, U, o) {
     const t = this.t, locker = mode === 'locker', hub = mode === 'hub';
     const fov = locker ? 23 : 25, tanH = Math.tan((fov * Math.PI) / 360);
-    const freeL = U.panelR + W * 0.012, freeR = W * 0.985, freeW = Math.max(W * 0.18, freeR - freeL);
+    const band = !hub && this.ui.band;   // (upright phone: the band above the panel — _measureUI)
+    const freeL = band ? 0 : U.panelR + W * 0.012, freeR = band ? W : W * 0.985, freeW = Math.max(W * 0.18, freeR - freeL);
     const fy = locker ? 0.86 : LOAD_FOCUS_Y;
-    const kV = ((locker ? 0.56 : hub ? 0.5 : 0.6) * H) / CHAR_H, kW = ((locker ? 0.98 : 0.84) * freeW) / (2 * (PED.R + PED.flange.out));
+    const kV = band ? (0.74 * (band.b - band.t)) / CHAR_H : ((locker ? 0.56 : hub ? 0.5 : 0.6) * H) / CHAR_H, kW = ((locker ? 0.98 : 0.84) * freeW) / (2 * (PED.R + PED.flange.out));
     const k = Math.min(kV, kW);
     let dist = H / (2 * k * tanH);
-    const sx = (freeL + freeR) * 0.5, sy = (locker ? 0.8 : hub ? 0.68 : 0.735) * H - fy * k;
+    const sx = (freeL + freeR) * 0.5, sy = (band ? band.b - 0.16 * (band.b - band.t) : (locker ? 0.8 : hub ? 0.68 : 0.735) * H) - fy * k;
     const e = eOut3(t / 1.45);
     let yaw = 0.36 * (1 - e) + 0.03 * Math.sin(t * 0.41) * e;
     let pitch = (locker ? -0.07 : -0.1) - 0.05 * (1 - e) + 0.012 * Math.sin(t * 0.29 + 1.3) * e;

@@ -14,11 +14,11 @@ export const GROUPS = {
   },
   // 装备 · 换装
   async kit(c) {
-    await c.visit('loadout', 'loadout');
-    await c.visit('locker', 'locker');
+    await c.visit('loadout', 'loadout', '.iw-backbtn', { settle: 1800 });
+    await c.visit('locker', 'locker', '.iw-backbtn', { settle: 1800 });
   },
-  // 联机: the hub · a room code typed on the phone's own keyboard (a wrong one: the error) · create → the lobby · its weapon
-  // drawer · the locker and back · the emote wheel · MODE → 双人合作赛 · leave (the modal) → the hub → back to main
+  // 联机 (1 of 2): the hub · a room code typed on the phone's own keyboard (a wrong one: the error) · create → the room ·
+  // its weapon drawer · the locker from the room and back into it
   async online(c) {
     const R = await c.visit('online', 'online', '.iw-backbtn', { keepOpen: true });
     if (!R.reached) return;
@@ -27,41 +27,56 @@ export const GROUPS = {
     const kb = await c.ev(() => ({ tag: document.activeElement && document.activeElement.tagName, mode: document.activeElement && document.activeElement.getAttribute('inputmode'), entry: !!document.querySelector('.iw-hubcard--join.is-entry') }));
     await c.page.keyboard.type('ZZZZZ', { delay: 40 });
     await c.waitFor(() => !!document.querySelector('.iw-jstat.is-on') || !!document.querySelector('.iw-hubcard--join.is-err'), 15000, 'join error');
-    await c.measure('online-join-error', { back: '.iw-backbtn', extra: { focusOnTap: kb } });
-    // create a room → the lobby (the relay of this run)
-    await c.ev(() => { const j = document.querySelector('.iw-hubcard--join'); if (j) j.classList.remove('is-err'); });
-    await c.tap('.iw-hubcard--create', 'create');
-    const inLobby = await c.waitFor(() => __inkwave.menus.current === 'lobby' && __G.net && __G.net.state === 'lobby', 30000, 'lobby');
-    const lob = await c.measure('lobby', { back: '.iw-lob__leave', reached: inLobby, extra: await c.ev(() => ({ mode: __G.net && __G.net.lobby && __G.net.lobby.mode, code: __G.net && __G.net.code })) });
-    if (!inLobby) return;
-    // the weapon drawer (a modal over the lobby)
+    await c.measure('online-join-error', { back: '.iw-backbtn', extra: { focusOnTap: kb, error: await c.ev(() => (document.querySelector('.iw-jstat__txt') || {}).textContent || null) } });
+    const lobby = await openRoom(c);
+    if (!lobby) return;
+    // the weapon drawer (a modal over the room), closed by its ✕
     await c.tap('.iw-lob__wchip', 'weapon chip');
     const drawer = await c.waitFor(() => !!document.querySelector('.iw-ldr'), 5000, 'weapon drawer');
-    await c.measure('lobby-weapons', { reached: drawer, back: '.iw-ldr__close' });
-    await c.tap('.iw-ldr .iw-wcard.is-equipped', 'equipped weapon (closes the drawer)');
-    await c.waitFor(() => !__inkwave.menus._modal, 5000, 'drawer closed');
-    // the locker from the lobby, and back into the room
+    const dr = await c.measure('lobby-weapons', { reached: drawer, back: '.iw-ldr__close' });
+    await c.tap('.iw-ldr__close', 'drawer ✕');
+    dr.backOk = await c.waitFor(() => !__inkwave.menus._modal, 5000, 'drawer closed');
+    // the locker from the room, and back into it
     await c.tap('.iw-lob__lchip', 'look chip');
     const lk = await c.waitFor(() => __inkwave.menus.current === 'locker', 8000, 'locker');
     const lrow = await c.measure('lobby-locker', { reached: lk, back: '.iw-backbtn' });
-    if (lk) { await c.tap('.iw-backbtn', 'locker back'); lrow.backOk = await c.waitFor(() => __inkwave.menus.current === 'lobby', 8000, 'back in the lobby'); }
-    // the emote wheel
+    if (lk) { await c.tap('.iw-backbtn', 'locker back'); lrow.backOk = await c.waitFor(() => __inkwave.menus.current === 'lobby', 8000, 'back in the room'); }
+  },
+  // 联机 (2 of 2): create → the room · the emote wheel · MODE ▶ 双人合作赛 · leave (the modal) → the hub → back to main
+  async room(c) {
+    const lobby = await openRoom(c);
+    if (!lobby) return;
     await c.tap('.iw-lob__emote', 'emote');
     const wheel = await c.waitFor(() => !!document.querySelector('.iw-emowheel'), 5000, 'emote wheel');
-    await c.measure('lobby-emotes', { reached: wheel });
+    const wr = await c.measure('lobby-emotes', { reached: wheel });
     await c.tap('.iw-emowheel .iw-emo', 'an emote');
-    await c.waitFor(() => !__inkwave.menus._modal, 5000, 'wheel closed');
-    // MODE ▶ (the host): 双人合作赛
+    wr.backOk = await c.waitFor(() => !__inkwave.menus._modal, 5000, 'wheel closed');
     await c.tap('.iw-lob__modearrows .is-r', 'mode ▶');
     await c.step(3);
-    await c.measure('lobby-coop2', { back: '.iw-lob__leave', extra: await c.ev(() => ({ mode: __G.net.lobby.mode, block: __G.net.startBlock() })) });
-    // leave: the modal, then LEAVE → the hub
+    await c.measure('lobby-coop2', { back: '.iw-lob__leave', extra: await c.ev(() => ({ mode: __G.net.lobby.mode, block: __G.net.startBlock(), squad: (document.querySelector('.iw-lob__squadlock') || {}).textContent })) });
     await c.tap('.iw-lob__leave', 'leave');
     await c.waitFor(() => !!document.querySelector('.iw-modal'), 5000, 'leave modal');
-    await c.measure('lobby-leave', {});
+    const lv = await c.measure('lobby-leave', {});
     await c.tap('.iw-modal .iw-btn--danger', 'LEAVE');
-    lob.backOk = await c.waitFor(() => __inkwave.menus.current === 'online', 10000, 'back on the hub');
+    lobby.backOk = lv.backOk = await c.waitFor(() => __inkwave.menus.current === 'online', 10000, 'back on the hub');
     await c.tap('.iw-backbtn', 'hub back');
-    R.backOk = await c.waitFor(() => __inkwave.menus.current === 'main', 8000, 'back to main from online');
+    const hub = { name: 'online → main', reached: true, backOk: await c.waitFor(() => __inkwave.menus.current === 'main', 8000, 'back to main from online') };
+    c.rows.push(hub);
   },
 };
+
+// from main: 联机 → the hub → 开一个房间 (this run's relay) → the room; its row (back = 离开, checked by the caller)
+async function openRoom(c) {
+  if ((await c.cur()) !== 'online') {
+    await c.tap('.iw-main__menu [data-id="online"]', 'online');
+    await c.waitFor(() => __inkwave.menus.current === 'online', 8000, 'hub');
+  }
+  // (software GL: the hub's first frames build the lobby set — tens of seconds on this box; a room asked for meanwhile
+  // times out its own connect. Let those frames finish first.)
+  const t0 = Date.now(); await c.step(3); c.say(`hub frames ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  await c.ev(() => { const j = document.querySelector('.iw-hubcard--join'); if (j) j.classList.remove('is-err'); });
+  await c.tap('.iw-hubcard--create', 'create');
+  const ok = await c.waitFor(() => __inkwave.menus.current === 'lobby' && __G.net && __G.net.state === 'lobby', 30000, 'room');
+  const row = await c.measure('lobby', { back: '.iw-lob__leave', reached: ok, extra: ok ? await c.ev(() => ({ mode: __G.net.lobby.mode, code: __G.net.code, learn: __G.net.lobby.learn })) : null });
+  return ok ? row : null;
+}

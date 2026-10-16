@@ -44,7 +44,7 @@ window.__iwMeasure = function (scopes, back) {
   const out = { screen: M ? M.current : null, modal: !!(M && M._modal), gate: !!document.querySelector('.iw-touch-rotate.is-armed'), vw, vh,
     targets: [], small: [], covered: [], clipped: [], wrapped: [], offscreen: [], scrollers: [], back: null, minTarget: null };
   const seen = new Set();
-  const TSEL = 'button, [data-nav], input, textarea, select, a[href], .iw-seg__opt, .iw-touch__btn';
+  const TSEL = 'button, [data-nav], input, textarea, select, a[href], .iw-seg__opt, .iw-touch__btn, .iw-lob__modearrows i, .iw-lstage__arrows i';
   for (const root of roots) {
     const cands = [...(root.matches && root.matches(TSEL) ? [root] : []), ...root.querySelectorAll(TSEL)];
     for (const el of cands) {
@@ -54,8 +54,9 @@ window.__iwMeasure = function (scopes, back) {
       seen.add(el);
       const r = el.getBoundingClientRect(), b = box(r), name = label(el);
       const t = { name, ...b, small: r.width < 43.5 || r.height < 43.5, out: r.left < -1 || r.top < -1 || r.right > vw + 1 || r.bottom > vh + 1 };
+      // inside a scroller and not (wholly) in its visible part: reachable by scrolling — neither off screen nor covered
       const sc = scroller(el);
-      if (t.out && sc) { t.out = false; t.scroll = true; }
+      if (sc) { const q = sc.getBoundingClientRect(); if (r.top < q.top - 1 || r.bottom > q.bottom + 1 || r.left < q.left - 1 || r.right > q.right + 1) { t.out = false; t.scroll = true; } }
       const cx = Math.min(vw - 1, Math.max(0, r.left + r.width / 2)), cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
       const hit = document.elementFromPoint(cx, cy);
       if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !t.scroll) t.covered = label(hit) + ' ' + String(hit.className || '').split(' ')[0];

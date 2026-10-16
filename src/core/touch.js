@@ -25,6 +25,8 @@ const MOVE_ZONE = 0.44;
 // turned, so the portrait gate there would be a dead end — over the pause menu when the App comes back from the background,
 // over the menus after a level — and the controls stay live in portrait for whatever she starts from the menu.
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';
+// menu screens with an upright layout of their own (styles/ui.css, the 关卡学习 G and I portrait blocks): no banner over them
+const PORTRAIT_SCREENS = new Set(['howto', 'credits', 'online', 'lobby', 'loadout', 'locker', 'results', 'pause']);
 
 // Button layout, anchored to the bottom-right corner (the right thumb's natural arc). x/y are distances from the
 // right / bottom edge in units of the step `u`, r is the radius in the same units, so the whole cluster scales
@@ -307,7 +309,9 @@ export class TouchControls {
     // learn screen, the settings, and a level's own pause — so the banner stays down over those; H: never from the App
     // (portrait-only; the App comes back from the background into a level's pause)
     const cur = G.menus?.current;
-    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn);
+    // I (LEARN §17): and every other screen she can reach from the App's main menu — the online hub and the room, the
+    // loadout, the locker, how to play, the credits, a match's pause and its results; only PLAY's own (mode / setup) are left
+    const portraitOk = cur === 'main' || cur === 'learn' || cur === 'settings' || (cur === 'pause' && learn) || PORTRAIT_SCREENS.has(cur);
     const armed = !FROM_APP && ((G.mode === 'match' && !!G.match && !learn) || (!!cur && cur !== 'loading' && cur !== 'title' && !portraitOk));
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.

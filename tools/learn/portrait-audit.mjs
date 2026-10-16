@@ -4,11 +4,12 @@
 // left again by its own back control. Prints one row per screen and a JSON report; screenshots only with --shots.
 //
 // usage: node tools/learn/portrait-audit.mjs --group menus|kit|online|versus2|level|boss [--shots <dir>] [--lang en]
-//                                             [--w 390 --h 844] [--budget 170] [--motion]
+//                                             [--w 390 --h 844] [--budget 170] [--motion] [--only screenA,screenB]
 //   menus    main · 学习 · 设置 · 怎么玩 · 制作人员 (and back to main from each)
 //   kit      装备 · 换装
-//   online   联机 hub · the code entry with a wrong code · create a room → the lobby · its weapon drawer · its locker trip ·
-//            the emote wheel · leave (the modal) → back on the hub   (a Node relay of its own on a free port)
+//   online   联机 hub · the code typed on the phone's keyboard (a wrong one) · create a room → the room · its weapon drawer ·
+//            the locker from the room and back                          (a Node relay of its own on a free port)
+//   room     create → the room · the emote wheel · MODE ▶ 双人合作赛 · leave (the modal) → the hub → main   (relay too)
 //   versus2  a room → 双人联机赛 against the bots (short) → the match HUD and a question → the room's pause → the results
 //   level    ?learn=w1d1&kind=puzzle&short=1 → the walk HUD (the clock vs the next-gate bar) → a question → the level's pause
 //   boss     ?learn=w1&kind=boss&short=1 → the W phase's write question → a near miss → 「我的写法也对」
@@ -68,13 +69,16 @@ async function tap(sel, what) {
   await step(2);
   return true;
 }
+const SHOT_ONLY = opt('only', '') ? new Set(opt('only', '').split(',')) : null;   // --only a,b: screenshots of these screens only (a shot of a 3D screen costs 10–40 s on software GL)
 async function shot(name) {
-  if (!SHOTS) return;
+  if (!SHOTS || (SHOT_ONLY && !SHOT_ONLY.has(name))) return;
   mkdirSync(SHOTS, { recursive: true });
   await page.screenshot({ path: `${SHOTS}/${GROUP}-${name}.png` });
   say('shot', `${SHOTS}/${GROUP}-${name}.png`);
 }
-async function measure(name, { scopes = null, back = null, reached = true, note = '', extra = null } = {}) {
+async function measure(name, { scopes = null, back = null, reached = true, note = '', extra = null, settle = 0 } = {}) {
+  // settle: ms of game clock first, one render at the end (the 3D pedestal / line-up camera glides in over ~1.5 s)
+  if (settle) await ev((ms) => __inkwave.debug.step(ms), settle);
   await step(2);
   const m = await ev((s, b) => window.__iwMeasure(s, b), scopes, back);
   const row = { name, reached, m, note, extra };
@@ -100,7 +104,7 @@ try {
   const files = spawn('python3', [resolve(ROOT, 'tools/serve.py'), String(hport), '--dir', ROOT], { stdio: ['ignore', 'ignore', 'ignore'] });
   kids.push(files);
   let relayQ = '';
-  if (GROUP === 'online' || GROUP === 'versus2') {
+  if (GROUP === 'online' || GROUP === 'room' || GROUP === 'versus2') {
     const rport = await freePort();
     const relay = spawn(process.execPath, [resolve(ROOT, 'server/node/relay.mjs'), '--port', String(rport), '--host', '127.0.0.1', '--silent-match', '150000'], { stdio: ['ignore', 'pipe', 'inherit'] });
     relay.stdout.on('data', (d) => { for (const l of String(d).split('\n')) if (l.trim() && !/listening|opened/.test(l)) say('relay', l.trim()); });

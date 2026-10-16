@@ -27,7 +27,7 @@ import { bossSilhouette, bossEmblem, BOSS_GLYPH, BOSS_NAME, BOSS_EPITHET } from 
 import { WhatsNew } from './news.js';
 import { loadWeek } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
 import { FORM_ZH } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
-import { t, isZh, gameName, teamName, TIPS_ZH } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
+import { t, isZh, gameName, teamName, TIPS_ZH, TITLE_ZH, botNames, lookName, presetText } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
 
 const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
@@ -43,12 +43,12 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 const APP_LEARN = FROM_APP && LEARN.appLearnOnly !== false;
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
-const TEAM_LABEL = ['ALPHA', 'BRAVO'];
+const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];
 const EMOTES = [
-  { id: 'booyah', label: 'BOOYAH!', icon: 'booyah', key: '1', dir: 'up' },
-  { id: 'wave', label: 'HEY!', icon: 'hand', key: '2', dir: 'right' },
-  { id: 'dance', label: 'DANCE', icon: 'note', key: '3', dir: 'down' },
-  { id: 'flex', label: 'FLEX', icon: 'flex', key: '4', dir: 'left' },
+  { id: 'booyah', label: t('em.booyah'), icon: 'booyah', key: '1', dir: 'up' },
+  { id: 'wave', label: t('em.wave'), icon: 'hand', key: '2', dir: 'right' },
+  { id: 'dance', label: t('em.dance'), icon: 'note', key: '3', dir: 'down' },
+  { id: 'flex', label: t('em.flex'), icon: 'flex', key: '4', dir: 'left' },
 ];
 // splashtag title line ("Fresh Squidkid"): adjective + subject, picked from the player's name so everyone sees the same
 const TITLE_ADJ = ['Fresh', 'Inky', 'Turf', 'Splashy', 'Rad', 'Sneaky', 'Deep-Sea', 'Glossy', 'Tidal', 'Zesty', 'Mighty', 'Soggy', 'Speedy', 'Salty', 'Bubbly', 'Snazzy', 'Drippy', 'Sunny'];
@@ -70,8 +70,8 @@ const STAGE_DIR = new URL('../../assets/stages/', import.meta.url).href;
 const SMALL_ART = FROM_APP || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
 const stageArt = (id, time, small) => `${STAGE_DIR}${id}-${time === 'dusk' ? 'dusk' : 'day'}${small || SMALL_ART ? '-sm' : ''}.webp`;
 const TIME_INFO = {
-  day: { label: 'DAY', text: 'Bright sun, crisp shadows.' },
-  dusk: { label: 'DUSK', text: 'Low sun, long shadows, harbour lights.' },
+  day: { label: t('tm.day'), text: t('tm.dayX') },
+  dusk: { label: t('tm.dusk'), text: t('tm.duskX') },
 };
 
 const TIPS_EN = [
@@ -95,14 +95,17 @@ const TIPS = isZh ? TIPS_ZH : TIPS_EN;
 // Battle modes offered on the stage select (Zone Control: see src/game/zones.js)
 const ZONE_GLYPH = '<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 21 V12 Q8 8 12 8 H21 M43 8 H52 Q56 8 56 12 V21 M56 43 V52 Q56 56 52 56 H43 M21 56 H12 Q8 56 8 52 V43" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="19" y="19" width="26" height="26" rx="5" fill="currentColor"/></svg>';
 const MODE_INFO = {
-  turf: { id: 'turf', label: t('mode.turfU'), name: t('mode.turf'), icon: GLYPHS.drop, text: 'Ink the most ground before the clock runs out.' },
-  zones: { id: 'zones', label: t('mode.zonesU'), name: t('mode.zones'), icon: ZONE_GLYPH, text: 'Hold the live zone to count down from 100 — first to 0 wins.' },
-  boss: { id: 'boss', label: 'BOSS BATTLE', name: 'Boss Battle', icon: BOSS_GLYPH, text: `Your squad of 8 against ${BOSS_NAME}.` },
+  turf: { id: 'turf', label: t('mode.turfU'), name: t('mode.turf'), icon: GLYPHS.drop, text: t('mode.turfX') },
+  zones: { id: 'zones', label: t('mode.zonesU'), name: t('mode.zones'), icon: ZONE_GLYPH, text: t('mode.zonesX') },
+  boss: { id: 'boss', label: t('mode.bossU'), name: t('mode.boss'), icon: BOSS_GLYPH, text: t('mode.bossX', { boss: BOSS_NAME }) },
   // 关卡学习 online (docs/LEARN.md §10, §14): the room's two learning modes (Chinese, LEARN §1.4)
   versus2: { id: 'versus2', label: '双人联机赛', name: '双人联机赛', icon: GLYPHS.swords, text: '两个人各一队：同一道题同时出，谁先答对，谁的墨淹过区域。' },
   coop2: { id: 'coop2', label: '双人合作赛', name: '双人合作赛', icon: GLYPHS.users, text: '两个人同一队、没有敌人：两块墨垫各站一个人才出题，题拆成两半。' },
 };
 const modeOf = (m) => (MODE_INFO[m] ? m : 'turf');
+// the session's start blocks (config noBotsStartBlock is English; coop2's are already Chinese) in the page's language
+const BLOCK_KEY = { 'Needs 2+ players — no bots on this stage': 'lb.needs2', 'Needs a player on each team': 'lb.needsEach' };
+const blockText = (b) => (b && BLOCK_KEY[b] ? t(BLOCK_KEY[b]) : b);
 const LEARN_MODE = (m) => m === 'versus2' || m === 'coop2';
 // the battle modes (Turf War / Zone Control) — the rules cards, the in-match strip and the results use these two
 const BATTLE_MODES = [MODE_INFO.turf, MODE_INFO.zones];
@@ -165,14 +168,14 @@ const BOSS_DIFF_INFO = {
   hard: 'Tougher shell, harder hits, relentless pace. Bring the whole squad.',
 };
 const BOSS_DURATIONS = [180, 240, 300];
-const STAT_LABELS = [['range', 'Range'], ['damage', 'Damage'], ['rate', 'Fire rate'], ['mobility', 'Mobility'], ['paint', 'Ink coverage']];
+const STAT_LABELS = [['range', t('st.range')], ['damage', t('st.damage')], ['rate', t('st.rate')], ['mobility', t('st.mobility')], ['paint', t('st.paint')]];
 const KIND_LABEL = { shooter: 'Shooter', roller: 'Roller', charger: 'Charger', blaster: 'Blaster', dualies: 'Dualies', slosher: 'Slosher', splatling: 'Splatling', bucket: 'Bucket', spinner: 'Spinner', twins: 'Pistols', brush: 'Brush' };
 const STAT_ICONS = { range: GLYPHS.target, damage: GLYPHS.bolt, rate: GLYPHS.clock, mobility: GLYPHS.feather, paint: GLYPHS.drop };
 const LOCKER_TABS = [
-  { id: 'kids', label: 'SQUIDKIDS', icon: 'users', sections: ['_presets'] },
-  { id: 'hair', label: 'HAIR', icon: 'hair', sections: ['hair', 'hat'] },
-  { id: 'face', label: 'FACE', icon: 'eye', sections: ['eyes', 'brows', 'skin'] },
-  { id: 'outfit', label: 'OUTFIT', icon: 'shirt', sections: ['outfit'] },
+  { id: 'kids', label: t('lk.kids'), icon: 'users', sections: ['_presets'] },
+  { id: 'hair', label: t('lk.hair'), icon: 'hair', sections: ['hair', 'hat'] },
+  { id: 'face', label: t('lk.face'), icon: 'eye', sections: ['eyes', 'brows', 'skin'] },
+  { id: 'outfit', label: t('lk.outfit'), icon: 'shirt', sections: ['outfit'] },
 ];
 const MENU_DESC = {
   play: t('desc.play'), learn: t('desc.learn'), book: t('desc.book'), online: t('desc.online'), loadout: t('desc.loadout'),
@@ -219,7 +222,8 @@ const durLabel = (s) => (s < 120 ? t('dur.sec', { n: s }) : t('dur.min', { n: Ma
 
 // FNV-1a — the Character's style seed (character.js hashStr) so an unsaved look resolves identically here
 const fnv = (str) => { let x = 2166136261; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
-const tagTitle = (name) => { const x = fnv(String(name || '').toLowerCase()); return `${TITLE_ADJ[x % TITLE_ADJ.length]} ${TITLE_NOUN[(x >>> 8) % TITLE_NOUN.length]}`; };
+// (中文: i18n.js TITLE_ZH — the same picks, index for index, no space between the two words)
+const tagTitle = (name) => { const x = fnv(String(name || '').toLowerCase()), a = x % TITLE_ADJ.length, n = (x >>> 8) % TITLE_NOUN.length; return isZh ? `${TITLE_ZH.adj[a]}${TITLE_ZH.noun[n]}` : `${TITLE_ADJ[a]} ${TITLE_NOUN[n]}`; };
 const tagNum = (name) => '#' + String(1000 + (fnv('#' + String(name || '')) % 9000));
 
 export class Menus {
@@ -1314,7 +1318,7 @@ export class Menus {
     const listEl = h('div', { class: 'iw-ss__list' + (tickets.length > 3 ? ' is-many' : '') }, tickets);
 
     // ---- match options (bot skill + length)
-    const dOpts = Object.values(diffs).map((d) => [d.id, h('span', { class: 'iw-diffopt' }, h('span', { class: 'iw-pips' }, Array.from({ length: 3 }, (_, k) => h('i', { class: k < (DIFF_INFO[d.id]?.pips || 2) ? 'on' : '' }))), d.name)]);
+    const dOpts = Object.values(diffs).map((d) => [d.id, h('span', { class: 'iw-diffopt' }, h('span', { class: 'iw-pips' }, Array.from({ length: 3 }, (_, k) => h('i', { class: k < (DIFF_INFO[d.id]?.pips || 2) ? 'on' : '' }))), gameName('diff', d.id, d.name))]);
     const dText = h('div', { class: 'iw-setup__desc' });
     const diffSeg = this._seg(dOpts, st.difficulty, (v) => {
       st.difficulty = v; dText.textContent = diffText(v); restartAnim(dText, 'is-in');
@@ -1556,12 +1560,12 @@ export class Menus {
     const L = LOOK;
     const n = (x) => (Array.isArray(x) ? x.length : Math.max(0, x | 0));
     return {
-      hair: { key: 'hair', title: 'TENTACLE STYLE', count: n(L.HAIR_STYLES), names: L.HAIR_STYLE_NAMES || L.HAIR_NAMES, art: 'portrait', kind: 'head', cause: 'hair' },
-      hat: { key: 'hat', title: 'HEADGEAR', count: n(L.HATS), names: L.HAT_NAMES, art: 'portrait', kind: 'head', cause: 'hair' },
-      eyes: { key: 'eyes', title: 'EYES', count: n(L.IRIS), names: L.IRIS_NAMES, art: 'iris', cause: 'eyes' },
-      brows: { key: 'brows', title: 'BROWS', count: n(L.BROWS), names: L.BROW_NAMES, art: 'portrait', kind: 'face', cause: 'eyes' },
-      skin: { key: 'skin', title: 'SKIN TONE', count: n(L.SKIN_TONES), names: L.SKIN_NAMES, art: 'skin', cause: 'skin' },
-      outfit: { key: 'outfit', title: 'OUTFIT', count: n(L.OUTFITS), names: L.OUTFIT_NAMES, art: 'portrait', kind: 'body', cause: 'outfit' },
+      hair: { key: 'hair', title: t('lk.hairT'), count: n(L.HAIR_STYLES), names: L.HAIR_STYLE_NAMES || L.HAIR_NAMES, art: 'portrait', kind: 'head', cause: 'hair' },
+      hat: { key: 'hat', title: t('lk.hatT'), count: n(L.HATS), names: L.HAT_NAMES, art: 'portrait', kind: 'head', cause: 'hair' },
+      eyes: { key: 'eyes', title: t('lk.eyesT'), count: n(L.IRIS), names: L.IRIS_NAMES, art: 'iris', cause: 'eyes' },
+      brows: { key: 'brows', title: t('lk.browsT'), count: n(L.BROWS), names: L.BROW_NAMES, art: 'portrait', kind: 'face', cause: 'eyes' },
+      skin: { key: 'skin', title: t('lk.skinT'), count: n(L.SKIN_TONES), names: L.SKIN_NAMES, art: 'skin', cause: 'skin' },
+      outfit: { key: 'outfit', title: t('lk.outfitT'), count: n(L.OUTFITS), names: L.OUTFIT_NAMES, art: 'portrait', kind: 'body', cause: 'outfit' },
     };
   }
 
@@ -1571,7 +1575,7 @@ export class Menus {
     const input = h('input', { class: 'iw-name__input', type: 'text', maxlength: '16', spellcheck: 'false', autocomplete: 'off', value: prof.name });
     input.dataset.orig = prof.name;
     const nameRow = h('div', { class: 'iw-name iw-in' },
-      h('span', { class: 'iw-name__label' }, 'NAME'),
+      h('span', { class: 'iw-name__label' }, t('on.name')),
       h('span', { class: 'iw-name__field' }, input, h('i', { class: 'iw-name__pen', html: GLYPHS.pencil })));
     const commit = () => {
       nameRow.classList.remove('is-editing');
@@ -1625,21 +1629,21 @@ export class Menus {
     // ---- grid + info
     const gridWrap = h('div', { class: 'iw-lgrids' });
     const infoSub = h('small'), infoName = h('b'), infoText = h('span', { class: 'iw-linfo__text' });
-    const infoEq = h('em', { class: 'iw-linfo__eq' }, h('i', { html: GLYPHS.check }), 'WEARING');
+    const infoEq = h('em', { class: 'iw-linfo__eq' }, h('i', { html: GLYPHS.check }), t('lk.wearing'));
     const info = h('div', { class: 'iw-linfo' }, h('div', { class: 'iw-linfo__head' }, h('div', { class: 'iw-linfo__names' }, infoSub, infoName), infoEq), infoText);
     const panel = this._panel('iw-lpanel iw-in', gridWrap, info);
 
     // ---- footer: shuffle + done
-    const shuffle = this._btn({ id: 'shuffle', label: 'SHUFFLE', icon: GLYPHS.dice, cls: 'iw-btn--ghost iw-lbtn iw-lbtn--dice', sound: null, accept: () => randomise() });
+    const shuffle = this._btn({ id: 'shuffle', label: t('lk.shuffle'), icon: GLYPHS.dice, cls: 'iw-btn--ghost iw-lbtn iw-lbtn--dice', sound: null, accept: () => randomise() });
     shuffle.appendChild(h('span', { class: 'iw-lbtn__key' }, this._hint('R', null)));
-    const done = this._btn({ id: 'done', label: 'DONE', icon: GLYPHS.check, cls: 'iw-btn--primary iw-lbtn', sound: 'ui_confirm', accept: () => this._back() });
-    const saved = h('span', { class: 'iw-lsaved' }, h('i', { html: GLYPHS.check }), h('span', null, 'Saves automatically'));
+    const done = this._btn({ id: 'done', label: t('lk.done'), icon: GLYPHS.check, cls: 'iw-btn--primary iw-lbtn', sound: 'ui_confirm', accept: () => this._back() });
+    const saved = h('span', { class: 'iw-lsaved' }, h('i', { html: GLYPHS.check }), h('span', null, t('lk.saves')));
     const foot = h('div', { class: 'iw-lfoot iw-in iw-in--up' }, shuffle, saved, done);
     const body = h('div', { class: 'iw-locker__body' }, tabsEl, panel, foot);
 
     // ---- right side: the kid's name tag (editable) above the pedestal, drag hint below, the current look as chips
     const spinHint = h('div', { class: 'iw-lspin iw-in iw-in--up' }, h('i', { html: GLYPHS.rotate }),
-      h('span', { class: 'iw-kbm' }, 'DRAG TO SPIN'), h('span', { class: 'iw-padg', html: padGlyph('RS') + '<b>SPIN</b>' }));
+      h('span', { class: 'iw-kbm' }, t('lk.drag')), h('span', { class: 'iw-padg', html: padGlyph('RS') + `<b>${esc(t('lk.spin'))}</b>` }));
     const sheet = h('div', { class: 'iw-lsheet' });
     const tag = h('div', { class: 'iw-ltag iw-in iw-in--down' }, h('span', { class: 'iw-ltag__blob', html: splatSVG({ seed: 44, cls: 'iw-fa', r: 60, arms: 9, drops: 3 }) }), nameRow, sheet);
 
@@ -1647,7 +1651,7 @@ export class Menus {
       h('div', { class: 'iw-scrim-left' }),
       this._header(t('hd.locker'), { sub: t('desc.locker') }),
       body, tag, spinHint,
-      this._prompts([['Enter', 'A', 'Wear'], [['Q', 'E'], null, 'Tabs'], ['R', null, 'Shuffle'], ['Esc', 'B', 'Done']]));
+      this._prompts([['Enter', 'A', t('p.wear')], [['Q', 'E'], null, t('p.tabs')], ['R', null, t('p.shuffle')], ['Esc', 'B', t('p.done')]]));
     el.querySelector('.iw-prompts').children[1].querySelector('.iw-padg').innerHTML = padGlyph('LB') + padGlyph('RB');
 
     // ---- tiles
@@ -1656,7 +1660,7 @@ export class Menus {
     const handles = [];
     const tileStyle = (t) => (t._sec.key === '_presets' ? resolve(presets[t._i].style) : { ...style, [t._sec.key]: t._i });
     const isOn = (t) => (t._sec.key === '_presets' ? same(resolve(presets[t._i].style), style) : style[t._sec.key] === t._i);
-    const optName = (sec, i) => (sec.key === '_presets' ? presets[i].name : (sec.names && sec.names[i]) || `${sec.title[0]}${sec.title.slice(1).toLowerCase()} ${i + 1}`);
+    const optName = (sec, i) => (sec.key === '_presets' ? presetText(presets[i])[0] : lookName(sec.key, i, (sec.names && sec.names[i]) || `${sec.title[0]}${sec.title.slice(1).toLowerCase()} ${i + 1}`));
     const fallbackArt = (sec, i) => {
       if (sec.art === 'skin') return skinSwatch(LOOK.SKIN_TONES[i]);
       if (sec.art === 'iris') return irisSwatch(LOOK.IRIS[i]);
@@ -1683,11 +1687,11 @@ export class Menus {
       tiles = [];
       const tab = tabs[tabIdx];
       for (const k of tab.sections) {
-        const sec = k === '_presets' ? { key: '_presets', title: 'CHOOSE YOUR SQUIDKID', count: presets.length, art: 'portrait', kind: 'bust', cause: 'preset' } : slots[k];
+        const sec = k === '_presets' ? { key: '_presets', title: t('lk.choose'), count: presets.length, art: 'portrait', kind: 'bust', cause: 'preset' } : slots[k];
         const grid = h('div', { class: `iw-lgrid iw-lgrid--${sec.art === 'portrait' ? sec.kind : 'swatch'}`, style: { '--cols': cols(sec) } });
         for (let i = 0; i < sec.count; i++) { const t = makeTile(sec, i, tiles.length); tiles.push(t); grid.appendChild(t); }
         gridWrap.appendChild(h('section', { class: 'iw-lsec', style: { '--dir': dirSign } },
-          h('div', { class: 'iw-lsec__title' }, h('span', null, sec.title), h('small', null, `${sec.count} ${sec.key === '_presets' ? 'LOOKS' : 'OPTIONS'}`)), grid));
+          h('div', { class: 'iw-lsec__title' }, h('span', null, sec.title), h('small', null, t(sec.key === '_presets' ? 'lk.looks' : 'lk.options', { n: sec.count }))), grid));
       }
       refresh();
       requestPortraits();
@@ -1719,24 +1723,24 @@ export class Menus {
         handles.push(hd);
       }
     };
-    const showInfo = (t) => {
-      const sec = t._sec, i = t._i;
-      infoSub.textContent = sec.key === '_presets' ? 'SQUIDKID' : sec.title;
+    const showInfo = (tile) => {
+      const sec = tile._sec, i = tile._i;
+      infoSub.textContent = sec.key === '_presets' ? t('ld.squidkid') : sec.title;
       infoName.textContent = optName(sec, i);
-      infoText.textContent = sec.key === '_presets' ? (presets[i].blurb || '') : `${i + 1} of ${sec.count}`;
-      info.classList.toggle('is-on', isOn(t));
+      infoText.textContent = sec.key === '_presets' ? presetText(presets[i])[1] : t('lk.nOf', { a: i + 1, b: sec.count });
+      info.classList.toggle('is-on', isOn(tile));
       restartAnim(info, 'is-swap');
     };
     // the current look as a sticker sheet (one chip per slot)
     const renderSheet = () => {
-      const rows = [['hair', 'HAIR'], ['hat', 'HAT'], ['eyes', 'EYES'], ['brows', 'BROWS'], ['skin', 'SKIN'], ['outfit', 'OUTFIT']].filter(([k]) => slots[k] && slots[k].count > 0);
+      const rows = [['hair', t('lk.sHair')], ['hat', t('lk.sHat')], ['eyes', t('lk.sEyes')], ['brows', t('lk.sBrows')], ['skin', t('lk.sSkin')], ['outfit', t('lk.sOutfit')]].filter(([k]) => slots[k] && slots[k].count > 0);
       sheet.innerHTML = '';
       for (const [k, label] of rows) {
         const sec = slots[k], i = style[k] | 0;
         const dot = sec.art === 'skin' ? `<i class="iw-lsheet__dot" style="background:${LOOK.SKIN_TONES[i]}"></i>`
           : sec.art === 'iris' ? `<i class="iw-lsheet__dot" style="background:linear-gradient(${LOOK.IRIS[i][0]},${LOOK.IRIS[i][1]})"></i>`
             : k === 'outfit' ? `<i class="iw-lsheet__dot" style="background:linear-gradient(135deg,${LOOK.OUTFITS[i].shirt} 50%,${LOOK.OUTFITS[i].shorts} 50%)"></i>` : '';
-        sheet.appendChild(h('div', { class: 'iw-lsheet__row', html: `<small>${label}</small>${dot}<b>${esc(optName(sec, i))}</b>` }));
+        sheet.appendChild(h('div', { class: 'iw-lsheet__row', html: `<small>${esc(label)}</small>${dot}<b>${esc(optName(sec, i))}</b>` }));
       }
     };
 
@@ -1830,7 +1834,7 @@ export class Menus {
     let equipped = this._loadout().weapon;
     let shown = equipped;
     const specials = this._specials();
-    const classOf = (w) => w.class || KIND_LABEL[w.kind] || (w.kind ? w.kind[0].toUpperCase() + w.kind.slice(1) : '');
+    const classOf = (w) => (isZh && w.kind ? gameName('kind', w.kind, '') : '') || w.class || KIND_LABEL[w.kind] || (w.kind ? w.kind[0].toUpperCase() + w.kind.slice(1) : '');
     // "NEW" stickers for weapons the player hasn't looked at yet (the original four count as seen)
     const s0 = this._settings();
     const seen = new Set(Array.isArray(s0.seenWeapons) ? s0.seenWeapons : ['shooter', 'roller', 'charger', 'blaster']);
@@ -1848,10 +1852,10 @@ export class Menus {
         h('span', { class: 'iw-wcard__ink' }),
         h('span', { class: 'iw-wcard__blob', html: splatSVG({ seed: 40 + i * 3, cls: 'iw-fa', r: 58, arms: 8, drops: 0 }) }),
         h('span', { class: 'iw-wcard__icon', html: weaponIcon(w.kind || id) }),
-        h('span', { class: 'iw-wcard__name' }, w.name),
+        h('span', { class: 'iw-wcard__name' }, gameName('weapon', id, w.name)),
         h('span', { class: 'iw-wcard__kind' }, classOf(w)),
         h('span', { class: 'iw-wcard__eq', html: GLYPHS.check }),
-        isNew ? h('span', { class: 'iw-wcard__new' }, 'NEW!') : null,
+        isNew ? h('span', { class: 'iw-wcard__new' }, t('ld.new')) : null,
         h('span', { class: 'iw-wcard__glare' }));
       c.dataset.cur = 'own';
       this._fx(c, { tilt: 14 });
@@ -1872,8 +1876,8 @@ export class Menus {
     // ---- detail panel
     const kind = h('span', { class: 'iw-wd__kind' });
     const nm = h('span', { class: 'iw-wd__name iw-display' });
-    const eqBadge = h('span', { class: 'iw-wd__eq' }, h('i', { html: GLYPHS.check }), 'EQUIPPED');
-    const cmpBadge = h('span', { class: 'iw-wd__cmp' }, h('i', { class: 'iw-wd__cmpdot' }), 'vs ', h('b'));
+    const eqBadge = h('span', { class: 'iw-wd__eq' }, h('i', { html: GLYPHS.check }), t('ld.equipped'));
+    const cmpBadge = h('span', { class: 'iw-wd__cmp' }, h('i', { class: 'iw-wd__cmpdot' }), t('ld.vs'), h('b'));
     const blurb = h('p', { class: 'iw-wd__blurb' });
     const statEls = STAT_LABELS.map(([k, label], i) => {
       const bar = h('span', { class: 'iw-stat__bar' }, h('i', { class: 'iw-stat__ghost' }), h('i', { class: 'iw-stat__fill' }), h('i', { class: 'iw-stat__ticks' }));
@@ -1885,13 +1889,13 @@ export class Menus {
     // sub picker: Enter / click cycles, ← → steps through every sub (saved to the profile)
     const subIcon = h('span', { class: 'iw-kit__icon' }), subName = h('b'), subBlurb = h('span');
     const subChip = h('div', { class: 'iw-kit iw-kit--pick' }, subIcon,
-      h('div', null, h('small', null, 'SUB ', h('i', { class: 'iw-kit__hint' }, '◀ ▶ CHANGE')), subName, subBlurb));
+      h('div', null, h('small', null, t('ld.subLbl'), h('i', { class: 'iw-kit__hint' }, t('ld.change'))), subName, subBlurb));
     const subOrder = this.api.subOrder || ['bomb'];
     const renderSub = () => {
       const sb = this._sub();
       subIcon.innerHTML = SUB_ICONS[sb.id] || SUB_ICONS.bomb;
-      subName.textContent = sb.name;
-      subBlurb.textContent = `${sb.blurb || ''} Uses ${Math.round(sb.inkCost)}% of your ink.`;
+      subName.textContent = gameName('sub', sb.id, sb.name);
+      subBlurb.textContent = `${gameName('sblurb', sb.id, sb.blurb || '')} ${t('ld.uses', { n: Math.round(sb.inkCost) })}`;
     };
     const cycleSub = (d) => {
       const i = subOrder.indexOf(this._sub().id);
@@ -1904,13 +1908,13 @@ export class Menus {
     renderSub();
     const spIcon = h('span', { class: 'iw-kit__icon' });
     const spName = h('b'); const spBlurb = h('span'); const spCost = h('em', { class: 'iw-kit__cost' });
-    const spChip = h('div', { class: 'iw-kit iw-kit--pick' }, spIcon, h('div', null, h('small', null, 'SPECIAL ', h('i', { class: 'iw-kit__hint' }, '◀ ▶ CHANGE')), h('div', { class: 'iw-kit__row' }, spName, spCost), spBlurb));
+    const spChip = h('div', { class: 'iw-kit iw-kit--pick' }, spIcon, h('div', null, h('small', null, t('ld.spLbl'), h('i', { class: 'iw-kit__hint' }, t('ld.change'))), h('div', { class: 'iw-kit__row' }, spName, spCost), spBlurb));
     const spOrder = this.api.specialOrder || Object.keys(specials);
     const renderSp = () => {
       const sp = this._special();
       spIcon.innerHTML = specialIcon(sp.id);
-      spName.textContent = sp.name;
-      spBlurb.textContent = sp.blurb || '';
+      spName.textContent = gameName('special', sp.id, sp.name);
+      spBlurb.textContent = gameName('spblurb', sp.id, sp.blurb || '');
     };
     const cycleSp = (d) => {
       const i = spOrder.indexOf(this._special().id);
@@ -1932,11 +1936,11 @@ export class Menus {
       shown = id;
       const w = Ws[id], eqW = Ws[equipped];
       kind.textContent = classOf(w).toUpperCase();
-      nm.textContent = w.name;
-      blurb.textContent = w.blurb || '';
+      nm.textContent = gameName('weapon', id, w.name);
+      blurb.textContent = gameName('wblurb', id, w.blurb || '');
       detail.classList.toggle('is-equipped', id === equipped);
       detail.classList.toggle('is-compare', id !== equipped);
-      cmpBadge.lastChild.textContent = eqW.name;
+      cmpBadge.lastChild.textContent = gameName('weapon', equipped, eqW.name);
       for (const s of statEls) {
         const v = clamp((w.stats && w.stats[s.k]) || 0);
         const g = clamp((eqW.stats && eqW.stats[s.k]) || 0);
@@ -1953,7 +1957,7 @@ export class Menus {
       renderSp();
       renderSub();
       spCost.textContent = w.specialCost ? `${Math.round(w.specialCost)}p` : '';
-      spCost.title = 'Turf points to fill the special gauge';
+      spCost.title = t('ld.spCost');
       markSeen(id);
       if (!first) restartAnim(detail, 'is-swap');
     };
@@ -1975,15 +1979,15 @@ export class Menus {
     };
     const practiceBtn = this._btn({
       id: 'practice', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--primary iw-loadout__practice iw-in iw-in--down', sound: 'ui_confirm', tilt: -1.2,
-      label: inPractice ? 'BACK TO PRACTICE' : 'PRACTICE',
-      sub: inPractice ? 'Your picks are already equipped' : 'Try this loadout on a random stage',
+      label: inPractice ? t('ld.backPractice') : t('ld.practice'),
+      sub: inPractice ? t('ld.practiceOn') : t('ld.practiceSub'),
       accept: goPractice,
     });
     // ---- your squidkid (→ locker)
     const lookAv = h('span', { class: 'iw-lchip__av' }, h('span', { class: 'iw-lchip__blob', html: splatSVG({ seed: 17, cls: 'iw-fa', r: 62, arms: 8, drops: 0 }) }), h('span', { class: 'iw-lchip__squid', html: SQUID }));
     const lookChip = inPractice ? null : h('button', { class: 'iw-wchip iw-lchip iw-lchip--sm iw-in iw-in--down' }, lookAv,
-      h('span', { class: 'iw-wchip__text' }, h('small', null, 'SQUIDKID'), h('b', null, prof.name)),
-      h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.hanger }), 'LOCKER'));
+      h('span', { class: 'iw-wchip__text' }, h('small', null, t('ld.squidkid')), h('b', null, isZh && prof.name === 'Player' ? t('main.me') : prof.name)),
+      h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.hanger }), t('ld.locker')));
     if (lookChip) {
       this._fx(lookChip);
       this._bind(lookChip, { id: 'look', accept: () => { this._sfx('ui_click'); this._go('locker'); } });
@@ -1994,14 +1998,14 @@ export class Menus {
     const practiceOn = inPractice || !APP_LEARN;
     const el = h('div', { class: 'iw-screen iw-loadout' + (practiceOn ? '' : ' is-nopractice') },
       h('div', { class: 'iw-scrim-left' }),
-      this._header(t('hd.loadout'), { sub: inPractice && !isZh ? 'Swap weapons and subs mid-practice — changes apply straight away' : isZh ? t('desc.loadout') : 'Pick your weapon, sub and special — your squidkid shows it off on the right' }),
+      this._header(t('hd.loadout'), { sub: inPractice ? t('ld.subPractice') : t('ld.sub') }),
       practiceOn ? practiceBtn : null,
       h('div', { class: 'iw-loadout__body' },
-        h('div', { class: 'iw-seclabel iw-in' }, h('i', { html: WEAPON_ICONS.shooter }), 'WEAPON', h('span', { class: 'iw-seclabel__count' }, `${order.indexOf(equipped) + 1} / ${n}`)),
+        h('div', { class: 'iw-seclabel iw-in' }, h('i', { html: WEAPON_ICONS.shooter }), t('on.weapon'), h('span', { class: 'iw-seclabel__count' }, `${order.indexOf(equipped) + 1} / ${n}`)),
         grid,
         detail),
       lookChip ? h('div', { class: 'iw-loadout__look' }, lookChip) : null,
-      this._prompts(opts.quick ? [['Enter', 'A', 'Equip'], ['Esc', 'B', 'Resume']] : practiceOn ? [['Enter', 'A', 'Equip'], ['P', 'Y', inPractice ? 'Resume' : 'Practice'], ['Esc', 'B', 'Back']] : [['Enter', 'A', 'Equip'], ['Esc', 'B', 'Back']]));
+      this._prompts(opts.quick ? [['Enter', 'A', t('p.equip')], ['Esc', 'B', t('p.resumeM')]] : practiceOn ? [['Enter', 'A', t('p.equip')], ['P', 'Y', inPractice ? t('p.resumeM') : t('p.practice')], ['Esc', 'B', t('p.back')]] : [['Enter', 'A', t('p.equip')], ['Esc', 'B', t('p.back')]]));
     const countEl = el.querySelector('.iw-seclabel__count');
     let enterT = 0;
     return {
@@ -2383,7 +2387,7 @@ export class Menus {
   // ================================================================ SCREEN: credits
   _scr_credits() {
     const sec = (title, ...lines) => h('section', { class: 'iw-cred__sec' }, h('h3', null, title), lines.map((l) => (typeof l === 'string' ? h('p', null, l) : l)));
-    const cast = h('div', { class: 'iw-cred__cast' }, BOT_NAMES.map((n, i) => h('span', { style: { '--c': i % 2 ? 'var(--b)' : 'var(--a)' } }, h('i', { html: SQUID }), n)));
+    const cast = h('div', { class: 'iw-cred__cast' }, botNames(BOT_NAMES).map((n, i) => h('span', { style: { '--c': i % 2 ? 'var(--b)' : 'var(--a)' } }, h('i', { html: SQUID }), n)));
     const roll = h('div', { class: 'iw-cred__roll' },
       h('div', { class: 'iw-cred__logo', html: logoMarkup(GAME_TITLE, t('logo.sub'), 'md') }),
       h('p', { class: 'iw-cred__lead' }, t('cr.lead')),
@@ -2461,7 +2465,7 @@ export class Menus {
     if (this._modal) this._closeModal(true);
     this.show('online', { wipe: true, back: true });
     const E = JOIN_ERR[msg];
-    this.toast(E ? `${E.title[0]}${E.title.slice(1).toLowerCase()} — ${E.text.split('.')[0]}.` : msg, { kind: 'error', icon: GLYPHS[(E && E.icon) || 'exit'], ms: 5200 });
+    this.toast(E ? (isZh ? `${E.title} — ${E.text.split('。')[0]}。` : `${E.title[0]}${E.title.slice(1).toLowerCase()} — ${E.text.split('.')[0]}.`) : msg, { kind: 'error', icon: GLYPHS[(E && E.icon) || 'exit'], ms: 5200 });
   }
 
   _teamColors() { return this._accent(); }
@@ -2913,20 +2917,20 @@ export class Menus {
 
     // ---- room code (top-left, big and proud)
     const tiles = [...code].map((c, i) => h('span', { class: 'iw-rc__tile', style: { '--i': i, '--tilt': `${[-4, 3, -2, 4, -3, 2, -3, 3][i]}deg` } }, c));
-    const copyTxt = h('span', { class: 'iw-rc__copytxt' }, 'COPY');
+    const copyTxt = h('span', { class: 'iw-rc__copytxt' }, t('lb.copy'));
     const copyBtn = h('button', { class: 'iw-rc__copy' }, h('i', { html: GLYPHS.copy }), copyTxt, this._hint('C', null));
     this._fx(copyBtn);
-    const copied = h('span', { class: 'iw-rc__copied' }, h('i', { html: GLYPHS.check }), 'COPIED!');
+    const copied = h('span', { class: 'iw-rc__copied' }, h('i', { html: GLYPHS.check }), t('lb.copiedBang'));
     const leaveBtn = h('button', {
       class: 'iw-backbtn iw-lob__leave', type: 'button', tabindex: '-1',
       onmousedown: (e) => e.preventDefault(), onclick: () => askLeave(), onpointerenter: () => this._sfx('ui_hover', 0.05),
-    }, h('span', { class: 'iw-backbtn__arrow', html: GLYPHS.back }), h('span', { class: 'iw-lob__leavetxt' }, 'LEAVE'), this._hint('Esc', 'B'));
+    }, h('span', { class: 'iw-backbtn__arrow', html: GLYPHS.back }), h('span', { class: 'iw-lob__leavetxt' }, t('lb.leave')), this._hint('Esc', 'B'));
     const roomCode = h('div', { class: 'iw-rc' },
       h('div', { class: 'iw-rc__ticket' },
         h('span', { class: 'iw-rc__back' }, h('i')),
-        h('div', { class: 'iw-rc__label iw-tape' }, h('i', { html: GLYPHS.key }), 'ROOM CODE'),
+        h('div', { class: 'iw-rc__label iw-tape' }, h('i', { html: GLYPHS.key }), t('lb.code')),
         h('div', { class: 'iw-rc__row' }, h('div', { class: 'iw-rc__tiles' }, tiles), copyBtn, copied)),
-      h('div', { class: 'iw-rc__share' }, 'Friends join from ', h('b', null, 'ONLINE › JOIN A ROOM')));
+      h('div', { class: 'iw-rc__share' }, ...t('lb.share').split('{where}').flatMap((x, i) => (i ? [h('b', null, t('lb.shareWhere')), x] : [x]))));
     const top = h('div', { class: 'iw-lob__top iw-in iw-in--down' }, leaveBtn, roomCode);
 
     // ---- room status (top-right): count, team pips, what we're waiting for
@@ -2934,7 +2938,7 @@ export class Menus {
     const pipsA = h('span', { class: 'iw-lob__pips is-a' }), pipsB = h('span', { class: 'iw-lob__pips is-b' });
     const statusTxt = h('span', { class: 'iw-lob__statustxt' });
     const status = h('div', { class: 'iw-lob__status iw-in iw-in--down' },
-      h('div', { class: 'iw-lob__count' }, h('small', { class: 'iw-lob__countlbl' }, 'SQUIDKIDS'), countEl, h('small', null, '/8')),
+      h('div', { class: 'iw-lob__count' }, h('small', { class: 'iw-lob__countlbl' }, t('lb.kids')), countEl, h('small', null, '/8')),
       h('div', { class: 'iw-lob__teams' },
         h('div', { class: 'iw-lob__tline is-a' }, h('span', { class: 'iw-lob__tl is-a' }, TEAM_LABEL[0]), pipsA),
         h('em', { class: 'iw-lob__vs', html: splatSVG({ seed: 5, fill: '#15121c', r: 52, arms: 8, drops: 2 }) }, h('b', null, 'VS')),
@@ -2942,15 +2946,15 @@ export class Menus {
       statusTxt);
     const squadPips = h('span', { class: 'iw-lob__pips is-squad' });
     const bossVs = h('div', { class: 'iw-lob__bossvs' },
-      h('div', { class: 'iw-lob__tline is-a' }, h('span', { class: 'iw-lob__tl is-a' }, 'SQUAD'), squadPips),
+      h('div', { class: 'iw-lob__tline is-a' }, h('span', { class: 'iw-lob__tl is-a' }, t('lb.squad')), squadPips),
       h('em', { class: 'iw-lob__vs', html: splatSVG({ seed: 5, fill: '#15121c', r: 52, arms: 8, drops: 2 }) }, h('b', null, 'VS')),
-      h('div', { class: 'iw-lob__bossside' }, h('span', { class: 'iw-lob__bossemb', html: bossEmblem() }), h('span', { class: 'iw-lob__bossname' }, h('small', null, 'BOSS'), h('b', null, BOSS_NAME))));
+      h('div', { class: 'iw-lob__bossside' }, h('span', { class: 'iw-lob__bossemb', html: bossEmblem() }), h('span', { class: 'iw-lob__bossname' }, h('small', null, t('lb.boss')), h('b', null, BOSS_NAME))));
     status.insertBefore(bossVs, statusTxt);
 
     // ---- match settings (host edits; everyone sees)
     const hostName = h('b');
-    const lock = h('span', { class: 'iw-lock' }, h('i', { html: GLYPHS.lock }), h('span', null, 'PICKED BY '), hostName);
-    const hostChip = h('span', { class: 'iw-lock is-host' }, h('i', { html: GLYPHS.crown }), 'YOU’RE THE HOST');
+    const lock = h('span', { class: 'iw-lock' }, h('i', { html: GLYPHS.lock }), h('span', null, t('lb.pickedBy')), hostName);
+    const hostChip = h('span', { class: 'iw-lock is-host' }, h('i', { html: GLYPHS.crown }), t('lb.youHost'));
     const stImgs = h('span', { class: 'iw-lstage__imgs' });
     const stName = h('span', { class: 'iw-lstage__name' });
     const stNum = h('span', { class: 'iw-lstage__num' });
@@ -2959,54 +2963,54 @@ export class Menus {
     const stage = h('div', { class: 'iw-lstage' }, stImgs, h('i', { class: 'iw-lstage__shade' }), stNum, h('span', { class: 'iw-lstage__tape' }, stName), stTime, stArrows);
     stArrows.children[0].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(stage); setMap(-1); });
     stArrows.children[1].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(stage); setMap(1); });
-    const timeSeg = this._seg([['day', h('span', { class: 'iw-segico' }, h('i', { html: GLYPHS.sun }), 'DAY')], ['dusk', h('span', { class: 'iw-segico' }, h('i', { html: GLYPHS.moon }), 'DUSK')]], lob.time === 'dusk' ? 'dusk' : 'day', (v) => hostSet({ time: v }));
+    const timeSeg = this._seg([['day', h('span', { class: 'iw-segico' }, h('i', { html: GLYPHS.sun }), t('lb.day'))], ['dusk', h('span', { class: 'iw-segico' }, h('i', { html: GLYPHS.moon }), t('lb.dusk'))]], lob.time === 'dusk' ? 'dusk' : 'day', (v) => hostSet({ time: v }));
     const lenSegT = this._seg(durations.map((d) => [d, durLabel(d)]), lob.duration, (v) => hostSet({ duration: v }));
     const lenSegB = this._seg(BOSS_DURATIONS.map((d) => [d, durLabel(d)]), BOSS_DURATIONS.includes(lob.duration) ? lob.duration : 240, (v) => hostSet({ duration: v }));
     // Zone Control: a fixed 5:00 + overtime (as offline)
-    const lenLockZ = h('div', { class: 'iw-lenlock' }, h('b', null, `${Math.round((ZONES.duration || 300) / 60)}:00`), h('span', null, '+ OVERTIME'));
+    const lenLockZ = h('div', { class: 'iw-lenlock' }, h('b', null, `${Math.round((ZONES.duration || 300) / 60)}:00`), h('span', null, t('lb.overtime')));
     const lenZ = () => { if (lobMode() === 'zones' || LEARN_MODE(lobMode())) { restartAnim(rLen, 'is-shake'); this._sfx('ui_error', 0.15); return true; } return false; };
     const lenSeg = { el: h('span', { class: 'iw-lob__lensegs' }, lenSegT.el, lenSegB.el, lenLockZ), adjust: (d) => lenZ() || (bossMode() ? lenSegB : lenSegT).adjust(d), cycle: () => lenZ() || (bossMode() ? lenSegB : lenSegT).cycle(),
       refresh: (v) => (bossMode() ? lenSegB : lenSegT).refresh(v) };
     const botTgl = this._toggle({ key: '_bots', onChange: (v) => hostSet({ bots: v }) }, lob.bots !== false);
-    const dOpts = Object.values(diffs).map((d) => [d.id, h('span', { class: 'iw-diffopt' }, h('span', { class: 'iw-pips' }, Array.from({ length: 3 }, (_, k) => h('i', { class: k < (DIFF_INFO[d.id]?.pips || 2) ? 'on' : '' }))), d.name)]);
+    const dOpts = Object.values(diffs).map((d) => [d.id, h('span', { class: 'iw-diffopt' }, h('span', { class: 'iw-pips' }, Array.from({ length: 3 }, (_, k) => h('i', { class: k < (DIFF_INFO[d.id]?.pips || 2) ? 'on' : '' }))), gameName('diff', d.id, d.name))]);
     const diffSeg = this._seg(dOpts, diffs[lob.difficulty] ? lob.difficulty : 'normal', (v) => hostSet({ difficulty: v }));
     const srow = (id, icon, label, ctl, extra) => {
       const r = h('div', { class: `iw-lset iw-lset--${id}` }, h('div', { class: 'iw-lset__label' }, h('i', { html: icon }), label, extra || null), ctl);
       r._id = id;
       return r;
     };
-    const rStage = srow('stage', GLYPHS.map, 'STAGE', stage);
+    const rStage = srow('stage', GLYPHS.map, t('lb.stage'), stage);
     // stage rules sticker (config onlineOnly / noBots — Cargo Terminal), slapped across the ticket's top edge
     const stRules = h('span', { class: 'iw-lstage__rules' }, h('i', { html: GLYPHS.users }), h('b'));
     rStage.querySelector('.iw-lset__label').appendChild(stRules);
-    const rTime = srow('time', GLYPHS.sun, 'TIME', timeSeg.el);
-    const rLen = srow('len', GLYPHS.clock, 'LENGTH', lenSeg.el);
+    const rTime = srow('time', GLYPHS.sun, t('lb.time'), timeSeg.el);
+    const rLen = srow('len', GLYPHS.clock, t('lb.length'), lenSeg.el);
     const rPair = h('div', { class: 'iw-lset__pair' }, rTime, rLen);
     // the room's ink colours (host picks; everyone's lobby and the match use them)
     const palIdx = () => (Number.isInteger(lob.palette) && TEAM_PALETTES[lob.palette] ? lob.palette : Math.max(0, TEAM_PALETTES.findIndex((p) => p.a.toLowerCase() === String(colors()[0]).toLowerCase())));
     const palSeg = this._seg(TEAM_PALETTES.map((p, i) => [i, h('span', { class: 'iw-palopt', title: p.names.join(' vs ') }, h('i', { style: { background: p.a } }), h('i', { style: { background: p.b } }))]), palIdx(), (v) => hostSet({ palette: v }));
     const palName = h('small', { class: 'iw-lset__note' });
-    const rPal = srow('pal', GLYPHS.palette, 'INK', palSeg.el, palName);
+    const rPal = srow('pal', GLYPHS.palette, t('lb.ink'), palSeg.el, palName);
     const botsNote = h('small', { class: 'iw-lset__note' });
-    const rBots = srow('bots', GLYPHS.bot, 'FILL WITH BOTS', botTgl.el, botsNote);
-    const rDiff = srow('diff', GLYPHS.swords, 'BOT SKILL', diffSeg.el);
+    const rBots = srow('bots', GLYPHS.bot, t('lb.bots'), botTgl.el, botsNote);
+    const rDiff = srow('diff', GLYPHS.swords, t('lb.botSkill'), diffSeg.el);
     // 课: the lesson a learning room plays (week · day), learning modes only
     const lessonOf = () => ({ week: (lob.learn && lob.learn.week) || 1, day: (lob.learn && lob.learn.day) || 1 });
-    const weekSegL = this._seg([[1, '第 1 周'], [2, '第 2 周'], [3, '第 3 周']], lessonOf().week, (v) => hostSet({ learn: { ...lessonOf(), week: v } }));
+    const weekSegL = this._seg([1, 2, 3].map((n) => [n, t('lb.weekN', { n })]), lessonOf().week, (v) => hostSet({ learn: { ...lessonOf(), week: v } }));
     const daySegL = this._seg([1, 2, 3, 4, 5, 6, 7].map((d) => [d, String(d)]), lessonOf().day, (v) => hostSet({ learn: { ...lessonOf(), day: v } }));
     const lessonNote = h('small', { class: 'iw-lset__note' });
-    const rLesson = srow('lesson', GLYPHS.star, '课 · LESSON', h('div', { class: 'iw-lset__lesson' }, weekSegL.el, daySegL.el), lessonNote);
+    const rLesson = srow('lesson', GLYPHS.star, t('lb.lesson'), h('div', { class: 'iw-lset__lesson' }, weekSegL.el, daySegL.el), lessonNote);
     const diffLbl = rDiff.querySelector('.iw-lset__label');
     diffLbl.lastChild.textContent = '';   // label text lives in its own span so boss mode can rename it
-    diffLbl.appendChild(h('span', { class: 'iw-lset__lbltxt' }, 'BOT SKILL'));
+    diffLbl.appendChild(h('span', { class: 'iw-lset__lbltxt' }, t('lb.botSkill')));
     // MODE (Turf War | Zone Control | Boss Battle): the panel's headline is the switch — ◀ ▶ for the host, read-only for guests
-    const modeName = h('span', { class: 'iw-display iw-lob__modename' }, 'TURF WAR');
+    const modeName = h('span', { class: 'iw-display iw-lob__modename' }, MODE_INFO.turf.label);
     const modeIco = h('b', { html: GLYPHS.flag });
     const modeArrows = h('span', { class: 'iw-lob__modearrows' }, h('i', { class: 'is-l', html: GLYPHS.back }), h('i', { class: 'is-r', html: GLYPHS.next }));
     const rMode = h('div', { class: 'iw-lset iw-lset--mode' },
-      h('small', { class: 'iw-lob__modelbl' }, 'MODE'),
+      h('small', { class: 'iw-lob__modelbl' }, t('lb.mode')),
       h('span', { class: 'iw-lob__mode' }, h('i', { html: splatSVG({ seed: 12, cls: 'iw-fa', r: 56, arms: 8, drops: 3 }) }, modeIco), modeName, modeArrows),
-      h('span', { class: 'iw-beta iw-beta--sm iw-lob__beta' }, 'PUBLIC BETA'));
+      h('span', { class: 'iw-beta iw-beta--sm iw-lob__beta' }, t('lb.beta')));
     rMode._id = 'mode';
     modeArrows.children[0].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(rMode); setMode(-1); });
     modeArrows.children[1].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(rMode); setMode(1); });
@@ -3020,25 +3024,25 @@ export class Menus {
     // ---- your controls (bottom bar)
     const Ws = this._weapons();
     const wIcon = h('span', { class: 'iw-wchip__icon' }), wName = h('b');
-    const wChip = h('button', { class: 'iw-wchip iw-lob__wchip' }, wIcon, h('span', { class: 'iw-wchip__text' }, h('small', null, 'WEAPON'), wName), h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.pencil })));
+    const wChip = h('button', { class: 'iw-wchip iw-lob__wchip' }, wIcon, h('span', { class: 'iw-wchip__text' }, h('small', null, t('on.weapon')), wName), h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.pencil })));
     this._fx(wChip);
     const lookAv = h('span', { class: 'iw-lchip__av' }, h('span', { class: 'iw-lchip__blob', html: splatSVG({ seed: 17, cls: 'iw-fa', r: 62, arms: 8, drops: 0 }) }), h('span', { class: 'iw-lchip__squid', html: SQUID }));
-    const lChip = h('button', { class: 'iw-wchip iw-lchip iw-lob__lchip', title: 'Locker' }, lookAv, h('span', { class: 'iw-lob__lbadge', html: GLYPHS.hanger }), h('small', { class: 'iw-lob__llbl' }, 'LOOK'));
+    const lChip = h('button', { class: 'iw-wchip iw-lchip iw-lob__lchip', title: t('on.locker') }, lookAv, h('span', { class: 'iw-lob__lbadge', html: GLYPHS.hanger }), h('small', { class: 'iw-lob__llbl' }, t('on.look')));
     this._fx(lChip);
     this._portraitInto(lookAv, { kind: 'head', size: 128 });
-    const teamSeg = this._seg([[0, h('span', { class: 'iw-teamopt is-a' }, h('i'), TEAM_LABEL[0])], ['auto', h('span', { class: 'iw-teamopt' }, h('i', { html: GLYPHS.rotate }), 'AUTO')], [1, h('span', { class: 'iw-teamopt is-b' }, h('i'), TEAM_LABEL[1])]], 'auto', (v) => requestTeam(v));
-    const squadLock = h('span', { class: 'iw-lob__squadlock' }, h('i', { html: GLYPHS.lock }), h('b', null, 'SQUAD'), h('small', null, 'everyone vs the boss'));
-    const teamRow = h('div', { class: 'iw-lob__team' }, h('small', { class: 'iw-lob__barlbl' }, 'TEAM', this._hint(['Q', 'E'], null)), teamSeg.el, squadLock);
+    const teamSeg = this._seg([[0, h('span', { class: 'iw-teamopt is-a' }, h('i'), TEAM_LABEL[0])], ['auto', h('span', { class: 'iw-teamopt' }, h('i', { html: GLYPHS.rotate }), t('lb.auto'))], [1, h('span', { class: 'iw-teamopt is-b' }, h('i'), TEAM_LABEL[1])]], 'auto', (v) => requestTeam(v));
+    const squadLock = h('span', { class: 'iw-lob__squadlock' }, h('i', { html: GLYPHS.lock }), h('b', null, t('lb.squad')), h('small', null, t('lb.vsBoss')));
+    const teamRow = h('div', { class: 'iw-lob__team' }, h('small', { class: 'iw-lob__barlbl' }, t('lb.team'), this._hint(['Q', 'E'], null)), teamSeg.el, squadLock);
     teamRow.querySelector('.iw-padg').innerHTML = padGlyph('LB') + padGlyph('RB');
-    const emoteBtn = h('button', { class: 'iw-lob__emote' }, h('i', { class: 'iw-lob__emoteico', html: GLYPHS.smile }), h('span', null, 'EMOTE'), h('span', { class: 'iw-lob__emotekeys' }, this._hint(['1', '4'], null)), h('i', { class: 'iw-lob__cd' }));
+    const emoteBtn = h('button', { class: 'iw-lob__emote' }, h('i', { class: 'iw-lob__emoteico', html: GLYPHS.smile }), h('span', null, t('lb.emote')), h('span', { class: 'iw-lob__emotekeys' }, this._hint(['1', '4'], null)), h('i', { class: 'iw-lob__cd' }));
     emoteBtn.querySelector('.iw-lob__emotekeys .iw-kbm').innerHTML = keycap('1') + '<em>–</em>' + keycap('4');
     this._fx(emoteBtn);
     const readySub = h('span', { class: 'iw-btn__sub' });
-    const readyBtn = this._btn({ id: 'ready', label: 'READY?', icon: GLYPHS.check, cls: 'iw-btn--ready', sound: null, accept: () => toggleReady() });
+    const readyBtn = this._btn({ id: 'ready', label: t('lb.readyQ'), icon: GLYPHS.check, cls: 'iw-btn--ready', sound: null, accept: () => toggleReady() });
     readyBtn.querySelector('.iw-btn__text').appendChild(readySub);
     readyBtn.append(h('span', { class: 'iw-ready__stamp', html: GLYPHS.check }), h('span', { class: 'iw-btn__key' }, this._hint('R', 'X')));
     const startSub = h('span', { class: 'iw-btn__sub' });
-    const startBtn = this._btn({ id: 'start', label: 'START!', icon: GLYPHS.play, cls: 'iw-btn--start iw-btn--lobstart', sound: null, accept: () => tryStart() });
+    const startBtn = this._btn({ id: 'start', label: t('lb.start'), icon: GLYPHS.play, cls: 'iw-btn--start iw-btn--lobstart', sound: null, accept: () => tryStart() });
     startBtn.querySelector('.iw-btn__text').appendChild(startSub);
     startBtn.append(h('span', { class: 'iw-start__chev' }, h('i'), h('i'), h('i')), h('span', { class: 'iw-btn__key' }, this._hint('R', 'X')));
     const bar = h('div', { class: 'iw-lob__bar iw-in iw-in--up' },
@@ -3049,7 +3053,7 @@ export class Menus {
     const plates = new Map();
     const open = Array.from({ length: 8 }, (_, k) => {
       const row = k >> 2, i = k & 3;
-      const txt = h('b', null, 'OPEN');
+      const txt = h('b', null, t('lb.open'));
       const e = h('div', { class: 'iw-plate is-open' + (row ? ' is-back' : '') }, h('div', { class: 'iw-plate__stack' }, h('div', { class: 'iw-plate__ghost' }, h('i', { class: 'iw-plate__plus', html: GLYPHS.plus }), txt)));
       platesEl.appendChild(e);
       return { el: e, row, i, txt, on: false, sig: '' };
@@ -3060,7 +3064,7 @@ export class Menus {
     const cdSub = h('span', { class: 'iw-lcd__sub' });
     const countdown = h('div', { class: 'iw-lcd', 'aria-live': 'assertive' }, h('span', { class: 'iw-lcd__rays' }), h('span', { class: 'iw-lcd__splat', html: splatSVG({ seed: 88, cls: 'iw-fself', r: 60, arms: 10, drops: 6 }) }), cdNum, cdSub);
 
-    const prompts = this._prompts([['R', 'X', 'Ready'], [['1', '4'], null, 'Emote'], [['Q', 'E'], null, 'Team'], ['C', null, 'Copy code'], ['Esc', 'B', 'Leave']]);
+    const prompts = this._prompts([['R', 'X', t('p.ready')], [['1', '4'], null, t('p.emote')], [['Q', 'E'], null, t('p.team')], ['C', null, t('p.copyCode')], ['Esc', 'B', t('p.leave')]]);
     prompts.children[1].querySelector('.iw-kbm').innerHTML = keycap('1') + '<em class="iw-dash">–</em>' + keycap('4');
     prompts.children[1].classList.add('iw-kbm'); prompts.children[3].classList.add('iw-kbm'); // pad: emotes live on the EMOTE wheel
     prompts.children[2].querySelector('.iw-padg').innerHTML = padGlyph('LB') + padGlyph('RB');
@@ -3101,14 +3105,14 @@ export class Menus {
       restartAnim(rMode, 'is-hit');
       render(false);
       hostSet(map !== (was && was.id) ? { mode: next, duration: dur, map } : { mode: next, duration: dur });
-      if (map !== (was && was.id)) { const n = maps.find((m) => m.id === map); this.toast(`${was ? was.name : 'That stage'} has no Boss Battle — switched to ${n ? n.name : 'another stage'}`, { icon: GLYPHS.map }); }
+      if (map !== (was && was.id)) { const n = maps.find((m) => m.id === map); this.toast(t('lb.noBossStage', { was: was ? gameName('map', was.id, was.name) : t('lb.thatStage'), now: n ? gameName('map', n.id, n.name) : t('lb.anotherStage') }), { icon: GLYPHS.map }); }
     };
     let shownMap = null, shownTime = null;
     const renderStage = (dir = 0) => {
       const m = maps.find((x) => x.id === lob.map) || maps[0], time = lob.time === 'dusk' ? 'dusk' : 'day';
       // (the count follows the mode's stage list, so it refreshes on a mode switch too)
       const list = stageList(), k = list.indexOf(m);
-      stNum.innerHTML = `STAGE <b>${String((k < 0 ? maps.indexOf(m) : k) + 1).padStart(2, '0')}</b><em>/ ${String(list.length).padStart(2, '0')}</em>`;
+      stNum.innerHTML = `${esc(t('lb.stage'))} <b>${String((k < 0 ? maps.indexOf(m) : k) + 1).padStart(2, '0')}</b><em>/ ${String(list.length).padStart(2, '0')}</em>`;
       if (m.id === shownMap && time === shownTime) return;
       const first = shownMap === null;
       shownMap = m.id; shownTime = time;
@@ -3119,9 +3123,9 @@ export class Menus {
       if (!first && !reduced) img.style.setProperty('--dir', dir < 0 ? -1 : 1), img.classList.add(dir ? 'is-slide' : 'is-fade');
       stImgs.appendChild(img);
       setTimeout(() => olds.forEach((o) => o.remove()), first ? 0 : 520);
-      stName.textContent = m.name;
+      stName.textContent = gameName('map', m.id, m.name);
       stage.dataset.time = time;
-      const rules = [m.onlineOnly ? 'ONLINE ONLY' : '', m.noBots ? 'NO BOTS' : ''].filter(Boolean).join(' · ');
+      const rules = [m.onlineOnly ? t('lb.onlineOnly') : '', m.noBots ? t('lb.noBots') : ''].filter(Boolean).join(' · ');
       stRules.lastChild.textContent = rules;
       rStage.classList.toggle('has-rules', !!rules);
       if (!first) { restartAnim(stage, 'is-hit'); restartAnim(stName, 'is-in'); }
@@ -3133,7 +3137,7 @@ export class Menus {
       const ok = () => {
         this._sfx('ui_confirm'); this._sfx('splat_small', 0.06);
         tiles.forEach((t) => restartAnim(t, 'is-wave'));
-        restartAnim(copied, 'is-on'); copyTxt.textContent = 'COPIED'; S.copied = 2.2;
+        restartAnim(copied, 'is-on'); copyTxt.textContent = t('lb.copied'); S.copied = 2.2;
         this._burstAt(copyBtn, { count: 10, dist: 5, size: 0.8 });
       };
       const fallback = () => {
@@ -3144,7 +3148,7 @@ export class Menus {
           done = document.execCommand && document.execCommand('copy');
           ta.remove();
         } catch (e) { done = false; }
-        if (done) ok(); else { this._sfx('ui_error'); this.toast(`Couldn’t reach the clipboard — the code is ${c}`, { kind: 'error', icon: GLYPHS.copy }); }
+        if (done) ok(); else { this._sfx('ui_error'); this.toast(t('lb.noClip', { code: c }), { kind: 'error', icon: GLYPHS.copy }); }
       };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(ok, fallback);
       else fallback();
@@ -3156,12 +3160,12 @@ export class Menus {
       const others = players().filter((p) => !p.you);
       const heir = isHost() && others.length ? others[0].name : null;
       this._openModal({
-        title: 'LEAVE ROOM?', danger: true,
-        text: heir ? `You’re the host — ${heir} takes over the room. You can come back with the code ${code}.`
-          : others.length ? `You can rejoin any time with the code ${code} while the room is open.` : 'You’re the last one here — the room closes when you leave.',
+        title: t('pause.leaveRoomQ'), danger: true,
+        text: heir ? t('lb.leaveHeir', { heir, code })
+          : others.length ? t('lb.leaveRejoin', { code }) : t('lb.leaveLast'),
         buttons: [
-          { label: 'STAY', accept: () => this._closeModal(), sound: null },
-          { label: 'LEAVE', cls: 'iw-btn--danger', sound: 'ui_confirm', accept: () => { this._closeModal(true); leaveRoom(); } },
+          { label: t('lb.stay'), accept: () => this._closeModal(), sound: null },
+          { label: t('lb.leave'), cls: 'iw-btn--danger', sound: 'ui_confirm', accept: () => { this._closeModal(true); leaveRoom(); } },
         ],
       });
     };
@@ -3191,7 +3195,7 @@ export class Menus {
         this._sfx('ui_error'); restartAnim(startBtn, 'is-shake');
         const waiting = players().filter((p) => !p.you && !p.ready && !p.host);
         const block = net.startBlock ? net.startBlock() : null;
-        this.toast(block || (waiting.length ? `Waiting for ${listNames(waiting)} to ready up` : 'Not ready to start yet'), { kind: 'info', icon: block ? GLYPHS.users : GLYPHS.clock });
+        this.toast(blockText(block) || (waiting.length ? t('lb.waitReady', { names: listNames(waiting) }) : t('lb.notReady')), { kind: 'info', icon: block ? GLYPHS.users : GLYPHS.clock });
         return;
       }
       this._sfx('ui_confirm'); this._sfx('splat_big', 0.1);
@@ -3252,8 +3256,8 @@ export class Menus {
       const kits = h('div', { class: 'iw-ldr__kits' });
       const show = (id) => {
         const w = Ws[id], eqW = Ws[equipped];
-        kind.textContent = (w.class || KIND_LABEL[w.kind] || '').toUpperCase();
-        nm.textContent = w.name; blurb.textContent = w.blurb || '';
+        kind.textContent = ((isZh && w.kind ? gameName('kind', w.kind, '') : '') || w.class || KIND_LABEL[w.kind] || '').toUpperCase();
+        nm.textContent = gameName('weapon', id, w.name); blurb.textContent = gameName('wblurb', id, w.blurb || '');
         for (const s of statEls) {
           const v = clamp((w.stats && w.stats[s.k]) || 0), g = clamp((eqW.stats && eqW.stats[s.k]) || 0);
           s.bar.style.setProperty('--v', v.toFixed(3)); s.bar.style.setProperty('--g', (id === equipped ? 0 : g).toFixed(3));
@@ -3262,7 +3266,7 @@ export class Menus {
         const sp = this._specials()[w.special] || Object.values(this._specials())[0];
         const sub = (w.sub && (this.api.subs || SUB)[w.sub]) || this._sub();
         kits.innerHTML = '';
-        kits.append(h('span', { class: 'iw-chip' }, h('i', { html: SUB_ICONS[sub.id] || SUB_ICONS.bomb }), sub.name), h('span', { class: 'iw-chip' }, h('i', { html: specialIcon(sp.id) }), sp.name));
+        kits.append(h('span', { class: 'iw-chip' }, h('i', { html: SUB_ICONS[sub.id] || SUB_ICONS.bomb }), gameName('sub', sub.id, sub.name)), h('span', { class: 'iw-chip' }, h('i', { html: specialIcon(sp.id) }), gameName('special', sp.id, sp.name)));
         restartAnim(detail, 'is-swap');
       };
       const cards = order.map((id, i) => {
@@ -3271,8 +3275,8 @@ export class Menus {
           h('span', { class: 'iw-wcard__ink' }),
           h('span', { class: 'iw-wcard__blob', html: splatSVG({ seed: 40 + i * 3, cls: 'iw-fa', r: 58, arms: 8, drops: 0 }) }),
           h('span', { class: 'iw-wcard__icon', html: weaponIcon(w.kind || id) }),
-          h('span', { class: 'iw-wcard__name' }, w.name),
-          h('span', { class: 'iw-wcard__kind' }, w.class || KIND_LABEL[w.kind] || ''),
+          h('span', { class: 'iw-wcard__name' }, gameName('weapon', id, w.name)),
+          h('span', { class: 'iw-wcard__kind' }, (isZh && w.kind ? gameName('kind', w.kind, '') : '') || w.class || KIND_LABEL[w.kind] || ''),
           h('span', { class: 'iw-wcard__eq', html: GLYPHS.check }), h('span', { class: 'iw-wcard__glare' }));
         c.dataset.cur = 'own'; c._wid = id;
         this._fx(c, { tilt: 12 });
@@ -3294,7 +3298,8 @@ export class Menus {
       const detail = h('div', { class: 'iw-ldr__detail' }, h('div', { class: 'iw-wd__title' }, kind, nm), blurb, h('div', { class: 'iw-wd__stats' }, statEls.map((s) => s.row)), kits);
       const drawer = h('div', { class: 'iw-ldr' },
         h('div', { class: 'iw-ldr__card' },
-          h('div', { class: 'iw-ldr__head' }, h('span', { class: 'iw-seclabel' }, h('i', { html: WEAPON_ICONS.shooter }), 'CHOOSE YOUR WEAPON'), h('span', { class: 'iw-ldr__hint' }, this._hint('Enter', 'A', 'Equip'), this._hint('Esc', 'B', 'Close'))),
+          h('div', { class: 'iw-ldr__head' }, h('span', { class: 'iw-seclabel' }, h('i', { html: WEAPON_ICONS.shooter }), t('lb.weapons')), h('span', { class: 'iw-ldr__hint' }, this._hint('Enter', 'A', t('p.equip')), this._hint('Esc', 'B', t('p.close'))),
+            h('button', { class: 'iw-ldr__close', type: 'button', 'aria-label': t('p.close'), html: GLYPHS.close, onclick: () => this._closeModal() })),
           h('div', { class: 'iw-ldr__grid', style: { '--cols': order.length > 8 ? 5 : 4 } }, cards),
           detail));
       drawer.addEventListener('pointerdown', (e) => { if (e.target === drawer) this._closeModal(); });
@@ -3328,7 +3333,7 @@ export class Menus {
 
     // humans-only stage (config noBots): the bots switch is locked off
     const botsLocked = () => mapNoBots(lob.map) || coopMode();
-    const lockedBots = () => { this._sfx('ui_error', 0.15); restartAnim(rBots, 'is-shake'); this.toast(coopMode() ? '双人合作赛只有你们两个人，没有机器人' : 'No bots on this stage — it’s humans only', { icon: GLYPHS.bot }); };
+    const lockedBots = () => { this._sfx('ui_error', 0.15); restartAnim(rBots, 'is-shake'); this.toast(coopMode() ? '双人合作赛只有你们两个人，没有机器人' : t('lb.botsLocked'), { icon: GLYPHS.bot }); };
 
     // ---- render from the lobby state
     const renderPlates = () => {
@@ -3347,9 +3352,9 @@ export class Menus {
           const crown = h('i', { class: 'iw-plate__crown', html: GLYPHS.crown });
           const w = h('i', { class: 'iw-plate__w' });
           const ping = h('span', { class: 'iw-plate__ping' }, h('i'), h('i'), h('i'));
-          const ready = h('span', { class: 'iw-plate__ready' }, h('i', { html: GLYPHS.check }), 'READY!');
+          const ready = h('span', { class: 'iw-plate__ready' }, h('i', { html: GLYPHS.check }), t('lb.ready'));
           const bubble = h('span', { class: 'iw-plate__bubble' });
-          const you = h('span', { class: 'iw-plate__you' }, 'YOU');
+          const you = h('span', { class: 'iw-plate__you' }, t('pause.youU'));
           const e = h('div', { class: 'iw-plate' }, h('div', { class: 'iw-plate__stack' }, bubble,
             h('div', { class: 'iw-plate__tag iw-stag' }, art, w, h('span', { class: 'iw-stag__txt' }, title, name), crown, you, ready, ping)));
           platesEl.appendChild(e);
@@ -3415,10 +3420,10 @@ export class Menus {
       const waiting = ps.filter((p) => !p.ready && !p.host);
       const host = ps.find((p) => p.host);
       let txt;
-      if (ps.length >= (lob.maxPlayers || 8)) txt = waiting.length ? `Room full · ${waiting.length} not ready` : 'Room full · everyone’s ready!';
-      else if (ps.length <= 1) txt = 'Share the code to fill the room';
-      else if (!waiting.length) txt = isHost() ? 'Everyone’s ready — start when you like!' : `Everyone’s ready — waiting for ${host ? host.name : 'the host'}`;
-      else txt = `${ps.length - waiting.length} of ${ps.length} ready`;
+      if (ps.length >= (lob.maxPlayers || 8)) txt = waiting.length ? t('lb.roomFullWait', { n: waiting.length }) : t('lb.roomFullReady');
+      else if (ps.length <= 1) txt = t('lb.shareFill');
+      else if (!waiting.length) txt = isHost() ? t('lb.allReadyHost') : t('lb.allReadyWait', { host: host ? host.name : t('lb.theHost') });
+      else txt = t('lb.nReady', { a: ps.length - waiting.length, b: ps.length });
       statusTxt.textContent = txt;
       status.classList.toggle('is-allready', ps.length > 1 && !waiting.length);
       el.classList.toggle('is-alone', ps.length <= 1);
@@ -3428,7 +3433,7 @@ export class Menus {
       timeSeg.refresh(lob.time === 'dusk' ? 'dusk' : 'day');
       lenSeg.refresh(lob.duration);
       palSeg.refresh(palIdx());
-      { const P0 = TEAM_PALETTES[palIdx()]; palName.textContent = P0 ? P0.names.join(' vs ') : ''; }
+      { const P0 = TEAM_PALETTES[palIdx()]; palName.textContent = P0 ? P0.names.map(teamName).join(' vs ') : ''; }
       botTgl.refresh(lob.bots !== false);
       diffSeg.refresh(diffs[lob.difficulty] ? lob.difficulty : 'normal');
       const bm = bossMode(), md = lobMode(), zm = md === 'zones';
@@ -3441,8 +3446,8 @@ export class Menus {
         el.classList.toggle('is-zonemode', zm);
         el.classList.toggle('is-learnmode', LEARN_MODE(md));
         el.classList.toggle('is-coopmode', md === 'coop2');
-        diffLbl.querySelector('.iw-lset__lbltxt').textContent = bm ? 'DIFFICULTY' : 'BOT SKILL';
-        hostChip.lastChild.textContent = bm || zm ? 'HOST' : 'YOU’RE THE HOST';   // the longer headlines need the room
+        diffLbl.querySelector('.iw-lset__lbltxt').textContent = bm ? t('lb.difficulty') : t('lb.botSkill');
+        hostChip.lastChild.textContent = bm || zm ? t('lb.host') : t('lb.youHost');   // the longer headlines need the room
         lenSegT.el.style.display = bm || zm || LEARN_MODE(md) ? 'none' : ''; lenSegB.el.style.display = bm ? '' : 'none';
         rLen.classList.toggle('is-locked', zm || md === 'versus2');   // (versus2 is a Zone Control match: 5:00 + overtime)
         if (!first) { restartAnim(rMode, 'is-swap'); restartAnim(status, 'is-swap'); }
@@ -3451,11 +3456,11 @@ export class Menus {
       { const L = lessonOf(); weekSegL.refresh(L.week); daySegL.refresh(L.day); lessonNote.textContent = coopMode() ? '两个人 · 一队 · 没有敌人' : lobMode() === 'versus2' ? '同一道题 · 先答对的墨淹过去' : ''; }
       rDiff.classList.toggle('is-off', lob.bots === false || coopMode());
       const humans = players().length;
-      botsNote.textContent = coopMode() ? '没有机器人' : botsLocked() ? 'No bots on this stage' : lob.bots !== false ? (humans < 8 ? `${8 - humans} bot${8 - humans === 1 ? '' : 's'} join ${bossMode() ? 'the squad' : 'in'}` : 'Room is full') : 'Empty spots stay empty';
+      botsNote.textContent = coopMode() ? '没有机器人' : botsLocked() ? t('lb.noBotsStage') : lob.bots !== false ? (humans < 8 ? t(bossMode() ? (8 - humans === 1 ? 'lb.botJoinSquad1' : 'lb.botJoinSquadN') : (8 - humans === 1 ? 'lb.botJoin1' : 'lb.botJoinN'), { n: 8 - humans }) : t('lb.roomFull')) : t('lb.emptyStay');
       rBots.classList.toggle('is-locked', botsLocked());
-      if (bossMode()) { const P1 = TEAM_PALETTES[palIdx()]; if (P1) palName.textContent = `${P1.names[0]} squad · ${P1.names[1]} boss`; }
+      if (bossMode()) { const P1 = TEAM_PALETTES[palIdx()]; if (P1) palName.textContent = t('lb.squadBoss', { a: teamName(P1.names[0]), b: teamName(P1.names[1]) }); }
       const host = players().find((p) => p.host);
-      hostName.textContent = host ? host.name : 'the host';
+      hostName.textContent = host ? host.name : t('lb.theHost');
       if (prev) {
         if (prev.map !== lob.map) flash(rStage);
         if (prev.time !== lob.time) flash(rTime);
@@ -3466,11 +3471,11 @@ export class Menus {
         if (prev.learn && lob.learn && (prev.learn.week !== lob.learn.week || prev.learn.day !== lob.learn.day)) flash(rLesson);
         if ((prev.mode || 'turf') !== (lob.mode || 'turf')) {
           flash(rMode);
-          if (!isHost()) this.toast(`${host ? host.name : 'The host'} picked ${bossMode() ? `BOSS BATTLE — everyone vs ${BOSS_NAME}!` : MODE_INFO[lobMode()].label}`, { icon: bossMode() ? BOSS_GLYPH : lobMode() === 'zones' ? ZONE_GLYPH : MODE_INFO[lobMode()].icon || GLYPHS.flag });
+          if (!isHost()) this.toast(t('lb.picked', { name: host ? host.name : t('lb.TheHost'), what: bossMode() ? t('lb.pickedBoss', { boss: BOSS_NAME }) : MODE_INFO[lobMode()].label }), { icon: bossMode() ? BOSS_GLYPH : lobMode() === 'zones' ? ZONE_GLYPH : MODE_INFO[lobMode()].icon || GLYPHS.flag });
         }
         if (!isHost() && (prev.map !== lob.map || prev.time !== lob.time)) {
           const m = maps.find((x) => x.id === lob.map);
-          this.toast(`${host ? host.name : 'The host'} picked ${m ? m.name : 'a stage'}${lob.time === 'dusk' ? ' at dusk' : ''}`, { icon: GLYPHS.map });
+          this.toast(t('lb.picked', { name: host ? host.name : t('lb.TheHost'), what: (m ? gameName('map', m.id, m.name) : t('lb.aStage')) + (lob.time === 'dusk' ? t('lb.atDusk') : '') }), { icon: GLYPHS.map });
         }
       }
     };
@@ -3479,23 +3484,24 @@ export class Menus {
       const lo = this._loadout();
       const wid = (me && me.weapon) || lo.weapon;
       const W = Ws[wid] || Ws[lo.weapon];
-      if (wChip._wid !== wid) { wChip._wid = wid; wIcon.innerHTML = weaponIcon((W && W.kind) || wid); wName.textContent = W ? W.name : wid; if (wChip._init) restartAnim(wChip, 'is-pick'); wChip._init = true; }
+      if (wChip._wid !== wid) { wChip._wid = wid; wIcon.innerHTML = weaponIcon((W && W.kind) || wid); wName.textContent = W ? gameName('weapon', wid, W.name) : wid; if (wChip._init) restartAnim(wChip, 'is-pick'); wChip._init = true; }
       const host = isHost();
       el.classList.toggle('is-host', host);
       const ready = !!(me && me.ready);
       readyBtn.classList.toggle('is-on', ready);
-      readyBtn.querySelector('.iw-btn__label').textContent = ready ? 'READY!' : 'READY?';
-      readySub.textContent = ready ? 'Press again to cancel' : 'Let the host know you’re set';
+      readyBtn.querySelector('.iw-btn__label').textContent = ready ? t('lb.ready') : t('lb.readyQ');
+      readySub.textContent = ready ? t('lb.pressCancel') : t('lb.letKnow');
       const ok = host && net && net.canStart();
       startBtn.classList.toggle('is-blocked', host && !ok);
       const waiting = players().filter((p) => !p.you && !p.ready && !p.host);
       const humans = players().length;
       const block = (net && net.startBlock ? net.startBlock() : noBotsStartBlock(lob)) || null;   // humans-only stage: 2+ players, one per side
-      startSub.textContent = ok ? (humans <= 1 && lob.bots !== false ? 'Just you and the bots' : humans <= 1 ? 'Nobody to play against yet!' : 'Everyone’s ready — let’s ink!') : block || (waiting.length ? `Waiting for ${listNames(waiting)}` : 'Getting ready…');
+      startSub.textContent = ok ? (humans <= 1 && lob.bots !== false ? t('lb.justBots') : humans <= 1 ? t('lb.nobody') : t('lb.letsInk')) : blockText(block) || (waiting.length ? t('lb.waitFor', { names: listNames(waiting) }) : t('lb.gettingReady'));
       // team seg follows your actual side unless a request is pending
       if (me && !S.pendingTeam) teamSeg.refresh(S.teamPref === 'auto' ? 'auto' : teamOf(me));
       teamRow.dataset.pick = S.teamPref === 'auto' ? 'auto' : String(S.pendingTeam ? S.pendingTeam.team : teamOf(me));
       teamRow.classList.toggle('is-locked', bossMode() || coopMode());
+      squadLock.lastChild.textContent = coopMode() ? t('lb.coopTeam') : t('lb.vsBoss');   // (双人合作赛: the two on one team, no boss)
       el.classList.toggle('is-team-b', teamOf(me) === 1 && !oneSide());
       const [ca, cb] = colors();
       colorVars(el, 'ta', ca); colorVars(el, 'tb', cb); colorVars(el, 'self', teamOf(me) && !oneSide() ? cb : ca);
@@ -3539,14 +3545,14 @@ export class Menus {
     const names = (ps) => (ps.length === 1 ? ps[0].name : ps.length === 2 ? `${ps[0].name} & ${ps[1].name}` : `${ps[0].name}, ${ps[1].name} +${ps.length - 2}`);
     const flushBatch = () => {
       const j = S.joins.splice(0), l = S.leaves.splice(0).filter((p) => !j.some((x) => x.id === p.id));
-      if (j.length === 1) { this.toast('joined!', { kind: 'join', color: colors()[teamOf(j[0])], tag: j[0] }); this._sfx('ui_toggle', 0.1); }
-      else if (j.length) { this.toast(`${names(j)} joined the room`, { kind: 'join', color: colors()[teamOf(j[0])] }); this._sfx('ui_toggle', 0.1); }
-      if (l.length) this.toast(`${names(l)} left`, { kind: 'leave' });
+      if (j.length === 1) { this.toast(t('lb.joined'), { kind: 'join', color: colors()[teamOf(j[0])], tag: j[0] }); this._sfx('ui_toggle', 0.1); }
+      else if (j.length) { this.toast(t('lb.joinedRoom', { names: names(j) }), { kind: 'join', color: colors()[teamOf(j[0])] }); this._sfx('ui_toggle', 0.1); }
+      if (l.length) this.toast(t('lb.left', { names: names(l) }), { kind: 'leave' });
     };
     sub('host', (e) => {
       const p = players().find((x) => x.id === (e && e.hostId));
       if (!p) return;
-      this.toast(p.you ? 'You’re the host now — the room is yours' : `${p.name} is the host now`, { kind: 'good', icon: GLYPHS.crown });
+      this.toast(p.you ? t('lb.youHostNow') : t('lb.hostNow', { name: p.name }), { kind: 'good', icon: GLYPHS.crown });
       if (p.you) this._sfx('special_ready', 0.2);
     });
     sub('emote', (e) => {
@@ -3573,8 +3579,8 @@ export class Menus {
       const L = S.launching;
       if (!L || L.step === n) return;
       L.step = n;
-      cdNum.textContent = n > 0 ? String(n) : 'GO!';
-      cdSub.textContent = n === 3 ? 'GET READY' : n > 0 ? '' : '';
+      cdNum.textContent = n > 0 ? String(n) : t('bn.go');
+      cdSub.textContent = n === 3 ? t('lb.getReady') : n > 0 ? '' : '';
       countdown.classList.add('is-on');
       countdown.classList.toggle('is-go', n === 0);
       restartAnim(countdown, 'is-beat');
@@ -3711,13 +3717,13 @@ export class Menus {
             if (on !== O.on) { O.on = on; O.el.classList.toggle('is-on', on); }
             if (a) O.el.style.transform = `translate3d(${Math.round(a.x)}px,${Math.round(a.y)}px,0) scale(${clamp(a.s || 1, 0.6, 1.25).toFixed(3)})`;
             const sig = bots ? 'bot' : 'open';
-            if (O.sig !== sig) { O.sig = sig; O.txt.textContent = bots ? 'BOT' : 'OPEN'; O.el.classList.toggle('is-bot', bots); O.el.querySelector('.iw-plate__plus').innerHTML = bots ? GLYPHS.bot : GLYPHS.plus; }
+            if (O.sig !== sig) { O.sig = sig; O.txt.textContent = bots ? t('lb.bot') : t('lb.open'); O.el.classList.toggle('is-bot', bots); O.el.querySelector('.iw-plate__plus').innerHTML = bots ? GLYPHS.bot : GLYPHS.plus; }
           }
         }
         S.age += dt;
         if (S.batchT > 0) { S.batchT -= dt; if (S.batchT <= 0) flushBatch(); }
         { const acc = colors().join() + (oneSide() ? '|b' : ''); if (acc !== S.acc) { const first = !S.acc; S.acc = acc; if (!first) { for (const P of plates.values()) P.sig = ''; render(false); } } }
-        if (S.copied > 0) { S.copied -= dt; if (S.copied <= 0) copyTxt.textContent = 'COPY'; }
+        if (S.copied > 0) { S.copied -= dt; if (S.copied <= 0) copyTxt.textContent = t('lb.copy'); }
         if (S.emoteCd > 0) { S.emoteCd = Math.max(0, S.emoteCd - dt); emoteBtn.style.setProperty('--cd', (S.emoteCd / 1.3).toFixed(3)); }
         if (S.pendingTeam) {
           S.pendingTeam.t += dt;
@@ -3725,7 +3731,7 @@ export class Menus {
             const want = S.pendingTeam.team; S.pendingTeam = null;
             const me = meP();
             if (me && teamOf(me) !== want) {
-              this.toast(`Team ${TEAM_LABEL[want][0]}${TEAM_LABEL[want].slice(1).toLowerCase()} is full`, { kind: 'error', icon: GLYPHS.users });
+              this.toast(t('lb.teamFull', { team: isZh ? TEAM_LABEL[want] : TEAM_LABEL[want][0] + TEAM_LABEL[want].slice(1).toLowerCase() }), { kind: 'error', icon: GLYPHS.users });
               S.teamPref = 'auto'; teamSeg.refresh('auto'); restartAnim(teamRow, 'is-shake'); this._sfx('ui_error', 0.2);
             }
           }
@@ -3796,7 +3802,7 @@ export class Menus {
       }
     } catch (e) { console.error('[menus] match snapshot', e); }
     const [a, b] = this._accent();
-    const names = [this._profile().name, ...BOT_NAMES.slice(0, 7)];
+    const names = [this._profile().name, ...botNames(BOT_NAMES).slice(0, 7)];
     const demo = [
       [0, 'shooter', true, 0, false, 0.82, 612, 3, 1], [0, 'roller', true, 0, true, 1, 540, 2, 2], [0, 'charger', false, 3.4, false, 0.4, 301, 4, 1], [0, 'blaster', true, 0, false, 0.66, 455, 1, 0],
       [1, 'charger', true, 0, false, 0.5, 488, 2, 1], [1, 'shooter', false, 1.2, false, 0.3, 390, 1, 3], [1, 'blaster', true, 0, true, 1, 520, 3, 2], [1, 'roller', true, 0, false, 0.7, 610, 0, 1],
@@ -4510,7 +4516,7 @@ export class Menus {
 
   _demoResults() {
     const pal = TEAM_PALETTES[0];
-    const names = BOT_NAMES.slice(0, 8);
+    const names = botNames(BOT_NAMES).slice(0, 8);
     return {
       win: true, percents: [51.2, 42.7], colors: [pal.a, pal.b], teamNames: pal.names, mapName: MAPS[0].name,
       players: names.map((n, i) => ({ name: i === 0 ? this._profile().name : n, team: i < 4 ? 0 : 1, weapon: WEAPON_ORDER[i % 4], turf: 1400 - i * 90, splats: (i * 3) % 7, deaths: (i * 5) % 4, isSelf: i === 0 })),

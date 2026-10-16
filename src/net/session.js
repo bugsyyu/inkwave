@@ -9,6 +9,7 @@ import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, 
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
+import { botNames } from '../ui/i18n.js';   // 关卡学习 I (docs/LEARN.md §17): the host names the bots (Chinese nicknames; ?lang=en: their own)
 
 // no 0/O or 1/I (misread), and no W/A/S/D: those move the menu cursor, so any other key typed on the online hub can
 // only mean a room code (28⁵ ≈ 17 M codes)
@@ -288,7 +289,7 @@ export class NetSession {
     const bots = l.bots && !mapNoBots(l.map);   // (a humans-only stage never gets bots, whatever the setting says)
     const roster = [];
     let nid = 0;
-    const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
+    const names = [...botNames(BOT_NAMES)].sort(() => Math.random() - 0.5);
     const boss = l.mode === 'boss' && mapBossOk(l.map);   // one squad of up to 8 (all team 0), bots fill the rest
     const coop = l.mode === 'coop2', learn = LEARN_ROOM_MODES.includes(l.mode);   // coop2: the two on team 0, no bots, no enemies
     for (let team = 0; team < (boss || coop ? 1 : 2); team++) {
