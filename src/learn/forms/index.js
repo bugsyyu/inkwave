@@ -23,13 +23,17 @@ import { BossFlow } from './boss.js';
 import { Versus2Flow } from './versus2.js';
 import { Coop2Flow } from './coop2.js';
 import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
+import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN §20): the race as a lane runner, while race.js stays
 
-export const LEARN_KINDS = [...FORMS, 'quiz'];   // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2)
+// ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (?kind=runner: the race's plan
+// played by RunnerFlow; match.js sees a 'race' — her + 3 brainless racer bots — so nothing else changes)
+export const LEARN_KINDS = [...FORMS, 'quiz', 'runner'];
 const FLOWS = { puzzle: LearnFlow, race: RaceFlow, duel: DuelFlow, boss: BossFlow };
 
 export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);
   if (kind === 'quiz') return buildQuiz(w, week, day, short);
+  if (kind === 'runner') { const b = await buildLearn({ week, day, kind: 'race', short, gate }); return { ...b, Flow: RunnerFlow, runner: true }; }
   if (kind === 'boss') {
     let plan = bossPlan(w);
     if (short) plan = shortenBoss(plan);
