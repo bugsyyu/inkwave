@@ -83,11 +83,15 @@ export class RowView {
   _lines(T, row, laneW) {
     const n = row.centers.length, offs = [];
     for (let i = 1; i < n; i++) offs.push(row.c + (i - n / 2) * laneW);
-    const len = Math.min(row.D || 12, 14), half = 0.035, pos = [], idx = [];
+    // (over the straight run-in only: on the bend before it, lines a metre or two off the centre would fold over)
+    const len = 6, half = 0.035, pos = [], idx = [];
+    at(T, row.s, _p); const yaw0 = Math.atan2(_p.tx, _p.tz);
+    let t0 = row.s - len;
+    for (let t = row.s; t >= row.s - len; t -= 0.5) { at(T, t, _q); let da = Math.atan2(_q.tx, _q.tz) - yaw0; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; if (Math.abs(da) > 0.3) { t0 = t + 0.5; break; } }
     for (const off of offs) {
       const base = pos.length / 3;
       let k = 0;
-      for (let t = row.s - len; t <= row.s + 0.01; t += 0.5, k++) {
+      for (let t = t0; t <= row.s + 0.01; t += 0.5, k++) {
         at(T, t, _q);
         const cx = _q.x + _q.rx * off, cz = _q.z + _q.rz * off;
         const gy = G.level ? G.level.groundHeight(cx, cz, _q.y + 1.2) : _q.y;

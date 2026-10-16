@@ -20,8 +20,10 @@ class Spring {   // exact critically-damped spring (cameraRig's)
     this.x = target + (d + k) * e; this.v = (this.v - omega * k) * e; return this.x;
   }
 }
-// framing presets: [back m, up m, look-ahead m, look height m, vertical fov °]
-const TALL = [5.6, 3.9, 10, 0.2, 70], WIDE = [5.0, 2.5, 10, 0.6, 50];
+// framing presets: [back m, up m, look-ahead m, look height m, vertical fov °]. Wide screens are framed by a horizontal
+// field of view instead (WIDE_H): a landscape phone's 2.16 : 1 at a fixed vertical angle sees 90° across and the row
+// shrinks to a strip in the middle; 72° across puts a four-lane row over 40 % of the width a dozen metres out.
+const TALL = [5.2, 3.3, 9, 0, 70], WIDE = [4.6, 2.4, 9, 0.5, 0], WIDE_H = 72;
 const _p = {}, _v = new THREE.Vector3(), _b = new THREE.Vector3(), _probe = { hard: 0, soft: 0, floor: false };
 
 export class RunnerCam {
@@ -39,7 +41,9 @@ export class RunnerCam {
 
   frame(aspect) {
     const k = smoothstep(0.62, 1.25, aspect);
-    return TALL.map((v, i) => v + (WIDE[i] - v) * k);
+    const wide = WIDE.slice();
+    wide[4] = clamp((2 * Math.atan(Math.tan((WIDE_H * Math.PI) / 360) / Math.max(1, aspect)) * 180) / Math.PI, 34, 52);
+    return TALL.map((v, i) => v + (wide[i] - v) * k);
   }
 
   // a: her actor; T + s: the road and where she is on it; yawRoad: an override heading (a detour branch) or null
@@ -71,14 +75,16 @@ export class RunnerCam {
     const back = this.f[0].step(F[0], 2.5, dt), up = this.f[1].step(F[1], 2.5, dt), ahead = this.f[2].step(F[2], 2.5, dt);
     const lookH = this.f[3].step(F[3], 2.5, dt), vfov = this.f[4].step(F[4], 2.5, dt);
     const fx = Math.sin(yaw), fz = Math.cos(yaw);
-    // the boom from her head height out to the lens; shortened (springs: fast in, slow out) when a wall is in the way
-    const pivot = _v.set(x, y + 0.9, z);
-    const bx = -fx * back, by = up - 0.9, bz = -fz * back, bl = Math.hypot(bx, by, bz);
+    // the boom from above her head out to the lens; shortened (springs: fast in, slow out) when a wall is in the way —
+    // from high up, so a short boom still looks down the road (a low one would look at the ink)
+    const ph = Math.max(0.9, up - 1.1);
+    const pivot = _v.set(x, y + ph, z);
+    const bx = -fx * back, by = up - ph, bz = -fz * back, bl = Math.hypot(bx, by, bz);
     _b.set(bx / bl, by / bl, bz / bl);
     let k = 1;
-    if (G.physics?.cameraProbe) { G.physics.cameraProbe(pivot, _b, bl, 0.45, _probe); k = clamp(_probe.soft / bl, 0.25, 1); }
+    if (G.physics?.cameraProbe) { G.physics.cameraProbe(pivot, _b, bl, 0.45, _probe); k = clamp(_probe.soft / bl, 0.3, 1); }
     const kb = this.boom.step(k, k < this.boom.x ? 18 : 3, dt);
-    cam.position.set(x + bx * kb, y + 0.9 + by * kb, z + bz * kb);
+    cam.position.set(x + bx * kb, y + ph + by * kb, z + bz * kb);
     cam.up.set(0, 1, 0);
     cam.lookAt(x + fx * ahead, y + lookH, z + fz * ahead);
     // field of view: rig fov = vBase + (fovKick − zoom) · 0.8 in path mode; a touch wider at swim speed

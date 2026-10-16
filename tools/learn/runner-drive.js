@@ -25,10 +25,14 @@
   let pid = 40;
   const swipe = async (dir) => {
     if (touch) {
-      const cx = innerWidth * 0.5, cy = innerHeight * 0.62, id = ++pid, d = 70;
+      // a thumb's flick: 60 px in five moves (a real one fires pointermove every few ms on the way)
+      const cx = innerWidth * 0.5, cy = innerHeight * 0.62, id = ++pid, d = 60;
       const to = { left: [-d, 0], right: [d, 0], up: [0, -d], down: [0, d] }[dir];
-      const ev = (type, x, y) => window.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
-      ev('pointerdown', cx, cy); ev('pointermove', cx + to[0] * 0.5, cy + to[1] * 0.5); ev('pointermove', cx + to[0], cy + to[1]); ev('pointerup', cx + to[0], cy + to[1]);
+      const target = document.elementFromPoint(cx, cy) || window;
+      const ev = (type, x, y) => target.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
+      ev('pointerdown', cx, cy);
+      for (let k = 1; k <= 5; k++) ev('pointermove', cx + (to[0] * k) / 5, cy + (to[1] * k) / 5);
+      ev('pointerup', cx + to[0], cy + to[1]);
       await step(34);
     } else {
       const code = { left: 'KeyA', right: 'KeyD', up: 'KeyW', down: 'KeyS' }[dir];

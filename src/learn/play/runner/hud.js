@@ -43,9 +43,16 @@ const CSS = `
 .iw-run__rotate.is-on { display: flex; }
 .iw-run__rotate i { font-style: normal; font-size: 18px; }
 .iw-run__rotate button { width: 44px; height: 44px; border: 0; background: none; color: #cfc9dc; padding: 13px; cursor: pointer; }
-@media (max-width: 640px) and (orientation: portrait) { .iw-run__strip { top: 118px; } .iw-run__q { font-size: 18px; } }
-@media (max-height: 460px) and (orientation: landscape) { .iw-run__strip { top: 52px; width: min(560px, calc(100vw - 260px)); padding: 6px 10px 6px 12px; } .iw-run__q { font-size: 17px; } .iw-run__zh { font-size: 14px; } .iw-run__hint { bottom: 14px; } }
+@media (max-width: 640px) and (orientation: portrait) { .iw-run__strip { top: 122px; } .iw-run__q { font-size: 18px; } }
+/* the options by lane: always for banner rows; for short labels only upright (a phone held upright sees the curtains
+   small until the last second; turned, the curtains read on their own) */
+@media (orientation: landscape) { .iw-run__opts.is-lite { display: none !important; } }
+/* the race standings (forms/ui.js) upright: just her own line, so it never runs into the strip */
+@media (max-width: 640px) and (orientation: portrait) { .iw-lf.is-runner .iw-lf__rank { top: 84px; } .iw-lf.is-runner .iw-lf__rank div:not(.is-me) { display: none; } }
+@media (max-height: 460px) and (orientation: landscape) { .iw-run__strip { top: 52px; width: min(560px, calc(100vw - 380px)); padding: 6px 10px 6px 12px; } .iw-run__q { font-size: 17px; } .iw-run__zh { font-size: 14px; } .iw-run__hint { bottom: 14px; } }
 @media (prefers-reduced-motion: reduce) { .iw-run__strip.is-on { animation: none; } }
+/* nothing is aimed in the runner: no crosshair / ink tank cluster */
+.iw-hud.is-runner .iw-xh { display: none; }
 /* the thumb cluster is not used here: swipes steer (src/core/touch.js swipe hook); only ⏸ stays */
 .iw-touch.is-runner .iw-touch__btn:not(:nth-child(8)) { display: none; }
 `;
@@ -82,8 +89,9 @@ export class RunnerHud {
     this.tts = null; this._vT = 0; this._hT = 0; this._rT = 0;
   }
 
-  // a row's question: tag ('lane' | 'beat' | 'glide'), p (the row's prompt), opts: [{ tag, en, zh }] for banner rows
-  ask(kind, p, opts = null) {
+  // a row's question: tag ('lane' | 'beat' | 'glide'), p (the row's prompt), opts: [{ tag, en, zh }] in lane order,
+  // banner: long labels (the options always show then; otherwise only upright — CSS)
+  ask(kind, p, opts = null, banner = false) {
     this.tag.className = 'iw-run__tag' + (kind === 'beat' ? ' is-beat' : kind === 'glide' ? ' is-stub' : '');
     this.tag.textContent = kind === 'beat' ? '踩拍换道' : kind === 'glide' ? '滑行段 · 占位' : '选一条道';
     this.q.textContent = p.text || '';
@@ -94,6 +102,7 @@ export class RunnerHud {
     this.opts.innerHTML = '';
     if (opts && opts.length) for (const o of opts) this.opts.append(h('span', null, h('b', null, o.tag), o.en, o.zh ? h('small', null, o.zh) : null));
     this.opts.style.display = opts && opts.length ? '' : 'none';
+    this.opts.classList.toggle('is-lite', !banner);
     this.strip.classList.remove('is-on'); void this.strip.offsetWidth; this.strip.classList.add('is-on');
     this._place();
   }

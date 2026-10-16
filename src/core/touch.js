@@ -224,13 +224,13 @@ export class TouchControls {
   _move(e) {
     const role = this.roles.get(e.pointerId);
     if (role === undefined) return;
-    if (role === 'swipe') {   // 墨浪跑酷 swipe hook: past TOUCH.swipe px → one swipe, then re-armed from here (a long drag = more lanes)
+    if (role === 'swipe') {   // 墨浪跑酷 swipe hook: past TOUCH.swipe px → one swipe; a flick is one, a long drag on (3.5× as far again) one more
       const o = this._sw && this._sw.get(e.pointerId), L = G.match?.learn;
       if (!o || !L || !L.swipe) return;
       const dx = e.clientX - o.x, dy = e.clientY - o.y;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < TOUCH.swipe) return;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < TOUCH.swipe * (o.n ? 3.5 : 1)) return;
       L.swipe(Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
-      o.x = e.clientX; o.y = e.clientY;
+      o.x = e.clientX; o.y = e.clientY; o.n = (o.n || 0) + 1;
       return;
     }
     if (role === 'look' || role === 'fire') {

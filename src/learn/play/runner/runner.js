@@ -66,7 +66,8 @@ export class RunnerFlow extends RaceFlow {
     this.cam = new RunnerCam();
     this.mark = new HerMark(); G.scene.add(this.mark.mesh);
     this.rh = new RunnerHud(G.hud);
-    G.hud?.el?.classList.add('is-learn');          // (hud-learn's start() did this: the HUD clock's width for 「圈 0:00」)
+    this.ui.el?.classList.add('is-runner');
+    G.hud?.el?.classList.add('is-learn', 'is-runner');   // (hud-learn's start() did is-learn: the clock's width; is-runner: no crosshair)
     G.touch?.el?.classList.add('is-runner');       // only ⏸ of the thumb cluster (hud.js CSS)
     const a = match.local;
     if (a) this._install(a);
@@ -280,7 +281,7 @@ export class RunnerFlow extends RaceFlow {
       if (e.alt) p.text = p.text.startsWith('换个问法') ? p.text : '换个问法：' + p.text;
       if (e.relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
       const labels = rowLabels(item, p), banner = labels.some((l) => isBanner(l, R.banner));
-      const row = { e, item, p, kind: e.kind, gate: e.gate, lanes: spot.lanes, c: spot.c, centers: laneCenters(spot.lanes, R.laneW, spot.c), labels, banner, tags: banner ? TAGS : null, s: spot.s, D, lead, sAppear: spot.s - D, state: 'built', swipeT: null };
+      const row = { e, item, p, kind: e.kind, gate: e.gate, lanes: spot.lanes, c: spot.c, centers: laneCenters(spot.lanes, R.laneW, spot.c), labels, banner, tags: TAGS, s: spot.s, D, lead, sAppear: spot.s - D, state: 'built', swipeT: null };
       row.view = new RowView(row, this.T, { laneW: R.laneW, gap: R.gap });
       G.scene.add(row.view.group);
       this.rows.push(row);
@@ -305,7 +306,7 @@ export class RunnerFlow extends RaceFlow {
     this.asking = { gate: g || { id: 'gate:relearn', index: this.gates.length }, item, p, row };
     this.asked++; this.stats.rows++;
     this.latT = dividerStart(row.lanes, R.laneW, row.c, this.latT);   // the ink road carries her onto a divider
-    this.rh.ask(row.kind, p, row.banner ? row.labels.map((l, i) => ({ tag: TAGS[i], en: l.en, zh: l.zh })) : null);
+    this.rh.ask(row.kind, p, row.labels.map((l, i) => ({ tag: TAGS[i], en: l.en, zh: l.zh })), row.banner);
     G.audio?.play?.('ui_confirm', { volume: 0.45 });
     if (row.kind === 'beat') {
       row.grid = this._grid();
@@ -332,7 +333,7 @@ export class RunnerFlow extends RaceFlow {
       else if (p.tts) this.rh.speak(p.tts, { slow: !!(tip && tip.slow) });
     }
     if (row.echoAt && G.time >= row.echoAt) { row.echoAt = 0; this.rh.speak(p.tts); }
-    if (row.banner) this.rh.here(laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap));
+    this.rh.here(laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap));
   }
   // the music's grid on the game clock (a synth track carries its bpm and its first downbeat on the audio clock)
   _grid() {
@@ -435,7 +436,8 @@ export class RunnerFlow extends RaceFlow {
     if (rl >= 0) row.view.mark(rl, 'reveal');
     this.slowT = R.slow[1];
     const right = row.labels[rl] || { en: r.canonical };
-    const why = String(r.why || '').split(/(?<=[。！？])/)[0];
+    // the why, without what the line already says (the right answer): its first sentence that adds something
+    const why = String(r.why || '').replace(/^不对。/, '').replace(/正确答案：[^。]*。/, '').split(/(?<=[。！？])/).map((x) => x.trim()).filter(Boolean)[0] || '';
     this.rh.say(false, `差一点：是 ${[right.en, right.zh].filter(Boolean).join(' ')}`, why, R.verdictMs);
     if (!row.e.relearn && row.e.tries < this.P.retries) {
       G.audio?.play?.(EFFECTS.race.wrong.sfx, { volume: 0.6 });
@@ -759,7 +761,7 @@ export class RunnerFlow extends RaceFlow {
     this.cam.release(G.rig, this.match.local);
     this.mark.dispose();
     this.rh.end();
-    G.hud?.el?.classList.remove('is-learn');
+    G.hud?.el?.classList.remove('is-learn', 'is-runner');
     G.touch?.el?.classList.remove('is-runner');
     super.dispose();
   }

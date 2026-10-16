@@ -698,7 +698,7 @@ export const TOUCH = {
   // bounded by the screen, so a full-width swipe has to be able to turn you around. Scaled by settings.touchSensitivity.
   lookSens: 0.0052,         // radians per CSS pixel (~2.5x the mouse's 0.0021)
   // 墨浪跑酷 (src/learn/play/runner): a drag past this many px is one swipe (left / right = a lane, up = jump, down = dive);
-  // the drag goes on re-armed from there, so a long one is several lanes
+  // a flick is one lane, however long; a slow drag on for 3.5× as far again is one more
   swipe: 26,
   // Floors for the RENDERER's image settings on a touch device (see rendererQuality). A 3x phone screen shows the
   // tier's desktop-calibrated 0.75 pixel ratio and zero anti-aliasing as heavy jaggies; these raise only those two.
