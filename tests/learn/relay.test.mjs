@@ -187,3 +187,21 @@ test('relay framing (RFC 6455 by hand): 16- and 64-bit lengths both ways, fragme
     s.destroy();
   });
 });
+
+test('relay silence allowance: configurable for slow machines (RELAY_SILENT_MATCH / --silent-match), the Worker\'s by default', async () => {
+  let fake = Date.now();
+  await withRelay(async ({ mk }) => {
+    const a = mk('QUIET', 'A', { create: true }); await a.json('welcome');
+    const b = mk('QUIET', 'B'); const idb = (await b.json('welcome')).id;
+    a.send('{"t":"lock","v":true}'); a.send('ping'); await a.next((x) => x === 'pong');
+    fake += 30000;                                   // past the Worker's 20 s, inside this relay's 60 s
+    a.send('ping');
+    for (let k = 0; k < 40 && a.got.filter((x) => x === 'pong').length < 2; k++) await sleep(10);
+    await sleep(100);
+    assert.equal(b.closed, null, 'still in the room at 30 s');
+    fake += 40000;
+    a.send('ping');
+    const lv = await a.json('leave', 3000);
+    assert.equal(lv.id, idb);
+  }, { now: () => fake, sweep: 30, silentMatch: 60000 });
+});

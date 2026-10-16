@@ -20,6 +20,8 @@ import { LearnFlow } from '../flow.js';
 import { RaceFlow } from './race.js';
 import { DuelFlow } from './duel.js';
 import { BossFlow } from './boss.js';
+import { Versus2Flow } from './versus2.js';
+import { Coop2Flow } from './coop2.js';
 import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
 
 export const LEARN_KINDS = [...FORMS, 'quiz'];   // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2)
@@ -40,6 +42,28 @@ export async function buildLearn({ week, day, kind, short = false }) {
   // the numeric week / day the flows and the HUD read (A's head() writes week: 'w1'); the week object for store.due
   Object.assign(level, { week, day, weekRef: w });
   return { kind, level, Flow: FLOWS[kind] || LearnFlow, time: level.time || 'day', duration: kind === 'duel' ? (short ? 60 : undefined) : undefined, world: kind === 'duel' ? 'zones' : 'turf', short, weekRef: w };
+}
+
+// The two-player online forms (docs/LEARN.md §10, §14), built on every client from the host's start record
+// (cfg.learn = { week, day, kind, short }) — the same content files give the same level everywhere; the room's own stage
+// is played (the host's lobby pick), not the plan's:
+//   versus2 → the day's duel plan, Versus2Flow, on the stage's zones variant (Match mode 'zones' + the learn layer)
+//   coop2   → the day's puzzle plan, Coop2Flow, on the turf stage (Match mode 'learn', both on one team, no clock)
+//   await buildNetLearn(cfg.learn) → { kind, level, Flow, world, mode, short, weekRef, byId }
+export const NET_KINDS = ['versus2', 'coop2'];
+export async function buildNetLearn({ week = 1, day = 1, kind = 'versus2', short = false } = {}) {
+  week = Math.max(1, Math.min(LEARN.weeks, +week || 1)); day = Math.max(1, Math.min(LEARN.days, +day || 1));
+  if (!NET_KINDS.includes(kind)) kind = 'versus2';
+  const w = await loadWeek(week);
+  const coop = kind === 'coop2';
+  let level = planDay(w, day, coop ? 'puzzle' : 'duel');
+  if (short) level = shortenLevel(level, coop ? LEARN.coop2.shortGates : 2, 2);
+  Object.assign(level, { week, day, weekRef: w });
+  // every item of the week by id: a due item from either player's store can be asked even when it is another day's
+  const byId = new Map();
+  for (const d of w.days || []) for (const s of daySteps(w, d.n)) for (const it of s.items) if (!byId.has(it.id)) byId.set(it.id, it);
+  const Flow = coop ? Coop2Flow : Versus2Flow;
+  return { kind, level, Flow, world: coop ? 'turf' : 'zones', mode: coop ? 'learn' : 'zones', short: !!short, weekRef: w, byId };
 }
 
 // 今日小考 (LEVELS §1.2, §2.3): after the day's exit on days 1–6, one duel round at dusk on the same stage — quizPlan's

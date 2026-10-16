@@ -21,8 +21,10 @@
 // Text frames only (the game sends nothing else); fragmented frames are reassembled; no extensions are negotiated
 // (a browser's permessage-deflate offer is declined by not answering it).
 //
-//   node server/node/relay.mjs [--port 8787] [--host 0.0.0.0] [--quiet]
-//   env: PORT, HOST, RELAY_ORIGINS="https://a.example,https://b.example" (extra page origins; "*" = any)
+//   node server/node/relay.mjs [--port 8787] [--host 0.0.0.0] [--quiet] [--silent-match <ms>] [--silent-lobby <ms>]
+//   env: PORT, HOST, RELAY_ORIGINS="https://a.example,https://b.example" (extra page origins; "*" = any),
+//        RELAY_SILENT_MATCH / RELAY_SILENT_LOBBY (ms; the Worker's 20 000 / 150 000 by default — raise them only for a
+//        machine whose pages stall for longer, e.g. software GL in a test container)
 //
 // In code (tests): const r = createRelay({ quiet: true }); const port = await r.listen(0); … await r.close();
 import { createServer } from 'node:http';
@@ -119,6 +121,8 @@ export function createRelay(opts = {}) {
   const log = (...a) => { if (!quiet) console.log('[relay]', ...a); };
   const rooms = new Map();   // code → { code, members: Map(id → member), seq, locked }
   const now = opts.now || (() => Date.now());
+  const silentMatch = +(opts.silentMatch ?? process.env.RELAY_SILENT_MATCH ?? SILENT_MATCH) || SILENT_MATCH;
+  const silentLobby = +(opts.silentLobby ?? process.env.RELAY_SILENT_LOBBY ?? SILENT_LOBBY) || SILENT_LOBBY;
 
   // the page's origin: the Worker's list, RELAY_ORIGINS, or the relay's own host (a same-origin page behind a proxy)
   function originOk(req) {
@@ -134,6 +138,7 @@ export function createRelay(opts = {}) {
   function gone(room, m) {
     if (!m || m.gone) return;
     m.gone = true;
+    log(`room ${room.code}: ${m.id} left`);
     room.members.delete(m.id);
     const out = JSON.stringify({ t: 'leave', id: m.id, host: hostOf(room) });
     for (const x of live(room)) x.conn.send(out);
@@ -148,7 +153,7 @@ export function createRelay(opts = {}) {
     if (msg.length > MSG_MAX) return;                       // oversized: dropped, never fanned out
     const r = me.rate;
     if (t - r.t >= 1000) { r.strikes = r.n > RATE ? r.strikes + 1 : Math.max(0, r.strikes - 1); r.t = t; r.n = 0; }
-    if (++r.n > RATE * 3 || r.strikes >= BURST_STRIKES) { me.conn.close(4008, 'Too many messages'); gone(room, me); return; }
+    if (++r.n > RATE * 3 || r.strikes >= BURST_STRIKES) { log(`room ${room.code}: ${me.id} cut off (too many messages)`); me.conn.close(4008, 'Too many messages'); gone(room, me); return; }
     const c = msg.charCodeAt(0);
     if (c === 98 /* b */ && msg.charCodeAt(1) === 124) {
       const out = 'm|' + me.id + '|' + msg.slice(2);
@@ -230,8 +235,8 @@ export function createRelay(opts = {}) {
   const sweep = setInterval(() => {
     const t = now();
     for (const room of [...rooms.values()]) {
-      const limit = room.locked ? SILENT_MATCH : SILENT_LOBBY;
-      for (const m of live(room)) if (t - Math.max(m.at, m.seen) > limit) { m.conn.close(4001, 'Connection timed out'); gone(room, m); }
+      const limit = room.locked ? silentMatch : silentLobby;
+      for (const m of live(room)) if (t - Math.max(m.at, m.seen) > limit) { log(`room ${room.code}: ${m.id} timed out (silent ${((t - Math.max(m.at, m.seen)) / 1000).toFixed(0)} s)`); m.conn.close(4001, 'Connection timed out'); gone(room, m); }
     }
   }, opts.sweep || SWEEP);
   sweep.unref?.();
@@ -257,7 +262,7 @@ export function createRelay(opts = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-  const relay = createRelay({ quiet: args.includes('--quiet') });
+  const relay = createRelay({ quiet: args.includes('--quiet'), silentMatch: opt('silent-match', undefined), silentLobby: opt('silent-lobby', undefined) });
   const port = +opt('port', process.env.PORT || 8787), host = opt('host', process.env.HOST || '0.0.0.0');
   relay.listen(port, host).catch((e) => { console.error('[relay]', e.message); process.exit(1); });
   const stop = () => relay.close().then(() => process.exit(0));

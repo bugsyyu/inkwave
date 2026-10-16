@@ -611,6 +611,31 @@ export const LEARN = {
     stunStreak: 5,            // a streak this long stuns the boss once
   },
   quiz: { n: 8, minutes: 6 }, // 今日小考: one duel round after the exit (days 1–6)
+  // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
+  // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question
+  // to both players at once; the first right answer (by each player's own time, LEARN §14) floods the live zone
+  versus2: {
+    questions: 12,            // questions per match: the day's duel plan, one gate at a time in turn (due items first)
+    dueShare: 0.5,            // at most this share of them are due items (both players' due lists, the longer list more)
+    answerTime: { choice: 20, type: 30 },   // s to answer (a choice / anything typed); then 时间到 (no evidence)
+    grace: 0.4,               // s the host waits after the first right answer arrives for a faster one still in flight
+    firstAsk: 2.5,            // s after GO before the first question
+    askGap: 3,                // s between one question closing and the next
+    special: 15,              // special points the first right answer adds (the duel's)
+    wrongInk: 0.3,            // share of the ink tank a wrong answer costs (答错的掉墨)
+    requeue: 0.5,             // a question nobody got right comes back once, reworded, while the queue is under (1 + this) × questions
+    endDelay: 2,              // s after the last question closes before the host calls the match (by the counts)
+    short: { questions: 2, duration: 60 },  // the audits' match (?short / lobby.learn.short)
+  },
+  // 双人成形合作赛: both on one team, no enemies, the day's puzzle gates on the route; every gate has two ink pads — it asks
+  // only when each player stands on one; every question is split: one player gets the clue (hears it / reads it), the
+  // other the answer form; the roles swap each question
+  coop2: {
+    padGap: 2.4,              // m either side of the route a gate's two pads sit
+    padRadius: 1.2,           // m: standing on a pad
+    askGap: 1.6,              // s between the verdict and the next question at a gate
+    shortGates: 2,            // the audits' level (?short / lobby.learn.short): two gates, two questions each
+  },
   // the bots' "answering" model per DIFFICULTY (they never see her question): correct chance, delay range (s), rubber
   // band (s per checkpoint ahead, capped), the duel cadence (s between enemy "answers") and flood (m), prop use chance
   bots: {

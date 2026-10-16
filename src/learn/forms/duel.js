@@ -22,7 +22,7 @@ import { FormsUi } from './ui.js';
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 // the live turf cells of a zone with their world positions (the flood region of a patch is a subset of them)
-function zoneCellsXYZ(zone) {
+export function zoneCellsXYZ(zone) {
   const L = G.level, cells = zone.cells, n = cells.length;
   const faces = L.faces.filter((f) => f.turf && f.atlas).sort((a, b) => a.grid - b.grid), starts = faces.map((f) => f.grid);
   const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);

@@ -88,8 +88,12 @@ const MODE_INFO = {
   turf: { id: 'turf', label: 'TURF WAR', name: 'Turf War', icon: GLYPHS.drop, text: 'Ink the most ground before the clock runs out.' },
   zones: { id: 'zones', label: 'ZONE CONTROL', name: 'Zone Control', icon: ZONE_GLYPH, text: 'Hold the live zone to count down from 100 — first to 0 wins.' },
   boss: { id: 'boss', label: 'BOSS BATTLE', name: 'Boss Battle', icon: BOSS_GLYPH, text: `Your squad of 8 against ${BOSS_NAME}.` },
+  // 关卡学习 online (docs/LEARN.md §10, §14): the room's two learning modes (Chinese, LEARN §1.4)
+  versus2: { id: 'versus2', label: '双人联机赛', name: '双人联机赛', icon: GLYPHS.swords, text: '两个人各一队：同一道题同时出，谁先答对，谁的墨淹过区域。' },
+  coop2: { id: 'coop2', label: '双人合作赛', name: '双人合作赛', icon: GLYPHS.users, text: '两个人同一队、没有敌人：两块墨垫各站一个人才出题，题拆成两半。' },
 };
-const modeOf = (m) => (m === 'zones' || m === 'boss' ? m : 'turf');
+const modeOf = (m) => (MODE_INFO[m] ? m : 'turf');
+const LEARN_MODE = (m) => m === 'versus2' || m === 'coop2';
 // the battle modes (Turf War / Zone Control) — the rules cards, the in-match strip and the results use these two
 const BATTLE_MODES = [MODE_INFO.turf, MODE_INFO.zones];
 const ZK = '#15121c';
@@ -137,6 +141,7 @@ const ZONE_REASON = {
   retake: ['Held on in overtime', 'Stopped in overtime'],
   neutralised: ['Held on in overtime', 'Pushed off the zone in overtime'],
   'overtime-cap': ['Won at the overtime limit', 'Lost at the overtime limit'],
+  answered: ['题都答完了 · 区域领先', '题都答完了'],   // 双人联机赛: the host called it when the questions ran out
 };
 const DIFF_INFO = {
   easy: { pips: 1, text: 'Relaxed bots with shaky aim. Great for learning the ropes.' },
@@ -2868,8 +2873,10 @@ export class Menus {
     const teamOf = (p) => (p && p.team === 1 ? 1 : 0);
     const colors = () => this._teamColors();
     const bossMode = () => lob.mode === 'boss';   // Boss Battle: one squad (team 0) vs HULLBREAKER (the session carries lobby.mode)
-    const lobMode = () => modeOf(lob.mode);       // turf | zones | boss
-    const LOB_MODES = ['turf', 'zones', 'boss'];
+    const lobMode = () => modeOf(lob.mode);       // turf | zones | boss | versus2 | coop2
+    const coopMode = () => lob.mode === 'coop2';  // 双人合作赛: the two on one team, no bots (docs/LEARN.md §14)
+    const oneSide = () => bossMode() || coopMode();   // everyone in the room plays on one side (the line-up, the team row)
+    const LOB_MODES = ['turf', 'zones', 'boss', 'versus2', 'coop2'];
     const S = { launching: null, pendingTeam: null, teamPref: 'auto', emoteCd: 0, lastLobby: null, alive: true, copied: 0, subs: [], age: 0, joins: [], leaves: [], batchT: 0 };
 
     // ---- room code (top-left, big and proud)
@@ -2925,7 +2932,7 @@ export class Menus {
     const lenSegB = this._seg(BOSS_DURATIONS.map((d) => [d, durLabel(d)]), BOSS_DURATIONS.includes(lob.duration) ? lob.duration : 240, (v) => hostSet({ duration: v }));
     // Zone Control: a fixed 5:00 + overtime (as offline)
     const lenLockZ = h('div', { class: 'iw-lenlock' }, h('b', null, `${Math.round((ZONES.duration || 300) / 60)}:00`), h('span', null, '+ OVERTIME'));
-    const lenZ = () => { if (lobMode() === 'zones') { restartAnim(rLen, 'is-shake'); this._sfx('ui_error', 0.15); return true; } return false; };
+    const lenZ = () => { if (lobMode() === 'zones' || LEARN_MODE(lobMode())) { restartAnim(rLen, 'is-shake'); this._sfx('ui_error', 0.15); return true; } return false; };
     const lenSeg = { el: h('span', { class: 'iw-lob__lensegs' }, lenSegT.el, lenSegB.el, lenLockZ), adjust: (d) => lenZ() || (bossMode() ? lenSegB : lenSegT).adjust(d), cycle: () => lenZ() || (bossMode() ? lenSegB : lenSegT).cycle(),
       refresh: (v) => (bossMode() ? lenSegB : lenSegT).refresh(v) };
     const botTgl = this._toggle({ key: '_bots', onChange: (v) => hostSet({ bots: v }) }, lob.bots !== false);
@@ -2951,6 +2958,12 @@ export class Menus {
     const botsNote = h('small', { class: 'iw-lset__note' });
     const rBots = srow('bots', GLYPHS.bot, 'FILL WITH BOTS', botTgl.el, botsNote);
     const rDiff = srow('diff', GLYPHS.swords, 'BOT SKILL', diffSeg.el);
+    // 课: the lesson a learning room plays (week · day), learning modes only
+    const lessonOf = () => ({ week: (lob.learn && lob.learn.week) || 1, day: (lob.learn && lob.learn.day) || 1 });
+    const weekSegL = this._seg([[1, '第 1 周'], [2, '第 2 周'], [3, '第 3 周']], lessonOf().week, (v) => hostSet({ learn: { ...lessonOf(), week: v } }));
+    const daySegL = this._seg([1, 2, 3, 4, 5, 6, 7].map((d) => [d, String(d)]), lessonOf().day, (v) => hostSet({ learn: { ...lessonOf(), day: v } }));
+    const lessonNote = h('small', { class: 'iw-lset__note' });
+    const rLesson = srow('lesson', GLYPHS.star, '课 · LESSON', h('div', { class: 'iw-lset__lesson' }, weekSegL.el, daySegL.el), lessonNote);
     const diffLbl = rDiff.querySelector('.iw-lset__label');
     diffLbl.lastChild.textContent = '';   // label text lives in its own span so boss mode can rename it
     diffLbl.appendChild(h('span', { class: 'iw-lset__lbltxt' }, 'BOT SKILL'));
@@ -2965,11 +2978,11 @@ export class Menus {
     rMode._id = 'mode';
     modeArrows.children[0].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(rMode); setMode(-1); });
     modeArrows.children[1].addEventListener('click', (e) => { e.stopPropagation(); this._setFocus(rMode); setMode(1); });
-    const setRows = [rMode, rStage, rTime, rLen, rPal, rBots, rDiff];
+    const setRows = [rMode, rLesson, rStage, rTime, rLen, rPal, rBots, rDiff];
     for (const r of setRows) r.dataset.curPad = '2';   // the rail is dense: a tight ring that never covers the next label
     const side = h('div', { class: 'iw-lob__side iw-in iw-in--left' },
       h('div', { class: 'iw-lob__sidehead' }, rMode, lock, hostChip),
-      h('div', { class: 'iw-lset__panel' }, rStage, rPair, rPal, rBots, rDiff,
+      h('div', { class: 'iw-lset__panel' }, rLesson, rStage, rPair, rPal, rBots, rDiff,
         h('span', { class: 'iw-lset__drips', html: dripsSVG([[40, 1.2], [92, 0.7], [250, 1.6], [330, 0.9]], 'iw-fa') })));
 
     // ---- your controls (bottom bar)
@@ -3047,7 +3060,7 @@ export class Menus {
       if (!isHost()) { this._bump(rMode, d < 0 ? 'left' : 'right'); this._sfx('ui_error', 0.15); return; }
       const next = LOB_MODES[(LOB_MODES.indexOf(lobMode()) + (d < 0 ? -1 : 1) + LOB_MODES.length) % LOB_MODES.length];
       // keep the length sensible for the mode (boss fights run 3–5 min, 4 by default; Zone Control is 5:00 + overtime)
-      const dur = next === 'boss' ? 240 : next === 'zones' ? (ZONES.duration || 300) : (durations.includes(lob.duration) ? lob.duration : (MATCH.defaultDuration || 180));
+      const dur = next === 'boss' ? 240 : next === 'zones' || next === 'versus2' ? (ZONES.duration || 300) : (durations.includes(lob.duration) ? lob.duration : (MATCH.defaultDuration || 180));
       // a stage with no Boss Battle (Cargo Terminal) hands the room to a boss-eligible one (the session does the same)
       const was = maps.find((m) => m.id === lob.map);
       const map = next === 'boss' && !mapBossOk(lob.map) ? bossFallbackMap(lob.map) : lob.map;
@@ -3156,7 +3169,7 @@ export class Menus {
     const listNames = (ps) => (ps.length <= 2 ? ps.map((p) => p.name).join(' & ') : `${ps.slice(0, 2).map((p) => p.name).join(', ')} +${ps.length - 2}`);
 
     const requestTeam = (v) => {
-      if (bossMode()) { restartAnim(teamRow, 'is-shake'); this._sfx('ui_error', 0.15); return; }
+      if (bossMode() || coopMode()) { restartAnim(teamRow, 'is-shake'); this._sfx('ui_error', 0.15); return; }
       S.teamPref = v;
       teamRow.dataset.pick = String(v);
       const me = meP();
@@ -3263,7 +3276,7 @@ export class Menus {
     };
     this._bind(wChip, { id: 'weapon', accept: () => openLoadout() });
     this._bind(lChip, { id: 'look', accept: () => { if (!S.launching) { this._sfx('ui_click'); this._go('locker'); } } });
-    this._bind(teamRow, { id: 'team', type: 'row', adjust: (d) => (bossMode() ? requestTeam(0) : teamSeg.adjust(d)), accept: () => (bossMode() ? requestTeam(0) : teamSeg.cycle()) });
+    this._bind(teamRow, { id: 'team', type: 'row', adjust: (d) => (oneSide() ? requestTeam(0) : teamSeg.adjust(d)), accept: () => (oneSide() ? requestTeam(0) : teamSeg.cycle()) });
     // host settings rows (bound only for the host — guests' rows are read-only)
     const bindRows = () => {
       const host = isHost();
@@ -3274,6 +3287,7 @@ export class Menus {
           else if (r === rTime) this._bind(r, { id: 'set-time', type: 'row', adjust: timeSeg.adjust, accept: timeSeg.cycle });
           else if (r === rPal) this._bind(r, { id: 'set-pal', type: 'row', adjust: palSeg.adjust, accept: palSeg.cycle });
           else if (r === rLen) this._bind(r, { id: 'set-len', type: 'row', adjust: lenSeg.adjust, accept: lenSeg.cycle });
+          else if (r === rLesson) this._bind(r, { id: 'set-lesson', type: 'row', adjust: daySegL.adjust, accept: daySegL.cycle });
           else if (r === rBots) this._bind(r, { id: 'set-bots', type: 'row', adjust: (d) => (botsLocked() ? lockedBots() : botTgl.adjust(d)), accept: () => (botsLocked() ? lockedBots() : botTgl.accept()) });
           else if (r === rDiff) this._bind(r, { id: 'set-diff', type: 'row', adjust: (d) => { if (lob.bots === false) { this._sfx('ui_error', 0.15); return; } diffSeg.adjust(d); }, accept: () => { if (lob.bots !== false) diffSeg.cycle(); } });
         } else if (!host && r.dataset.nav) { delete r.dataset.nav; if (this._focus === r) this._setFocus(wChip); }
@@ -3281,8 +3295,8 @@ export class Menus {
     };
 
     // humans-only stage (config noBots): the bots switch is locked off
-    const botsLocked = () => mapNoBots(lob.map);
-    const lockedBots = () => { this._sfx('ui_error', 0.15); restartAnim(rBots, 'is-shake'); this.toast('No bots on this stage — it’s humans only', { icon: GLYPHS.bot }); };
+    const botsLocked = () => mapNoBots(lob.map) || coopMode();
+    const lockedBots = () => { this._sfx('ui_error', 0.15); restartAnim(rBots, 'is-shake'); this.toast(coopMode() ? '双人合作赛只有你们两个人，没有机器人' : 'No bots on this stage — it’s humans only', { icon: GLYPHS.bot }); };
 
     // ---- render from the lobby state
     const renderPlates = () => {
@@ -3311,7 +3325,7 @@ export class Menus {
           plates.set(p.id, P);
         }
         const team = teamOf(p);
-        const sig = `${p.name}|${p.host}|${p.ready}|${p.weapon}|${team}|${p.you}|${bossMode() ? 1 : 0}`;
+        const sig = `${p.name}|${p.host}|${p.ready}|${p.weapon}|${team}|${p.you}|${oneSide() ? 1 : 0}`;
         if (sig !== P.sig) {
           const was = P.sig ? P.sig.split('|') : null;
           P.sig = sig; P.bw = 0;   // re-measure for the overlap pass
@@ -3326,7 +3340,7 @@ export class Menus {
           P.el.classList.toggle('is-hostready', !!p.host);
           const W = Ws[p.weapon];
           P.w.innerHTML = weaponIcon((W && W.kind) || p.weapon);
-          colorVars(P.el, 'tc', team && !bossMode() ? cb : ca);
+          colorVars(P.el, 'tc', team && !oneSide() ? cb : ca);
           if (was && was[2] !== String(p.ready) && p.ready) restartAnim(P.ready, 'is-stamp');
           if (was && was[1] !== String(p.host) && p.host) restartAnim(P.crown, 'is-stamp');
           if (was && was[3] !== p.weapon) restartAnim(P.w, 'is-pop');
@@ -3390,19 +3404,22 @@ export class Menus {
         const first = rMode._shown === undefined;
         rMode._shown = md;
         modeName.textContent = MODE_INFO[md].label;
-        modeIco.innerHTML = bm ? BOSS_GLYPH : zm ? ZONE_GLYPH : GLYPHS.flag;
+        modeIco.innerHTML = bm ? BOSS_GLYPH : zm ? ZONE_GLYPH : LEARN_MODE(md) ? MODE_INFO[md].icon : GLYPHS.flag;
         el.classList.toggle('is-bossmode', bm);
         el.classList.toggle('is-zonemode', zm);
+        el.classList.toggle('is-learnmode', LEARN_MODE(md));
+        el.classList.toggle('is-coopmode', md === 'coop2');
         diffLbl.querySelector('.iw-lset__lbltxt').textContent = bm ? 'DIFFICULTY' : 'BOT SKILL';
         hostChip.lastChild.textContent = bm || zm ? 'HOST' : 'YOU’RE THE HOST';   // the longer headlines need the room
-        lenSegT.el.style.display = bm || zm ? 'none' : ''; lenSegB.el.style.display = bm ? '' : 'none';
-        rLen.classList.toggle('is-locked', zm);
+        lenSegT.el.style.display = bm || zm || LEARN_MODE(md) ? 'none' : ''; lenSegB.el.style.display = bm ? '' : 'none';
+        rLen.classList.toggle('is-locked', zm || md === 'versus2');   // (versus2 is a Zone Control match: 5:00 + overtime)
         if (!first) { restartAnim(rMode, 'is-swap'); restartAnim(status, 'is-swap'); }
       }
       lenSeg.refresh(lob.duration);
-      rDiff.classList.toggle('is-off', lob.bots === false);
+      { const L = lessonOf(); weekSegL.refresh(L.week); daySegL.refresh(L.day); lessonNote.textContent = coopMode() ? '两个人 · 一队 · 没有敌人' : lobMode() === 'versus2' ? '同一道题 · 先答对的墨淹过去' : ''; }
+      rDiff.classList.toggle('is-off', lob.bots === false || coopMode());
       const humans = players().length;
-      botsNote.textContent = botsLocked() ? 'No bots on this stage' : lob.bots !== false ? (humans < 8 ? `${8 - humans} bot${8 - humans === 1 ? '' : 's'} join ${bossMode() ? 'the squad' : 'in'}` : 'Room is full') : 'Empty spots stay empty';
+      botsNote.textContent = coopMode() ? '没有机器人' : botsLocked() ? 'No bots on this stage' : lob.bots !== false ? (humans < 8 ? `${8 - humans} bot${8 - humans === 1 ? '' : 's'} join ${bossMode() ? 'the squad' : 'in'}` : 'Room is full') : 'Empty spots stay empty';
       rBots.classList.toggle('is-locked', botsLocked());
       if (bossMode()) { const P1 = TEAM_PALETTES[palIdx()]; if (P1) palName.textContent = `${P1.names[0]} squad · ${P1.names[1]} boss`; }
       const host = players().find((p) => p.host);
@@ -3414,9 +3431,10 @@ export class Menus {
         if (prev.palette !== lob.palette) flash(rPal);
         if (prev.bots !== lob.bots) flash(rBots);
         if (prev.difficulty !== lob.difficulty) flash(rDiff);
+        if (prev.learn && lob.learn && (prev.learn.week !== lob.learn.week || prev.learn.day !== lob.learn.day)) flash(rLesson);
         if ((prev.mode || 'turf') !== (lob.mode || 'turf')) {
           flash(rMode);
-          if (!isHost()) this.toast(`${host ? host.name : 'The host'} picked ${bossMode() ? `BOSS BATTLE — everyone vs ${BOSS_NAME}!` : MODE_INFO[lobMode()].label}`, { icon: bossMode() ? BOSS_GLYPH : lobMode() === 'zones' ? ZONE_GLYPH : GLYPHS.flag });
+          if (!isHost()) this.toast(`${host ? host.name : 'The host'} picked ${bossMode() ? `BOSS BATTLE — everyone vs ${BOSS_NAME}!` : MODE_INFO[lobMode()].label}`, { icon: bossMode() ? BOSS_GLYPH : lobMode() === 'zones' ? ZONE_GLYPH : MODE_INFO[lobMode()].icon || GLYPHS.flag });
         }
         if (!isHost() && (prev.map !== lob.map || prev.time !== lob.time)) {
           const m = maps.find((x) => x.id === lob.map);
@@ -3445,14 +3463,14 @@ export class Menus {
       // team seg follows your actual side unless a request is pending
       if (me && !S.pendingTeam) teamSeg.refresh(S.teamPref === 'auto' ? 'auto' : teamOf(me));
       teamRow.dataset.pick = S.teamPref === 'auto' ? 'auto' : String(S.pendingTeam ? S.pendingTeam.team : teamOf(me));
-      teamRow.classList.toggle('is-locked', bossMode());
-      el.classList.toggle('is-team-b', teamOf(me) === 1 && !bossMode());
+      teamRow.classList.toggle('is-locked', bossMode() || coopMode());
+      el.classList.toggle('is-team-b', teamOf(me) === 1 && !oneSide());
       const [ca, cb] = colors();
-      colorVars(el, 'ta', ca); colorVars(el, 'tb', cb); colorVars(el, 'self', teamOf(me) && !bossMode() ? cb : ca);
+      colorVars(el, 'ta', ca); colorVars(el, 'tb', cb); colorVars(el, 'self', teamOf(me) && !oneSide() ? cb : ca);
     };
     // the 3D line-up has a row per team; in boss mode the squad fills both rows (you + 3 up front) in squad ink
     const lineup = () => {
-      if (!bossMode()) return [players(), colors()];
+      if (!oneSide()) return [players(), colors()];
       const ps = players(), me = ps.find((p) => p.you), others = ps.filter((p) => !p.you);
       const front = me ? [me, ...others.slice(0, 3)] : others.slice(0, 4);
       const ca = colors()[0];
@@ -3465,7 +3483,7 @@ export class Menus {
       renderSettings(fromEvent ? prev : null);
       renderBar();
       bindRows();
-      S.lastLobby = { map: lob.map, time: lob.time, duration: lob.duration, bots: lob.bots, difficulty: lob.difficulty, palette: lob.palette, mode: lob.mode };
+      S.lastLobby = { map: lob.map, time: lob.time, duration: lob.duration, bots: lob.bots, difficulty: lob.difficulty, palette: lob.palette, mode: lob.mode, learn: lob.learn ? { ...lob.learn } : null };
       if (sc && sc.updateLobby) safeCall(() => sc.updateLobby(...lineup()));
       const me = meP();
       if (S.pendingTeam && me && teamOf(me) === S.pendingTeam.team) S.pendingTeam = null;
@@ -3591,7 +3609,7 @@ export class Menus {
         }
         if (this._modal) return false;
         if (dir === 'alt') { toggleReady(); return true; }
-        if (dir === 'tab_prev' || dir === 'tab_next') { if (bossMode()) requestTeam(0); else teamSeg.adjust(dir === 'tab_next' ? 1 : -1); return true; }
+        if (dir === 'tab_prev' || dir === 'tab_next') { if (oneSide()) requestTeam(0); else teamSeg.adjust(dir === 'tab_next' ? 1 : -1); return true; }
         if (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right') {
           const f = this._focus;
           // rows with a control: ←/→ adjust it; TIME and LENGTH share a line, so pushing past the edge crosses over
@@ -3666,7 +3684,7 @@ export class Menus {
         }
         S.age += dt;
         if (S.batchT > 0) { S.batchT -= dt; if (S.batchT <= 0) flushBatch(); }
-        { const acc = colors().join() + (bossMode() ? '|b' : ''); if (acc !== S.acc) { const first = !S.acc; S.acc = acc; if (!first) { for (const P of plates.values()) P.sig = ''; render(false); } } }
+        { const acc = colors().join() + (oneSide() ? '|b' : ''); if (acc !== S.acc) { const first = !S.acc; S.acc = acc; if (!first) { for (const P of plates.values()) P.sig = ''; render(false); } } }
         if (S.copied > 0) { S.copied -= dt; if (S.copied <= 0) copyTxt.textContent = 'COPY'; }
         if (S.emoteCd > 0) { S.emoteCd = Math.max(0, S.emoteCd - dt); emoteBtn.style.setProperty('--cd', (S.emoteCd / 1.3).toFixed(3)); }
         if (S.pendingTeam) {
@@ -4191,11 +4209,19 @@ export class Menus {
         if (this.current === 'results') this.show('main', { wipe: true });
       } });
 
+    // 双人联机赛 (docs/LEARN.md §14): the questions under the zone counts — who inked first how often, who answered right,
+    // and where your own first answers went (your progress, on this device)
+    const L = d.learn && Array.isArray(d.learn.rows) ? d.learn : null;
+    const learnStrip = L ? h('div', { class: 'iw-res__learn iw-in' },
+      h('span', { class: 'iw-res__learnhd' }, h('i', { html: GLYPHS.swords }), `双人联机赛 · 第 ${L.week} 周第 ${L.day} 天 · ${L.asked} 题`),
+      h('span', { class: 'iw-res__learnrows' }, L.rows.map((r) => h('span', { class: 'iw-res__learnrow' + (r.team ? ' is-b' : ' is-a') + (r.self ? ' is-self' : '') }, h('b', null, r.name), h('span', null, `先答对 ${r.wins}`), h('small', null, `答对 ${r.right} / ${r.answered}`)))),
+      L.mine ? h('small', { class: 'iw-res__learnme' }, `你的当天首答 ${L.mine.firsts} 题（答对 ${L.mine.firstRight}），记进了这台设备上你自己的进度`) : null) : null;
     const el = h('div', { class: 'iw-screen iw-results' + (win ? ' is-win' : ' is-lose') + (boss ? ' is-boss' : '') },
       h('div', { class: 'iw-res__scrim' }),
       head,
       h('div', { class: 'iw-res__body' + (boss ? ' is-boss' : '') },
         boss ? bossP.el : cover,
+        learnStrip,
         boss ? h('div', { class: 'iw-res__teams is-boss' }, bossTable(players.slice(0, 4), 0), bossTable(players.slice(4, 8), 4))
           : h('div', { class: 'iw-res__teams' }, table(0), table(1)),
         h('div', { class: 'iw-res__foot' }, xpPanel, h('div', { class: 'iw-res__btns' }, hostBack ? null : lobbyPill, rematch, home))),

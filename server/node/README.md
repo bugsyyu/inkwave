@@ -12,7 +12,12 @@ why it exists: `docs/LEARN.md` §10 / §14.
 node server/node/relay.mjs                 # ws://0.0.0.0:8787  (npm run relay-node does the same)
 node server/node/relay.mjs --port 9000 --host 127.0.0.1 --quiet
 PORT=9000 RELAY_ORIGINS=https://my.example node server/node/relay.mjs
+node server/node/relay.mjs --silent-match 150000   # (a test box on software GL: pages stall for tens of seconds)
 ```
+
+A socket that sends nothing for 20 s in a match (150 s in the lobby) is dropped, as on the Worker;
+`--silent-match` / `--silent-lobby` (or `RELAY_SILENT_MATCH` / `RELAY_SILENT_LOBBY`, ms) raise that only for machines whose
+pages really stall that long — the two-player test on a container without a GPU does (`tools/learn/net-duo.mjs`).
 
 `GET /health` answers `ok`. Rooms are `GET /room/<CODE>` (WebSocket); every path also works under `/relay`
 (`/relay/room/<CODE>`, `/relay/health`) for a reverse proxy. Pages may connect from the game's own site, from

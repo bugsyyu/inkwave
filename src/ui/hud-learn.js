@@ -14,7 +14,7 @@ import { GLYPHS } from './ui-icons.js';
 import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
 
-const KIND_ZH = { typed: '听写', type: '听写', choice: '选择', write: '写句', read: '看一看' };
+const KIND_ZH = { typed: '听写', type: '听写', choice: '选择', write: '写句', read: '看一看', clue: '你说 · 队友答' };
 const LOCK_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="28" width="36" height="28" rx="6" fill="currentColor"/><path d="M22 28v-7a10 10 0 0 1 20 0v7" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>';
 
 export class LearnHud {
@@ -129,7 +129,13 @@ export class LearnHud {
     this.playBtn.style.display = canPlay ? '' : 'none';
     this.form.innerHTML = '';
     this.input = null;
-    if (p.type === 'choice') {
+    if (p.type === 'clue') {
+      // 双人合作 (coop2, docs/LEARN.md §14): this screen holds the clue half — the stem and the sound, no form; the
+      // partner's screen has the form (the verdict comes back here too)
+      this.form.className = 'iw-learn__form is-clue';
+      this.choices = null;
+      this.form.append(h('div', { class: 'iw-learn__clue' }, p.hint || ''));
+    } else if (p.type === 'choice') {
       this.form.className = 'iw-learn__form is-choice';
       this.choices = (p.options || []).map((o, i) => {
         const b = h('button', { class: 'iw-learn__opt', type: 'button', 'data-i': String(i) },
