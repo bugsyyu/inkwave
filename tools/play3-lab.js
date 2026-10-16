@@ -395,6 +395,9 @@ window.lab = {
     objs.forEach((o) => { o.visible = false; });
     const none = count();
     objs.forEach((o, i) => { o.visible = vis[i]; });
+    // (and draw the frame once more with them back: the last frame rendered — what a frozen page shows and a screenshot
+    // captures — is otherwise the one WITHOUT the mechanic. play-3's "the pads never show" was exactly this: measured, then shot)
+    count();
     return { calls: all.calls - none.calls, tris: all.tris - none.tris, shadows: renderer.shadowMap.enabled, quality: qualityName };
   },
   cost() { const r = { mean: +(cost.sum / Math.max(1, cost.n)).toFixed(3), max: +cost.max.toFixed(3), frames: cost.n }; cost.sum = 0; cost.max = 0; cost.n = 0; return r; },
