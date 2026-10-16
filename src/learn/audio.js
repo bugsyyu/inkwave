@@ -5,7 +5,8 @@
 // and a slower take of each, us-slow, gb-slow), where its MP3 lies: sets[set].at[i] = [shard, offset, length] in
 // <set>-<shard>.mp3 (a shard is its clips one after another; each clip is a whole MP3). Nothing is copied: the clip's bytes
 // are a Range request (her App's scheme handler and most servers answer 206), or — when a server ignores Range and sends the
-// whole shard (python's http.server) — the shard is kept (two at most) and sliced, which is what the lesson always does.
+// whole shard (python's http.server) — the shard is kept and sliced, which is what the lesson always does (it keeps every
+// shard it fetched; here at most one voice set's twelve, ~18 MB, so a long level does not fetch the same shard again).
 //
 // Which recording (the lesson's Clips.at / Clips.plan, app/index.html): the text is cut by the lesson's own speechChunks
 // (vendor/ielts/host.js); each piece is looked up as written, without its full stop, with one, and a capitalised single word
@@ -43,12 +44,12 @@ import { G } from '../core/ctx.js';
 
 const GAP = { normal: 220, slow: 320 };   // ms between pieces (Clips.try: 220, slow 320)
 const SLOW_NET = 2500;                    // the first bytes still not here: the device's voice (Clips.try's slowNet)
-const MAX_SHARDS = 2, MAX_SEGS = 64;
+const MAX_SHARDS = 12, MAX_SEGS = 64;   // whole shards (only from a server without Range), single clips
 
 /* ───────────────────────────── the pure part ───────────────────────────── */
-// createClips({ fetch, base: 'https://…/audio/', accent: () => 'us' | 'gb', chunks: (text) => [pieces] })
+// createClips({ fetch, base: 'https://…/audio/', accent: () => 'us' | 'gb', chunks: (text) => [pieces], maxShards? })
 export function createClips(o) {
-  const F = o.fetch, base = String(o.base || '');
+  const F = o.fetch, base = String(o.base || ''), maxShards = o.maxShards || MAX_SHARDS;
   const C = { idx: null, map: null, idxP: null, off: !F || !base, range: true, shards: new Map(), segs: new Map(), n: { range: 0, whole: 0, hit: 0 } };
   const lru = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); return v; };
   C.load = () => {
@@ -92,10 +93,10 @@ export function createClips(o) {
     return { set, rate, chunks, at: chunks.map((c) => C.at(set, c)) };
   };
   const shard = (k) => {
-    if (C.shards.has(k)) return lru(C.shards, k, C.shards.get(k), MAX_SHARDS);
+    if (C.shards.has(k)) return lru(C.shards, k, C.shards.get(k), maxShards);
     const p = Promise.resolve().then(() => F(base + k + '.mp3', { cache: 'no-cache' })).then((r) => { if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status)); C.n.whole++; return r.arrayBuffer(); });
     p.catch(() => C.shards.delete(k));
-    return lru(C.shards, k, p, MAX_SHARDS);
+    return lru(C.shards, k, p, maxShards);
   };
   // one clip's MP3 bytes (an ArrayBuffer of exactly `length`)
   C.bytes = (set, a) => {
@@ -110,7 +111,7 @@ export function createClips(o) {
           // the server sent the whole shard: keep it for the next clips of this shard, slice this one
           C.range = false; C.n.whole++;
           const whole = r.arrayBuffer();
-          lru(C.shards, k, whole, MAX_SHARDS);
+          lru(C.shards, k, whole, maxShards);
           whole.catch(() => C.shards.delete(k));
           return whole.then((b) => b.slice(off, off + len));
         }
@@ -165,12 +166,15 @@ export function unlock() {
   try { const c = ctxOf(); if (c && c.state === 'suspended') { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } } catch (e) { /* ignore */ }
   if (unlocked || !W || inApp() || !enabled()) return;
   const a = audioEl();
-  if (!a || !ieltsLoaded()) return;
+  // (something already playing on it: it is unlocked — never cut a word off for the silent clip)
+  if (!a || !ieltsLoaded() || (cur && !a.paused)) return;
   unlocked = true;
   try {
     a.src = ieltsNow().Host.CLIP_SILENT;
     const p = a.play();
-    if (p && p.catch) p.catch(() => { unlocked = false; });
+    // refused: try again on the next tap. Interrupted (the 听 button's own clip takes the element in the same tap, an
+    // AbortError): the element was played inside the tap, which is what unlocks it
+    if (p && p.catch) p.catch((e) => { if (!e || e.name !== 'AbortError') unlocked = false; });
   } catch (e) { unlocked = false; }
 }
 
@@ -289,7 +293,7 @@ function speakDevice(text, done, slow) {
 
 export function status() {
   const c = clips;
-  return { on: !!(c && !c.off), base: c ? c.idx ? 'loaded' : c.off ? 'off' : 'pending' : 'none', loaded: !!(c && c.idx), accent: WBK.accent(ls()), unlocked, inApp: inApp(), blobRefused,
+  return { on: !!(c && !c.off), base: c ? c.idx ? 'loaded' : c.off ? 'off' : 'pending' : 'none', loaded: !!(c && c.idx), accent: WBK.accent(ls()), playing: !!cur, unlocked, inApp: inApp(), blobRefused,
     fetched: c ? Object.assign({}, c.n, { range: c.range ? c.n.range : 'off', shards: c.shards.size, segs: c.segs.size }) : null, last: Object.assign({}, last) };
 }
 

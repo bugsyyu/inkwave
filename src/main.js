@@ -184,8 +184,9 @@ class Game {
       // browser's address bar and gesture bar eat roughly a quarter of the screen height, and fullscreen is what
       // orientation.lock needs in order to hold landscape (so a phone that does not rotate with the hand still
       // plays, and the portrait gate stays a hint rather than a requirement). ?nofullscreen opts out for a device
-      // test that needs the URL bar visible.
-      if (!params.has('nofullscreen')) {
+      // test that needs the URL bar visible. Opened from the IELTS-Base App (?from=app: a portrait-only WKWebView that has
+      // no element fullscreen) neither applies: the App owns the screen, and a landscape lock would fight it (LEARN §16).
+      if (!params.has('nofullscreen') && params.get('from') !== 'app') {
         const enterFs = () => {
           const el = document.documentElement;
           if (document.fullscreenElement || !el.requestFullscreen) return;

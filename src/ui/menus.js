@@ -59,7 +59,10 @@ const JOIN_ERR = {
 // Stage art rendered from the real game by tools/stage-shots.mjs: <id>-<day|dusk>[-sm].webp (resolved against this
 // module so the UI lab in tools/ finds them too). Missing art falls back to the layout thumbnail.
 const STAGE_DIR = new URL('../../assets/stages/', import.meta.url).href;
-const stageArt = (id, time, small) => `${STAGE_DIR}${id}-${time === 'dusk' ? 'dusk' : 'day'}${small ? '-sm' : ''}.webp`;
+// A phone, or her App (?from=app: a WKWebView that iOS kills past a few hundred MB): the 640 px renders only — a 1920 px one
+// decodes to 8 MB and the menus would hold the three mode cards plus 16 preloaded heroes (docs/LEARN.md §16).
+const SMALL_ART = FROM_APP || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+const stageArt = (id, time, small) => `${STAGE_DIR}${id}-${time === 'dusk' ? 'dusk' : 'day'}${small || SMALL_ART ? '-sm' : ''}.webp`;
 const TIME_INFO = {
   day: { label: 'DAY', text: 'Bright sun, crisp shadows.' },
   dusk: { label: 'DUSK', text: 'Low sun, long shadows, harbour lights.' },
@@ -1014,7 +1017,7 @@ export class Menus {
       const m = MODES.find((x) => x.id === id);
       const im = h('img', { class: 'iw-ss__bgimg', alt: '', draggable: 'false' });
       im.addEventListener('error', () => im.remove(), { once: true });
-      im.src = m.img.replace('.webp', '-sm.webp');
+      im.src = m.img.replace(/(-sm)?\.webp$/, '-sm.webp');
       const olds = [...bg.children];
       bg.appendChild(im);
       requestAnimationFrame(() => requestAnimationFrame(() => im.classList.add('is-on')));
@@ -1124,7 +1127,7 @@ export class Menus {
     this._stageImgs = [];
     for (const m of this._maps()) {
       for (const t of ['day', 'dusk']) {
-        for (const sm of [true, false]) {
+        for (const sm of SMALL_ART ? [true] : [true, false]) {
           const im = new Image();
           im.decoding = 'async';
           im.src = stageArt(m.id, t, sm);

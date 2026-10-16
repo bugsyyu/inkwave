@@ -78,7 +78,7 @@ test('the clip\'s bytes: a Range request (206) gives exactly the clip; a server 
   assert.equal(S.log.length, 2, 'the same clip again comes from memory');
   assert.equal(C.n.range, 1);
 
-  const T = fakeServer({ range: false }), D = createClips({ fetch: T.fetch, base: 'https://her.example/audio/', chunks: (t) => [t] });
+  const T = fakeServer({ range: false }), D = createClips({ fetch: T.fetch, base: 'https://her.example/audio/', chunks: (t) => [t], maxShards: 2 });
   await D.load();
   const x = D.at('us', 'Monday'), y = D.at('us', 'monday'), z = D.at('us', 'Monday.');   // shards 0, 1, 0
   assert.deepEqual([...new Uint8Array(await D.bytes('us', x))], [...T.shard(x[0]).slice(x[1], x[1] + x[2])]);
@@ -87,7 +87,7 @@ test('the clip\'s bytes: a Range request (206) gives exactly the clip; a server 
   assert.equal(T.log.filter((l) => l.startsWith('us-0.mp3')).length, 1, 'shard 0 fetched once');
   await D.bytes('us', y);
   await D.bytes('gb', D.at('gb', 'cup'));
-  assert.ok(D.shards.size <= 2, 'two shards kept at most');
+  assert.ok(D.shards.size <= 2, 'kept up to the limit (a voice set\'s twelve by default)');
   assert.ok(T.log.every((l) => !/bytes=/.test(l) || l.startsWith('us-0.mp3')), 'only the first request asked for a range');
 });
 
