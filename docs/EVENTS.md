@@ -86,3 +86,16 @@ A learning level (`match.mode === 'learn'`) emits these; `match.learn.log` keeps
 | `learn:question` | `{ itemId, gate, type: 'typed' \| 'choice', form: 'normal' \| 'alt' }` — a question is up in the learn layer (`alt`: the same item re-asked in its other form after a miss) | learn/flow.js |
 | `learn:answer` | `{ itemId, ok, first, gate }` — judged; `first` = this was the day's first answer for the item (the one the store / memory model counts) | learn/flow.js |
 | `learn:done` | `{ done, total, due, firsts, locks, week, day }` — the last gate opened; `due` = `[{ en, zh }]` of the words the store says are due | learn/flow.js |
+
+### 双人联机赛 / 双人成形合作赛（docs/LEARN.md §14; src/learn/forms/versus2.js, coop2.js）
+The two-player online forms keep the same records in `match.learn.log` on every screen (each screen logs what it saw).
+
+| event | payload | where |
+|---|---|---|
+| `learn:question` | versus2 `{ itemId, q, type, form }` · coop2 adds `{ gate, role: 'clue' \| 'hands' }` — the same question opened on every screen | versus2.js / coop2.js |
+| `learn:answer` | versus2 `{ itemId, ok, first, q, ms }` (`none: true` = time ran out, nothing recorded) · coop2 `{ itemId, ok, first, gate, by, q, role }` (`first` only on the screen that answered) | versus2.js / coop2.js |
+| `learn:ink` | `{ q, team, by, radius, at, cells, share }` — versus2: the first right answer's side flooded the live zone (every screen applies the host's record) | versus2.js |
+| `learn:close` | `{ q, win, by, res }` — versus2: the question closed (`res: [[playerId, 1 \| 0 \| -1]…]`) | versus2.js |
+| `learn:gate` | as above — coop2: `opened: false` when both pads are held and the host declared it | coop2.js |
+| `learn:done` | versus2 `{ form, week, day, asked, right, firsts, firstRight, wins }` (the match left `playing`) · coop2 `{ done, total, firsts, locks, week, day, form, mine, pair, left }` | versus2.js / coop2.js |
+

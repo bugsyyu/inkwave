@@ -3,7 +3,8 @@
 // measured on both screens. Starts and stops its own relay and file server (free ports; nothing left running).
 //
 // usage: node tools/learn/net-duo.mjs [--mode versus2|coop2] [--week 1] [--day 1] [--map tidewater] [--bots] [--budget 170]
-//                                      [--shots <dir>] [--shot-question] [--w 400 --h 225]
+//                                      [--shots <dir>] [--shot-question] [--w 400 --h 225] [--lobby]
+//   --lobby: the room screen only (net-duo-lobby.mjs: MODE arrows, the 课 row, coop2's locks and start rule), no match
 //   needs puppeteer-core (npm install, or a node_modules linked from a checkout that has it) and Chrome (CHROME_PATH).
 //   Software-GL boxes: the pages run ?quality=low with shadows / bloom off, and once the match exists the simulation is
 //   stepped (debug.freeze + _frame with the renderer skipped): the rules are measured, not the renderer.
@@ -110,8 +111,17 @@ try {
   const lob = await Promise.all([0, 1].map((i) => ev(i, () => ({ id: __G.net.myId, code: __G.net.code, mode: __G.net.lobby.mode, learn: __G.net.lobby.learn, players: __G.net.lobby.players.map((p) => [p.name, p.team, p.host ? 'H' : '']) }))));
   mark('room'); R.room = lob; R.ids = lob.map((x) => x.id);
   check('room: both in one room, same mode and lesson', lob[0].code === lob[1].code && lob[0].mode === MODE && lob[1].mode === MODE && lob[1].learn.week === WEEK && lob[1].learn.day === DAY, `${code} ${JSON.stringify(lob[0].players)} / guest sees ${lob[1].mode} w${lob[1].learn.week}d${lob[1].learn.day}`);
-  await ev(0, () => __G.net.start());
+  if (args.includes('--lobby')) {
+    // the lobby screen check only (needs the stepper, defined just below for the match)
+    R.lobbyOnly = true;
+  } else await ev(0, () => __G.net.start());
 
+  if (R.lobbyOnly) {
+    const step = (sec) => Promise.all([0, 1].map((i) => ev(i, (n) => { const I = __inkwave; I._skipRender = true; try { for (let j = 0; j < n; j++) I._frame(1 / 24); } finally { I._skipRender = false; } }, Math.max(1, Math.round(sec * 24)))));
+    const shot = async (i, name) => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); await ev(i, () => __inkwave.debug.step(16.7)); await pages[i].screenshot({ path: `${SHOTS}/${name}-c${i}.png` }); say('shot', `${SHOTS}/${name}-c${i}.png`); };
+    await (await import('./net-duo-lobby.mjs')).driveLobby({ step, ev, check, mark, say, shot });
+    throw Object.assign(new Error('lobby check done'), { done: true });
+  }
   // ---- both in the level (built from the same content on each screen)
   await Promise.all([0, 1].map((i) => pages[i].waitForFunction('__G.net.state === "match" && __inkwave.match && __inkwave.match.learn && (__inkwave.match.state === "intro" || __inkwave.match.state === "playing")', { timeout: 90000, polling: 200 })));
   mark('inLevel');
@@ -202,8 +212,10 @@ try {
   const drive = MODE === 'coop2' ? (await import('./net-duo-coop.mjs')).driveCoop : driveVersus;
   await drive({ step, live, answer, state, shot, ev, pages, check, mark, say, sleep, R, budgetLeft: () => BUDGET - (Date.now() - T0) });
 } catch (e) {
-  say('ERROR', e && e.stack ? e.stack.split('\n').slice(0, 6).join('\n') : e);
-  R.error = String(e && e.message || e);
+  if (!(e && e.done)) {
+    say('ERROR', e && e.stack ? e.stack.split('\n').slice(0, 6).join('\n') : e);
+    R.error = String(e && e.message || e);
+  }
 }
 report();
 clearTimeout(watchdog);
