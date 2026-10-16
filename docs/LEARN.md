@@ -445,7 +445,7 @@ App 的「关卡」打开 `game/index.html?learn=w<n>d<d>&from=app`，iPhone 只
 
 **帧时间**（竖屏，同一个舞台，`debug.frameTimes` 记 `main.js _frame` 里 CPU 这边一帧的毫秒数——SwiftShader 下只能比相对值，真机另说）：先空走 30 帧再采 60 帧。普通走路 p50 3.7 / p95 7.1 ms；第一道门出题、题物在（不动）p50 2.9 / p95 6.3 ms——**比走路还低**（−22% / −11%）：站着不动比走着省（没有脚步、跟随、地面探测的那部分），题物自己最多 4 个 draw call。PLAY §7 的「p95 不差过 10%」在这台机器上是满足的；它没有量到 GPU 那边（软件 GL 的时间在 `_frame` 之外）。
 
-**其它形式的审计**（`play-audit.mjs --script` 重放现有的步骤脚本，14:25 起，`ec0b343`）：解谜卡片路（`play-desktop.json`，开关开着、卡片题照旧）、道具赛、对抗赛都全过；Boss、道具赛竖屏、开关关掉的解谜（`&play=0`）在收尾时还在排队 / 正在跑，**结果没等到**（收尾指令要求释放浏览器锁）。
+**其它形式的审计**（`play-audit.mjs --script` 重放现有的步骤脚本，14:25 起，`ec0b343`）：解谜卡片路（`play-desktop.json`，开关开着、卡片题照旧）、道具赛、对抗赛、Boss、道具赛竖屏（`play-forms-phone.json`）、开关关掉的解谜（`&play=0`）六个全过，4xx 0、控制台错误 0。
 
 **在 `ec0b343` 之后没在浏览器里重跑的改动**：门的光柱 / 锁在答题时淡掉（`99b0abf`、`d08d007`，横幅两次跑过）、标签牌也要镜头看得见（`d08d007`）、点射从枪口直接瞄（`96266ca`，只有横幅横屏跑过）、答错的标签牌只洗底色（`ec0b343`）。
 
@@ -471,7 +471,7 @@ App 的「关卡」打开 `game/index.html?learn=w<n>d<d>&from=app`，iPhone 只
 
 **交接**（收尾时写；分支 `play-1`，没推）：
 - **已完成**：开关 + 题物系统 + 题条 + 解谜里三种选择题（单词选义、语法小测、发音小测）走 M1 墨靶，竖横和桌面都能答；判分和卡片同一条路（`_judgeRecord`，Node 测试逐条对拍）；其它条目在开关下照旧暂停 + 卡片；开关关掉一字不差。`npm run test:learn` 93 / 93，`npm run check` 222 个文件绿。
-- **还缺**：(1) 桌面「准星压着开火」在 `96266ca` 的修法之后没在浏览器里重跑——先跑 `node tools/learn/play-audit.mjs --view desktop`（要加 `--shots <dir>` 才截图）；(2) Boss、道具赛竖屏、`&play=0` 的回归这次没等到结果（命令见 `tools/learn/play-audit.mjs` 文件头，脚本 `play-forms.json` / `play-forms-phone.json`）；(3) 竖屏 / 横屏的最终截图是 `913916e` / `99b0abf` 上的，之后的四个小改动（锁和光柱淡掉、标签可见、枪口瞄准、错牌只洗底色）没截图；(4) 上面「没做的」那几条。
+- **还缺**：(1) 桌面「准星压着开火」在 `96266ca` 的修法之后没在浏览器里重跑——先跑 `node tools/learn/play-audit.mjs --view desktop`（要加 `--shots <dir>` 才截图）；(2) 竖屏 / 横屏的最终截图是 `913916e` / `99b0abf` 上的，之后的四个小改动（锁和光柱淡掉、标签可见、枪口瞄准、错牌只洗底色）没截图；(3) 上面「没做的」那几条。
 - **先看哪些文件**：`src/learn/play/run.js`（运行层：出题、取景 `_frame`、放置 `_place`、点射 `shoot` / `_fire`、判 `_answer`、`debug()`）→ `layout.js`（排布）→ `targets.js`（三维）→ `hit.js`（命中、`through`）；`src/learn/flow.js` 里 `this.play` 出现的地方；`tests/learn/play.test.mjs`；审计 `tools/learn/play-audit.mjs`。
 - **已知坑**：
   1. 第一道门（`tidewater` 出生台阶底下、面前是喷泉）最难：她到门口还在减速，镜杆被身后台阶顶到 2–2.9 m；取景会侧过去 50° 左右找一片空地方，横屏 / 桌面有时不转（镜杆短、题物被拉近到她前面 1.6 m）。`place` 日志（`debug().log`）里有 `D`、`boom`、`blocked`、`cover`、`avoid`、`rows`、`d`，先看它。
