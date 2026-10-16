@@ -26,6 +26,7 @@ import { canClaim } from '../../src/learn/forms/common.js';
 const { LearnFlow } = await import('../../src/learn/flow.js');
 const { DuelFlow } = await import('../../src/learn/forms/duel.js');
 const { BossFlow } = await import('../../src/learn/forms/boss.js');
+const { spreadBalls } = await import('../../src/learn/play/arena/run.js');
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
 const WEEKS = [await loadWeek(1), await loadWeek(2), await loadWeek(3)];
@@ -203,6 +204,26 @@ test('the typing frame in an arena (PLAY §3 M4, the main session\'s note on pla
   }
   // the landscape duel screen: the corner left of the strip gives a bigger rig than the 125-px band
   assert.equal(arenaTypeFrame(screens[1]).region.what, 'left');
+});
+
+test('the boss\'s balls on crowded weak points: pushed apart sideways until no two (ball + the plate under it) overlap, at their sockets\' heights; nothing moves that has room', () => {
+  // HULLBREAKER's sockets (bossModelGeo.js, facing the camera along −z: right = −x): eyes ±0.64 m at 3.74 m, belly 1.25 m, cannon 2 m
+  const ball = (x, y, z, r, pw) => ({ x, y, z, r, plate: { x, y: y - r - 0.45 * r - 0.05, z, w: pw, h: 0.9 * r } });
+  for (const r of [0.5, 0.8, 1.1]) {
+    const objs = [ball(0.64, 3.74 + 0.55 + 0.6 * r, 3.1, r, 1.6 * r), ball(-0.64, 3.74 + 0.55 + 0.6 * r, 3.1, r, 1.6 * r), ball(0, 1.25 + 0.1 + 0.6 * r, 2.25, r, 1.6 * r), ball(0, 2 + 0.45 + 0.6 * r, 4.2, r, 2.2 * r)];
+    const ys = objs.map((o) => o.y), right = { x: -1, y: 0, z: 0 };
+    spreadBalls(objs, 4, right);
+    objs.forEach((o, k) => { assert.equal(o.y, ys[k], 'heights kept'); assert.ok(Math.abs(o.plate.x - o.x) < 1e-9, 'the plate rides its ball'); });
+    for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+      const A = objs[i], B = objs[j], ay0 = A.plate.y - A.plate.h / 2, ay1 = A.y + A.r, by0 = B.plate.y - B.plate.h / 2, by1 = B.y + B.r;
+      if (ay0 > by1 || by0 > ay1) continue;
+      const w = (Math.max(2 * A.r, A.plate.w) + Math.max(2 * B.r, B.plate.w)) / 2 + 0.2;
+      assert.ok(Math.abs(A.x - B.x) >= w - 0.02, `r ${r}: ${i} and ${j} apart (${Math.abs(A.x - B.x).toFixed(2)} ≥ ${w.toFixed(2)})`);
+    }
+  }
+  const lone = [ball(0, 4, 3, 0.5, 0.8), ball(0, 1, 3, 0.5, 0.8)];
+  spreadBalls(lone, 2, { x: 1, y: 0, z: 0 });
+  assert.deepEqual(lone.map((o) => o.x), [0, 0], 'one over the other: nothing moves');
 });
 
 test('the sources: the arena never pauses the match nor holds her (no match.paused = true, no hold = true), judges only through _judgeRecord; the forms\' card path goes through _judgeRecord too', () => {

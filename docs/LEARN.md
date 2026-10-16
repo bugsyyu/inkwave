@@ -879,7 +879,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **动了别人地盘的**：`flow.js`、`touch.js`、`host.js`、`play/cam.js`、`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` **一行没动**。共用文件只做了加法：`src/ui/play-strip.js`（WIP：`verdict` 多一个 `actions`，`this.acts`）、`src/learn/play/run.js`（WIP：构造函数多一个 `opts.Targets`）、`src/config.js`（`LEARN.arena`）。`Boss.segHit` / `Boss.applyDamage` 是在 BossFlow 里给这一局的实例包了一层（E 就这么包 `applyDamage`），boss 的文件没改。
 
-**测试**：`npm run test:learn` 177（dev）→ 184（`play-arena` 7 条：三周每个对抗赛日 / 小考 / Boss 计划的条目都有玩法、只有翻牌落卡片；对抗赛的 `_judgeRecord` 和解谜的写同一片叶子、首答一次、墨雨提示 → `H`、锁 / 换问法 / 回炉照卡片；Boss 的写句：对 → `W`、差一点扣住不写、自认对 → `S`、继续 → `W` + 出招；回炉；题簇的局部坐标 ↔ 世界、插口、球的半径；**字弹取景**在六种屏上；源码扫描：arena 不暂停、不扣住、不自己判分，两个形式的 `recordFirst(` 各一次）；`npm run check` 277 个文件绿。
+**测试**：`npm run test:learn` 177（dev）→ 185（`play-arena` 8 条：三周每个对抗赛日 / 小考 / Boss 计划的条目都有玩法、只有翻牌落卡片；对抗赛的 `_judgeRecord` 和解谜的写同一片叶子、首答一次、墨雨提示 → `H`、锁 / 换问法 / 回炉照卡片；Boss 的写句：对 → `W`、差一点扣住不写、自认对 → `S`、继续 → `W` + 出招；回炉；题簇的局部坐标 ↔ 世界、插口、球的半径；**字弹取景**在六种屏上；Boss 挤在一起的球侧推到不叠、高度不变；源码扫描：arena 不暂停、不扣住、不自己判分，两个形式的 `recordFirst(` 各一次）；`npm run check` 277 个文件绿。
 
 **实测**（`tools/learn/arena-audit.mjs`：静态服务 `/game/`、SwiftShader、`?quality=low&short=1`、冻时钟步进，竖 390 × 844（`&from=app`）和横 844 × 390 同一个浏览器；每题核：没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、她的控制器活着、触屏层活着、题条在、Boss 在两招之间；M1 / M5：题物投影都在安全区（题条下面、两边 16 px；Boss 全宽）、**她自己的一发平射**打到题物上只溅灰、不答题，然后点正确的那个 → 墨弹 → 命中那一帧判 → 答对、`learn:answer` 一次且 `first: true`、对抗赛区域涂墨（`learn:ink`）/ Boss 掉血（`learn:bossHp`）；M4：键盘每个键在屏内、真实相机投影真实的键帽 / 纸 / 她的头——头低于中间那排、整台打字机和纸在题条和键盘之间（或宽屏题条旁边的角落）、准星藏了、对抗赛她身上有盾、在游戏键盘上一个个点出答案 → 射 → 判 → 墨字成形；S：亭子升起、站上去放范例、走出来 = 说完了、Boss 掉血、不记证据。Boss 题前审计把她放到 Boss 正前方 11 m 的可走节点上（玩家会自己走过去；`--far` 不放））：
 

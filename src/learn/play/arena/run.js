@@ -340,13 +340,13 @@ const NEUTRAL = new THREE.Color('#a39db8');
 // pushed apart sideways, in the plane facing the camera (`right`), until no two of them — ball and the plate under it —
 // overlap: a few passes of pairwise separation, in place, nothing allocated. A ball moves off its socket only as far as
 // the crowd needs.
-function spreadBalls(objs, n, right) {
+export function spreadBalls(objs, n, right) {
   for (let k = 0; k < n; k++) {
     const o = objs[k];
     o._x = o.x * right.x + o.z * right.z; o._d = 0;
     o._w = Math.max(2 * o.r, o.plate.w) + 0.2; o._y1 = o.y + o.r; o._y0 = o.plate.y - o.plate.h / 2;
   }
-  for (let pass = 0; pass < 6; pass++) {
+  for (let pass = 0; pass < 12; pass++) {
     let moved = false;
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
       const A = objs[i], B = objs[j];
