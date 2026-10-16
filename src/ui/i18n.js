@@ -9,7 +9,10 @@
 const q = typeof location !== 'undefined' && location && location.search ? new URLSearchParams(location.search) : null;
 export const LANG = q && /^en/i.test(q.get('lang') || '') ? 'en' : 'zh';
 export const isZh = LANG === 'zh';
-if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = isZh ? 'zh-CN' : 'en';
+if (typeof document !== 'undefined' && document.documentElement) {
+  document.documentElement.lang = isZh ? 'zh-CN' : 'en';
+  if (isZh) document.title = 'INKWAVE · 泼墨大乱斗';   // (index.html's <title> is the English one)
+}
 
 // key → [English (the original INKWAVE string, verbatim), 中文]
 export const DICT = {
