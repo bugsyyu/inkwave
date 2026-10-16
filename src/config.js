@@ -563,6 +563,10 @@ export const PROGRESSION = {
 // apart the gates sit, how big the inked trail is) is changed in one place and never duplicated in flow / HUD code.
 export const LEARN = {
   weeks: 3, days: 7,          // the course: week 1–3, day 1–7 (content.js decides what each day holds)
+  // opened from the IELTS-Base App (?from=app, a portrait-only WKWebView): the shell keeps only what is learning — no PLAY
+  // (Turf War / Zone Control / Boss vs bots are landscape matches), no loadout PRACTICE, and a room offers only 双人联机赛 /
+  // 双人合作赛 (docs/LEARN.md §17). false = the App gets INKWAVE's whole menu back (the web and ?lang=en never change).
+  appLearnOnly: true,
   puzzle: {
     gates: 8,                 // gates per level; a day's steps are spread over them (the last gate is the exit)
     minGateGap: 6,            // m along the route between two gates (never two gates on top of each other)

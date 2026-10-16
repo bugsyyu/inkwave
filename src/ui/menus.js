@@ -15,7 +15,7 @@ import {
 import {
   GAME_TITLE, GAME_SUBTITLE, VERSION, WEAPONS, WEAPON_ORDER, SPECIALS, SUB, MAPS, DIFFICULTY, MATCH, QUALITY,
   DEFAULT_SETTINGS, TEAM_PALETTES, COLORBLIND_PALETTE, PROGRESSION, BOT_NAMES, TEAM_NAMES, ZONES,
-  mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock,
+  mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock, LEARN,
 } from '../config.js';
 import * as LOOK from '../game/character-style.js';
 import { G } from '../core/ctx.js';
@@ -37,6 +37,10 @@ const LIGHT = new Set(['main', 'mode', 'learn', 'loadout', 'setup', 'locker', 's
 // ?netmock=1 → an offline stand-in for G.net (src/net/mock.js) so the online screens work without the relay
 const NETMOCK = typeof location !== 'undefined' && new URLSearchParams(location.search).get('netmock') === '1';
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';   // 关卡学习: opened from the IELTS-Base App
+// 关卡学习 I (docs/LEARN.md §17): in the App (portrait only) the shell keeps only the learning — no PLAY on the main menu, no
+// PRACTICE on the loadout (both open landscape matches she could not turn the phone for), and a room offers 双人联机赛 /
+// 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web never changes.
+const APP_LEARN = FROM_APP && LEARN.appLearnOnly !== false;
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = ['ALPHA', 'BRAVO'];
@@ -905,7 +909,7 @@ export class Menus {
     if (FROM_APP) {
       const pick = (id) => items.splice(items.findIndex((x) => x.id === id), 1)[0];
       const learn = pick('learn'), book = pick('book'), play = pick('play');
-      items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, { ...play, cls: 'iw-btn--menu' });
+      items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
     }
     const tilts = [-2.2, 1.3, 1.4, -1.1, 1.6, -1.3, 1.1];
     const btns = items.map((it, i) => { const b = this._btn({ ...it, tilt: tilts[i % tilts.length] }); b.classList.add('iw-in', 'iw-in--left'); return b; });
@@ -1985,22 +1989,24 @@ export class Menus {
       this._portraitInto(lookAv, { kind: 'head', size: 128 });
     }
     const grid = h('div', { class: 'iw-wgrid' + (compact ? ' is-compact' : ''), style: { '--cols': cols } }, cards);
-    const el = h('div', { class: 'iw-screen iw-loadout' },
+    // (in the App there is no PRACTICE: it starts a solo landscape match — APP_LEARN, docs/LEARN.md §17)
+    const practiceOn = inPractice || !APP_LEARN;
+    const el = h('div', { class: 'iw-screen iw-loadout' + (practiceOn ? '' : ' is-nopractice') },
       h('div', { class: 'iw-scrim-left' }),
       this._header(t('hd.loadout'), { sub: inPractice && !isZh ? 'Swap weapons and subs mid-practice — changes apply straight away' : isZh ? t('desc.loadout') : 'Pick your weapon, sub and special — your squidkid shows it off on the right' }),
-      practiceBtn,
+      practiceOn ? practiceBtn : null,
       h('div', { class: 'iw-loadout__body' },
         h('div', { class: 'iw-seclabel iw-in' }, h('i', { html: WEAPON_ICONS.shooter }), 'WEAPON', h('span', { class: 'iw-seclabel__count' }, `${order.indexOf(equipped) + 1} / ${n}`)),
         grid,
         detail),
       lookChip ? h('div', { class: 'iw-loadout__look' }, lookChip) : null,
-      this._prompts(opts.quick ? [['Enter', 'A', 'Equip'], ['Esc', 'B', 'Resume']] : [['Enter', 'A', 'Equip'], ['P', 'Y', inPractice ? 'Resume' : 'Practice'], ['Esc', 'B', 'Back']]));
+      this._prompts(opts.quick ? [['Enter', 'A', 'Equip'], ['Esc', 'B', 'Resume']] : practiceOn ? [['Enter', 'A', 'Equip'], ['P', 'Y', inPractice ? 'Resume' : 'Practice'], ['Esc', 'B', 'Back']] : [['Enter', 'A', 'Equip'], ['Esc', 'B', 'Back']]));
     const countEl = el.querySelector('.iw-seclabel__count');
     let enterT = 0;
     return {
       el,
       initial: cards[order.indexOf(equipped)] || cards[0],
-      onNav: (dir) => { if (dir === 'alt') { this._sfx('ui_confirm'); this._press(practiceBtn); goPractice(); return true; } return false; },
+      onNav: (dir) => { if (dir === 'alt' && practiceOn) { this._sfx('ui_confirm'); this._press(practiceBtn); goPractice(); return true; } return false; },
       // opened straight from practice play (L / View): back goes back into the game
       onBack: opts.quick ? () => { if (performance.now() - this._shownAt > 200) this._resume(); } : undefined,
       onFocus: (f) => {
@@ -2867,7 +2873,7 @@ export class Menus {
     const lobMode = () => modeOf(lob.mode);       // turf | zones | boss | versus2 | coop2
     const coopMode = () => lob.mode === 'coop2';  // 双人合作赛: the two on one team, no bots (docs/LEARN.md §14)
     const oneSide = () => bossMode() || coopMode();   // everyone in the room plays on one side (the line-up, the team row)
-    const LOB_MODES = ['turf', 'zones', 'boss', 'versus2', 'coop2'];
+    const LOB_MODES = APP_LEARN ? ['versus2', 'coop2'] : ['turf', 'zones', 'boss', 'versus2', 'coop2'];   // (the App: learning only, §17)
     const S = { launching: null, pendingTeam: null, teamPref: 'auto', emoteCd: 0, lastLobby: null, alive: true, copied: 0, subs: [], age: 0, joins: [], leaves: [], batchT: 0 };
 
     // ---- room code (top-left, big and proud)

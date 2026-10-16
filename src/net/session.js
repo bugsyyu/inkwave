@@ -21,6 +21,9 @@ const subOf = (id) => (SUBS[id] ? id : null), specialOf = (id) => (SPECIALS[id] 
 export const ROOM_MODES = ['turf', 'zones', 'boss', 'versus2', 'coop2'];
 export const LEARN_ROOM_MODES = ['versus2', 'coop2'];
 const roomMode = (m) => (ROOM_MODES.includes(m) ? m : 'turf');
+// 关卡学习 I (docs/LEARN.md §17): a room opened in the IELTS-Base App (?from=app, portrait only) starts as 双人联机赛 — its
+// menu offers the two learning modes only (config LEARN.appLearnOnly)
+const APP_LEARN = typeof location !== 'undefined' && new URLSearchParams(location.search || '').get('from') === 'app' && LEARN.appLearnOnly !== false;
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || lo));
 // the lesson a learning room plays: { week, day } (the host's pick; short = the audits' shortened match)
 const lessonOf = (o, prev = { week: 1, day: 1 }) => ({ week: clampInt(o && o.week != null ? o.week : prev.week, 1, LEARN.weeks), day: clampInt(o && o.day != null ? o.day : prev.day, 1, LEARN.days), ...((o && o.short) || (!o && prev.short) ? { short: true } : {}) });
@@ -68,7 +71,7 @@ export class NetSession {
     // squad vs HULLBREAKER — docs/BOSS.md)
     const map = g?.mapDef?.id || MAPS[0].id;
     const learn = lessonOf({ week: g?.settings?.learnWeek || 1, day: g?.settings?.learnDay || 1 });
-    return { map, time: g?.time || 'day', duration: g?.settings?.matchLength || MATCH.defaultDuration, bots: !mapNoBots(map), difficulty: g?.settings?.difficulty || 'normal', palette: g?.paletteIndex?.() ?? 0, mode: 'turf', learn, players: [], maxPlayers: TEAM * 2 };
+    return { map, time: g?.time || 'day', duration: APP_LEARN ? ZONES.duration || 300 : g?.settings?.matchLength || MATCH.defaultDuration, bots: !mapNoBots(map), difficulty: g?.settings?.difficulty || 'normal', palette: g?.paletteIndex?.() ?? 0, mode: APP_LEARN ? 'versus2' : 'turf', learn, players: [], maxPlayers: TEAM * 2 };
   }
 
   _profile() {
