@@ -1,8 +1,9 @@
 // 墨浪跑酷's 滑行段 (src/learn/play/runner/glide.js, docs/PLAY.md §3 M4 / §4 / §5.2, LEARN §23): the typed items of a race
-// day on play-type's rig — judged only through the flow's one path (_judgeRecord), the evidence the host's modes
-// (T · L with its percent · W), the other try per PLAY §4's last column (a word → 「选义」 lane row then typed again; a
-// dictation → slowly; a sentence → with the why), a second miss → the race's 回炉; the rig never sees an answer before
-// 射; the write wall's sentences are the run's last stretch.
+// day on play-type's rig — judged only through the flow's one path (RunnerFlow._judgeRecord), the evidence the host's
+// modes (T · H after a hint · L with its percent · W · S when 「我的写法也对」 stands), the other try per PLAY §4's last
+// column (a word → 「选义」 lane row then typed again; a dictation → slowly; a sentence → with the why), a second miss →
+// the race's 回炉; the rig never sees an answer before 射; a near-miss sentence is held (nothing written) until her tap;
+// the write wall's sentences are the run's last stretch; the runner's path writes the race card's leaf.
 // 用法：node --test tests/learn/runner-glide.test.mjs
 import { register } from 'node:module';
 register(new URL('./three-hook.mjs', import.meta.url));
@@ -14,11 +15,13 @@ import { prompt } from '../../src/learn/engine.js';
 import { store, setBackend } from '../../src/learn/store.js';
 import { planDay } from '../../src/learn/design.js';
 import { LEARN } from '../../src/config.js';
-import { loopRoute, judgeAnswer } from '../../src/learn/forms/common.js';
+import { loopRoute, judgeAnswer, canClaim } from '../../src/learn/forms/common.js';
 import { entriesOf, rowPrompt, rightLane, rowAnswer, rowLanes } from '../../src/learn/play/runner/rows.js';
 import { buildTrack, straighten, clearWidths } from '../../src/learn/play/runner/track.js';
 const { LearnFlow } = await import('../../src/learn/flow.js');
 const { GlideStation, glideMove } = await import('../../src/learn/play/runner/glide.js');
+const { RunnerFlow } = await import('../../src/learn/play/runner/runner.js');
+const { RaceFlow } = await import('../../src/learn/forms/race.js');
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
 const leafOf = (id) => { const ev = store.evidence(); for (const doc of Object.values(ev)) { const d = doc.it && doc.it[id]; if (d) { const day = Object.values(d)[0]; return Object.values(day)[0]; } } return null; };
@@ -47,7 +50,7 @@ const { nav, start, goal } = ringNav();
 const route = loopRoute(nav, start, goal, { avoid: 6 });
 const T = buildTrack(nav.nodes, route.loop, { keep: straighten(nav, route.loop, { edgeType: nav.edgeType }) }), W = clearWidths(nav, T);
 
-// a flow stub around the real judging path (LearnFlow.prototype._judgeRecord, as play-1's equivalence test does) and
+// a flow stub around the real judging path (RunnerFlow.prototype._judgeRecord, as play-1's equivalence test does) and
 // the runner's hooks the station calls; a stand-in rig that only remembers what it was told
 function harness(level) {
   const F = {
@@ -57,7 +60,7 @@ function harness(level) {
     _ask(kind, p) { this.strip.show(p, { kind }); }, _speak() {}, _emit(name, d) { this.log.push({ name, ...d }); }, _onRight() { this.onRight = (this.onRight || 0) + 1; },
     _onWrong2(item) { this.wrong2.push(item.id); if (!item._relearn) this.pendingDetour = true; }, _startDetour() { this.pendingDetour = false; this.detours = (this.detours || 0) + 1; },
     _requeue(e) { this.queue.push(e); }, _styleGates() {},
-    _judgeRecord: LearnFlow.prototype._judgeRecord, _altPrompt: LearnFlow.prototype._altPrompt, _wordPool: LearnFlow.prototype._wordPool,
+    _judgeRecord: RunnerFlow.prototype._judgeRecord, _altPrompt: LearnFlow.prototype._altPrompt, _wordPool: LearnFlow.prototype._wordPool,
   };
   const S = new GlideStation(F);
   S._ensure = () => {};
@@ -136,6 +139,22 @@ test('the 滑行段: typed through the one path — T · L (pct) · W leaves, �
     const res = S.shot.calls.find((c) => c[0] === 'resolve'); assert.equal(res[1].ok, true); assert.equal(res[1].right, word.en);
     assert.ok(!S.active && !S.keys.visible && S.shot.calls.includes('unmount'), 'the stretch ended: the rig unmounted'); }
 
+  // (1b) a word typed right after 提示: [1, H] (the keyboard's hint key; PLAY §1 rule 3); the 墨雨 prop does the same up front
+  { setBackend(memory()); const { F, S } = harness(L);
+    const wh = { ...word, _tries: 0 };
+    const done = S.run({ items: [wh], gate: G1, row: row(1, {}) });
+    S._hint();
+    await typeAndFire(S, word.en);
+    await done;
+    assert.deepEqual(leafOf(wh.id).slice(0, 2), [1, 'H']);
+    assert.equal(S.stats.hinted, 1);
+    setBackend(memory()); F.hintNext = true;
+    const done2 = S.run({ items: [{ ...word, _tries: 0 }], gate: G1, row: row(1, {}) });
+    assert.ok(S.cur.hinted && !F.hintNext, 'the 墨雨 prop: the hint up front');
+    await typeAndFire(S, word.en);
+    await done2;
+    assert.deepEqual(leafOf(word.id).slice(0, 2), [1, 'H']); }
+
   // (2) a word typed wrong: [0, T]; the other try is a 「选义」 lane row (choice-of-typed) with the retype queued after it; no 回炉 yet
   { setBackend(memory()); const { F, S } = harness(L);
     const w2 = { ...word, _tries: 0 };
@@ -150,13 +169,14 @@ test('the 滑行段: typed through the one path — T · L (pct) · W leaves, �
     assert.ok(e.then && e.then.kind === 'glide' && e.then.retype && e.then.items[0] === w2, 'typed again after the row');
     const res = S.shot.calls.find((c) => c[0] === 'resolve'); assert.equal(res[1].ok, false); assert.equal(res[1].right, word.en);
     assert.match(F.strip.verdicts[0].v.head, /差一点/);
-    // the retype missed too: the second miss goes the race's way (回炉 + the detour), nothing requeued
-    const done2 = S.run({ items: [w2], gate: G1, row: row(1, { retype: true }) });
+    // the retype missed too (its entry carries tries: 1 — the 「选义」 row's `then`): the second miss goes the race's way
+    // (回炉 + the detour), nothing requeued
+    const done2 = S.run({ items: [w2], gate: G1, row: row(1, { retype: true, tries: 1 }) });
     await typeAndFire(S, 'famliy');
     await done2;
     assert.deepEqual(F.wrong2, [w2.id]); assert.equal(F.queue.length, 1); assert.equal(F.detours, 1); }
 
-  // (3) a dictation: L with its percent; missed → the same sentence again, slowly; the hint marks the answer (H once play-wire's `o` lands: T here)
+  // (3) a dictation: L with its percent (a hint changes nothing for a dictation: the host's mode is L either way); missed → the same sentence again, slowly
   { setBackend(memory()); const { F, S } = harness(L);
     const d2 = { ...dict, _tries: 0 };
     const done = S.run({ items: [d2], gate: G2, row: row(2, {}) });
@@ -166,7 +186,7 @@ test('the 滑行段: typed through the one path — T · L (pct) · W leaves, �
     await typeAndFire(S, 'there people family');
     await done;
     const leaf = leafOf(d2.id);
-    assert.ok(['L', 'H'].includes(leaf[1]) && typeof leaf[0] === 'number' && leaf[0] > 0 && leaf[0] < 100, `a dictation's leaf is its percent: ${JSON.stringify(leaf)}`);
+    assert.ok(leaf[1] === 'L' && typeof leaf[0] === 'number' && leaf[0] > 0 && leaf[0] < 100, `a dictation's leaf is its percent: ${JSON.stringify(leaf)}`);
     assert.equal(F.queue.length, 1); assert.ok(F.queue[0].kind === 'glide' && F.queue[0].slow && F.queue[0].items[0] === d2);
     const res = S.shot.calls.find((c) => c[0] === 'resolve'); assert.ok(res[1].pct > 0 && res[1].pct < 100 && res[1].right === dict.en);
     assert.match(F.strip.verdicts[0].v.head, /%/); }
@@ -201,4 +221,67 @@ test('the 滑行段: typed through the one path — T · L (pct) · W leaves, �
   // the station never judges or writes: no judge / recordFirst / item.answer in its source
   const src = readFileSync(new URL('../../src/learn/play/runner/glide.js', import.meta.url), 'utf8');
   assert.ok(!/recordFirst|\bjudge\(|item\.answer|\.answer\b/.test(src.replace(/\/\/.*$/gm, '')), 'glide.js judges nothing');
+});
+
+test('「我的写法也对」 on the 滑行段: a near-miss sentence is held — nothing written, the word grey — until her tap: claimed → [1, S], 继续 → [0, W]', async () => {
+  const L = planDay(WEEKS[0], 3, 'race');
+  const wall = L.signs.find((s) => s.design.mechanic === 'write-wall');
+  // a near miss gen.js calls claimable (the meaning there, no key form wrong): the sentence cut before its last word
+  let item = null, near = '';
+  for (const it of wall.items) { const ref = String(it.meta.ref || it.en); const t = ref.replace(/[.!?]$/, '').split(' ').slice(0, -1).join(' '); const r = judgeAnswer(it, prompt(it), t); if (canClaim(it, prompt(it), r)) { item = it; near = t; break; } }
+  assert.ok(item, 'a claimable near miss on the wall');
+  const G3 = { id: 'gate:write', index: 9, locks: 0, queue: [] };
+  for (const claim of [true, false]) {
+    setBackend(memory()); const { F, S } = harness(L);
+    const it = { ...item, _tries: 0 };
+    const done = S.run({ items: [it], gate: G3, row: { e: { gate: 9, kind: 'glide', items: [], exit: true }, gate: 9, kind: 'glide', s: 40 } });
+    await typeAndFire(S, near);
+    assert.ok(S.held, 'held');
+    assert.equal(leafOf(it.id), null, 'nothing written while held');
+    assert.equal(F.log.filter((e) => e.name === 'learn:answer').length, 0, 'no learn:answer while held');
+    assert.ok(!S.shot.calls.some((c) => c[0] === 'resolve'), 'the word plays no verdict while held');
+    const v = F.strip.verdicts[F.strip.verdicts.length - 1].v;
+    assert.ok(v.actions && v.actions.length === 2 && v.actions[0].text === '我的写法也对' && v.actions[1].text === '继续', 'the strip offers the claim and 继续');
+    v.actions[claim ? 0 : 1].onTap();
+    await tick(); await tick();
+    await done;
+    assert.deepEqual(leafOf(it.id).slice(0, 2), claim ? [1, 'S'] : [0, 'W']);
+    assert.equal(F.log.filter((e) => e.name === 'learn:answer').length, 1, 'learn:answer once, after her tap');
+    const res = S.shot.calls.find((c) => c[0] === 'resolve'); assert.equal(res[1].ok, claim);
+    if (claim) assert.equal(F.queue.length, 0); else assert.ok(F.queue.length === 1 && F.queue[0].kind === 'glide' && F.queue[0].items[0] === it, '继续: the miss, its other try (with the why)');
+  }
+});
+
+test('the runner\'s one judging path writes what the race\'s card writes: every choice of w1d3 by lane (right / wrong), a typed word, a dictation — same leaf, same verdict, learn:answer once', () => {
+  const L = planDay(WEEKS[0], 3, 'race');
+  const at = Date.parse('2026-10-14T09:30:00');
+  const runnerPath = (g, item, p, ans, hinted) => {
+    const F = { firsts: 0, firstRight: 0, right: new Set(), log: [], _emit(n, d) { this.log.push({ name: n, ...d }); } };
+    const out = RunnerFlow.prototype._judgeRecord.call(F, g, item, p, ans, { hinted, at });
+    return { out, log: F.log };
+  };
+  const cardPath = (g, item, p, ans) => {   // race.js _answer up to its verdict (the part that judges and records)
+    const F = { firsts: 0, firstRight: 0, right: new Set(), log: [], streak: 0, rightN: 0, relearn: [], P: LEARN.puzzle, shield: false,
+      _emit(n, d) { this.log.push({ name: n, ...d }); }, _onRight() {}, _onWrong2() {}, _styleGates() {}, hud: { verdict(v) { F.v = v; } }, _askNext() {} };
+    const now = Date.now; Date.now = () => at;
+    try { RaceFlow.prototype._answer.call(F, { ...g, queue: [] }, { ...item, _tries: 9 }, p, ans); } finally { Date.now = now; }
+    return F;
+  };
+  let n = 0;
+  for (const g of L.gates) for (const item of g.items.filter((it) => it.meta.scored)) {
+    const p = prompt(item);
+    const answers = p.type === 'choice' ? [rightLane(item, rowPrompt(item, {})), (rightLane(item, rowPrompt(item, {})) + 1) % p.options.length] : [item.meta.ref || item.en, 'zzz'];
+    for (const ans of answers) {
+      setBackend(memory()); const A = runnerPath(g, item, p, ans, false); const evA = JSON.stringify(store.evidence());
+      setBackend(memory()); const B = cardPath(g, item, p, ans); const evB = JSON.stringify(store.evidence());
+      assert.equal(evA, evB, `${item.id} ${JSON.stringify(ans)}: the same evidence`);
+      assert.equal(A.out.r.ok, B.v.ok); assert.equal(A.out.first, true);
+      assert.equal(A.log.filter((e) => e.name === 'learn:answer').length, 1);
+      n++;
+    }
+  }
+  assert.ok(n > 60, `${n} answers compared`);
+  // lane −1 (the gap) never reaches the path: rowAnswer's rule, kept by _settle
+  setBackend(memory());
+  const it = L.gates[0].items[0]; assert.equal(rowAnswer(it, prompt(it), -1).answered, false); assert.deepEqual(store.evidence(), {});
 });

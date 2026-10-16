@@ -25,13 +25,13 @@ import * as THREE from 'three';
 import { G, on, clamp, damp } from '../../../core/ctx.js';
 import { LEARN, PLAYER } from '../../../config.js';
 import { RaceFlow } from '../../forms/race.js';
-import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf } from '../../forms/common.js';
+import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf, judgeAnswer, canClaim, claimJudge } from '../../forms/common.js';
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { laneCenters, dividerStart, laneOf, nextLane, readLead, leadDistance, beatGrid, onBeat, beatPulse, syncTide } from './lanes.js';
 import { buildTrack, straighten, clearWidths, placeRow, roomAt, project, at, rawAt } from './track.js';
 import { detourBranch, branchLine, branchAt } from './detour.js';
-import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, rowAnswer, planCourse } from './rows.js';
+import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, planCourse } from './rows.js';
 import { RowView, HerMark } from './view.js';
 import { RunnerCam } from './cam.js';
 import { GlideStation, glideMove } from './glide.js';
@@ -449,18 +449,37 @@ export class RunnerFlow extends RaceFlow {
     row.state = 'done'; row.doneT = 0;
     this.strip.hide(); this.asking = null;
     const lane = laneOf(d, row.lanes, R.laneW, row.c, R.gap);
-    const res = rowAnswer(item, p, lane, { hinted: !!p._hinted, at: Date.now() });
-    if (!res.answered) { this._noAnswer(row); return; }
+    // through the gap (or outside the curtains): no answer, nothing judged, nothing written (rows.js rowAnswer's rule)
+    if (lane == null || lane < 0 || lane >= (p.options || []).length) { this._noAnswer(row); return; }
     const beat = row.kind === 'beat' ? (row.swipeT != null && onBeat(row.grid, row.swipeT)) : null;
-    const r = res.r, first = res.first;
+    const { r } = this._judgeRecord(g, item, p, lane, { emit: { lane, beat, kind: row.kind } });   // the one path
     this.stats.answered++;
-    if (first) { this.firsts++; if (r.ok) this.firstRight++; }
-    if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g ? g.id : 'gate:relearn', lane, beat, relearn: !!row.e.relearn, kind: row.kind });
     if (r.ok) this._rightRow(row, lane, beat); else this._wrongRow(row, lane, r);
     // (a typed word's 「选义」 row: picked right → it is typed again next, PLAY §4 「再回来打」; missed → the answer was given)
     if (row.e.then && r.ok) this.queue.unshift(row.e.then);
     this._checkGates();
+  }
+
+  // ---------------------------------------------------------------------------------------------- the one judging path
+  // Every answer of the run comes here (PLAY §1 rule 2) — a curtain's lane (_settle) and a typed text on the 滑行段
+  // (glide.js): the race card's own lines (race.js _answer: judgeAnswer → store.recordFirst; a hint → H, her own claim
+  // → S; the same leaf as rows.js rowAnswer, tests/learn/runner-glide.test.mjs) + the tallies + learn:answer once. Not
+  // LearnFlow's: that one locks a gate and queues the item on it for its retry — the runner keeps its own queue (a row
+  // and a glide each decide their other try). 「我的写法也对」 the way play-5's arena does it (forms/boss.js
+  // _judgeRecord): a near-miss written sentence (forms/common.js canClaim) is HELD — nothing written, { held: true } —
+  // until she decides: o.decided + o.claim → claimJudge re-checks it, standing → [1, S]; o.decided alone → the miss [0, W].
+  // o.hinted: the keyboard's 提示 (→ H); o.emit: more fields for learn:answer (lane, beat, kind).
+  _judgeRecord(g, item, p, ans, o = {}) {
+    let r = judgeAnswer(item, p, ans), self = false;
+    if (!o.decided && canClaim(item, p, r)) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
+    if (o.decided) { this._claimHeld = null; if (o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; self = true; } } }
+    const hinted = !!(p._hinted || o.hinted);
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: o.at ?? Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(self ? { self: true } : {}) });
+    const first = !!rec.first;
+    if (first) { this.firsts++; if (r.ok) this.firstRight++; }
+    if (r.ok) this.right.add(item.id);
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g ? g.id : 'gate:relearn', hinted, relearn: !!item._relearn, ...(self ? { self: true } : {}), ...(o.emit || {}) });
+    return { r, first, again: false, self };
   }
 
   _rightRow(row, lane, beat) {

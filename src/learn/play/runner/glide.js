@@ -8,8 +8,12 @@
 //   · the lens is play-type's own frames (type/frame.js frameFor: the rig between the strip and the keyboard; after
 //     射 the word), taken in the rig's frame and carried along with her — the runner camera (cam.js) springs to and
 //     from them, never cuts (the same convention as the stations in play-wire: path mode, a spring, fov through the rig)
-//   · judging is the flow's one path only: flow._judgeRecord(g, item, p, text, { hinted }) (LearnFlow's; the hint →
-//     H once play-wire's `o` lands); nothing here judges and the rig never sees an answer before 射 (PLAY §1.3)
+//   · judging is the flow's one path only: flow._judgeRecord(g, item, p, text, { hinted }) (RunnerFlow's: the race
+//     card's judgeAnswer → recordFirst; the keyboard's 提示 or the 墨雨 prop → H); nothing here judges and the rig never
+//     sees an answer before 射 (PLAY §1.3)
+//   · 「我的写法也对」 (a written sentence, PLAY §4 W / S): a near miss comes back HELD — nothing written, the ink word stays
+//     grey — and the strip offers 「我的写法也对 / 继续」 (play-5's strip actions); her tap decides (o.decided, o.claim):
+//     S when the claim stands, else the miss W; only then does the word play a verdict. No time-out (PLAY §1.6)
 //   · 回炉 per PLAY §4: a missed word → a lane row of the word and near misses (「选义」, flow._altPrompt), then typed
 //     again; a missed dictation → the same sentence slowly; a missed written sentence → again with the why first;
 //     a second miss → the race's 回炉 queue (_onWrong2: the detour too)
@@ -17,14 +21,14 @@
 //   const S = new GlideStation(flow)
 //   S.warm()                                      the rig and the keyboard (under the match fade)
 //   S.run({ items, gate, row }) → Promise         the stretch: resolves when its last item is answered and shown
-//   S.active · S.typing · S.pose · S.update(dt) · S.debug() · S.dispose()
+//   S.active · S.typing · S.held · S.pose · S.update(dt) · S.debug() · S.dispose()
 import * as THREE from 'three';
 import { G, clamp } from '../../../core/ctx.js';
 import { LEARN, PLAYER } from '../../../config.js';
 import { prompt } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { TypeShot } from '../type/shot.js';
-import { frameFor } from '../type/frame.js';
+import { frameFor, FRAME } from '../type/frame.js';
 import { wordBox } from '../type/inkword.js';
 import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
@@ -38,10 +42,11 @@ export class GlideStation {
     this.flow = flow; this.match = flow.match; this.R = LEARN.runner;
     this.shot = null; this.keys = null; this.cur = null; this.mounted = false; this.run_ = null;
     this.yaw = 0; this._pose = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52 }; this._f = null; this._fkey = '';
-    this.log = []; this.stats = { asked: 0, right: 0, wrong: 0, hinted: 0 };
+    this.log = []; this.stats = { asked: 0, right: 0, wrong: 0, hinted: 0, held: 0, self: 0 };
   }
   get active() { return !!this.run_; }
   get typing() { return !!(this.cur && !this.cur.answered); }
+  get held() { return !!(this.cur && this.cur.held); }
   get pose() { return this.cur ? this._framed() : null; }
 
   _ensure() {
@@ -97,10 +102,14 @@ export class GlideStation {
     const mode = p.type === 'write' || /\s/.test(ref) ? 'sentence' : 'word';
     if (!this.mounted) { this.shot.mount(a); this.mounted = true; }
     this.shot.rig.hullYaw = a.yaw;
-    this.cur = { g, item, p, e, mode, answered: false, hinted: false, verdict: null, text: '', dist: 0, word: null, t: 0 };
+    this.cur = { g, item, p, e, mode, answered: false, hinted: false, verdict: null, text: '', dist: 0, word: null, t: 0, held: null, passed: false };
     this.shot.begin({ mode, target: null });   // (the target is picked on 射: where the road is then)
     this.keys.setMode(mode); this.keys.clear(); this.keys.setHintUsed(false); this.keys.show();
     F._ask('glide', p, null, false);
+    // the race's props on a typed item: 墨雨 (hintNext) gives the hint up front — recorded as a hinted answer (H), PLAY
+    // §5.2 — and 回声 (echoNext) plays the word once more a moment later
+    if (F.hintNext && !e.relearn) { F.hintNext = false; this._hint(); }
+    if (F.echoNext && p.tts) { F.echoNext = false; const C0 = this.cur; setTimeout(() => { if (this.cur === C0 && !C0.answered) F._speak(p.tts, { slow: !!(p._tip && p._tip.slow) }); }, 1900); }
     F.asking = { gate: g, item, p, row: this.run_.row };
     F.asked++; this.stats.asked++;
     if (p.tts) F._speak(p.tts, { slow: !!(p._tip && p._tip.slow) });
@@ -138,16 +147,44 @@ export class GlideStation {
     C.text = typed; C.answered = true; C.dist = dist; C.word = { x, y: y + 0.1 + this.shot.lift, z };
     this.keys.hide();
     const { g, item, p } = C;
-    const { r, first, again } = F._judgeRecord(g, item, p, typed, { hinted: C.hinted });   // the one path (LEARN §18; play-wire's `o`: hinted → H)
+    const out = F._judgeRecord(g, item, p, typed, { hinted: C.hinted });   // the one path (RunnerFlow._judgeRecord)
+    if (out.held) {
+      // 「我的写法也对」: nothing written yet — the word stays grey; the strip asks, her tap decides (no time-out)
+      C.held = out; this.stats.held++;
+      F.strip.verdict({ ok: false, head: '差一点 — 意思到了', why: (out.r && out.r.why) ? String(out.r.why).slice(0, 46) : '', actions: [
+        { text: '我的写法也对', primary: true, onTap: () => this._decide(true) },
+        { text: '继续', onTap: () => this._decide(false) },
+      ] });
+      F._emit('learn:held', { itemId: item.id, gate: g.id });
+      this.log.push({ t: +F.t.toFixed(2), ev: 'held', item: item.id, dist: +dist.toFixed(1) });
+      return;
+    }
+    this._resolve(out);
+  }
+  // her call on a held sentence: claimed (S when claimJudge lets it stand) or 继续 (the miss, W) — written now
+  _decide(claim) {
+    const C = this.cur; if (!C || !C.held) return;
+    const F = this.flow, { g, item, p } = C;
+    C.held = null;
+    const out = F._judgeRecord(g, item, p, C.text, { hinted: C.hinted, decided: true, claim: !!claim });
+    this.log.push({ t: +F.t.toFixed(2), ev: 'decided', claim: !!claim, ok: out.r.ok, self: !!out.self });
+    this._resolve(out);
+  }
+  // the verdict, once written: the strip, the race's cues, the other try, and the ink word plays it
+  _resolve(out) {
+    const C = this.cur, F = this.flow, { g, item, p, e } = C, typed = C.text, { r, first } = out;
     const vl = verdictLines(r, item);
     if (r.pct != null && !r.ok) vl.head = `差一点：${r.pct}%，是 ${r.canonical}`;
-    C.verdict = { ok: r.ok, first, again, head: vl.head, why: vl.why, pct: r.pct ?? null };
+    if (out.self) vl.head = '记下了 — 你的写法也对';
+    // (the other try: the runner's own count, as a row's — once per item, never on the 回炉 stretch)
+    const again = !r.ok && !e.relearn && !item._relearn && (e.tries || 0) < F.P.retries;
+    C.verdict = { ok: r.ok, first, again, head: vl.head, why: vl.why, pct: r.pct ?? null, self: !!out.self };
     this.stats[r.ok ? 'right' : 'wrong']++;
-    if (first && r.ok) F.firstRight++;
+    if (out.self) this.stats.self++;
     F.strip.verdict(vl, { ms: r.ok ? 1600 : this.R.verdictMs + 600 });
     const E = r.ok ? EFFECTS.race.right : again ? EFFECTS.race.wrong : EFFECTS.race.wrong2;
     G.audio?.play?.(E.sfx, { volume: 0.7 });
-    if (r.ok) { F.streak++; F.rightN++; if (item._relearn) F.relearnRight++; F.right.add(item.id); F._onRight(); }
+    if (r.ok) { F.streak++; F.rightN++; if (item._relearn) F.relearnRight++; F._onRight(); }
     else { F.streak = 0; this._retry(C, r, again); }
     // the dictation: which of her words matched, by the host's own lcsOk (the judge's percent is the evidence)
     let typedOk;
@@ -159,10 +196,10 @@ export class GlideStation {
         const okW = Hs.lcsOk(hypW, refW), ok = hypT.map(() => true);
         atk.forEach((j, k) => { ok[j] = ok[j] && !!okW[k]; });
         typedOk = ok.length === typed.trim().split(/\s+/).length ? ok : undefined;
-      } catch (e) { typedOk = undefined; }
+      } catch (err) { typedOk = undefined; }
     }
-    F._emit('learn:typed', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: C.hinted, relearn: !!C.e.relearn, pct: r.pct ?? null, text: typed });   // (learn:answer came from _judgeRecord, once)
-    this.log.push({ t: +F.t.toFixed(2), ev: 'answer', item: item.id, ok: r.ok, pct: r.pct ?? null, first, hinted: C.hinted, dist: +dist.toFixed(1) });
+    F._emit('learn:typed', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: C.hinted, relearn: !!e.relearn, pct: r.pct ?? null, self: !!out.self, text: typed });   // (learn:answer came from _judgeRecord, once)
+    this.log.push({ t: +F.t.toFixed(2), ev: 'answer', item: item.id, ok: r.ok, pct: r.pct ?? null, first, hinted: C.hinted, self: !!out.self, dist: +C.dist.toFixed(1) });
     this.shot.resolve({ ok: r.ok, pct: r.pct, right: r.canonical, toks: r.toks, typedOk }).then(() => { if (this.cur === C) this._next(); });
   }
 
@@ -184,21 +221,34 @@ export class GlideStation {
   }
 
   // ---------------------------------------------------------------------------------------------- the lens
-  // play-type's frames in the rig's frame (origin at her feet, +Z her facing, +X her left), carried along with her: the
-  // search runs once per phase / aspect (frameFor is a search), the pose is re-based on her every frame
+  // play-type's frames in the rig's frame (origin at her feet, +Z the rig's hull, +X her left), carried along with her.
+  // The band is the real one (PLAY §3 M4 机位: her head below the keyboard's middle row, the whole typewriter and the
+  // paper between the question strip and the game keyboard): the strip's bottom edge as it stands on the screen (upright
+  // in the runner it sits under the standings, ~ a quarter down — frame.js's default 0.1 would put the rig under it) and
+  // the keyboard's share. The search runs once per phase / band / aspect (frameFor is a search); the pose is re-based on
+  // her every frame. After 射 the lens looks at the word — until she has swum up to it (it stands on the road ahead of
+  // her): then it hands back to the chase camera (a held sentence may wait there for her tap).
   _framed() {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = typeof innerWidth !== 'undefined' ? innerWidth : 1280, H = typeof innerHeight !== 'undefined' ? innerHeight : 720, aspect = W / H;
     const phase = C.answered ? 'word' : 'type';
-    const kb = phase === 'type' ? +this.keys.frac.toFixed(2) : 0;
-    const key = `${phase}|${aspect.toFixed(2)}|${kb}|${C.answered ? C.dist.toFixed(1) : ''}|${C.text}`;
+    const yaw = this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : this.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
+    if (phase === 'word' && C.word) {
+      const ahead = (C.word.x - a.pos.x) * sy + (C.word.z - a.pos.z) * cy;
+      if (ahead < 2.5) C.passed = true;
+      if (C.passed) return null;
+    }
+    const kb = phase === 'type' && this.keys ? +this.keys.frac.toFixed(2) : 0;
+    const sr = this.flow.strip && this.flow.strip.rect ? this.flow.strip.rect() : null;
+    const top = sr ? +clamp(Math.round(((sr.bottom + 6) / H) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
+    const key = `${phase}|${aspect.toFixed(2)}|${kb}|${top}|${C.answered ? C.dist.toFixed(1) : ''}|${C.text}`;
     if (this._fkey !== key) {
       this._fkey = key;
-      const o = { phase, aspect, kbFrac: kb, dist: C.answered ? C.dist : undefined };
+      const o = { phase, aspect, kbFrac: kb, topFrac: top, dist: C.answered ? C.dist : undefined };
       if (phase === 'word') { const b = wordBox(C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.word.y - a.pos.y }; }
-      this._f = frameFor(o);
+      this._f = frameFor(o); this._f.top = top; this._f.kb = kb;
     }
-    const f = this._f, yaw = this.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw), P = this._pose;
+    const f = this._f, P = this._pose;
     P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);
     if (phase === 'word' && C.word) P.look.set(C.word.x, C.word.y, C.word.z);
     else P.look.set(a.pos.x + cy * f.look[0] + sy * f.look[2], a.pos.y + f.look[1], a.pos.z - sy * f.look[0] + cy * f.look[2]);
@@ -223,7 +273,7 @@ export class GlideStation {
 
   debug() {
     const C = this.cur;
-    return { active: this.active, typing: this.typing, item: C ? C.item.id : null, mode: C ? C.mode : null, phase: this.shot ? this.shot.phase : null, text: this.shot ? this.shot.text : '', answered: !!(C && C.answered), hinted: !!(C && C.hinted), verdict: C ? C.verdict : null, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, fits: this._f ? this._f.fits : null, left: this.run_ ? this.run_.list.length : 0, stats: { ...this.stats }, log: this.log.slice(-8) };
+    return { active: this.active, typing: this.typing, item: C ? C.item.id : null, mode: C ? C.mode : null, phase: this.shot ? this.shot.phase : null, text: this.shot ? this.shot.text : '', answered: !!(C && C.answered), hinted: !!(C && C.hinted), held: !!(C && C.held), passed: !!(C && C.passed), verdict: C ? C.verdict : null, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, fits: this._f ? this._f.fits : null, band: this._f ? { top: this._f.top, kb: this._f.kb } : null, yaw: this.mounted && this.shot && this.shot.rig ? +this.shot.rig.hullYaw.toFixed(3) : null, left: this.run_ ? this.run_.list.length : 0, stats: { ...this.stats }, log: this.log.slice(-8) };
   }
   dispose() {
     this.run_ = null; this.cur = null;

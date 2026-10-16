@@ -7,7 +7,7 @@
 //
 //   const S = new PlayStrip(hud)   (hud.root: #ui-root)
 //   S.show(p, { replay })          p = the prompt ({ text, zh, tts }); replay() is ▶ (shown only when p.tts)
-//   S.verdict({ ok, head, why })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
+//   S.verdict({ ok, head, why, actions? })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
 //   S.rect() → the strip's box (CSS px) or null when hidden — the top of the safe area under it (src/learn/play/run.js)
 //   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show()
 //   S.setInk(hex)                  her team colour
@@ -53,6 +53,12 @@ const CSS = `
 .iw-ps.is-ok .iw-ps__head { color: var(--self); }
 .iw-ps.is-bad .iw-ps__box { border-color: var(--coral); }
 .iw-ps.is-bad .iw-ps__head { color: var(--coral); }
+.iw-ps__acts { display: none; gap: 8px; margin-top: 8px; }
+.iw-ps.is-acts .iw-ps__acts { display: flex; flex-wrap: wrap; }
+.iw-ps__act { pointer-events: auto; min-height: 44px; padding: 8px 16px; border-radius: 14px; border: 1.5px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .12); color: #fff;
+  font: 700 16px 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.iw-ps__act.is-primary { background: var(--self); color: var(--self-ink); border-color: var(--self); }
+.iw-ps__act:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .iw-ps__box.is-flash { animation: iw-ps-flash .5s ease-out; }
 @keyframes iw-ps-flash { 0% { box-shadow: 0 0 0 0 var(--self), 0 6px 24px rgba(0,0,0,.35); } 100% { box-shadow: 0 0 0 14px transparent, 0 6px 24px rgba(0,0,0,.35); } }
 @media (orientation: portrait) and (max-width: 640px) {
@@ -102,7 +108,8 @@ export class PlayStrip {
     this.tag = h('span', { class: 'iw-ps__tag' });
     this.lanes = h('div', { class: 'iw-ps__lanes' });
     this.text = h('div', { class: 'iw-ps__text' }, this.q, this.zh, this.lanes);
-    this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why);
+    this.acts = h('div', { class: 'iw-ps__acts' });
+    this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why, this.acts);
     this.box = h('div', { class: 'iw-ps__box' }, this.play, this.tag, this.text, this.verd);
     this.note = h('div', { class: 'iw-ps__note' });
     this.el = h('div', { class: 'iw-ps is-off', role: 'status', 'aria-live': 'polite' }, this.box, this.note);
@@ -149,14 +156,29 @@ export class PlayStrip {
     if (lanes && lanes.length) for (const o of lanes) this.lanes.append(h('span', null, h('b', null, o.tag || ''), o.en || '', o.zh ? h('small', null, o.zh) : null));
     this.lanes.className = 'iw-ps__lanes' + (lanes && lanes.length ? ' is-on' : '') + (lite ? ' is-lite' : '');
     this.el.classList.remove('is-off', 'is-verdict', 'is-ok', 'is-bad');
+    this._acts(null);
     this.on = true;
     if (!prefersReducedMotion()) restartAnim(this.box, 'is-enter');
   }
   here(i) { const c = this.lanes.children; for (let k = 0; k < c.length; k++) c[k].classList.toggle('is-here', k === i); }
-  question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); }
+  question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); this._acts(null); }
+  // v.actions (play-5: 「我的写法也对」 / 「继续」 on a held sentence): [{ text, primary?, onTap }] — buttons ≥ 44 pt under the
+  // verdict, the only other thing on the strip a touch reaches; gone with the next question() / show() / hide()
+  _acts(list) {
+    this.acts.innerHTML = '';
+    const on = !!(list && list.length);
+    this.el.classList.toggle('is-acts', on);
+    if (!on) return;
+    for (const a of list) {
+      const b = h('button', { class: 'iw-ps__act' + (a.primary ? ' is-primary' : ''), type: 'button' }, a.text);
+      b.addEventListener('click', (e) => { e.stopPropagation(); this._acts(null); a.onTap?.(); });
+      this.acts.appendChild(b);
+    }
+  }
   verdict(v, { ms = 0 } = {}) {
     this.head.textContent = v.head || '';
     this.why.textContent = v.why || '';
+    this._acts(v.actions || null);
     this.el.classList.add('is-verdict');
     this.el.classList.toggle('is-ok', !!v.ok); this.el.classList.toggle('is-bad', !v.ok);
     if (v.ok && !prefersReducedMotion()) restartAnim(this.box, 'is-flash');
@@ -178,7 +200,7 @@ export class PlayStrip {
     if (this._nT > 0 && (this._nT -= dt) <= 0) { this._nT = 0; this.note.classList.remove('is-on'); }
   }
   playing(on) { this.play.classList.toggle('is-playing', !!on); }
-  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; this._vT = 0; }
+  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; this._vT = 0; this._acts(null); }
   rect() {
     if (!this.on) return null;
     const b = this.box.getBoundingClientRect();
