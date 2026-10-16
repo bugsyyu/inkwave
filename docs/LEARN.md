@@ -878,3 +878,39 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - `docs/PLAY.md`：§3 M4 机位、§3 M5、§5.3 各一段「play-5 更正」。
 
 **动了别人地盘的**：`flow.js`、`touch.js`、`host.js`、`play/cam.js`、`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` **一行没动**。共用文件只做了加法：`src/ui/play-strip.js`（WIP：`verdict` 多一个 `actions`，`this.acts`）、`src/learn/play/run.js`（WIP：构造函数多一个 `opts.Targets`）、`src/config.js`（`LEARN.arena`）。`Boss.segHit` / `Boss.applyDamage` 是在 BossFlow 里给这一局的实例包了一层（E 就这么包 `applyDamage`），boss 的文件没改。
+
+**测试**：`npm run test:learn` 177（dev）→ 184（`play-arena` 7 条：三周每个对抗赛日 / 小考 / Boss 计划的条目都有玩法、只有翻牌落卡片；对抗赛的 `_judgeRecord` 和解谜的写同一片叶子、首答一次、墨雨提示 → `H`、锁 / 换问法 / 回炉照卡片；Boss 的写句：对 → `W`、差一点扣住不写、自认对 → `S`、继续 → `W` + 出招；回炉；题簇的局部坐标 ↔ 世界、插口、球的半径；**字弹取景**在六种屏上；源码扫描：arena 不暂停、不扣住、不自己判分，两个形式的 `recordFirst(` 各一次）；`npm run check` 277 个文件绿。
+
+**实测**（`tools/learn/arena-audit.mjs`：静态服务 `/game/`、SwiftShader、`?quality=low&short=1`、冻时钟步进，竖 390 × 844（`&from=app`）和横 844 × 390 同一个浏览器；每题核：没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、她的控制器活着、触屏层活着、题条在、Boss 在两招之间；M1 / M5：题物投影都在安全区（题条下面、两边 16 px；Boss 全宽）、**她自己的一发平射**打到题物上只溅灰、不答题，然后点正确的那个 → 墨弹 → 命中那一帧判 → 答对、`learn:answer` 一次且 `first: true`、对抗赛区域涂墨（`learn:ink`）/ Boss 掉血（`learn:bossHp`）；M4：键盘每个键在屏内、真实相机投影真实的键帽 / 纸 / 她的头——头低于中间那排、整台打字机和纸在题条和键盘之间（或宽屏题条旁边的角落）、准星藏了、对抗赛她身上有盾、在游戏键盘上一个个点出答案 → 射 → 判 → 墨字成形；S：亭子升起、站上去放范例、走出来 = 说完了、Boss 掉血、不记证据。Boss 题前审计把她放到 Boss 正前方 11 m 的可走节点上（玩家会自己走过去；`--far` 不放））：
+
+（表在本节末尾的「实测表」里——跑完最后一轮再填。）
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **备战板停住比赛**：轮与轮之间（还有小考开始前）的备战板是 `FormsUi` 的板子、`match.paused = true`——PLAY §1 第 1 条说「学习局里任何时候」都不暂停；但它不在一轮里（区域不计时、机器人在摆姿势），§4 表把课文在对抗赛里写成「M6（备战时）」。留着；要改就是把备战板换成 M6 展板、比赛不停。
+2. **题簇不一定在区域正上方**：她离区域中心 > 14 m 时等 6 s，再远就放在朝区域、她射得到的地方（≤ 镜头 + 8.5 m）。Boss 同理：> 13 m 等 8 s，再远就是题簇不是弱点。
+3. **Boss 的球被推离插口**：四个插口挤在 1.3 m 宽、2.5 m 高里，球按「标签读得清」的大小（离 15 m 时 1.1 m）放上去会叠；球保持插口的高度、侧推到不叠。点中哪个球，掉血的火花在那个球上（插口是 `weakSockets` 给的）。
+4. **Boss 的题物画在它身上**（深度测试关）：它走到房子后面时题物也看得见。
+5. **点射的那颗墨弹穿过 Boss 自己的命中球**（`Boss.segHit` 在这一局包了一层，只放过带标记、这一题的那一颗）；她平时的墨照旧打在 Boss 上。审计里她的平射多半先打在壳上（只记一行）——「打 Boss 不算答」照样核过。
+6. **字弹取景**：横屏的打字机在左上角、约 120 px 宽、纸上的字很小（PLAY §3 M4 说横屏「打出来的字只在纸上」——实际读不清）；取景框住纸的**整段行程**（±1.37 m），竖屏也因此比只框键盘小。可以改成相机跟着托架慢慢平移（框当前的纸），没做。
+7. **泡泡盾在 Boss 的字弹上也给**（任务书只说对抗赛）：Boss 出题时不出招，但小蟹 / 地上的危险还在。
+8. `arenaTypeFrame` 每种屏第一次算约 10–40 ms（Node），之后按屏幕缓存；真机可能翻倍，可以在 `warm()` 时先算一次。
+9. 「我的写法也对」（扣住）只在 Node 里测过：审计打的都是标准答案，浏览器里没点过题条上的两个按钮。`.iw-ps__act` / 对抗赛题条的 ▶ 不在 `touch.js` 的跳过列表里：点击照常触发（触屏层在捕获阶段 `preventDefault`，不抢 click、不 `setPointerCapture`），但手指落在左 44 % 屏、`topGuard` 以下时摇杆也会冒出来一下——题条在顶上，多半碰不到。没改 touch.js。
+10. Boss 的 S 段回声亭放在她面前 2.6 m 的可走节点上（不是 Boss 的甲板——HULLBREAKER 背上没有可走的面）。
+
+**没做的**：
+1. 双人联机赛 / 合作赛（PLAY §9 第 6 期）、横屏进 App、删卡片。
+2. 帧时间对比（PLAY §7）没量；真机没跑。
+3. 横屏打字机跟着托架平移（见拿不准的 6）；`wire/type.js`（解谜的字弹，dev 的文件）同样的取景问题没改——`arenaTypeFrame` 可以直接换进去（它要题条和键盘的真实边）。
+4. 备战板换成 M6 展板（见拿不准的 1）。
+
+**交接**（分支 `play-5`，没推；dev `3eefc21` 已合进来）：
+- **做到哪**：对抗赛 / 小考 / Boss 在开关下没有暂停、没有扣住、没有卡片（备战板除外，见拿不准的 1）；选择题是区域上空的题簇 / Boss 弱点上的球，打字是打字蟹（对抗赛带盾），Boss 的 S 段是回声亭。浏览器里竖横两个方向走过的见实测表。
+- **先看哪些文件**：`src/learn/play/arena/host.js`（分站、镜头、站着、回声亭站）→ `arena/run.js`（`_place` 的三种放法：区域题簇 / Boss 弱点 / Boss 远时的题簇；`_orbit` / `_ride` / `_track`；`spreadBalls`；`passes`）→ `arena/type.js`（`ask` 的落点和盾、`_pose` 的两种机位、`_submit / _decide` 的扣住）→ `arena/m1.js`（`arenaKind`、`weakSockets`、`arenaTypeFrame`）→ `forms/duel.js` / `forms/boss.js` 的 `_judgeRecord`、`_ask`、`update` 里的等待；审计 `tools/learn/arena-audit.mjs`（`--form duel|quiz|boss`、`--gate`、`--far`、`--n`）。
+- **接口**（play-4 要看的「扣住」）：`_judgeRecord(g, item, p, ans, o)` 在 Boss 里多认三个 `o`：`o.decided` + `o.claim`（她点了「我的写法也对」/「继续」之后再调一次；第一次调用对 `canClaim` 的句子返回 `{ held: true }`，什么都不写、不上锁、不出招）、`o.judged`（已经判好的结果）、`o.socket / o.hit`（命中的插口和点，火花放那儿）；对抗赛认 `o.judged`。字弹的扣住在 `arena/type.js _submit`：`out.held` → `strip.verdict({ ok: false, head: '差一点 — 意思到了', why, actions: [{ text: '我的写法也对', primary: true, onTap }, { text: '继续', onTap }] })`，墨字保持灰色，`_decide(claim)` 再调 `_judgeRecord(…, { decided: true, claim })`，然后 `_resolve` 演判定。
+- **和 play-4 会撞的**：`src/ui/play-strip.js`——这边（WIP）加了 `this.acts` 一行、改了 `this.verd = h(…, this.head, this.why, this.acts)`、`show()` / `question()` / `hide()` 各多一句 `this._acts(null)`、`verdict(v)` 读 `v.actions`；play-4 在同一处加了 `this.tag / this.lanes / this.note`、改了 `this.text / this.box / this.el` 三行、`show(p, { replay, tag, lanes, lite })`、`verdict(v, { ms })`、`hide()` 多一句 `this._vT = 0`。语义不冲突（`actions` 和 `ms` 可以同时有），`this.verd` 一带、`verdict` 的签名行、`hide()` 这一行文本一定冲突，合并时两边都要。`src/config.js` 各加各的键，`src/learn/play/run.js` 这边只加了构造函数的 `opts.Targets`。
+- **给主会话的**：flow.js 的判分映射五行可以换成 `judgeAnswer(item, p, ans)`（`forms/common.js`，同一套），这样全库只剩一份；解谜的字弹（`wire/type.js`）换用 `arenaTypeFrame` 能修掉主会话看到的那两处取景；准星同理（`G.hud.xh.style.visibility`）。
+- **已知坑**：
+  1. Boss 的 HP 条 / 阶段牌（`.iw-lf__phase`，顶上 92 px）在横屏里被题条压住了一截（题条只躲 `touch.js` 顶排的两个键）。
+  2. 对抗赛的题簇钉在锚点上：她跑远了它就在身后，转回来才看得见（不跟着她）。
+  3. 对抗赛的标签牌偶尔和机器人头上的名牌（DOM）叠在一起。
+  4. 审计每一步都是冻时钟步进，SwiftShader 下一题约 1.5–2 分钟；Boss 八题两个方向要 `--budget 3000`。
