@@ -20,12 +20,14 @@
     await sleep(0);
   };
   const until = async (f, ms = 30000, what = '') => { const t = Date.now(); let sim = 0; while (!f()) { if (Date.now() - t > ms || sim > ms * 3) throw new Error('timeout: ' + what); await adv(frozen ? 400 : 100); sim += 400; } };
-  const out = { steps: [], errors: [], effects: [] };
+  const out = { steps: [], errors: [], effects: [] }; const T0 = Date.now();
   try {
     // (software GL renders a 4v4 at well under a frame a second: freeze as soon as the level exists and step the
     // simulation through the intro, so the audit measures the rules and not the renderer)
     await until(() => L(), 120000, 'level built');
     if (FAST && W.__inkwave.debug) { W.__inkwave.debug.freeze(); frozen = true; out.fast = true; }
+    // (the boss's squad bots are show only — their brains are the dearest part of a stepped frame, so the audit parks them)
+    if (FAST && M().learnKind === 'boss' && W.__inkwave.debug.freezeBots) W.__inkwave.debug.freezeBots();
     await until(() => L() && M().state === 'playing', 60000, 'level playing');
     const F = L(), kind = M().learnKind;
     out.kind = kind; out.stage = W.__inkwave.mapDef && W.__inkwave.mapDef.id; out.actors = M().actors.length; out.teams = [...new Set(M().actors.map((a) => a.team))];
@@ -65,7 +67,7 @@
       return ok;
     };
     let n = 0, wrongDone = false;
-    const t0 = Date.now();
+    const t0 = Date.now(); out.tAtPlaying = Date.now() - T0;
     while (Date.now() - t0 < (FAST ? 75000 : 300000)) {
       if (F.phase === 'done' || document.querySelector('.iw-learn.is-done')) break;
       // let the form bring the next question up (auto-walk to the next checkpoint when the form walks)
@@ -81,8 +83,8 @@
       n++;
       if (F.effects) out.effects.push(F.effects());
     }
-    out.answered = n;
-    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 25000 : 60000, 'results card');
+    out.answered = n; out.tLoop = Date.now() - t0; out.simT = F.t;
+    await until(() => document.querySelector('.iw-learn.is-done'), FAST ? 8000 : 60000, 'results card');
     out.results = document.querySelector('.iw-learn__results') && document.querySelector('.iw-learn__results').innerText.slice(0, 400);
   } catch (e) { out.errors.push(String(e && e.message || e)); }
   if (frozen) { try { W.__inkwave.debug.step(16.7); W.__inkwave.debug.unfreeze(); } catch (e) { /* fine */ } }

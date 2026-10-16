@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-10-16
+
+### 00:20 E 工作流交付：道具赛、对抗赛、Boss 战三种形式 + 今日小考（分支 `learn-e`，LEARN §13）
+
+- **先读了什么**：LEARN §1 / §4 / §5 / §8 / §9 / §12，LEVELS 全文（§2.2–§2.8 的规则、§3 的表、§5 的演出名、§6 的数据形状），`design.js`、`flow.js`、`hud-learn.js`、`match.js`、`zones.js`、`bots.js`（`zonePlan` / `hotspot`、`_bossTick` 认 `G.boss`）、`boss.js` / `bossMode.js` / `bossBrain.js`（`force`、`checkPhase`、`applyDamage`）、`nav.js`、`paint.js`（`flood` 只要 `region.cells`）、`main.js`（指针锁丢了就暂停的那一处）。
+- **先定的**：B 的切片建在替身上，而 D 的 `design.js` 直接吃 A 的模块——两边各一个 `store` 写同一个 `localStorage` 键、形状不同（替身的 `load` 会把 A 的文档当成自己的然后 `s.first[key]` 炸）。所以第一步就是 B 预留的切换：`api.js` 改成 A 的四件，B 切片露出的三处不兼容各改一行（换问法按 `type !== 'choice'`、重排选项用引擎的选项文本、到期用 `weekRef`）。切完 `?learn=w1d1&kind=puzzle&short=1` 在真内容上开得起来（音标门、换问法、墨路、证据 `ev-2026-10-12`）。
+- **改了什么**：数字进 `config.js LEARN`、`design.js` 只读它（D 的 8 条照旧绿）；`match.js` 认 `learnKind`（道具赛 1 队 1+3 没脑子的机器人、对抗赛 4v4 + ZoneControl、Boss 1+3 + BossMode、`sides` 给小考的 2 对 3、`hold` 时她的控制器停、`new (o.learn.Flow || LearnFlow)`）；`main.js` 的 `startLearn` 走 `forms/index.js`、`?learn=w1&kind=boss`、`&short=1`、对抗赛建 zones 版舞台、`learn.hold` 时松开鼠标不算暂停；三种形式各一个文件 + `common.js`（纯）+ `ui.js`（表现）；菜单三种形式亮起。细节在 LEARN §13。
+- **路上踩到的**：A 的 `puzzleLevel(week, day)` 要周对象、`head()` 写 `week: 'w1'`（HUD 会显示「第 w1 周」）——`buildLearn` 把数字周 / 天盖回去、周对象放在 `weekRef`；A 的听写题 `type: 'type'` 让 B 的换问法走进选择题分支、`item.options` 不存在就炸；对抗赛 / 道具赛答题不暂停局，松开指针锁会被 `main.js` 当成「失焦暂停」弹出暂停菜单——加了 `learn.hold` 的例外；Boss 的 W 段 D 算一题（`hitPerRight` 是整段），流程逐句判，所以每句打掉三分之一，测试里 `toFixed(4)` 的四舍五入要给 1e-3 的余量；Boss HUD 在局开始时按 `match.mode === 'boss'` 关掉了，`boss.js` 每帧看一眼没开就开回去；真舞台的 nav 图在 Node 里 258 ms 就建好了，所以环线的测试直接跑 7 张舞台而不只是夹具。
+- **验证**：`npm run test:learn` 43 / 43，`npm run check` 199 文件绿；headless 都在共用锁里一次一个（锁被 B 的跑和 IELTS-Base 的 e2e 排着，每次等几分钟）：race w1d2 short：环线 77 / 78 节点共享 5%、两块看板、错 → 换问法 → 对、每答对掉道具、两道门开墨路 8%、第 1 名、`learn:done`、结果卡、星 0 → 1；duel w1d6 short：两轮备战 + 轮、区域份额 0 → 0.39（对面 0.31）、特殊 +15 → 满 + 护盾、`learn:ink / round / done`、星 + 奖杯写进 `inkwave:learn:design:v1`；boss w1 short：错 → slam → 躲、对 → HP 1 → 0.83 → 0.66（阶段 2）→ 0.33（阶段 3）→ 0.1、写句判对、S 卡两击打死、每段首答计数的结果卡；手机 390 × 844 的道具赛看板截图看过删了。三条都无控制台错误。容器 23:27 UTC 重启过一次（服务器、队列、等待者都没了），重起后按 race → duel → boss 重跑的就是这三条。
+- **没做的**：见 LEARN §13 末尾；没推、没 `npm install`（`node_modules` 是指向 B 工作树的软链，不进 git）。
+
+---
+
 ## 2026-10-15
 
 ### 23:23 关卡学习 B：解密闯关竖切片——第 1 周第 1 天一关，Tidewater 上离线能走、手机能开（分支 `learn-b`；LEARN.md §9）
