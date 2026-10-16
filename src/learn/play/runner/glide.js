@@ -239,8 +239,8 @@ export class GlideStation {
     const W = typeof innerWidth !== 'undefined' ? innerWidth : 1280, H = typeof innerHeight !== 'undefined' ? innerHeight : 720, aspect = W / H;
     const phase = C.answered ? 'word' : 'type';
     const yaw = this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : this.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
-    const sr = this.flow.strip && this.flow.strip.rect ? this.flow.strip.rect() : null;
-    const top = sr ? +clamp(Math.round(((sr.bottom + 6) / H) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
+    const sb = this.flow.stripBottom ? this.flow.stripBottom() : null;   // (RunnerFlow: read off the DOM at most every 0.4 s)
+    const top = sb != null ? +clamp(Math.round((sb + 6 / H) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
     if (phase === 'word') {
       if (!C.word) return null;
       const sp = Math.hypot(a.vel.x, a.vel.z), vx = sp > 0.5 ? a.vel.x : sy, vz = sp > 0.5 ? a.vel.z : cy, vl = Math.hypot(vx, vz) || 1;

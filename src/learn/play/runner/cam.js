@@ -8,6 +8,9 @@
 //   · boom, height, look-ahead and field of view per aspect — upright phone: higher, steeper and wider (a 4-lane row
 //     has to fit 390 px); landscape and desktop: lower and longer — blended on the aspect, sprung on a turn of the phone
 //   · a soft wall probe (physics.cameraProbe) pulls the boom in before a wall comes between them
+//   · a row up a flight of steps (terraces) sat behind the question strip: while a row is asked the look point is
+//     raised (a slow integrator, ≤ 4 m) until the row's middle is just under the strip's bottom edge (focus.top) — as
+//     long as she stays on the screen (play-4)
 //   · a prop by the road (a crane leg, a boat's side, a bin, a railing — their colliders are in the physics) between
 //     the lens and her, or the row being asked, cranes the lens up and a little in (a spring, play-4): over low props
 //     the road and the curtains show again; it lets down once the line is clear for a moment
@@ -19,6 +22,14 @@ import * as THREE from 'three';
 import { G, clamp, smoothstep } from '../../../core/ctx.js';
 import { at } from './track.js';
 
+// the vertical NDC of point F seen from C looking at L (tH = tan(vfov / 2)); the camera's up is world up
+function ndcY(cx, cy, cz, lx, ly, lz, fx, fy, fz, tH) {
+  let ax = lx - cx, ay = ly - cy, az = lz - cz; const al = Math.hypot(ax, ay, az) || 1; ax /= al; ay /= al; az /= al;
+  let rx = -az, rz = ax; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;            // right = forward × up
+  const ux = -rz * ay, uy = rz * ax - rx * az, uz = rx * ay;                                // up = right × forward
+  const vx = fx - cx, vy = fy - cy, vz = fz - cz, z = vx * ax + vy * ay + vz * az;
+  return z > 0.1 ? (vx * ux + vy * uy + vz * uz) / (z * tH) : -2;
+}
 class Spring {   // exact critically-damped spring (cameraRig's)
   constructor(x = 0) { this.x = x; this.v = 0; }
   reset(x) { this.x = x; this.v = 0; }
@@ -40,6 +51,7 @@ export class RunnerCam {
     this.boom = new Spring(1); this.on = false; this.fresh = true;
     this.ow = new Spring(0); this.ov = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52 };   // a station's pose and its weight
     this.lift = new Spring(0); this.liftHold = 0; this.occl = { frames: 0, blocked: 0, still: 0 };   // the crane-up over a prop
+    this.tilt = 0;   // m the look point is raised to bring a row out from under the strip
     this._poseObj = null; this.tr = null; this._trP = new THREE.Vector3(); this._trL = new THREE.Vector3(); this._trF = 52;   // a pose → pose hand-over
   }
   // take the lens from the rig: from wherever the camera is now (the intro's fly-in ends behind her)
@@ -73,6 +85,7 @@ export class RunnerCam {
       yawT += clamp(d, -0.6, 0.6) * focus.w;
     }
     const p = a.visualPos ? a.visualPos(_v) : _v.copy(a.pos);
+    const hx = p.x, hy = p.y, hz = p.z;   // (her place: p is the shared _v, which the boom's pivot takes over below)
     const F = this.frame(aspect);
     if (this.fresh) {
       this.fresh = false;
@@ -106,7 +119,7 @@ export class RunnerCam {
     // (it lets down 0.6 s after the lines are clear); the look point stays — the view tips down over the prop
     const L = this.lift.x;
     if (G.physics?.los && !pose) {
-      const ch = _c.set(p.x, p.y + 0.8, p.z), lens = _d.set(cx, cy, cz);
+      const ch = _c.set(hx, hy + 0.8, hz), lens = _d.set(cx, cy, cz);
       let hid = !G.physics.los(lens, ch);
       if (!hid && focus && focus.w > 0.2) hid = !G.physics.los(lens, _e.set(focus.x, focus.y, focus.z));
       this.occl.frames++;
@@ -121,14 +134,26 @@ export class RunnerCam {
     let lx = x + fx * ahead, ly = y + lookH - (1 - kb) * 1.6, lz = z + fz * ahead;
     const fw = this.fw = (this.fw || 0) + ((focus ? focus.w : 0) - (this.fw || 0)) * Math.min(1, dt * 4);   // (eased in and out)
     if (focus && fw > 0.001) { lx += (focus.x - lx) * fw * 0.5; ly += (focus.y - ly) * fw * 0.5; lz += (focus.z - lz) * fw * 0.5; }
+    // the row out from under the strip: where its middle and she land on the screen with this lens (vertical NDC), and a
+    // slow integrator on the look point's height — up while the row is above the band and she is well on screen
+    if (focus && focus.w > 0.2 && focus.top != null) {
+      const tH = Math.tan((vfov * Math.PI) / 360), want = 1 - 2 * focus.top - 0.22;
+      const yR = ndcY(cx, cy, cz, lx, ly + this.tilt, lz, focus.x, focus.y, focus.z, tH), yH = ndcY(cx, cy, cz, lx, ly + this.tilt, lz, hx, hy + 0.3, hz, tH);
+      const dist = Math.hypot(focus.x - cx, focus.z - cz);
+      if (yR > want && yH > -0.78) this.tilt = Math.min(4, this.tilt + (yR - want) * dist * tH * Math.min(1, dt * 3));
+      else if (yR < want - 0.25 || yH < -0.9) this.tilt = Math.max(0, this.tilt - Math.min(1, dt * 2) * Math.max(0.3, this.tilt));
+    } else this.tilt = Math.max(0, this.tilt - Math.min(1, dt * 1.5) * Math.max(0.3, this.tilt));
+    ly += this.tilt;
     // field of view: rig fov = vBase + (fovKick − zoom) · 0.8 in path mode; a touch wider at swim speed
     const sp = Math.hypot(a.vel.x, a.vel.z);
     let want = vfov + clamp((sp - 8) * 0.6, 0, 4);
     // a station's pose: weighed in on a spring (and out again from the last pose given)
     if (pose) {
       // another pose while one is (still) weighed in: ease from where the last one had the lens, never a cut
-      if (pose !== this._poseObj && this.ow.x > 0.02) { this._trP.copy(this.ov.pos); this._trL.copy(this.ov.look); this._trF = this.ov.fov; this.tr = { t: 0 }; }
-      this._poseObj = pose;
+      // (or the same pose re-framed in a jump — the strip changed height under the typing frame: > 0.6 m in a frame)
+      const jumped = pose === this._poseObj && this._lpp && this._lpp.distanceToSquared(pose.pos) > 0.36;
+      if ((pose !== this._poseObj || jumped) && this.ow.x > 0.02) { this._trP.copy(this.ov.pos); this._trL.copy(this.ov.look); this._trF = this.ov.fov; this.tr = { t: 0 }; }
+      this._poseObj = pose; (this._lpp || (this._lpp = new THREE.Vector3())).copy(pose.pos);
       this.ov.pos.copy(pose.pos); this.ov.look.copy(pose.look); this.ov.fov = pose.fov || want;
       if (this.tr) {
         this.tr.t += dt; const k = smoothstep(0, 1, this.tr.t / 0.8);

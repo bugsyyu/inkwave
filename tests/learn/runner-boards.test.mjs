@@ -130,6 +130,23 @@ test('the chase lens over a prop (play-4): a collider between the lens and her o
     assert.ok(cam.occl.blocked >= 90 && cam.occl.frames >= 330);
     blocked = false; run(240);
     assert.ok(cam.lift.x < 0.05, `lets down once the line is clear: ${cam.lift.x.toFixed(3)}`);
+    // a row up a flight of steps under a tall strip (top at 42 % of the screen): the look point rises until the row's
+    // middle is under the strip; she stays on the screen; no row → it settles back
+    blocked = false; run(240);
+    const ahead = {}; at(T, 22, ahead);
+    // (in the game the rig turns fovKick into the camera's fov; here the camera takes the frame's own)
+    G.camera.fov = cam.frame(390 / 844)[4]; G.camera.updateProjectionMatrix();
+    const ndc = (x, y, z) => { G.camera.updateMatrixWorld(true); return new THREE.Vector3(x, y, z).project(G.camera).y; };
+    const focus = { x: ahead.x, y: 3.6, z: ahead.z, w: 0.75, top: 0.42 };   // (a row 2.5 m up the steps, 12 m on)
+    cam.update(1 / 60, her, T, 10, 390 / 844, null, { ...focus, top: null });
+    const before = ndc(focus.x, focus.y, focus.z);
+    for (let i = 0; i < 180; i++) cam.update(1 / 60, her, T, 10, 390 / 844, null, focus);
+    const after = ndc(focus.x, focus.y, focus.z);
+    assert.ok(cam.tilt > 0.3, `the look point raised ${cam.tilt.toFixed(2)} m`);
+    assert.ok(before > 1 - 2 * 0.42 && after < 1 - 2 * 0.42, `the row's middle from under the strip (${before.toFixed(2)}) to under its edge (${after.toFixed(2)})`);
+    assert.ok(ndc(her.pos.x, 0.3, her.pos.z) > -0.95, 'she is still on the screen');
+    for (let i = 0; i < 240; i++) cam.update(1 / 60, her, T, 10, 390 / 844);
+    assert.ok(cam.tilt < 0.05, `no row: back down (${cam.tilt.toFixed(3)})`);
     // a station's pose (the typing rig, a framed board) is never lifted
     blocked = true; const pose = { pos: new THREE.Vector3(p.x + 1, 2, p.z), look: new THREE.Vector3(p.x, 1, p.z + 3), fov: 52 };
     for (let i = 0; i < 90; i++) cam.update(1 / 60, her, T, 10, 390 / 844, null, null, pose);

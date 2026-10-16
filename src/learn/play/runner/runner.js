@@ -430,6 +430,17 @@ export class RunnerFlow extends RaceFlow {
     this.strip.playing(true);
     say(text, { slow: !!o.slow, onEnd: () => this.strip.playing(false) });
   }
+  // the strip's bottom edge as a share of the screen height, or null when it is hidden — read off the DOM at most every
+  // 0.4 s of game time (a layout read every frame after the lane cells' class changes would force a reflow a frame)
+  stripBottom() {
+    const now = G.time || 0;
+    if (this._sbT == null || now - this._sbT > 0.4 || now < this._sbT) {
+      this._sbT = now;
+      const r = this.strip.rect(), Hh = typeof innerHeight !== 'undefined' ? innerHeight : 0;
+      this._sb = r && Hh ? r.bottom / Hh : null;
+    }
+    return this._sb;
+  }
   // the touch layer's live top-row keys (⏸ here): the strip keeps clear of them (as play-1's run.js does)
   _topKeys() {
     const T = G.touch, out = [];
@@ -475,6 +486,7 @@ export class RunnerFlow extends RaceFlow {
       const w = clamp((ahead - 2) / 6, 0, 1) * clamp((34 - ahead) / 8, 0, 1) * 0.75;
       focus = this._focus || (this._focus = {});
       focus.x = _q.x + _q.rx * row.c; focus.y = _q.y + 1.1; focus.z = _q.z + _q.rz * row.c; focus.w = w;
+      focus.top = this.stripBottom();   // (the band under the strip: cam.js keeps the row out from under it)
     }
     // a station's pose: the typing rig's frame on a 滑行段, the framed board on a 看板段 (springs in and out: cam.js)
     this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : this.bw.framing);
@@ -918,7 +930,7 @@ export class RunnerFlow extends RaceFlow {
       detour: this.detour ? { branch: !!this.detour.line, u: this.detour.u != null ? +this.detour.u.toFixed(1) : null, len: this.detour.len || 0, k: this.detour.k || 0 } : null,
       clock: +this.clock.toFixed(1), bag: this.bag.slice(), stats: { ...this.stats, skipped: this.stats.skipped.length },
       racers: this.racers.map((r) => ({ id: r.id, cp: r.cp, state: r.state, finish: r.finish })), me: { cp: this.me.cp, finish: this.me.finish, place: this.place || null },
-      fairK: +this.fairK.toFixed(2), glide: this.glide.debug(), boards: this.bw.debug(), cam: { lift: +this.cam.lift.x.toFixed(2), occl: { ...this.cam.occl } },
+      fairK: +this.fairK.toFixed(2), glide: this.glide.debug(), boards: this.bw.debug(), cam: { lift: +this.cam.lift.x.toFixed(2), tilt: +this.cam.tilt.toFixed(2), occl: { ...this.cam.occl } },
     };
   }
   effects() { return { cur: this.cur, bag: this.bag.length, streak: this.streak, detour: !!this.detour, relearn: this.relearn.length }; }
