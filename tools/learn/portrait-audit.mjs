@@ -31,6 +31,8 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const GROUP = opt('group', 'menus'), SHOTS = opt('shots', null), LANG = opt('lang', null);
 const W = +opt('w', 390), H = +opt('h', 844), BUDGET = +opt('budget', 170) * 1000;
+// --web: the page as the web opens it (no ?from=app: PLAY is back); --desktop: no touch emulation (a mouse, 1 css px = 1 px)
+const WEB = args.includes('--web'), DESKTOP = args.includes('--desktop');
 const T0 = Date.now();
 const say = (...a) => console.log(`[portrait ${((Date.now() - T0) / 1000).toFixed(1).padStart(5)}]`, ...a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -68,7 +70,7 @@ const waitFor = async (fn, ms = 20000, what = '', ...a) => { const t = Date.now(
 async function tap(sel, what) {
   const c = await ev((s) => window.__iwCenter(s), sel);
   if (!c) { say('no target to tap:', what || sel); return false; }
-  await page.touchscreen.tap(c.x, c.y);
+  if (DESKTOP) await page.mouse.click(c.x, c.y); else await page.touchscreen.tap(c.x, c.y);
   await step(2);
   return true;
 }
@@ -118,12 +120,12 @@ try {
   }
   await waitHttp(`http://127.0.0.1:${hport}/index.html`);
   const q = GROUP === 'level' ? 'learn=w1d1&kind=puzzle&short=1' : GROUP === 'boss' ? 'learn=w1&kind=boss&short=1' : GROUP === 'zone' ? 'learn=w1d6&kind=duel&short=1' : 'skipTitle';
-  const url = `http://127.0.0.1:${hport}/?${q}&from=app&quality=low${LANG ? '&lang=' + LANG : ''}${relayQ}`;
-  browser = await puppeteer.launch({ executablePath: chromePath(), headless: 'new', defaultViewport: { width: W, height: H, deviceScaleFactor: 1, isMobile: true, hasTouch: true },
+  const url = `http://127.0.0.1:${hport}/?${q}${WEB ? '' : '&from=app'}&quality=low${LANG ? '&lang=' + LANG : ''}${relayQ}`;
+  browser = await puppeteer.launch({ executablePath: chromePath(), headless: 'new', defaultViewport: { width: W, height: H, deviceScaleFactor: 1, isMobile: !DESKTOP, hasTouch: !DESKTOP },
     args: gpuArgs([`--window-size=${W},${H}`, '--disable-background-timer-throttling', '--disable-renderer-backgrounding']) });
   page = await browser.newPage();
   if (!args.includes('--motion')) await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await page.evaluateOnNewDocument(() => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { quality: 'low', shadows: false, bloom: false, touchControls: 'on' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* */ } });
+  await page.evaluateOnNewDocument((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { quality: 'low', shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* */ } }, !DESKTOP);
   page.on('console', (m) => { const t = m.type(); if (t === 'error' || t === 'warn' || t === 'warning') logs.push(`[${t}] ${m.text()}`); });
   page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${(e.stack || '').split('\n').slice(0, 4).join('\n')}`));
   ev = (fn, ...a) => page.evaluate(fn, ...a);
