@@ -88,7 +88,8 @@ export class TypeShot {
   unmount() { this.rig.unmount(); this.word.clear(true); this.s = typeState(); }
 
   begin({ mode = 'word', target = null } = {}) {
-    this.word.clear(this.s.phase === 'idle');
+    // the last word shrinks away (never a hard cut); the next one is only built after the next 射
+    if (this.word.phase !== 'idle' && this.word.phase !== 'done') this.word.clear();
     this.rig.reset();
     this.target = target;
     this._go({ t: 'begin', mode });

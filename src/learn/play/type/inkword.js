@@ -167,7 +167,7 @@ export class InkWord {
   /** Form `text` at `at` (centre), flying out of `from`, turned toward `face`. → Promise when the letters are formed. */
   assemble(text, at, o = {}) {
     const pend = this.pending;      // a verdict that came in while the shell flew waits for these letters
-    this.clear(true);
+    this._reset();
     this.pending = pend;
     this.text = String(text || '');
     this.anchor.copy(at);
@@ -316,13 +316,15 @@ export class InkWord {
     return this.cA[i * 3 + ch] + (this.cB[i * 3 + ch] - this.cA[i * 3 + ch]) * m;
   }
 
-  /** Remove the word (springs it away: blobs shrink back into the ground). */
+  _reset() { for (const r of this.rows) r.n = 0; this.mesh.count = 0; this.phase = 'idle'; }
+  /** Remove the word (springs it away: blobs shrink back into the ground; now = at once). Promises still waiting on
+   *  this word settle now, so a flow that moves on never hangs. */
   clear(now = false) {
-    if (now) {
-      for (const r of this.rows) r.n = 0;
-      this.mesh.count = 0; this.phase = 'idle'; this.pending = null;
-      return;
-    }
+    const ra = this._assembled, rr = this._resolved, fa = this._onFormed, fd = this._onDone;
+    this._assembled = this._resolved = this._onFormed = this._onDone = null;
+    fa && fa(); ra && ra(); fd && fd(); rr && rr();
+    this.pending = null;
+    if (now) { this._reset(); return; }
     for (let i = 0; i < this.mesh.count; i++) if (this.st[i] && this.st[i] !== 5) { this.st[i] = 6; this.age[i] = 0; }
     this.phase = 'done';
   }
