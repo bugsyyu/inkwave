@@ -27,7 +27,8 @@ import { LEARN } from '../config.js';
 import { puzzleLevel, prompt, judge, store } from './api.js';
 import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
 import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
-import { PlayRun } from './play/run.js';   // 题即玩法 (docs/PLAY.md): a choice item is ink targets, the world runs on
+import { PlayHost } from './play/host.js';
+import { isBanner } from './play/layout.js';   // (a word's 回炉 choice: which distractors stay ink balls)   // 题即玩法 (docs/PLAY.md): every item is a thing on the stage, the world runs on (play-wire, LEARN §22)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -51,17 +52,17 @@ export class LearnFlow {
     this.inkQueue = [];               // trail splats still to land: [{ at, x, y, z }]
     this.right = new Set();           // item ids answered right (each counts once)
     this.firsts = 0;                  // answers that were the day's first for their item
-    this.total = lv.gates.reduce((n, g) => n + g.items.length, 0);
     this.asked = 0;
     this.finishT = -1;
     this.group = new THREE.Group(); this.group.name = 'learn-gates';
     G.scene.add(this.group);
     this._place();
+    this.total = this.gates.reduce((n, g) => n + g.items.length, 0);
     this._buildMeshes();
     this._buildSigns();
     this.hud?.start(this);
     // (only the puzzle itself: race / duel / boss / coop2 extend this class and keep their cards until their phase)
-    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayRun(this) : null;
+    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayHost(this) : null;
   }
 
   // ---------------------------------------------------------------------------------------------- placement
@@ -83,6 +84,9 @@ export class LearnFlow {
     const len = cum[cum.length - 1];
     // how many gates fit (never fewer than one): extra gate defs are merged into the last one so no item is lost
     const defs = this.level.gates.map((g) => ({ ...g, items: g.items.slice() }));
+    // 题即玩法 (play-wire, PLAY §4 「写句 → M4 写字墙」): the write wall's sentences are the last gate — typed on the rig at
+    // the exit, judged W as the boss's W phase judges them (the sign stood here as a placeholder since B, asking nothing)
+    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') for (const sg of this.level.signs || []) if (sg.design && sg.design.mechanic === 'write-wall' && sg.items && sg.items.length) defs.push({ ...sg, items: (this.level.short ? sg.items.slice(0, 2) : sg.items).slice(), kind: 'write' });
     const fit = Math.max(1, Math.min(defs.length, Math.floor((len - P.firstGateMin) / P.minGateGap) + 1));
     while (defs.length > fit) { const last = defs.pop(); defs[defs.length - 1].items.push(...last.items); }
     const n = defs.length;
@@ -149,6 +153,9 @@ export class LearnFlow {
     const signs = this.level.signs || [], nav = G.nav, path = this.path || [];
     this.signs = [];
     if (!signs.length || path.length < 4 || typeof document === 'undefined') return;
+    // (题即玩法 play-wire: the placeholders stood exactly where the last gate's objects float; the host's own stations —
+    // the echo booth, the check-in pad, the boards — take the exit area, LEARN §22)
+    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') return;
     const end = nav.nodes[path[path.length - 1]], back = nav.nodes[path[Math.max(0, path.length - 6)]];
     let fx = end.x - back.x, fz = end.z - back.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
     const sx = -fz, sz = fx, col = G.teamColors[0] || new THREE.Color('#ff8a14');
@@ -225,6 +232,7 @@ export class LearnFlow {
     this._pourInk();
     this.play?.update(dt);
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
+    if (this.phase === 'exit') { this._exitUpdate(dt); return; }
     if (this.phase !== 'walk') return;
     const a = this.match.local, g = this.gates[this.cur];
     if (!a || !g || !a.alive || this.match.state !== 'playing') return;
@@ -237,6 +245,25 @@ export class LearnFlow {
       this.hud.walk({ dist: d, angle: rel, index: this.cur + 1, total: this.gates.length, auto: this.auto, title: g.title });
     }
     if (d < this.P.gateRadius && Math.abs(a.pos.y - g.pos.y) < 2.5) this._arrive(g);
+  }
+
+  // the exit area (题即玩法 play-wire, src/learn/play/wire/exit.js): the walk to its stations — the booth, then the check-in
+  // pad; stepping onto the pad ends the day (the results after it, as after the last gate before)
+  _exitUpdate(dt) {
+    const a = this.match.local, H = this.play;
+    if (!a || !a.alive || this.match.state !== 'playing' || !H) return;
+    const s = H.exitSpot();
+    // (a stop the walk cannot reach — a wall moved in, a node off the grid — is passed over after exitWalkMax s on it)
+    if (s !== this._exitTo) { this._exitTo = s; this._exitT = 0; } else if (s) this._exitT = (this._exitT || 0) + dt;
+    if (s && this._exitT > this.P.exitWalkMax) { H.exitSkip(s); this._exitTo = null; this.autoPath = null; return; }
+    if (this.auto) { if (s && s.node >= 0) this._autoWalk(a, { node: s.node, pos: s }, dt); else this.autoWalk(false); }
+    if (this.hud && s) {
+      const cam = G.camera, fw = cam.getWorldDirection(_v);
+      const want = Math.atan2(s.x - a.pos.x, s.z - a.pos.z), have = Math.atan2(fw.x, fw.z);
+      let rel = want - have; while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2;
+      this.hud.walk({ dist: Math.hypot(a.pos.x - s.x, a.pos.z - s.z), angle: rel, index: this.gates.length, total: this.gates.length, auto: this.auto, title: s.title });
+    }
+    if (H.exitDone()) { this.phase = 'done'; this.finishT = 0.9; this.hud?.hide(); }
   }
 
   // ---------------------------------------------------------------------------------------------- auto-walk
@@ -254,13 +281,17 @@ export class LearnFlow {
     // 1/45 s — runs the match in two sub-steps, and the second one finds the first one's move still in the intent)
     const own = this._autoMove && Math.abs(it.move.x - this._autoMove.x) < 1e-6 && Math.abs(it.move.z - this._autoMove.z) < 1e-6;
     if (it.move.lengthSq() > 0.04 && !own) { this.autoWalk(false); return; }
+    // (题即玩法 play-wire: a board on the way is a stop — the walk goes to its viewing spot and ends there; 「自动走」 again goes on)
+    const tgt = this.play?.autoTarget?.(g) || null, node = tgt ? tgt.node : g.node;
+    if (this.autoPath && this._autoNode !== node) this.autoPath = null;
     if (!this.autoPath) {
       const from = nav.nearest(a.pos, 1.5, true);
-      this.autoPath = from >= 0 ? nav.path(from, g.node, 0, 40000, true) : null;
-      this.autoK = 1; this.autoStall = 0;
-      if (!this.autoPath) { this.autoPath = [from, g.node]; }
+      this.autoPath = from >= 0 ? nav.path(from, node, 0, 40000, true) : null;
+      this.autoK = 1; this.autoStall = 0; this._autoNode = node;
+      if (!this.autoPath) { this.autoPath = [from, node]; }
     }
     const path = this.autoPath;
+    if (tgt && tgt.stop) { const e = nav.nodes[path[path.length - 1]]; if (Math.hypot(e.x - a.pos.x, e.z - a.pos.z) < 0.7) { this.autoWalk(false); return; } }
     // advance past nodes already reached (xz within 0.6 m, or clearly behind on the way to the next one)
     while (this.autoK < path.length - 1) {
       const n = nav.nodes[path[this.autoK]];
@@ -322,14 +353,14 @@ export class LearnFlow {
 
   // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
   // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
-  _judgeRecord(g, item, p, ans) {
+  _judgeRecord(g, item, p, ans, o = {}) {
     let r;
     if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
     else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
     else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
     else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
     else r = judge(item, ans);
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date)
+    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.hinted ? { hinted: true } : {}), ...(o.self ? { self: true } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date; 题即玩法: a hint used → H, her own claim → S)
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
@@ -350,9 +381,16 @@ export class LearnFlow {
   _altPrompt(item) {
     const base = prompt(item);
     if (base.type !== 'choice') {   // ('type' from A's engine, 'typed' from the stub: anything she types)
+      // (题即玩法: a missed dictation sentence comes back as the same dictation, heard slowly — PLAY §4 「M4 慢速、逐词」; a
+      // choice of four sentences would be four long planks, which no mechanic shows)
+      if (this.play && item.meta && item.meta.kind === 'dict') return { ...base, text: '换个问法：慢一点再听一遍，把听到的句子写下来。', _tip: { zh: '回炉：慢速再听一遍 — ' + (item.zh || ''), variant: 'slow', slow: true } };
       const pool = this._wordPool(item);
       const opts = [{ text: item.en, zh: item.zh }];
-      for (const w of pool) { if (opts.length >= 4) break; if (norm(w.en) !== norm(item.en)) opts.push({ text: w.en, zh: w.zh }); }
+      // (题即玩法: the choice is M1 ink balls — a long word makes planks, at most LEARN.m1.bannerMax of them; with a short
+      // word every distractor stays a ball, so a long one is passed over)
+      const long = (w) => isBanner([{ text: String(w.en ?? w.text ?? ''), zh: String(w.zh || '') }]);
+      const want = this.play && long(item) ? LEARN.m1.bannerMax : 4;
+      for (const w of pool) { if (opts.length >= want) break; if (norm(w.en) === norm(item.en)) continue; if (this.play && (!/[a-z]/i.test(w.en) || (!long(item) && long(w)))) continue; opts.push({ text: w.en, zh: w.zh }); }
       shuffle(opts);
       return { type: 'choice', text: /\s/.test(item.en) ? '换个问法：再听一遍，选出你听到的那句' : '换个问法：再听一遍，选出你听到的词', zh: item.zh, tts: item.en, options: opts, _alt: 'choice-of-typed' };
     }
@@ -399,7 +437,11 @@ export class LearnFlow {
     this._styleGates();
     this.match.paused = false;
     this.autoPath = null;   // a new target
-    if (!next) { this.phase = 'done'; this.finishT = 0.9; return; }
+    if (!next) {
+      // 题即玩法 (play-wire): the day ends on the exit area's stations — the 回声亭, the 打卡垫 (踩上去 = 走完了) — when it has them
+      if (this.play && this.play.exitStart()) { this.phase = 'exit'; this.autoPath = null; this._emit('learn:exit', { signs: (this.level.signs || []).length }); G.input?.requestLock?.(); return; }
+      this.phase = 'done'; this.finishT = 0.9; return;
+    }
     this.phase = 'walk';
     G.input?.requestLock?.();   // the answer's key / tap was the gesture …
     if (G.game) G.game._relock = true;   // … and if the browser still refuses, the next click on the stage takes the mouse back

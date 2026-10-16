@@ -198,7 +198,7 @@ test('only a deliberate direct hit answers: a tapped / crosshair round on its ow
   }
 });
 
-test('phase 1: which items are ink targets — 单词选义 450 · 语法小测 138 · 发音小测 76 = 664 of the three weeks; their reworded retry stays an ink target; every other item keeps the card', async () => {
+test('which items are ink targets — 单词选义 450 · 语法小测 138 · 发音小测 76 · 阅读题 60 (play-wire) of the three weeks; their reworded retry stays an ink target; every other item is another mechanism\'s', async () => {
   const count = {}, card = {};
   let retryTyped = 0;
   for (const n of [1, 2, 3]) {
@@ -215,9 +215,9 @@ test('phase 1: which items are ink targets — 单词选义 450 · 语法小测 
       } else card[k] = (card[k] || 0) + 1;
     }
   }
-  assert.deepEqual(count, { 'choice·word': 450, 'choice·quiz': 138, 'pron·quiz': 76 });
+  assert.deepEqual(count, { 'choice·word': 450, 'choice·quiz': 138, 'pron·quiz': 76, 'listen·read': 60 });
   assert.equal(retryTyped, 0, 'no stem starts 「哪一个是」: no retry turns into typing');
-  for (const k of ['pron·sym', 'listen·read', 'listen·pair', 'dictation·dict', 'dictation·word', 'lesson·write', 'lesson·speak', 'lesson·lesson']) assert.ok(card[k] > 0 && !count[k], k + ' keeps the card in phase 1');
+  for (const k of ['pron·sym', 'listen·pair', 'dictation·dict', 'dictation·word', 'lesson·write', 'lesson·speak', 'lesson·lesson']) assert.ok(card[k] > 0 && !count[k], k + ' is not an ink target (another mechanic\'s: host.js)');
   // what does not play: a flip card, a typed rewording, a 5-option choice
   const w1 = await loadWeek(1), word = daySteps(w1, 1).find((s) => s.kind === 'choice').items[0];
   assert.equal(canPlayM1(word, { ...prompt(word), _flip: true }), false);

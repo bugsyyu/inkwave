@@ -47,6 +47,36 @@ export const MECHANICS = {
   'weekly-sign':     { zh: '周报牌', kind: 'lesson', input: 'read', renders: '复习日终点的牌：包里的 summary；「复制周报」开经典页', record: '不计分', forms: ['race', 'puzzle', 'duel'], batch: 0, classic: '周报由宿主的 weekReport 从她的数据生成，游戏只展示 summary' },
   'placement-sign':  { zh: '入门小测牌', kind: 'lesson', input: 'read', renders: '复习日终点的牌：开经典页做 45 分钟的入门小测', record: '不计分', forms: ['race', 'puzzle', 'duel'], batch: 0, classic: '课程包里没有它的题；它是宿主帮老师校准难度的自评表' },
 };
+// 题即玩法 (docs/PLAY.md §4): the mechanic every item plays as, per form — answer: what a game action hands the one judging
+// path (an option index · a typed string · her own rating · nothing); record: what store.recordFirst then writes (the
+// evidence modes are the host's, vendor/ielts/model.js MODES — never a new one); reuse: INKWAVE's own pieces it is built of
+export const PLAY = {
+  'ink-target':   { zh: '墨靶', answer: 'index', record: 'L', reuse: 'weapons.js Projectiles · boss.js segHit · fx.explosion · paint.flood' },
+  'lane-curtain': { zh: '墨幕车道', answer: 'index', record: 'L', reuse: 'curtain · swim / jump / dive · paint' },
+  'beat-pads':    { zh: '节拍台', answer: 'index', record: 'L', reuse: 'decor spawn pads · music.js beat · character trigger / setDance' },
+  'type-shot':    { zh: '字弹', answer: 'text', record: 'T / H / S · L (pct) · W / S', reuse: 'special-props buildCrab · character-mats · fx · paint' },
+  'weak-point':   { zh: '弱点', answer: 'index', record: 'L', reuse: 'boss.js weak points · G.boss.splash' },
+  'board-walk':   { zh: '展板路', answer: 'none', record: '—', reuse: 'CanvasTexture boards · cameraRig spring' },
+  'echo-booth':   { zh: '回声亭', answer: 'none', record: '—', reuse: 'decor pad · a board' },
+  'flip-target':  { zh: '翻牌靶', answer: 'self', record: 'F', reuse: 'ink targets · a CanvasTexture card' },
+  'signs':        { zh: '路标', answer: 'none', record: '—', reuse: 'decor pad · a board' },
+};
+// the mechanic an item plays as in a form (PLAY §4's table; mechanic: the step's, for the review day's flash-flip cards)
+export function playOf(item, form = 'puzzle', mechanic = null) {
+  const m = (item && item.meta) || {}, kind = m.kind, input = m.input;
+  if (mechanic === 'flash-flip' && input === 'type') return 'flip-target';
+  if (form === 'boss') return input === 'read' ? (kind === 'speak' ? 'echo-booth' : 'signs') : input === 'type' || input === 'write' ? 'type-shot' : 'weak-point';   // (W: M4 on the armour plates; the answer is still a string)
+  if (input === 'choice') {
+    if (kind === 'sym' || kind === 'pair') return form === 'puzzle' || form === 'race' ? 'beat-pads' : 'ink-target';
+    if (kind === 'word' || kind === 'quiz' || kind === 'read') return form === 'race' ? 'lane-curtain' : 'ink-target';
+    return 'ink-target';
+  }
+  if (input === 'type' || input === 'write') return 'type-shot';
+  if (kind === 'speak') return 'echo-booth';
+  if (kind === 'lesson') return m.type === 'checkin' || m.type === 'weekly' || m.type === 'placement' ? 'signs' : 'board-walk';
+  return null;
+}
+
 export const CLASSIC = Object.fromEntries(Object.entries(MECHANICS).filter(([, m]) => m.classic).map(([id, m]) => [id, m.classic]));
 
 // course step (pack type + k + flags) → mechanic id

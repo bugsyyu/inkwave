@@ -73,8 +73,10 @@ export class FlipDeck {
     this.faceMat = new THREE.MeshBasicMaterial({ map: this.blank, transparent: true, toneMapped: false, name: 'iw-flip-face' });
     this.faces = new THREE.Mesh(this.faceGeo, this.faceMat); this.faces.renderOrder = 2;
     this.card.add(this.body, this.faces);
-    this.T = targets || new InkTargets({ scene: null, reduced, ink: '#' + this.ink.getHexString() });
-    if (this.T.group) this.group.add(this.T.group);
+    // (the targets are placed in WORLD coordinates — _showTargets applies the card group's matrix itself — so their group
+    // is the scene's, never a child of the card group: under it they were transformed twice and stood somewhere else
+    // while their projection, and so a tap, was right; play-wire)
+    this.T = targets || new InkTargets({ scene, reduced, ink: '#' + this.ink.getHexString() });
     this.T.setInk?.(this.ink);
     this.rateAtlas = this.T.atlas('flip:rate', RATE);
     scene?.add(this.group);

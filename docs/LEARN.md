@@ -788,3 +788,67 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
   2. 浏览器锁很挤：另外两个工作流的批次一跑几十分钟；一次多截几张、`flock` 外面别套 `timeout`（等锁的时间也算进去，会被杀）。
   3. Node 测试里 three 要在注册 `three-hook.mjs` 之后动态 `import`（静态 import 先解析，会找不到 `three`）——`paint.js`、`atlas.js` 都间接引 three。
   4. 回声亭、跟读用的 `setTimeout` 都 `unref` 了，不然 Node 测试会多等 9 秒。
+
+## 22. play-wire 交付（2026-10-16，分支 `play-wire`：解谜里一张卡片都没有——字弹 M4、节拍台 M3、展板路 M6、回声亭 M7、翻牌靶 M8、路标接进门的流程，阅读题进 M1；PLAY §9 第 2、3 期的「接进门的流程」）
+
+**先读了什么**：PLAY 全文（§1 的 12 条逐条核；§2 一题的生命；§3 八种玩法「已经做出来的样子」；§4 的表；§5.1；§6；§9；§10）；本文 §18（`_judgeRecord`、`G.playTap`、`G.playTargets`、`PlayRun` 的取景和放置、审计写法）、§19（字弹的接口和「接的时候要注意的三件事」）、§20（跑酷怎么拿镜头：`cam.js` 的 `rig.mode = 'path'; rig.path = null`）、§21（四个玩法的接口和注意的五件事、交接的已知坑）；代码：`flow.js` 全文、`play/run.js` 全文、`play/beat/{stage,pads,round,clock,mats,padset}.js`、`play/board/{walk,strip,signs,frame,paint,set}.js`、`play/echo/booth.js`、`play/flip/{deck,targets}.js`、`play/type/{shot,frame,rig,inkword}.js`、`ui/play-keys.js`、`ui/play-strip.js`、`ui/hud-learn.js`、`forms/common.js`（`rightAnswerOf`、`flipPrompt`、`cardFor`、`canClaim`）、`engine.js`、`store.js`（`recordFirst` 的 `typed / hinted / self`）、`design.js`、`levels.js`、`content.js`（条目和步的形状）、`core/touch.js`、`game/cameraRig.js`（`path` 模式、`zoom`、`follow` 的混合）、`game/match.js`（每帧的顺序：`updateController` → `learn.update` → actors）、`game/player.js`、`main.js`（`_frame`、`debug.freeze / step`、`shadercheck`）、`core/renderer.js`、`tools/play3-lab.js`、`tools/learn/play-audit.mjs`、`tests/learn/play*.test.mjs`。
+
+**先定的**：
+1. **先查节拍台「画不出来」**：浏览器里逐帧读像素——出题、起跳、判、判完每一帧台子和牌子都在，着色器没错。是实验室的 `lab.measure()` 把题物藏起来数 draw call，恢复 `visible` 后没再画一帧，冻住的页面之后截到的就是没有台子的那一帧。节拍台一行没改（`tools/play3-lab.js` 的 `measure()` 多画一次）。
+2. **一个宿主、各站分发**：`LearnFlow` 拿 `PlayHost`（`src/learn/play/host.js`），契约和 `PlayRun` 一样（`canAsk / ask / toCard / update / gateOpened / dispose`）；M1 还是 play-1 的 `PlayRun`，其它站在 `src/learn/play/wire/`。`kindOfItem(item, p)` 是纯函数：翻牌 → M8；`canPlayM1` → M1（含单词卡回炉的「选出那个词」）；听辨 / 音标 2 或 4 选 → M3；打字 → M4；三周解谜里每个条目、每种换问法都有站（测试核）。
+3. **镜头照跑酷的拿法**（`src/learn/play/cam.js`）：站的取景位姿是各自纯函数给的世界坐标 `{ pos, look, fov }`，`PlayCam` 用临界阻尼弹簧过去，`rig.mode = 'path'; rig.path = null`（`main.js` 不动 path 模式的 rig，rig 自己只加震动和算 FOV），FOV 经 `rig.zoom = (vBase − fov) / 0.8`（§19）；放回去时先把 `rig.yaw / pitch` 定在当前朝向再 `rig.follow(actor, true)`，rig 自己的 0.6 s 混合接上。M1 照旧用跟随镜头和它自己的 `dampAngle` 取景（问 M1 前先放回去）。
+4. **她站着 ≠ 定身**：打字、跳台、翻牌时每帧在控制器写完意图之后、她动之前把 `intent.move / jump / fire / squid / sub / special` 清零（`match.update` 里 `learn.update` 先于 actors）；不碰 `match.paused`、没有 `learn.hold`；触屏层活着，摇杆照出（只是不动她）。
+5. **判分只有 `_judgeRecord`**：字弹交一串字、节拍台交落地的台号（`resolve` 的 `right` 用 `rightAnswerOf`，舞台序号）、翻牌交 `true / false`；`_judgeRecord(g, item, p, ans, o)` 多一个 `o`：`o.hinted`（键盘的提示用过 → `H`）、`o.self`（→ `S`）；不给 `o` 就是卡片原来那一个调用。
+6. **回炉**：单词卡答错 → `_altPrompt` 的 `choice-of-typed`（右边的词 + 近似词的四选）→ M1 墨球（`canPlayM1` 收它；选项只挑能当墨球的词——有汉字的、超过横幅长度的跳过）；听写句答错 → 开关下是同一句慢速再听、再打一次（原来的「四句选一句」会是四块横幅，没有玩法放得下）；听辨 / 音标答错 → 同一舞台重排。
+7. **展板**：单词 5 个一板、音标 2 个一板、讲解一板、课文一板，一道门最多 `BOARDS_MAX` 6 块（复习日 48 个音标只展 12 个）；门变成「下一道」时沿前一道门到它的那段路升起（`boardSpots`）；自动走到每块没看过的板前停（`flow._autoWalk` 问 `host.autoTarget`），「自动走」再按一下走下一块或门；出题时阅读条收起。
+8. **出口区**（`wire/exit.js`）：最后一道门开后进 `phase 'exit'`：回声亭在路线尽头左手、打卡垫 / 周报牌 / 入门小测牌在右手；自动走先亭子后打卡垫；**踩上打卡垫才结算**；没有打卡垫的一天（复习日）照旧门开就结算。写字墙不在出口区：它的 5 句是**最后一道门**（`flow._place` 把 `write-wall` 的步变成门，短关卡取 2 句），M4 的句子模式，记 `W`。
+9. **翻牌靶的靶子**：留 play-3 的 `InkTargets`（没换成 play-1 的 `PlayTargets`：图集的 key 格式不一样，换了要改两边）。查出一个 bug：`FlipDeck` 把 `InkTargets.group` 挂在卡片的 group 下，而靶子的位置是世界坐标（`_showTargets` 自己乘过卡片的矩阵）——画出来的球被变换了两次、不在卡片旁边，投影和点击却是对的。改成挂在场景下。
+10. **翻牌的镜头**：`FlipDeck.frame()` 是展板式的正对、水平——她站在镜头和卡片之间，正好把卡挡住。站里改成同一距离、镜头抬到她头上、俯视 `LEARN.flip.pitch`（0.62 rad）看卡。
+11. **字弹的落点**：她前方 `FRAME.dist` 6.5 m、地面在她这一层（±0.9 m）、头到落点视线通；不通就 5.2 / 4.2 / 3.4 m 拉近（第一版落在二楼的窗台上）。**节拍台选址**：门后路线上 2–14 m 里每个路线点，量 7 个台位（家 + 四周）各自中心和四个边缘的地面高差 < 0.3、在导航网格上、家台到它 0.4 m 和 1.1 m 两条视线通（喷泉池边不算平地）；全过就用，否则分最高的。
+12. **开关下不建 B 的占位路标**（它们正好立在最后一道门的题物中间）；出口区的站取代它们。
+
+**改了什么**：
+- 新：`src/learn/play/host.js`（`PlayHost`、`kindOfItem`、`stageSpot`、`facingYaw`、`autoTarget`、`exitStart / exitSpot / exitDone`、`say`、`debug`）、`src/learn/play/cam.js`（`PlayCam`、`baseVFov`）、`src/learn/play/wire/type.js`（`TypeStation`）、`wire/beat.js`（`BeatStation`、`isBeatItem`、`padLabels`）、`wire/flip.js`（`FlipStation`）、`wire/boards.js`（`BoardStation`、`gateSpecs`、`BOARDS_MAX`）、`wire/exit.js`（`ExitStation`）、`tools/learn/wire-audit.mjs`、`tests/learn/play-wire.test.mjs`。
+- `src/learn/flow.js`：`new PlayHost(this)`；`_place` 追加写字墙门、`total` 在 `_place` 后算；`_judgeRecord(…, o)`；`_altPrompt` 听写慢速 / 单词回炉的选项过滤；`_autoWalk` 的停点；`_open` 进出口阶段；`_exitUpdate`；开关下不建占位路标。
+- `src/learn/play/m1.js`：`M1_KINDS` 加 `read`；`canPlayM1` 收 `choice-of-typed`。`src/learn/play/flip/deck.js`：靶子挂场景。`src/learn/design.js`：`PLAY` 表 + `playOf`。`src/config.js`：`LEARN.flip.pitch`。`tools/play3-lab.js`：`measure()` 多画一帧。`tests/learn/play.test.mjs`、`design.test.mjs`：阅读题进 M1、`playOf` 全覆盖。`docs/PLAY.md`：§4 表写句 / 课文 / 翻牌三行、路标一段标「play-wire 更正」。
+
+**动了别人地盘的**：`src/core/touch.js` 三行（两个 import + `_down` 里一句：`PlayKeys.owns(e) || ReadStrip.owns(e)`，或开关下点在题条的 ▶ / 关卡 HUD 自己的按钮上 → `return`，在 `enabled` 之后、跑酷的滑动钩子之前——不然节拍台在时点 ▶ 也算跳台）。`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` 没动。`tools/learn/play-audit.mjs` 的 M1 审计读的是 `F.play.cur / T / debug()`，现在 `F.play` 是宿主（M1 在 `F.play.m1`），它只剩 `--script` 那条路（其它形式的回放）还能用；解谜的审计是 `wire-audit.mjs`。
+
+**测试**：`npm run test:learn` 170 → 177（`play-wire` 6 条：三周每个条目每种形式都有玩法且答案形状对得上输入；解谜每道门能问的每个 prompt——引擎的、换问法的、翻牌的、「不熟」后的打字——都有站；打字证据 `T / H / L(pct) / W / S` 和不给 `o` 时与卡片同一个调用；听辨 174 · 音标 96、重排后还在台上、不是墨靶；展板数；`touch.js` 的跳过在滑动钩子之前、各站源码里没有判分；`design.test` 多一条 `playOf` 全覆盖）；`npm run check` 270 个文件绿。
+
+**实测**（`tools/learn/wire-audit.mjs`：静态服务 `/game/`、SwiftShader、`?quality=low`、冻时钟步进；`?short=1&gate=N` 两道门各两题，自动走，每道板停一次再按「自动走」；每题核：没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、题条在、题物 / 台子 / 键盘 / 卡片在屏内或安全区内、模拟一次点 / 打字 / 跳 / 翻能答、`learn:answer` 一次且 `first: true`；2026-10-16 UTC）：
+
+| 关卡（`?short=1&gate=N`） | 竖 390 × 844 | 横 844 × 390 |
+|---|---|---|
+| `w1d1` 门 1–2：音标展板 4 块 + 节拍台 4 台 ×2；单词展板 + 墨球 ×2 | 全过（15:30，`63da822`） | 两道门全过（16:11，`c4093c0`），之后自动走卡住到 540 s 的预算——舞台选在了码头凉亭的屋顶下（镜头在屋顶外什么都看不见），门开后她站在网格外的侧台上走不出来：选址加了头顶 5 m 开阔、舞台镜头看得见家台、台位 0.75 m 内有可走节点（`4452356` / `ea6f7a5`），收台时站在网格外就回家台（`4f29a3c`）；改后见下面的复跑 |
+| `w1d1` 门 4–5：听写句 M4 ×2；课文板 + 阅读题墨球 / 横幅 ×2 | 全过（15:37；两条红是审计自己的：键盘滑入动画走墙钟，第一个键点早了——审计改成等键盘停稳） | 两道门全过（16:28，`c4093c0`；听写句的灰墨字整句成形在街上），写字墙那道门没跑完（预算）；截图里阅读题的横幅和课文板挤在一起、一块横幅藏在板后 → 门开始出题时收掉它的展板（`c77acf4`） |
+| `w1d1` 门 6–7（+ 写字墙）：听辨 2 台 ×2；单词卡 M4 ×2（第一个用了提示 → `H`）；写句 M4 | 全过（15:52；写字墙见复跑） | 两道门 + 写句的打字框全过（16:20，`c4093c0`），写句的「射」没跑到（预算）；单词卡的墨字打进了房子 → 字弹选朝向：门后那一向被挡就在 ±1.4 rad 里挑最长的空地（`9a35a5b`） |
+| `w1d7` 门 3–4：翻牌 ×2（认识 → `F`）；讲解板 + 横幅 ×2 | 全过（16:00） | 全过（16:01；舞台 `terraces`）；翻过来以后靶子看不见——`FlipDeck` 把靶子挂在卡片 group 下又给世界坐标，画在别处（`9355973` 修） |
+
+（复跑——写字墙 + 出口区、横屏 `w1d1` 门 1–2 改后、`w2d1`、`w1d2`——见本节末尾的更新。）
+
+**拿不准的（自己定了，请主会话过目）**：
+1. 写字墙成了最后一道门：解谜以前从不问写句（B 把它当占位路标），现在每天多 5 句、记 `W`；「我的写法也对」（`S`）没接——`_judgeRecord` 当场就写了 `W`，要先扣住首答再给她点（boss.js 的 `_settle` 那种），这一步没做。
+2. 踩打卡垫才结算（有打卡垫的天）；复习日照旧门开就结算，周报牌 / 入门小测牌没站出来。「经典页」游戏里没有可开的页：发 `learn:classic { kind }` + 一句提示。
+3. 星表：打卡时没写本机星表（解谜本来也不写；道具赛写）。
+4. 一道门最多 6 块展板：复习日的 48 个音标只展前 12 个（展板是看的，题一个不少）。
+5. 节拍台整小节没动两次 → 排到门尾、不写证据，但 `asked` 已经加过、`learn:question` 已发过一次。
+6. 翻牌的靶子留 `InkTargets`（多 2 个 draw call）；「射一下翻牌」没接（只有点）。
+7. 听写的 `typedOk`（她的哪几个词炸开）用宿主 `lcsOk(她的词, 参考词)`，百分数照旧是 `judge` 的。
+8. 出口区的亭子 / 牌子位置用的是路线尽头附近的导航节点（像 B 的占位路标），没有做选址打分。
+
+**没做的**：
+1. 「我的写法也对」（`S`）在字弹上。
+2. 复习日的周报牌 / 入门小测牌、打卡的星表。
+3. 道具赛换跑酷 + 滑行段接字弹；对抗赛 / 今日小考 / Boss M5；双人；横屏键盘拆两半；删卡片——主会话另派。
+4. 帧时间对比（PLAY §7）没量；真机。
+
+**交接**（收尾时写；分支 `play-wire`，没推，从 dev `2929440` 建出）：
+- **做到哪**：解谜（`kind=puzzle`）里三周每一个条目都有玩法，`_askNext` 的「照旧卡片」分支在三周的内容上走不到（`toCard` 还在：开关关掉、其它形式继承的流程照旧）。竖屏 `w1d1` 三组 + `w1d7` 翻牌、横屏四组都在浏览器里走过（上表）；写字墙 + 出口区、改过选址 / 朝向之后的横屏、`w2d1` / `w1d2` 的复跑看本节末尾。
+- **先看哪些文件**：`src/learn/play/host.js`（`kindOfItem` 分站 → `ask` / `update` 的镜头和站立 → `stageSpot` / `facingYaw` / `exitStart`）→ `cam.js` → `wire/type.js`（`ask` 的朝向和落点、`_pose`、`_submit`）→ `wire/beat.js` → `wire/flip.js`（`_pose`）→ `wire/boards.js`（`gateSpecs`、`place`）→ `wire/exit.js`；`flow.js` 里 `this.play` / `phase === 'exit'` / `_altPrompt` 的几处；审计 `tools/learn/wire-audit.mjs`（`walkOn` 的板停和出口停、四个 `answerXxx`）；测试 `tests/learn/play-wire.test.mjs`。
+- **已知坑**：
+  1. 舞台 / 字弹 / 出口区的位置都是按导航网格、地面高差和 `physics.los` 挑的，装饰性的道具（不在物理里的）躲不开；一个关卡一个样，截图要看。
+  2. 审计的每一步都是冻时钟步进，SwiftShader 下一道门 2 题约 2–3 分钟，三道门 + 出口区要 `--budget 900` 以上；键盘滑入是 CSS 动画走墙钟，打字前要等它停稳（`kbSettled`）。
+  3. `cam.release` 后 rig 的 `follow(actor, true)` 把镜杆重置到 `dist`，第一帧可能穿进她身后的墙，rig 自己的探杆下一帧就收回来。
+  4. `hud.playMode(true)` 在展板框住时也会调（藏走路条）；谁 `playMode(false)` 要看 `flow.phase`（`wire/boards.js` 的 `on.unframed`）。
+  5. 字弹的 `TypeShot` 一题结束 `_next` 在 Promise 里回流程；流程若在同一帧里 `clear()`（换站 / 门开），`InkWord.clear()` 会让等着的 Promise 落地，不会卡。

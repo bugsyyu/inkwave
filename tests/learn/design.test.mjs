@@ -12,7 +12,7 @@ import { SUBS, SPECIALS, OFFLINE_MAPS, MAPS, DIFFICULTY, TIMES } from '../../src
 import {
   FORMS, MECHANICS, CLASSIC, mechanicOf, EXAM_MECHANICS, SPOTS, DAY_PLAN, BOSS_STAGE, PROPS, PROPS_OF, PROP_DROP, BOT_ANSWER, BOTS_OF,
   EFFECTS, SFX, TRIGGERS, DANCES, BANNERS, RULES, RETRY, UNLOCK, STARS, stars, PACE, estimateMinutes, coverage, planDay, dayPlanFor,
-  bossPlan, quizPlan, freePlan, SYLLABUS_MECHANICS, dayTable, STAGE_IDS,
+  bossPlan, quizPlan, freePlan, SYLLABUS_MECHANICS, dayTable, STAGE_IDS, PLAY, playOf,
 } from '../../src/learn/design.js';
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
@@ -35,6 +35,15 @@ function contractList(prefix) {
 }
 
 async function weeks() { return [await loadWeek(1), await loadWeek(2), await loadWeek(3)]; }
+
+test('题即玩法 (PLAY §4, play-wire): every item of every puzzle day plays as one of the PLAY mechanics — none is a card', async () => {
+  let n = 0;
+  for (const k of [1, 2, 3]) {
+    const w = await loadWeek(k);
+    for (const d of w.days) { const P = planDay(w, d.n, 'puzzle'); for (const g of [...P.gates, ...P.signs]) for (const it of g.items) { const id = playOf(it, 'puzzle', g.design && g.design.mechanic); assert.ok(id && PLAY[id] && id !== 'card', w.id + ' d' + d.n + ' ' + it.id); n++; } }
+  }
+  assert.ok(n >= 2200, 'the three weeks: ' + n + ' items');
+});
 
 test('coverage(w1–w3): every step has a mechanic, missing is empty, the classic set is exactly placement / weekly / speak / checkin', async () => {
   setBackend(memory()); store.load();
