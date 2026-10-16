@@ -253,6 +253,9 @@ export class LearnFlow {
     const a = this.match.local, H = this.play;
     if (!a || !a.alive || this.match.state !== 'playing' || !H) return;
     const s = H.exitSpot();
+    // (a stop the walk cannot reach — a wall moved in, a node off the grid — is passed over after exitWalkMax s on it)
+    if (s !== this._exitTo) { this._exitTo = s; this._exitT = 0; } else if (s) this._exitT = (this._exitT || 0) + dt;
+    if (s && this._exitT > this.P.exitWalkMax) { H.exitSkip(s); this._exitTo = null; this.autoPath = null; return; }
     if (this.auto) { if (s && s.node >= 0) this._autoWalk(a, { node: s.node, pos: s }, dt); else this.autoWalk(false); }
     if (this.hud && s) {
       const cam = G.camera, fw = cam.getWorldDirection(_v);

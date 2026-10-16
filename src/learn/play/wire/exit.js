@@ -29,16 +29,31 @@ export class ExitStation {
   get tapApi() { return (this.echo && this.echo.walk.framed >= 0 && this.echo.tapApi) || (this.signs && this.signs.walk.framed >= 0 && this.signs.tapApi) || null; }
   get done() { return this.on && (this.padAt ? this.checked : (!this.echoAt || this.spoke)); }
 
-  start(end, back) {
+  start(end, back, endNode = -1) {
     const F = this.flow, signs = F.level.signs || [], nav = G.nav;
     if (!signs.length || !end) return false;
+    this.skipped = new Set();
     const speak = signs.find((s) => s.design && s.design.mechanic === 'echo-booth'), item = speak && speak.items[0];
     const boards = signs.filter((s) => s.design && ['checkin-pad', 'weekly-sign', 'placement-sign'].includes(s.design.mechanic));
     if (!item && !boards.length) return false;
     // along the way in, at the end: the booth on the left, the signs on the right, each on a nav node
     let fx = end.x - back.x, fz = end.z - back.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
     const sx = -fz, sz = fx;
-    const spot = (lat, ahead) => { _v.set(end.x + sx * lat + fx * ahead, end.y + 1, end.z + sz * lat + fz * ahead); const k = nav ? nav.nearest(_v, 2.5, true) : -1; const n = k >= 0 ? nav.nodes[k] : end; return { x: n.x, y: n.y, z: n.z, node: k }; };
+    // a station's spot: a walkable node she can reach from the route's end (the far spawn's zone lies just past it and is
+    // closed to her team; the first version put the booth in it and the auto-walk ran at the barrier until the audit's
+    // budget ran out) — the asked offset first, then nearer the route, then further back along it
+    const spot = (lat, ahead) => {
+      for (const [l, h] of [[lat, ahead], [lat * 0.6, ahead], [lat, ahead - 2.5], [lat * 0.6, ahead - 2.5], [0, ahead - 1.5], [0, ahead - 4]]) {
+        _v.set(end.x + sx * l + fx * h, end.y + 1, end.z + sz * l + fz * h);
+        const k = nav ? nav.nearest(_v, 2.5, false) : -1;
+        if (k < 0) continue;
+        const n = nav.nodes[k];
+        if (n.zone >= 0 && n.zone !== 0) continue;
+        if (endNode >= 0 && !nav.path(endNode, k, 0, 4000, true)) continue;
+        return { x: n.x, y: n.y, z: n.z, node: k };
+      }
+      return { x: end.x, y: end.y, z: end.z, node: endNode };
+    };
     const hex = G.teamHex?.[0] || '#ff8a14', root = (G.hud && G.hud.root) || document.body;
     this.spots = [];
     if (item) {
@@ -88,6 +103,7 @@ export class ExitStation {
     if (!this.on) return null;
     const a = this.match.local;
     for (const s of this.spots) {
+      if (this.skipped && this.skipped.has(s)) continue;
       if (s.kind === 'echo' && this.spoke) continue;
       if (s.kind === 'checkin' && this.checked) continue;
       if (s.kind !== 'echo' && s.kind !== 'checkin') continue;
@@ -96,13 +112,15 @@ export class ExitStation {
     }
     return null;
   }
+  // a spot the walk could not reach in time (the flow's stall timer): passed over — a skipped check-in pad ends the day
+  skip(s) { if (!s) return; this.skipped.add(s); this.log.push({ t: +this.flow.t.toFixed(2), ev: 'skip', kind: s.kind }); if (s.kind === 'checkin') this.checked = true; if (s.kind === 'echo') this.spoke = true; }
   update(dt) {
     if (!this.on) return;
     const a = this.match.local, t = G.time, o = { aspect: innerWidth / innerHeight, speed: a ? Math.hypot(a.vel?.x || 0, a.vel?.z || 0) : 0 };
     this.echo?.update(dt, t, a ? a.pos : null, o);
     this.signs?.update(dt, t, a ? a.pos : null, o);
   }
-  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
+  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), z: +s.z.toFixed(1), node: s.node, skipped: !!(this.skipped && this.skipped.has(s)) })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
   clear() { this.echo?.close(); this.signs?.clear(); this.on = false; }
   dispose() { this.clear(); this.echo?.dispose(); this.signs?.dispose(); this.echo = null; this.signs = null; }
 }

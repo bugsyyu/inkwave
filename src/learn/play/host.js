@@ -157,11 +157,12 @@ export class PlayHost {
     this._clearStation(); this.kind = null; this.cur = null;
     this.cam.release(G.rig, this.match.local);
     F.hud?.playMode?.(false);
-    const on = this.exit.start(end, back);
+    const on = this.exit.start(end, back, path[path.length - 1]);
     if (on) this.log.push({ t: +F.t.toFixed(2), ev: 'exit' });
     return on;
   }
   exitSpot() { return this.exit.nextSpot(); }
+  exitSkip(s) { this.exit.skip(s); }
   exitDone() { return this.exit.done; }
 
   // ---------------------------------------------------------------------------------------------- shared helpers

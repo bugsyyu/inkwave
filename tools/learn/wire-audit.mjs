@@ -122,6 +122,7 @@ async function walkOn() {
   for (let i = 0; i < 400; i++) {
     const s = await ev(() => { const F = __inkwave.match.learn, H = F.play; const X = H.exit.debug(); return { phase: F.phase, auto: F.auto, asking: !!(H.cur && F.asking), framed: H.boards.framed, exit: X.idle ? null : X, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') }; });
     if (s.asking || s.done) return s;
+    if (i % 40 === 39) say('walking', JSON.stringify(await ev(() => { const F = __inkwave.match.learn, a = F.match.local; return { phase: F.phase, auto: F.auto, her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(1)), stall: +F.autoStall.toFixed(1), exit: F.play.exit.debug() }; })).slice(0, 400));
     if (s.phase === 'exit' && !s.auto) {
       // a stop in the exit area: the booth (the sample plays; walking on = 说完了) or the check-in pad (踩上去 = 走完了)
       for (let k = 0; k < 6; k++) await step(250);

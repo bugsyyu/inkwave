@@ -578,6 +578,7 @@ export const LEARN = {
     inkStep: 1.2,             // m between the trail's splats
     autoWalkSpeed: 1,         // 0..1 of the run speed when the level walks her to the next gate (phones: one tap)
     jumpAhead: 0.7,           // m before a jump-up edge the auto-walk presses jump
+    exitWalkMax: 40,          // s the exit area's walk may spend on one station before passing it over (play-wire)
   },
   ui: {
     hit: 44,                  // pt: the smallest tap target in the question layer (iPhone first)
