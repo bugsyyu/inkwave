@@ -82,6 +82,9 @@ const query = `?learn=${LEARN_Q}&kind=puzzle&short=1&gate=${GATE}&quality=low&no
 say('open', query);
 await page.goto(base + 'index.html' + query, { waitUntil: 'load', timeout: 180000 });
 await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.state === 'playing' && __inkwave.match.learn, null, { timeout: 420000, polling: 250 });
+// (the keyboard's slide-in is a CSS transition on wall time — under software GL it can outlast the audit's patience and a
+// key tapped mid-slide lands under the screen; the audit measures the keys where they rest, not the bounce)
+await page.addStyleTag({ content: '.iw-pk__panel { transition: none !important; }' });
 report.boot = await ev(() => { const F = __inkwave.match.learn; __inkwave.debug.freeze(); return { play: !!F.play, host: !!(F.play && F.play.m1), gates: F.gates.map((g) => ({ id: g.id, mech: g.design && g.design.mechanic, n: g.items.length, kinds: [...new Set(g.items.map((it) => it.meta.kind + '.' + it.meta.input))] })), stage: __inkwave.mapDef && __inkwave.mapDef.id }; });
 say('boot', JSON.stringify(report.boot));
 check(report.boot.play && report.boot.host, 'LEARN.play is on: the puzzle has its play host');
