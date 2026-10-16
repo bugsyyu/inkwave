@@ -50,11 +50,14 @@
   // the module itself is still loading.
   // Only on a host where a dev server is actually listening for it. The beacon works by requesting a path that cannot
   // exist and relying on tools/serve.py logging every 4xx — on a public host that is just a wasted request and a red
-  // console line on every load. `?beacon` forces it on for a device test against a real deployment.
+  // console line on every load. `?beacon` forces it on for a device test against a real deployment. Opened from the
+  // IELTS-Base App (?from=app: app/game/ under ielts-base://app, or her server on the LAN) there is no dev server to
+  // listen: off there too, whatever the host name (docs/LEARN.md §16).
   const BEACON_ON = (() => {
     try {
-      const h = location.hostname;
-      if (new URLSearchParams(location.search).has('beacon')) return true;
+      const h = location.hostname, q = new URLSearchParams(location.search);
+      if (q.has('beacon')) return true;
+      if (q.get('from') === 'app' || /\/game\/(?:index\.html)?$/.test(location.pathname)) return false;
       return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.local')
         || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(h);
     } catch (e) { return false; }

@@ -1,7 +1,7 @@
 {
  "repo": "bugsyyu/IELTS-Base",
- "commit": "adf43697466f533994f4a29dfbd94031a5278bf0",
- "date": "2026-10-15T21:08:47+00:00",
+ "commit": "e88109619158d752e6f9d176c780a3da82019cd1",
+ "date": "2026-10-15T17:28:07-07:00",
  "tool": "tools/learn/export-ielts.mjs",
  "files": {
   "model.js": {
@@ -33,59 +33,91 @@
  "host": {
   "file": "host.js",
   "from": "app/index.html",
-  "indexSha256": "87f8bba5a05b1756ea2575544caca9e1070b7da113f6a5649c1286ac963682fa",
+  "indexSha256": "318f8eff0bf7f67a63c9f801b91562eebf1a0682ca572a84f2247d04568a93fc",
   "lines": {
    "esc": [
-    2419,
-    2419
+    2420,
+    2420
    ],
    "fdUs": [
-    7234,
-    7244
+    7245,
+    7255
    ],
    "toks": [
-    7757,
-    7757
+    7768,
+    7768
    ],
    "normTok": [
-    7758,
-    7760
-   ],
-   "lcsOk": [
-    7761,
+    7769,
     7771
    ],
+   "lcsOk": [
+    7772,
+    7782
+   ],
    "NUM_1": [
-    8448,
-    8449
+    8459,
+    8460
    ],
    "NUM_10": [
-    8450,
-    8450
+    8461,
+    8461
    ],
    "NUM_ORD": [
-    8451,
-    8451
-   ],
-   "numWords": [
-    8452,
+    8462,
     8462
    ],
+   "numWords": [
+    8463,
+    8473
+   ],
    "dictWords": [
-    7772,
-    7781
+    7783,
+    7792
    ],
    "tokMarks": [
-    7782,
-    7790
+    7793,
+    7801
    ],
    "dictScore": [
-    7791,
-    7795
+    7802,
+    7806
+   ],
+   "speechChunks": [
+    5393,
+    5427
+   ],
+   "CLIP_SILENT": [
+    5551,
+    5551
+   ],
+   "TZ_PLACES": [
+    2433,
+    2462
+   ],
+   "TZ_DEFAULT": [
+    2463,
+    2463
+   ],
+   "tzFmt": [
+    2464,
+    2467
+   ],
+   "tzDevice": [
+    2468,
+    2468
+   ],
+   "tzParts": [
+    2469,
+    2477
+   ],
+   "tzPlaceOf": [
+    2493,
+    2502
    ]
   },
-  "bytes": 7290,
-  "sha256": "6851aa8dcf7592bd10839013f9b6adc7a4ac53c821321b29a4a9c8640a2b90a0"
+  "bytes": 14896,
+  "sha256": "8d2ac33fb2f0168467f60fc5eb52eda9d789976c8e61f2af774c40970e009940"
  },
  "content": {
   "w1.json": {

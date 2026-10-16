@@ -25,7 +25,7 @@
 | 第 2、3 周课程包 | `docs/courses/w2.json`、`w3.json` | 原样复制进 `content/` |
 | 考试题库、出题、排程、判分 | `app/exam/bank.js`、`gen.js`、`sched.js`、`mark.js`（CommonJS 可 `require`，`tests/exam/gen.test.mjs` 就这么用） | 先原样复制到 `vendor/ielts/`，ESM 包一层（`src/learn/ielts.js`）；以后改成子模块或构建时同步 |
 | 记忆模型、计划 | `app/base/model.js`（`Model.memory()`：半衰期、`due`）、`plan.js` | 同上 |
-| 录音（课程、考试人物） | `app/audio/`（100 MB） | 不进 git：按需从 IELTS-Base 的服务器 / 苹果素材包取；没有就用设备的声音（`speechSynthesis`） |
+| 录音（课程、考试人物） | `app/audio/`（100 MB） | 不进 git：游戏装在她 App 的 `app/game/` 下，运行时按 `../audio/index.json` 找分片和偏移、Range 取这一段（§16 `src/learn/audio.js`）；没有就用设备的声音（`speechSynthesis`） |
 | 口语评测 | `app/speak-ui.js`、`speech*.js` + 语音服务器 | 第二阶段 |
 | 新世界素材 | `.cache/plates`、`characters`、`panos`、`tiles`（通过 `tools/world/integrate.mjs` 导入） | 第三阶段：作为舞台 / 道具 |
 
@@ -103,10 +103,10 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 
 **定下来的、要主会话过目的**：
 1. 关卡里的作答写什么方式：选择 / 听辨 / 听写 / 音标记 `L`（它就是这一天的课），打字的词 `T/H/S`，写句 `W/S`。宿主的课里没有「选词义」这种题，考试写的是 `K`；记 `L` 是把关卡当课上作答，排程上没有区别（`Model.memory` 不看方式，只有 `T` 影响「亲手拼对」的落成）。
-2. `audio` 一律 `null`、`tts` 带文本：IELTS-Base 的录音是按 `app/audio/index.json` 的 `sets.at` 切片打包在 12 个 mp3 里的，不是一句一文件；接录音是第二阶段，先用设备的 `speechSynthesis`。
+2. `audio` 一律 `null`、`tts` 带文本：IELTS-Base 的录音是按 `app/audio/index.json` 的 `sets.at` 切片打包在 12 个 mp3 里的，不是一句一文件；接录音是第二阶段，先用设备的 `speechSynthesis`。（H 接上了：放的时候按 `tts` 的文字去找，`audio` 仍是 `null`，见 §16。）
 3. 没有证据时 `due` 为空，道具赛就按课程顺序；B 如果想要「今天该复习的」还可以直接用 `store.due(week)`。
 4. 写句、口语是 lesson 步：解谜关不出门；Boss 战把写句收进 `W` 阶段。要在日关里考写句时，加一种 kind `'write'` 即可（条目和判分都已经有了）。
-5. 证据的键是条目 id 和日期，和她账上的格式一样；并账要走 `Model.mergeDoc`（按键并集），本机的 `ev` 文档在 `inkwave:learn:v1` 里，没有和 IELTS-Base 的 `localStorage` 共用——两个 origin 本来也不通。
+5. 证据的键是条目 id 和日期，和她账上的格式一样；并账要走 `Model.mergeDoc`（按键并集），本机的 `ev` 文档在 `inkwave:learn:v1` 里，没有和 IELTS-Base 的 `localStorage` 共用——两个 origin 本来也不通。（游戏进了她 App 的 `app/game/` 以后是同一个 origin 了：H 把它们并进工作台自己的键，见 §16。）
 
 **验证**：`npm run test:learn`（`node --test tests/learn/*.test.mjs`，22 条：引擎加载和 SOURCE.json 的 sha256、三周 2 000+ 条目每条有中文、w1d1 十步和 id、复习日 48 / 150、听写 / 拼词 / 选择 / 听辨 / 发音 / 写句的判分向量和 why 全中文、当天首答、叶子格式 `Model.validLeaf`、到期、进度、存取、四种关卡），`npm run check` 绿。没开浏览器。
 
@@ -202,3 +202,51 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 **要知道的**：中文是**整个游戏的默认**（不只学习入口：网页版、Electron 都是），英文要 `?lang=en`——想让不是从 App 来的访客默认英文，改 `i18n.js` 的 `LANG` 一行（例如没有 `?learn` / `?from=app` / `?lang=zh` 时取 `en`），这次没动。小考的奖杯记在 `inkwave:learn:design:v1` 的 `w1d1:quiz` 键下（`stars` 里也多一个值为 0 的 `w1d1:quiz`）：以后把 `stars` 当成「每一天」来列的地方要跳过 `:quiz` 的键。F 的联机学习形式（versus2 / coop2）暂停时走原来的联机暂停（`learn && !online` 才用学习局的暂停面板），是有意的。
 
 **没做的**：装备 / 换装屏的内容（武器卡、外观项；中文名已经在字典里，没接到那两屏）、INKWAVE 自己的结算屏（学习关不走它）、联机大厅几屏（F 的地盘）、对战的选模式 / 选舞台屏——这些屏在竖屏下仍是横屏版式 + 提示条；机器人的名字（Squiddo、Nori…）是名字没翻；路标只是占位（不能走进去答写句 / 听回声亭）；手机竖屏时 HUD 的钟被「下一道门」条压着（B 的布局，没动）。
+
+## 16. H 交付（2026-10-16，分支 `learn-h`：录音接入 + 进度并进她的证据 + iPhone / WKWebView 下的稳妥）
+
+游戏现在住在 IELTS-Base 的 `app/game/`（`tools/game/sync-inkwave.sh` 复制 `dist/`），App 的「关卡」打开 `game/index.html?learn=w1d1&from=app`：和她的课本**同一个 origin**（`ielts-base://app`，或她的服务器），`../audio/` 就是 `app/audio/`。H 用的就是这两点。
+
+**录音（`src/learn/audio.js`）**——照课上的做法（`app/index.html` 的 `Clips`），不另起一套：
+- 找哪段：宿主自己的 `speechChunks` 切句（导出工具从宿主逐字抄进 `vendor/ielts/host.js`），每段照原样 / 去句末标点 / 加句号 / 大写的单词再查小写；**每段都有录音才放录音**，缺一段整段用设备的声音。口音读她的 `profile.accent`（工作台的设置），慢放用 `-slow` 那套、没有就平常那套 0.8 倍不变调；「内置的真人感录音」关了就不用。`item.audio` 仍是 `null`——放的时候按 `tts` 的文字找（宿主也是这样：加一周录音时分片里的偏移都会变）。
+- 取字节：Range 请求（`bytes=offset-(offset+length-1)`；她 App 的 `SchemeHandler` 支持单段 Range、回 206；nginx 也支持），只拿这一段（几 KB），片段缓存 64 段；服务器不认 Range 回 200 整片（python 的 http.server）就整片留着切（最多一个音色的 12 片）。`index.json` 带 `no-cache`。
+- 播放：先 `<audio>` 放 blob（iPhone 静音键开着也有声音：WebKit 给 `<audio>` 的是 playback 类别，只有 Web Audio 的页面是 ambient、跟静音键走——IELTS-Base `docs/native-integration.md` §7），blob 被拒才用 Web Audio（解码在 INKWAVE 自己的 `G.audio.ctx` 上，iOS 限制一个页面开几个 context），再不行设备的声音。一次只放一段（新的一段先停旧的，旧的 `onEnd` 照样回调），多段之间 220 / 320 ms；页面隐藏、离开就停；放的时候音乐让一让（`G.audio.duck`）。
+- 解锁：Safari 网页要手势——第一次真点击 / 按键在同一个 `<audio>` 上放宿主的静音片段（`CLIP_SILENT`）、恢复 AudioContext；**放成了才算解锁**（被拒就等下一下；被「听」那段在同一下点击里接走算解锁）。没解锁时自动朗读被拒只是换设备的声音，不报错、不留未处理的 rejection。App 里 `WebView.swift` 设了 `mediaTypesRequiringUserActionForPlayback = []`，不用解锁、直接跳过（免得为一段静音把她的音乐停了）。
+- 本地开发安静：只有页面在 `game/` 目录里（`…/game/` 或 `…/game/index.html`）才去 `../audio/` 找，或 `?audio=<base>` 指定；`?noclips` 关；`file:` 不取。仓库根目录的开发服务器上一个请求都不发。
+- 接进去：`hud-learn.js` 的 `_play` / `_speak` 交给 `audio.say()`（原来的 `speechSynthesis` 原样搬成 `_device` 当退路），`hide` / `end` 停的是录音或设备声音；形式里的回声道具、回炉慢放、看板每行的「听」都走 `_speak`，所以都有录音了。回炉的听写第一遍慢放（`relearnTip.slow`）。`G.learnAudio.status()` 给审计看（放的是 clip / webaudio / device、哪套、几段、Range 还是整片）。
+- 覆盖（她 App 里现在的 `index.json`，游戏要念的不同文字）：美音第 1 周 234 / 234、第 2 周 278 / 278、第 3 周 267 / 268（缺 bought）；英音 232 / 234、277 / 278、262 / 268。
+
+**进度并进她的证据（`src/learn/workbench.js`、`store.js`）**：
+- 她的账在工作台的 `localStorage['ielts-workbench:data:v1']`（`{ profile, days, …, base }`，`base['ev-<周一>'] = { v: 2, it }`，`app/base/core.js` 的文档）。`store.exportDoc(某周 id | 那周某天 | 不给 = 本周)` 产出她的格式（只留 `validLeaf` 的叶子），`exportDocs()` 是全部；`store.pushToWorkbench()` → `workbench.pushEvidence()`：游戏的叶子先按**当天首答**筛——她那天已经有这个条目的答案就不进（`core.record` 的 `hasEvOn`：她账上先有的就是那天的首答）——其余用 IELTS-Base 自己的 `Model.mergeDoc` 按键并。**幂等**：第二次跑一个叶子都不加、她的键一个字节都不变、也不重写；写之前总是重读她的 blob；她 blob 里别的字段 / 别的文档原样不动（同一个值、同一段 JSON 文本）。没有工作台（没有带 `profile` 的 blob：纯 INKWAVE、开发、Electron）一个键也不建。
+- 什么时候推：`api.js` 在页面里 `store.attachWorkbench()`——每次首答后 0.8 秒、页面隐藏 / `pagehide` 时、开局补推上一页没推的（WebContent 进程可能被 iOS 杀掉、没有 `pagehide`；`inkwave:learn:v1` 里记 `n` / `pushed`）。推完以后，四周以前、她账上每个（条目, 日期）都有答案的周从游戏这份里删掉（两份共用她 5 MB 的 `localStorage`）。
+- 方式照 §8：选择 / 听辨 / 听写 / 音标 `L`，打字的词 `T / H / S`，写句 `W / S`。
+- 反过来只读：她今天在课上答过的条目，游戏里不再算当天首答（`recordFirst` → `{ first: false }`）；`due()` / `progress()` 连她的历史一起读（内存里并，不复制进游戏的键）。
+- 她的时钟：工作台按「设置 → 时区」的墙钟记日期（没设是新加坡，`'device'` 才是设备的），游戏也用宿主同样的 `tzPlaceOf` / `tzParts`（导出工具逐字抄来）——有工作台时游戏的答案和课上的答案落在同一天；没有工作台用设备的时钟。
+- 她的同步：`app/sync.js` 的 `pendingChanges()` 对每篇本机文档算摘要，所以并进来的周下次同步就推上她的服务器；App 的原生镜像只跟着工作台自己的保存走（她下次在课本里做任何事时）。两个桌面标签页同时开着课本和游戏时，课本那页内存里的旧 `S` 下次保存会盖掉并进来的周——游戏会在下一次推的时候再并一遍（幂等），手机 App 里两页不会同时活着。
+
+**iPhone / WKWebView**（App：`ielts-base://app`，`SchemeHandler` 供文件、只竖屏）：
+- 竖屏门：`src/core/touch.js` 在 `from=app` 时永远不亮「Turn your device」——headless 竖屏实测原来：页面隐藏 → 关卡暂停 → 暂停菜单被这块门盖住，App 转不过来就出不去（菜单页也一样）。普通浏览器里关卡的暂停菜单也不再盖（关卡本来就竖屏玩）。`from=app` 时其它模式的触屏键竖屏也活着。
+- 全屏 / 横屏锁：`main.js` 在 `from=app` 时不挂第一下点击的 `requestFullscreen` + `orientation.lock('landscape')`（iPhone 本来没有元素全屏、会安静跳过；iPad 的 WKWebView 要 `elementFullscreenEnabled` 才有）。指针锁只在非触屏模式请求、都在 try / catch 里。
+- 信标：`index.html` 在 `from=app` 或页面在 `game/` 目录里时关 `/__inkwave_error/`（`?beacon` 照样开）。App 里主机名是 `app` 本来就关；原来在她局域网的服务器上每次开都会发一个 `gpu` 信标、回 404。
+- 页面隐藏：触屏模式下关卡暂停（暂停菜单），录音 / 设备声音停；回来是暂停菜单、点「继续」。
+- 内存：手机（粗指针）或 `from=app` 菜单只用 640 px 的舞台图（模式卡三张、预载 16 张小图）；原来预载 16 张 1920×1080（解码后每张约 8 MB）+ 16 张小图。
+- 路径：`index.html` 的导入表、`loadModule`、`ielts.js` / `content.js` 的 `new URL(…, import.meta.url)`、`fetch('assets/…')`、`songs/manifest.json` 都是相对的，在 `app/game/` 下照样对；`SchemeHandler` 的 MIME 表有 js / json / webp / woff2 / mp3。
+- `localStorage`：`WebView.swift` 用 `WKWebsiteDataStore.default()`，IELTS-Base `docs/native-integration.md` §5.9：`ielts-base://app` 的 `localStorage` 持久、进备份；游戏和课本同一个 origin，所以并账可行。
+
+**导出工具**：`tools/learn/export-ielts.mjs` 多抄宿主的 `speechChunks`、`CLIP_SILENT`、`TZ_PLACES / TZ_DEFAULT / tzFmt / tzDevice / tzParts / tzPlaceOf`（`const X = [` 的表按方括号配平），自检多三项（和活宿主逐字比）；文件头写了 IELTS-Base 更新课程以后怎么重跑、`git diff --stat` 怎么看。在 IELTS-Base `e881096` 上重跑：`content/` 一字没变，`SOURCE.json` 的提交号 `adf4369 → e881096`、宿主行号 +1。
+
+**验证**：
+- `npm run test:learn` 52 / 52（新增 `audio.test.mjs` 4 条：录音在哪、找哪段、Range 206 / 整片 200、没有录音时安静；`workbench.test.mjs` 5 条：她的当天首答留下、并进去、第二次一字节不变不重写、新会话再跑不变、没工作台不建键、四种时区设置、她的历史算到期和进度、旧周删了照样算、开局补推和首答后稍等再推），`npm run check` 201 个文件绿。
+- 她的课本认不认（Node，不开浏览器）：游戏记三条（听写 85%、卡片 T、语法错）→ 推进一个编出来的工作台 blob → 用 IELTS-Base 自己的 `tests/base/load-host.cjs` 把**活宿主**起在这个 blob 上（只读，`progress` 给的是编出来的对象）→ 宿主的 `S.base` 交给 `Model.answers` / `Model.memory`：三个条目都在宿主的索引里、都画出来了（`w:monday` 她 10-13 的一次加上游戏 10-15 的一次，半衰期涨到 3.49 天；语法那题 `lastMiss` 是 10-15）。
+- headless（锁里，`/opt/pw-browsers/chromium` + SwiftShader，390×844 触屏，`?quality=low`、阴影 / 泛光关，模拟时钟 `debug.freeze / step`；一个按 IELTS-Base `app/` 布局的小服务器：`/game/` = 这个工作树，`/audio/` = IELTS-Base 的 `app/audio/` 只读；一个**编出来的**工作台 blob）：`game/index.html?learn=w1d1&kind=puzzle&from=app` 起关（约 41 s）、自动走到门、音标题没有朗读、第一道听的题 Monday：`index.json` 200 + `us-5.mp3 206 bytes=4652-10839`、`how: clip`；点「听」再放一遍走缓存；答对后 0.8 秒她的 blob 里 `ev-2026-10-12` 多了这几条（`n` = `pushed` = 9）；页面隐藏 → 暂停菜单、正在放的停了、门不亮；无控制台错误、无未处理的 rejection、无信标。服务器不认 Range：第一次 200 整片、之后不再发 Range、整片切。模拟 Safari（`play()` 在真点击前被拒、AudioContext 挂起）：自动朗读换设备的声音、没有报错；真点「听」→ 解锁、放录音。仓库根目录（开发服务器）：`/audio/` 一个请求都没有，用设备的声音，不建她的键。`from=app` 主菜单 / 模式页：门不亮，只请求 `-sm` 的舞台图。截图看过即删。
+- **真机待验**：WKWebView 里 `fetch` 带 `Range` 到 `ielts-base://` 的 206（`SchemeHandler` 代码支持）；`<audio>` 放 blob MP3（宿主一直这么放）和静音键；`localStorage` 在 `ielts-base://app/game/` 和课本共用（同 origin，WebKit 按 origin 存）；导入表要 iOS 16.4+；`visibilitychange` 在 App 进后台时；内存（WebGL + 菜单图）不被系统杀；Safari 网页上第一下点击的解锁（headless Chromium 不管 `--autoplay-policy` 都放行，只能拿桩模拟）。
+
+**动了别人地盘的几行**（都没改界面文字）：`src/ui/hud-learn.js` 播放四处（`import`、`_play` / `_speak` / `_device`、`hide` / `end` 的停）；`src/ui/menus.js` 三行（`stageArt` 的小图、预载循环、模式页背景的 `-sm` 替换）；`src/core/touch.js` 三处（`FROM_APP` 时门 / 触屏键）；`src/main.js` 一个条件；`index.html` 启动段的信标判断。
+
+**没做的 / 要主会话过目的**：
+1. IELTS-Base 那边（不归这里改）：`WebView.swift` 在首页以外都开着侧滑返回（`allowsBackForwardNavigationGestures = !isStartPage`），游戏页从左边缘一滑就回课本、关卡丢了（证据有 `pagehide` 和每题 0.8 秒的推，不丢）——建议把 `game/` 也当首页、不开侧滑。改完游戏要在 IELTS-Base 跑一次 `bash tools/game/sync-inkwave.sh <这个仓库>` 才进 App。
+2. `from=app` 时竖屏里的 INKWAVE 菜单（主菜单、暂停菜单）是横屏排的，能点但挤；暂停菜单的「继续」「离开这一关」不到 44 pt——G 的中文化 / 菜单在管这块。turf / zones / boss 在竖屏 App 里能开、触屏键活着，但不是为竖屏做的；要不要在 `from=app` 时只留学习入口，主会话定。
+3. 课本的同步、原生镜像不知道游戏写了她的键：下次她在课本里保存时镜像跟上，下次同步时推上服务器。要更快可以让课本在 `pageshow` / 回到首页时重读 `localStorage`（IELTS-Base 那边）。
+4. 机器人「答题」不放录音（只有她的题放）；考试人物的录音（`app/audio/exam/`）还没接——Boss 战第二版换 `sched.plan + gen.render` 的场景题时一起接（`ExamClips` 的做法一样）。
+5. 游戏这份证据不带写句的「我的写法也对」（`S`）的界面——引擎和 store 都认，`hud-learn` 还没有那颗按钮。
+6. `hud-learn.js` 文件头的注释还写着「item.audio when the course has a recording」——是 G 的文件，没去改注释。
