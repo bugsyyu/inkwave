@@ -1633,7 +1633,7 @@ export class Projectiles {
         const bh = G.boss.segHit(p.prev, p.pos, p.size * 0.6);
         if (bh) { this._bossImpact(p, bh); dead = true; }
       }
-      if (!dead) {
+      if (!dead && !(G.playTargets && G.playTargets.through(p))) {   // (a tap-shot's round is not stopped by scenery)
         const hit = G.physics.segment(p.prev, p.pos, _hit, true);
         if (hit.hit) {
           this._impact(p, hit);

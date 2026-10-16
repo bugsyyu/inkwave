@@ -19,6 +19,8 @@
 //                           round; only a deliberate one — tagged for this very object and this serial — may answer.
 //                           Splash, blasts' bursts, bombs, specials and trail drips never come here (they are not
 //                           rounds along a segment): only a direct hit can answer.
+//     through(p) → bool     a round tagged for the live question: weapons.js lets it through the world (scenery between
+//                           her muzzle and the object never eats a tap-shot; only reaching the object answers)
 //     clear()
 const _out = { t: 0, index: -1, dist: 0, point: { x: 0, y: 0, z: 0 } };
 
@@ -84,6 +86,10 @@ export class ShotTargets {
   clear() { this.spheres = []; }
   tagOf(target) { return this.serial * 16 + target + 1; }
   tag(p, target) { if (p) p.playTag = this.tagOf(target); return p; }
+  // a round tagged for this question flies to its object whatever stands in between (a fountain pole between her muzzle
+  // and an object the camera sees whole must not leave her tapping with nothing happening): weapons.js skips the world
+  // for it; it still has to reach the object to answer
+  through(p) { return !!(p && p.playTag) && this.spheres.length > 0 && ((p.playTag - 1) >> 4) === this.serial; }
   shotHit(p) {
     if (!this.spheres.length || !p || p.ghost) return false;
     const h = segSpheres(p.prev, p.pos, (p.size || 0.15) * 0.6, this.spheres, this._h);

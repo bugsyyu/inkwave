@@ -177,15 +177,21 @@ test('only a deliberate direct hit answers: a tapped / crosshair round on its ow
   assert.equal(T.shotHit(old), true); assert.deepEqual(hits.pop(), { target: 1, deliberate: false }, 'tagged for the last question');
   assert.equal(T.shotHit({ ...round(0, 0), prev: { x: 0, y: 2, z: 9 }, pos: { x: 0, y: 2, z: 10.5 } }), false, 'between the two: nothing');
   assert.equal(T.shotHit({ ...T.tag(round(2, 0), 1), ghost: true }), false, 'another player\'s ghost round never');
+  // scenery never eats the live question's tagged round (it still has to reach its object); anything else meets the world
+  assert.equal(T.through(T.tag(round(2, 0), 1)), true, 'tagged for this question: through the fountain pole');
+  assert.equal(T.through(old), false, 'tagged for the last question: stopped by the world as ever');
+  assert.equal(T.through(round(2, 0)), false, 'an untagged round: stopped by the world');
+  const live = T.tag(round(2, 0), 1); T.clear(); assert.equal(T.through(live), false, 'the objects gone: stopped by the world');
   // splash: weapons.js reaches the registry from Projectiles._step only — never from a blast's burst, a slosher's
   // splash, a bomb, a special, a roller / brush / charger, or the trail's drips
   const src = readFileSync(new URL('../../src/game/weapons.js', import.meta.url), 'utf8');
   const uses = src.split('\n').map((l, i) => [l, i]).filter(([l]) => /playTargets|playTag/.test(l));
-  assert.equal(uses.length, 2, 'two lines: the pool reset and the direct-hit check');
+  assert.equal(uses.length, 3, 'three lines: the pool reset, the direct-hit check, the world guard');
   const fnAt = (line) => { const lines = src.split('\n'); for (let i = line; i >= 0; i--) { const m = /^  (?:async )?(\w+)\(.*\)\s*\{\s*$/.exec(lines[i]); if (m) return m[1]; } return null; };
-  assert.deepEqual(uses.map(([, i]) => fnAt(i)), ['_new', '_step']);
+  assert.deepEqual(uses.map(([, i]) => fnAt(i)), ['_new', '_step', '_step']);
   const step = src.slice(src.indexOf('  _step(p, dt) {'), src.indexOf('  // a blob / drop / blast connecting with the boss'));
   assert.ok(step.indexOf('G.playTargets.shotHit(p)') < step.indexOf('G.physics.segment(p.prev, p.pos'), 'a direct hit, before the round can meet the world');
+  assert.ok(/if \(!dead && !\(G\.playTargets && G\.playTargets\.through\(p\)\)\) \{[^\n]*\n\s*const hit = G\.physics\.segment\(p\.prev, p\.pos/.test(step), 'the world check is the only one the tagged round skips');
   for (const fn of ['_blastBurst', '_sloshSplash', '_updateBombs', 'applyHit', '_impact']) {
     const at = src.indexOf(`  ${fn}(`), body = src.slice(at, src.indexOf('\n  }\n', at));
     assert.ok(at > 0 && !/playTargets/.test(body), `${fn} never reaches the question objects`);

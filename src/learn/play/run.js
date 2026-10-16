@@ -41,7 +41,7 @@ import { canPlayM1, targetLabels, answerOfTarget, verdictLines } from './m1.js';
 
 const M = LEARN.m1, U = LEARN.playUi;
 const UP = new THREE.Vector3(0, 1, 0);
-const _c = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _e = new THREE.Vector3();
+const _c = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _e = new THREE.Vector3(), _m = new THREE.Vector3();
 
 export class PlayRun {
   constructor(flow) {
@@ -175,36 +175,46 @@ export class PlayRun {
   // the framing pose the camera eases to (the rig's own yaw / pitch, dampAngle like its super-jump framing): towards the
   // route past the gate, level-ish; the objects come up once it has settled (or she looks herself), placed from the
   // camera as it then is — so the rig's boom probe, lens lift or shoulder offset never put them anywhere but where the
-  // layout drew them
+  // layout drew them. Each candidate pose is tried with the rig's own boom probe from where she stands, and scored on:
+  // a full boom (a short one — the stair she just came down behind her — puts the lens in her hair), her in sight, a
+  // clear view of where the objects go (nothing solid — the fountain by the first gate — and no ground between the lens
+  // and the object plane), the lens not standing in the gate, and as little turn and tilt as possible.
   _frame() {
     const C = this.cur, a = this.match.local, rig = G.rig, P = G.physics;
     const anchor = C.g._play?.anchor || C.g.pos;
     let yaw0 = rig ? rig.yaw : 0;
     if (rig && Math.hypot(anchor.x - a.pos.x, anchor.z - a.pos.z) > 1.5) yaw0 = Math.atan2(anchor.x - a.pos.x, anchor.z - a.pos.z);
     let best = { yaw: yaw0, pitch: rig ? Math.max(-0.06, Math.min(0.1, rig.pitch)) : 0, score: -Infinity };
-    // the rig's own boom probe on a few poses round "towards the route, level": the follow camera that will actually be
-    // there should keep its full boom (a short one — the stair she just came down behind her — puts the lens in her hair)
     if (rig && P && P.cameraProbe) {
       const probe = this._probe || (this._probe = { hard: 0, soft: 0, floor: false }), want = rig.dist || 4.5;
-      _w.set(a.pos.x, a.pos.y + 1.85, a.pos.z);
+      const cam = G.camera, tanV = Math.tan(((cam.fov || 52) * Math.PI) / 360), aspect = cam.aspect || innerWidth / innerHeight;
       const gp = C.g.pos;
-      for (const dy of [0, 0.22, -0.22, 0.45, -0.45, 0.8, -0.8]) for (const p of [0.04, -0.06, -0.16, -0.26, -0.36]) {
+      _w.set(a.pos.x, a.pos.y + 1.85, a.pos.z);
+      for (const dy of [0, 0.22, -0.22, 0.45, -0.45, 0.8, -0.8]) for (const p of [0.04, -0.06, -0.16, -0.26]) {
         const y = yaw0 + dy;
-        _f.set(-Math.sin(y) * Math.cos(p), -Math.sin(p), -Math.cos(y) * Math.cos(p));
+        _f.set(-Math.sin(y) * Math.cos(p), -Math.sin(p), -Math.cos(y) * Math.cos(p));   // pivot → lens
         P.cameraProbe(_w, _f, want, 0.62, probe);
         const boom = Math.min(probe.soft, probe.hard);
-        // and she must be in sight from there (a prop between the lens and her — the fountain by the first gate — hides her)
         _c.copy(_w).addScaledVector(_f, boom); _c.y += 0.15;
+        // she must be in sight from there (a prop between the lens and her hides her)
         _e.set(a.pos.x, a.pos.y + 1.2, a.pos.z);
         const seen = P.los(_c, _e) && P.los(_c, _o.set(a.pos.x, a.pos.y + 1.9, a.pos.z));
-        // and not standing in the gate she just reached (she stops ~1 m past it: a lens right behind her sits in its
-        // lock and beam)
+        // the object plane: six points of the band the layout fills (upper middle of the screen), near and far
+        _r.set(-Math.cos(y), 0, Math.sin(y)); _u.crossVectors(_r, _f).negate();   // lens right, lens up
+        let blocked = 0;
+        for (const D of [boom + 2.6, boom + 6.5]) for (const nx of [-0.65, 0, 0.65]) for (const ny of [0.25, -0.35]) {
+          _e.copy(_c).addScaledVector(_f, -D).addScaledVector(_r, nx * D * tanV * aspect).addScaledVector(_u, ny * D * tanV);
+          if (!P.los(_c, _e)) blocked += D < boom + 3 ? 1.5 : 0.6;
+        }
+        // and not standing in the gate she just reached (she stops ~1 m past it: a lens right behind her sits in its lock)
         const inGate = Math.max(0, 2.2 - Math.hypot(_c.x - gp.x, _c.z - gp.z));
-        const score = Math.min(boom, want * 0.8) * 2 - Math.abs(dy) * 1.2 - Math.abs(p - 0.02) * 1.5 - (seen ? 0 : 6) - inGate * 1.4;
-        if (score > best.score) best = { yaw: y, pitch: p, score, boom, seen };
+        const score = Math.min(boom, want * 0.8) * 2 - Math.abs(dy) * 1.2 - Math.abs(p - 0.02) * 1.5 - (seen ? 0 : 6) - blocked - inGate * 1.4;
+        if (score > best.score) best = { yaw: y, pitch: p, score, boom, seen, blocked };
       }
     }
-    this.frame = { yaw: best.yaw, pitch: best.pitch, boom: best.boom, seen: best.seen, t: 0, on: !this.reduced && !!rig };
+    // (she may still be slowing down at the gate: the poses are tried again once she stands — update())
+    const still = Math.hypot(a.vel?.x || 0, a.vel?.z || 0) < 0.35;
+    this.frame = { yaw: best.yaw, pitch: best.pitch, boom: best.boom, seen: best.seen, blocked: best.blocked, still, t: 0, on: !this.reduced && !!rig };
     C.placed = false;
   }
 
@@ -254,32 +264,38 @@ export class PlayRun {
         }
         objs.push(o);
       }
-      // every object clears the ground under it, and nothing solid stands between her and it: closer first, then a
-      // shorter region (the objects smaller and higher on the screen), only then a lift off the layout
+      // every object clears the ground under it, and nothing solid stands between her or the lens and it: closer
+      // first (down to 1.6 m in front of her), then a shorter region (the objects smaller and higher on the screen), only
+      // then a lift off the layout — never past the top of the safe area (an object low enough to touch the ground
+      // then sits on it)
       let need = 0, blocked = false;
       const L0 = G.level, P = G.physics;
       _e.set(a.pos.x, a.pos.y + 1.4, a.pos.z);
+      // (her muzzle, about: hip height, a little to her right as she turns to it — where the tap-shot's round leaves)
+      _m.set(a.pos.x, a.pos.y + 1.05, a.pos.z).addScaledVector(_r, 0.3);
       for (const o of objs) {
         const bottom = o.kind === 'ball' ? o.plate.y - o.plate.h / 2 : o.y - o.h / 2;
         const gy = L0 ? L0.groundHeight(o.x, o.z, bottom + 4) : -Infinity;
         if (gy > -Infinity) need = Math.max(need, gy + M.clear - bottom);
-        if (P && !P.los(_e, _c.set(o.x, o.y, o.z))) blocked = true;
+        if (P && (!P.los(_e, _c.set(o.x, o.y, o.z)) || !P.los(_o, _c) || !P.los(_m, _c))) blocked = true;
       }
-      const dMin = boom + M.near * 0.8;
+      const dMin = boom + 1.6;
       if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
-      if (need > 0.01 && safe.h - (need / wpp + 8) >= 150) {
-        safe.h -= need / wpp + 8;
+      if (need > 0.01 && safe.h > 151) {
+        safe.h = Math.max(150, safe.h - (need / wpp + 8));
         L = layoutTargets(C.labels.length, C.labels, W / H, safe, { avoid: S.avoid });
         C.layout = L;
         continue;
       }
-      if (need > 0.01 && lift < 2.5) { lift += need; continue; }
+      const room = Math.max(0, Math.min(...L.items.map((it) => (it.kind === 'ball' ? it.y - it.r : it.y))) - S.safe.y) * wpp;
+      if (need > 0.01 && lift < room - 0.01) { lift = Math.min(room, lift + need); continue; }
+      C.sunk = need > 0.01 ? +need.toFixed(2) : 0; C.blocked = blocked;
       break;
     }
     C.D = D; C.lift = lift; C.placed = true;
     this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() });
     this.reg.set(this.T.spheres, C.serial);   // (the live array: a burst or draining object drops out of it)
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), kind: L.kind, fits: L.fits, cover: L.cover || null, safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
 
   // ---------------------------------------------------------------------------------------------- per frame
@@ -292,12 +308,17 @@ export class PlayRun {
     if (this._resized && !C.answered) { this._resized = false; this.strip?.fit(this._topKeys()); if (C.placed) this._place(); }
     const a = m.local, rig = G.rig;
     // the camera eases to the framing pose (her own look ends it at once); the objects come up when it has settled
-    const Fr = this.frame;
+    let Fr = this.frame;
+    // she has come to a stop at the gate: the framing tried from where she was walking is tried again from where she stands
+    if (Fr && !Fr.still && !C.placed && Math.hypot(a.vel?.x || 0, a.vel?.z || 0) < 0.35) {
+      const looked = Fr.looked, t = Fr.t; this._frame(); Fr = this.frame;
+      if (looked) { Fr.on = false; Fr.looked = true; } else Fr.t = Math.min(t, 0.3);   // (her own look still wins)
+    }
     if (Fr && Fr.on && rig) {
       Fr.t += dt;
       const look = G.input && (G.input.mouse.dx || G.input.mouse.dy);
       const near = Math.abs(angleDiff(rig.yaw, Fr.yaw)) < 0.03 && Math.abs(rig.pitch - Fr.pitch) < 0.03;
-      if (look || Fr.t > M.frameFor || (near && Fr.t > 0.25)) Fr.on = false;
+      if (look) { Fr.on = false; Fr.looked = true; } else if (Fr.t > M.frameFor || (near && Fr.t > 0.25)) Fr.on = false;
       else { rig.yaw = dampAngle(rig.yaw, Fr.yaw, M.frameRate, dt); rig.pitch = damp(rig.pitch, Fr.pitch, M.frameRate, dt); }
     }
     if (!C.placed && !(Fr && Fr.on) && (this._settled() || (Fr && Fr.t > M.frameFor + 0.6))) this._place();
@@ -437,7 +458,7 @@ export class PlayRun {
       asking: !!C, answered: !!(C && C.answered), item: C && C.item.id, n: C && C.labels.length, banner: C && C.banner, serial: this.serial,
       labels: C && C.labels, rightIndex: C && (C.p._perm ? C.p._perm.indexOf(C.item.answer) : C.item.answer),
       safe: C && C.screen && C.screen.safe, stripBottom: C && C.screen && C.screen.stripBottom, avoid: C && C.screen && C.screen.avoid, layout: C && C.layout && C.layout.items.map((it) => it.rect), fits: C && C.layout && C.layout.fits,
-      projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, seen: this.frame.seen, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
+      projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, seen: this.frame.seen, blocked: this.frame.blocked, still: this.frame.still, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
       verdict: C && C.verdict, shot: this.shot && { k: this.shot.k, fired: this.shot.fired }, log: this.log.slice(-40),
       her: this.match.local ? [this.match.local.pos.x, this.match.local.pos.y, this.match.local.pos.z].map((v) => +v.toFixed(2)) : null, cam: G.camera ? [G.camera.position.x, G.camera.position.y, G.camera.position.z].map((v) => +v.toFixed(2)) : null,
       atlases: [...this.T.atlases.values()].map((A) => ({ key: A.key, w: A.w, h: A.h, scale: A.scale, n: A.n })), calls: G.renderer?.info?.render?.calls,

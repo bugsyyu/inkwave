@@ -138,7 +138,7 @@ const walk = async () => ev(() => {
 });
 const w1 = await walk();
 say('walked', JSON.stringify(w1));
-for (let i = 0; i < 6; i++) await step(250);   // 1.5 s: the pop-in and the framing ease
+for (let i = 0; i < 2; i++) await step(250);   // she stops; the framing eases (checkAsked waits for the objects)
 const state = () => ev(() => {
   const F = __inkwave.match.learn, P = F.play, m = __inkwave.match;
   const panel = document.querySelector('.iw-learn__panel');
@@ -153,7 +153,14 @@ const state = () => ev(() => {
     touchLive: __inkwave.touch ? __inkwave.touch.enabled : null, rig: { yaw: +__inkwave.rig.yaw.toFixed(3), pitch: +__inkwave.rig.pitch.toFixed(3) },
   };
 });
+// the objects come up once the camera has settled on its framing (≤ LEARN.m1.frameFor + 0.6 s after she stops)
+const untilPlaced = async () => {
+  for (let i = 0; i < 40; i++) { if (await ev(() => { const P = __inkwave.match.learn.play; return !!(P.cur && P.cur.placed); })) break; await step(100); }
+  for (let i = 0; i < 4; i++) await step(100);   // (their pop-in)
+  return ev(() => { const L = __inkwave.match.learn.play.log, a = L.filter((e) => e.ev === 'ask').pop(), p = L.filter((e) => e.ev === 'place').pop(); return a && p && p.t >= a.t ? +(p.t - a.t).toFixed(2) : null; });
+};
 const checkAsked = async (label) => {
+  const askToPlace = await untilPlaced();
   const s = await state();
   const d = s.dbg;
   check(d && d.asking && !d.answered, `${label}: an M1 item is asked (${d && d.item}, ${d && d.n} ${d && d.banner ? 'banners' : 'balls'})`, d);
@@ -166,7 +173,7 @@ const checkAsked = async (label) => {
   const boxes = (d && d.projected || []).map((q) => (q.kind === 'ball' ? { x: Math.min(q.cx - q.r, q.label.x), y: q.cy - q.r, w: Math.max(q.cx + q.r, q.label.x + q.label.w) - Math.min(q.cx - q.r, q.label.x), h: q.label.y + q.label.h - (q.cy - q.r) } : { x: q.x, y: q.y, w: q.w, h: q.h }));
   const out = boxes.filter((b) => !(b.x >= safe.x - 1 && b.y >= safe.y - 1 && b.x + b.w <= safe.x + safe.w + 1 && b.y + b.h <= safe.y + safe.h + 1));
   check(boxes.length === (d && d.n) && !out.length, `${label}: every object's projected box inside the safe area (${boxes.length} objects)`, { safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), out });
-  report[label] = { item: d && d.item, labels: d && d.labels, banner: d && d.banner, strip: s.strip, safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), framing: { D: d && d.D, lift: d && d.lift, ease: d && d.framing, place: d && (d.log || []).filter((e) => e.ev === 'place').pop(), rig: s.rig, her: d && d.her, cam: d && d.cam }, atlases: d && d.atlases, calls: d && d.calls };
+  report[label] = { askToPlace, item: d && d.item, labels: d && d.labels, banner: d && d.banner, strip: s.strip, safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), framing: { D: d && d.D, lift: d && d.lift, ease: d && d.framing, place: d && (d.log || []).filter((e) => e.ev === 'place').pop(), rig: s.rig, her: d && d.her, cam: d && d.cam }, atlases: d && d.atlases, calls: d && d.calls };
   return s;
 };
 // pick object k: a tap on its projected centre (touch), or the crosshair laid on it and fire pressed (desktop)
@@ -222,20 +229,23 @@ await shot('m1-wrong');
 report.wrong = { verdict: v1, strip: s2.strip && s2.strip.text, slots: s2.slots, lock: s2.lockCol };
 
 // every item right from here (the retry of the missed one comes back reshuffled — first = false: it was answered today)
-let rights = 0, shotRight = false, guard = 0, firstsRight = [];
+let rights = 0, shotRight = false, guard = 0, firstsRight = [], missed = 0;
 while (guard++ < 14) {
   // the next question (or the next gate: walk there)
   for (let i = 0; i < 80; i++) { const st = await ev(() => { const F = __inkwave.match.learn, P = F.play; return { asking: !!(P.cur && !P.cur.answered), phase: F.phase, card: !!__G.hud.learn._ask, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') }; }); if (st.asking || st.done || st.card) break; if (st.phase === 'walk') await walk(); else await step(100); }
   const st = await ev(() => { const F = __inkwave.match.learn, P = F.play; return { asking: !!(P.cur && !P.cur.answered), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), card: !!__G.hud.learn._ask, cur: F.cur }; });
   if (st.done || !st.asking) { if (st.card) say('a card item came (not a play kind yet) — stopping here'); break; }
-  for (let i = 0; i < 5; i++) await step(250);
+  for (let i = 0; i < 2; i++) await step(250);
   const s = await checkAsked('q' + (rights + 2));
   if (s.dbg.banner && !report.bannerShot) { report.bannerShot = true; await shot('m1-banners'); }
   const before = s.answers.length;
   await pick(s.dbg.rightIndex);
   const v = await untilVerdict();
   const sv = await state();
-  check(!!v && v.ok === true, `right pick on ${s.dbg.item}: 答对了`, v);
+  // (no verdict: what the shot did — the round's path, the objects, where she stands)
+  const why = v ? null : await ev(() => { const P = __inkwave.match.learn.play, a = __inkwave.match.local, d = P.debug(); return { log: d.log.slice(-8), shot: d.shot, framing: d.framing, her: d.her, cam: d.cam, muzzle: a.muzzle ? [a.muzzle.x, a.muzzle.y, a.muzzle.z].map((v) => +v.toFixed(2)) : null, spheres: P.T.spheres.filter((h) => h.active).map((h) => ({ t: h.target, c: [h.x, h.y, h.z].map((v) => +(+v).toFixed(2)), r: +(+h.r).toFixed(2) })), projected: d.projected }; });
+  check(!!v && v.ok === true, `right pick on ${s.dbg.item}: 答对了`, why || v);
+  if (!v && ++missed >= 2) { say('two picks without a verdict — stopping the loop'); break; }
   check(!!sv.strip && sv.strip.ok && /^答对了/.test(sv.strip.text), `the strip flashes her ink: 「${sv.strip && sv.strip.text}」`);
   const na = sv.answers.slice(before);
   check(na.length === 1, `learn:answer once (first = ${na[0] && na[0].first})`, na);
