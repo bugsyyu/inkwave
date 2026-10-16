@@ -78,7 +78,8 @@ export const GROUPS = {
     // answer it right (the audits read the right answer off the form) and play on
     await c.ev(() => { const L = __inkwave.match.learn, a = L.rightAnswer ? L.rightAnswer() : null, H = __G.hud.learn; if (H.choices && typeof a === 'number') H.choices[a].click(); else if (H.input) { H.input.value = String(a); H._submit(H.input.value); } });
     await c.ev(async () => { const L = __inkwave.match.learn; for (let i = 0; i < 20 && L.hold; i++) { __inkwave.debug.step(500); await new Promise((r) => setTimeout(r, 0)); } });
-    const play = await c.measure('zone-play', { scopes: HUD, extra: await c.ev(() => ({ hold: !!__inkwave.match.learn.hold, touchLive: __G.touch && __G.touch.enabled, timer: (document.querySelector('.iw-timer__txt') || {}).textContent })) });
+    await c.step(2);   // the touch gate reads hold at the top of a frame: the frame that let her go still saw it
+    const play = await c.measure('zone-play', { scopes: HUD, extra: await c.ev(() => ({ hold: !!__inkwave.match.learn.hold, touchLive: __G.touch && __G.touch.enabled, sticks: [...document.querySelectorAll('.iw-touch.is-live .iw-touch__btn')].filter((b) => getComputedStyle(b).display !== 'none').length, timer: (document.querySelector('.iw-timer__txt') || {}).textContent })) });
     q.backOk = null; play.backOk = null;
     // the room's pause: the battle pause (online: the match runs on) — G.netm stood in only while it is measured
     await c.ev(() => { window.__iwNetm = __G.netm; __G.netm = { audit: true }; __inkwave.menus.show('pause'); });
@@ -112,11 +113,17 @@ export const GROUPS = {
     const box = () => c.ev(() => { const b = (s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right), b: Math.round(r.bottom) }; };
       const T = b('.iw-hud .iw-timer'), W = b('.iw-learn__walk'), hit = T && W && !(T.r <= W.x || W.r <= T.x || T.b <= W.y || W.b <= T.y);
       return { timer: T, walk: W, overlap: !!hit, clock: (document.querySelector('.iw-timer__txt') || {}).textContent }; });
-    const walk = await c.measure('level-walk', { scopes: HUD, extra: await box() });
-    walk.backOk = null;
+    // (the boxes after measure(): it finishes the HUD's entrance drop first — read before it, the clock is still above the screen)
+    const walk = await c.measure('level-walk', { scopes: HUD });
+    walk.extra = await box(); walk.backOk = null;
     await c.ev(() => __inkwave.pause());
     await c.waitFor(() => __inkwave.menus.current === 'pause', 5000, 'pause');
     const pz = await c.measure('level-pause', { back: '.iw-pause__menu [data-id="resume"]' });
+    // 设置 from the pause, and back to the pause
+    await c.tap('.iw-pause__menu [data-id="settings"]', 'pause settings');
+    const ps = await c.waitFor(() => __inkwave.menus.current === 'settings', 5000, 'settings from the pause');
+    const psr = await c.measure('level-pause-settings', { reached: ps, back: '.iw-backbtn' });
+    if (ps) { await c.tap('.iw-backbtn', 'settings back'); psr.backOk = await c.waitFor(() => __inkwave.menus.current === 'pause', 5000, 'back on the pause'); }
     // 离开这一关 → its confirm (the modal), then 接着答
     await c.tap('.iw-pause__menu [data-id="quit"]', 'leave level');
     const mq = await c.waitFor(() => !!document.querySelector('.iw-modal'), 5000, 'leave modal');
@@ -131,14 +138,12 @@ export const GROUPS = {
     // answer every question right (auto-walk between the gates) to the end card, then 回到菜单 → the main menu
     await c.ev(async () => {
       const L = __inkwave.match.learn, H = __G.hud.learn, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const { rightAnswerOf } = await import('/src/learn/forms/common.js');
       for (let i = 0; i < 160 && !document.querySelector('.iw-learn.is-done'); i++) {
         const A = H._ask;
-        if (A && !A.answered) {
-          const p = A.p, want = p.type === 'flip' ? true : (L.asking && (p.type === 'choice' ? (p._perm ? p._perm.indexOf(L.asking.item.answer) : p._alt === 'choice-of-typed' ? p.options.findIndex((o) => o.text === ((L.asking.item.meta && L.asking.item.meta.ref) || L.asking.item.en)) : L.asking.item.answer) : ((L.asking.item.meta && L.asking.item.meta.ref) || L.asking.item.en)));
-          if (p.type === 'choice' && H.choices) H.choices[Math.max(0, want)].click(); else if (H.input) { H.input.value = String(want); H._submit(H.input.value); }
-          await sleep(30);
-        } else if (A && A.answered) H._continue();
-        else { if (!L.auto) L.autoWalk(true); }
+        if (A && !A.answered) { H._submit(L.asking ? rightAnswerOf(L.asking.item, L.asking.p) : A.p.type === 'flip'); await sleep(30); }
+        else if (A && A.answered) H._continue();
+        else if (!L.auto) L.autoWalk(true);
         __inkwave.debug.step(1000); await sleep(0);
       }
     });
@@ -178,6 +183,7 @@ export const GROUPS = {
     q.backOk = null;
     await c.ev(() => { const F = __inkwave.match.learn, a = F.rightAnswer ? F.rightAnswer() : null, H = __G.hud.learn; if (H.choices && typeof a === 'number') H.choices[a].click(); else if (H.input) { H.input.value = String(a); H._submit(H.input.value); } });
     await stepUntil(() => !__inkwave.match.learn.hold, 8, 'the card gone');
+    await c.step(2);   // (as in zone: one frame later the touch layer is live)
     const pl = await c.measure('v2-play', { scopes: HUD, extra: await c.ev(() => ({ touchLive: __G.touch && __G.touch.enabled, weaponKeys: [...document.querySelectorAll('.iw-touch.is-live .iw-touch__btn')].filter((b) => getComputedStyle(b).display !== 'none').length, timer: (document.querySelector('.iw-timer__txt') || {}).textContent })) });
     pl.backOk = null;
     // the room's pause (online: the match runs on underneath)
@@ -199,7 +205,10 @@ export const GROUPS = {
     if (!inRes) return;
     await c.ev(() => { const r = document.querySelector('.iw-results'); if (r) { r.classList.remove('is-intro'); r.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); } });
     const rs = await c.measure('v2-results', { back: '.iw-res__btns [data-id="toroom"], .iw-res__btns [data-id="leave"]', extra: await c.ev(() => ({ title: (document.querySelector('.iw-res__title') || {}).textContent, tags: [...document.querySelectorAll('.iw-res__tag')].map((e) => e.textContent.trim()), strip: (document.querySelector('.iw-res__learn') || {}).textContent, online: !!document.querySelector('.iw-res__lobby') })) });
-    rs.backOk = null;
+    // 回房间 (the host's; under the fold of the scrolling column): scrolled to, tapped, everyone back in the room
+    await c.ev(() => { const b = document.querySelector('.iw-res__btns [data-id="toroom"]'); if (b) b.scrollIntoView({ block: 'center' }); });
+    await c.step(2);
+    rs.backOk = (await c.tap('.iw-res__btns [data-id="toroom"]', '回房间')) && await c.waitFor(() => __inkwave.menus.current === 'lobby', 10000, 'back in the room');
   },
   // the week's 周考 on the phone (?learn=w1&kind=boss&short=1&from=app): L and R answered right, then the W phase's two
   // sentences — the first a near miss claimed with 「我的写法也对」 (evidence S, a hit), the second a near miss she goes on from

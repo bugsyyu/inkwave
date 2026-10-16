@@ -1511,6 +1511,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 @media (orientation: portrait) and (max-width: 640px) {
   .iw-hud { --u: min(1.6vw, 1.1vh); }
   .iw-learn__walk { top: calc(var(--hudtop, 58px) + env(safe-area-inset-top)); left: 10px; right: auto; max-width: calc(100vw - 20px); }
+  .iw-map__label { display: none; }
+  .iw-learn__quiz { padding: 6px 18px; line-height: 1.25; }   /* the end card's 「今日小考 · 8 题 · 傍晚一轮对抗赛」: two even lines, not one word alone */
+  .iw-learn__quiz span { text-wrap: balance; }   /* 「TAB 地图」 is a keyboard hint (half off the left edge here); the phone has its own 地图 key */
 }
 /* 「我的写法也对」 under a near-miss sentence (hud-learn.js _claimOffer): her own call, 44 pt, with what it means beside it */
 .iw-learn__claimrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
