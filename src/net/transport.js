@@ -6,10 +6,12 @@ export const PROTO = 1;
 
 // Where the relay lives: ?relay=… wins; a page served from this machine or the LAN talks to a local relay on :8787
 // (`wrangler dev`, or the Node relay: node server/node/relay.mjs); the public site and the desktop app talk to the
-// deployed Worker; a page served from any other host (the owner's own server, docs/LEARN.md §10) talks to the Node
-// relay behind the same origin at /relay (wss://<host>/relay/room/<CODE>).
+// deployed Worker (so do pages on the static hosts below); a page served from any other host (the owner's own server,
+// docs/LEARN.md §10) talks to the Node relay behind the same origin at /relay (wss://<host>/relay/room/<CODE>).
 export const PROD_RELAY = 'wss://inkwave-net.inkwave.workers.dev';
-const PROD_PAGES = /(^|\.)inkwave-aah\.pages\.dev$/;
+// static hosts that cannot run a relay of their own (the game's Cloudflare Pages site, the Vercel deploy of
+// tools/release.sh, GitHub Pages): their pages keep talking to the Worker
+const PROD_PAGES = /(\.pages\.dev|\.vercel\.app|\.github\.io)$/;
 export function relayURL() {
   const q = new URLSearchParams(location.search).get('relay');
   if (q) return q.replace(/\/$/, '');

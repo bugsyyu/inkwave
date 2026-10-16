@@ -40,6 +40,9 @@ export class Versus2Flow extends LearnFlow {
     this.model = BOT_ANSWER[match.opts.difficulty] || BOT_ANSWER.normal;
     this.group.visible = false;
     this.hud?.el.classList.remove('is-walk');
+    // a live Zone Control match: the phone keeps its fire / sub / special / cheer buttons (B's learn layer hides them
+    // for the solo levels, where answering is the only action)
+    G.touch?.el?.classList.remove('is-learn');
     this.ui = new FormsUi(G.hud); this.ui.start();
     this.queue = null; this.qi = -1;    // the match's questions (everyone holds them: 'ls'), the index of the last opened
     this.q = null;                       // the live question on this screen
