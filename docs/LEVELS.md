@@ -113,7 +113,7 @@
 |---|---|
 | 答对 | 门开、路涂开；掉一个道具（§2.4 `PROP_DROP.race`：每答对 1 题掉 1 个，最多拿 3 个）；feed「答对了」 |
 | 答错（第 1 次） | 换问法再来（钟照走） |
-| 答错（第 2 次） | 给答案；门开但**绕路**：门后的近道墨幕 8 秒不散，她走旁边的长道（约多 8 秒）；条目进回炉；拿着护盾就不绕 |
+| 答错（第 2 次） | 给答案；门开但**绕路**：门后的近道墨幕 `LEARN.race.detour`（8）秒不散——第一版就是在门前等这 8 秒（HUD 写「绕路中 … n 秒」，钟照走、机器人照跑），还没有铺另一条长道；条目进回炉；拿着护盾就不绕 |
 | 连对 3 | 护盾（下一次错不绕路） |
 | 连对 5 | 墨道（到下一检查点的路全涂成她的墨，游过去） |
 | 机器人先到终点 | feed「机器人先到了，没关系」；她照跑到终点，首答照记，星按学习算（§2.8），名次只给一个奖杯（本机，不是证据） |
@@ -125,7 +125,7 @@
 ### 2.3 对抗赛 `duel`（她 + 3 个队友机器人 对 4 个机器人，Zone Control）
 
 - **目标**：一道门 = 一轮区域争夺；答题就是蓄墨：答对一题，区域里最缺墨的一块（`zonePlan` 的 need）泼成她的颜色；谁先把倒数数到 0 谁赢这一轮。一天 = 门数那么多轮；轮和轮之间是**备战**（钟停，展板学下一步的内容，squidkid 摆 `lobby_pose`）。
-- **舞台**：用 zones 版本的几何（`layout.zones`，`onlyIn: 'zones'` 的梯子、台阶都在；7 张都有区域定义 `zones-data.js`）。一轮只用**中央区域**（不轮转：`ZONES.rotateMin/Max` 在学习关里设成轮的长度，§6.4 提案 3），时间 = 这道门的分钟数（短的门 15 分钟、长的 40 分钟——她答完题轮就结束，不必等）。
+- **舞台**：用 zones 版本的几何（`layout.zones`，`onlyIn: 'zones'` 的梯子、台阶都在；7 张都有区域定义 `zones-data.js`）。一轮只用**中央区域**（不轮转：对抗赛每一轮新建一个 `ZoneControl`，`final = true`、`nextSwap = ∞`，所以没有轮换也没有「最后 30 秒」的横幅），时间 = 这道门的分钟数夹在 `LEARN.duel.roundMin/roundMax`（60–300 秒）之间——课程的分钟是学的时间，抢区域的一轮要短；她答完题轮就结束，不必等；倒数到 0 也是一轮的结束，不是局的结束（道具赛 / 对抗赛的局没有「时间到」）。
 - **她的作答**：
 
 | 事 | 发生什么 |
@@ -165,7 +165,7 @@
 | W 写作 | 33% → 10% | 1 题 = 本周写字墙里的 3 句（消息的 3 个要点，`WT` 逐句判） | 30–36 | 3：`frenzy`，壳裂、肚子露出来 | 10 |
 | S 口语 | 10% → 0% | 1 组 = 本周回声亭的 4 问 + 朗读 2 句听写句；「说完了」就是最后一击 | 7 | 3 | 6 |
 
-- **题 → 效果**：答对 = 一次弱点命中（`hit_marker`，×2.5 的弱点特效），打掉这一段 HP 的 1/20（W 段一题打掉整段，S 段说完打掉最后 10%）；答错 = Boss 出一招（这一阶段的招，有 ≥ 0.6 s 的预告），她用摇杆躲 3 秒，然后下一题——她的 HP 不计分，被泼中只是 5.5 秒重生；连对 3 特殊槽满，连对 5 Boss 眩晕一次（`stun: true`，肚子亮）。
+- **题 → 效果**：答对 = 一次弱点命中（`hit_marker`，×2.5 的弱点特效），打掉这一段 HP 的 1/20（W 段 3 句各打掉这一段的三分之一——流程逐句判、逐句掉血，`bossPlan` 仍把它算一题；S 段 6 张卡各打掉最后 10% 的六分之一，「说完了」就是一击）；每段有时间预算（`LEARN.boss.phaseTime`，14 / 14 / 10 / 6 分钟，只在 Boss 动的时候走，她答题时停）——到了就「这一段的时间到了，剩下的留到另一天」，Boss 落到这一段的底、下一段开始；答错 = Boss 出一招（这一阶段的招，有 ≥ 0.6 s 的预告），她用摇杆躲 3 秒，然后下一题——她的 HP 不计分，被泼中只是 5.5 秒重生；连对 3 特殊槽满，连对 5 Boss 眩晕一次（`stun: true`，肚子亮）。
 - **小队**：她 + 3 个机器人（BOSS.md 的 squad 行为：散开、打它、躲预告、清蟹崽），只有她答题；机器人的输出只是演出，Boss 的 HP 只被题打动。
 - **舞台**：`BOSS_STAGE[w]`（w1 海滨广场、w2 盐田、w3 山城，都 dusk；`mapBossOk` 全过），不和复习日同一张。
 - **满月月考**：`week.n % 4 === 0` 的周 `month: true`：同样四段，结算卡多「这四周」一页（经典页）。
@@ -688,7 +688,7 @@ FreePlan = { kind: 'free', form: 'race', week, n, minutes, stage, time, items, r
 
 1. **A `store.js`**：`recordFirst` 支持卡片自评 → 方式 `F`（`Model.MODES` 里有 `F`；`modeOf` 现在非打字的词一律 `L`）。建议：`a.self && a.rated` 或新参数 `rated: true` → `'F'`。没有它，复习日 150 张翻牌只能记 `L`（对排程无别，但周报里会把自评说成课上作答）。
 2. **A `store.js`**：星表和「走完」进度（`inkwave:learn:v1` 里加 `meta: { stars: { 'w1d1': 3 }, walked: {…}, props? }`），或者 D / B 自己开一个键 `inkwave:learn:design:v1`——建议后者（不碰证据文档）。
-3. **`config.js`**：加 `LEARN = { gate: { trigger: 3 }, race: { detour: 8, bots: 3 }, duel: { allies: 3, enemies: 4, flood: [2.5, 0.5, 4.5], special: 15, rotate: 'round' }, boss: { phaseTime: { L: 840, R: 840, W: 600, S: 360 }, squad: 3 }, quiz: { n: 8, minutes: 6 }, props: PROP_DROP }`——契约 §5 说数字都在 `config.js` 的 `LEARN` 里；现在它们在 `design.js`，B 接的时候搬过去或从 `design.js` 读都行。学习关的 zones 不轮转：`ZONES.rotateMin/Max` 在学习局里取轮的长度。
+3. **`config.js`**（**E 已做**，10-15）：`LEARN` 多了 `gate / race / duel / boss / quiz / bots / props / streak / relearnMax / starsKey`，`design.js` 的 `PROP_DROP`、`BOT_ANSWER`、`BOTS_OF`、`EFFECTS`、`RULES`、`RETRY`、Boss 各段的分钟都从它读，不再自己存一份；学习关的 zones 不轮转是对抗赛自己把每一轮的 `ZoneControl` 设成 `final`（§2.3），没有碰 `ZONES.rotateMin/Max`。
 4. **A / 流程**：Boss 第二版用 `vendor/ielts/sched.js` 的 `plan('week', state, { part })` + `gen.js` 的 `render` 出真正的场景题（26 种题型、字数限制、改口），估分用 `estimate / band`；第一版（本文）用课程条目按 EXAM 的题量和配比。需要 `genCtx`（index、bank、vocab、state），A 的 `ielts()` 已经把五个模块都加载了。
 5. **B `flow.js` / `hud-learn.js`**：放门的规则（§2.1 第 1–5 条）跑在 `G.nav` 上；自动走用 `BotBrain` 的寻路；题层新增三种输入等第 7 周（表格、三扇门、配对）；展板 = 舞台上立的牌（`mural` 的位置或 `curtain` 的平面）。
 6. **`match.js`**：`mode: 'learn'`，`opts.learn = planDay(...)`：`puzzle` 像 `practice`（无敌、无钟、`teamSize 1`）；`race` = practice + 3 个有脑子的机器人沿路线；`duel` = `zones` + `learn` 规则；`boss` = `boss` + 四段 HP。

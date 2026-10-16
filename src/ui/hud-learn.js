@@ -14,7 +14,7 @@ import { GLYPHS } from './ui-icons.js';
 import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
 
-const KIND_ZH = { typed: '听写', choice: '选择' };
+const KIND_ZH = { typed: '听写', type: '听写', choice: '选择', write: '写句', read: '看一看' };
 const LOCK_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="28" width="36" height="28" rx="6" fill="currentColor"/><path d="M22 28v-7a10 10 0 0 1 20 0v7" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>';
 
 export class LearnHud {

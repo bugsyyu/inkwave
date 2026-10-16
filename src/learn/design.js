@@ -16,7 +16,10 @@
 import { daySteps, dayOf } from './content.js';
 import { puzzleLevel, raceLevel, duelLevel, bossLevel } from './levels.js';
 import { store } from './store.js';
-import { SUBS, SPECIALS, OFFLINE_MAPS, DIFFICULTY, TIMES } from '../config.js';
+import { SUBS, SPECIALS, OFFLINE_MAPS, DIFFICULTY, TIMES, LEARN } from '../config.js';
+
+// the numbers live in config.js LEARN (docs/LEARN.md §5, LEVELS.md §6.4 proposal 3); this file only shapes them
+const N = LEARN;
 
 export const FORMS = ['puzzle', 'race', 'duel', 'boss'];
 export const FORM_ZH = { puzzle: '解密闯关', race: '道具赛', duel: '对抗赛', boss: 'Boss 战（周考）' };
@@ -67,8 +70,8 @@ export function mechanicOf(step) {
 
 // the exam centre's forms (EXAM.md §1–2) → where they live in the game
 export const EXAM_MECHANICS = {
-  quiz:  { zh: '今日小考', form: 'duel', n: 8, minutes: 6, when: '第 1–6 天出口后的傍晚；复习日和周考的日子不出', shares: { due: 0.5, miss: 0.3, fresh: 0.2 }, record: '照门的方式；当天首答' },
-  boss:  { zh: '周考', form: 'boss', n: { L: 20, R: 20, W: 1, S: 1 }, minutes: { L: 14, R: 14, W: 10, S: 6 }, when: '复习日之后第二天起开放，一天一段，10 天窗口', shares: { weak: 0.3, due: 0.3, fresh: 0.4 } },
+  quiz:  { zh: '今日小考', form: 'duel', n: N.quiz.n, minutes: N.quiz.minutes, when: '第 1–6 天出口后的傍晚；复习日和周考的日子不出', shares: { due: 0.5, miss: 0.3, fresh: 0.2 }, record: '照门的方式；当天首答' },
+  boss:  { zh: '周考', form: 'boss', n: { L: 20, R: 20, W: 1, S: 1 }, minutes: { L: N.boss.phaseTime.L / 60, R: N.boss.phaseTime.R / 60, W: N.boss.phaseTime.W / 60, S: N.boss.phaseTime.S / 60 }, when: '复习日之后第二天起开放，一天一段，10 天窗口', shares: { weak: 0.3, due: 0.3, fresh: 0.4 } },
   month: { zh: '满月月考', form: 'boss', when: '第 4、8、12、16 周的周考；同样长，结尾在满月下（舞台 dusk + 四周对比成绩单 = 经典页）' },
   free:  { zh: '自由练习 / 只练弱项', form: 'race', n: [5, 10, 15], when: '她自己点；从不推荐到今天里', shares: { weakOnly: 1 } },
 };
@@ -204,12 +207,7 @@ export const PROPS_OF = {
 };
 // drops: every `everyRight`-th right answer drops one prop drawn by `weights` (streak props never drop: they are
 // earned by the streak); `hold` = how many she can carry. No prop ever skips a question.
-export const PROP_DROP = {
-  puzzle: { everyRight: 2, hold: 2, weights: { rain: 1, echo: 1 } },
-  race: { everyRight: 1, hold: 3, weights: { leap: 15, rain: 20, echo: 20, curtain: 15, bomb: 15 } },
-  duel: { everyRight: 3, hold: 1, weights: { rain: 1, echo: 1 } },
-  boss: { everyRight: 4, hold: 1, weights: { rain: 1, echo: 1 } },
-};
+export const PROP_DROP = N.props;   // (config.js LEARN.props)
 
 /* ───────────────────────────── bots' "answering" model ───────────────────────────── */
 // Bots never see her question. At each checkpoint / each cadence tick a bot rolls a die: correct with probability
@@ -217,16 +215,13 @@ export const PROP_DROP = {
 // rubber: seconds added to a bot's delay per checkpoint it is ahead of her (capped at `rubberCap` checkpoints) — a
 // gentle band, stated in the settings. duelCadence: seconds between two enemy "answers" in a duel round; duelFlood:
 // metres of zone a right one inks. propUse: the chance a bot uses a prop it earned.
-export const BOT_ANSWER = {
-  easy:   { id: 'easy', zh: '轻松', correct: 0.55, delay: [6, 10], rubber: 2.5, rubberCap: 2, duelCadence: 9, duelFlood: 2.0, propUse: 0.3 },
-  normal: { id: 'normal', zh: '正常', correct: 0.70, delay: [4, 7], rubber: 2.0, rubberCap: 2, duelCadence: 6, duelFlood: 2.2, propUse: 0.5 },
-  hard:   { id: 'hard', zh: '激烈', correct: 0.85, delay: [2.5, 4.5], rubber: 1.0, rubberCap: 1, duelCadence: 4, duelFlood: 2.4, propUse: 0.8 },
-};
+const BOT_ZH = { easy: '轻松', normal: '正常', hard: '激烈' };
+export const BOT_ANSWER = Object.fromEntries(Object.keys(DIFFICULTY).map((id) => [id, { id, zh: BOT_ZH[id] || id, ...N.bots[id] }]));   // (config.js LEARN.bots)
 export const BOTS_OF = {
   puzzle: { count: 0 },
-  race: { count: 3, teams: 1, model: 'BOT_ANSWER' },
-  duel: { count: 7, teams: 2, allies: 3, enemies: 4, model: 'BOT_ANSWER', alliesAnswer: false },
-  boss: { count: 3, teams: 1, model: null, note: 'squad bots fight the boss as in Boss Battle; only she answers' },
+  race: { count: N.race.bots, teams: 1, model: 'BOT_ANSWER' },
+  duel: { count: N.duel.allies + N.duel.enemies, teams: 2, allies: N.duel.allies, enemies: N.duel.enemies, model: 'BOT_ANSWER', alliesAnswer: false },
+  boss: { count: N.boss.squad, teams: 1, model: null, note: 'squad bots fight the boss as in Boss Battle; only she answers' },
 };
 
 /* ───────────────────────────── effects: what a right / wrong / streak does, per form ───────────────────────────── */
@@ -245,7 +240,7 @@ export const EFFECTS = {
   race: {
     start:   { sfx: ['ready', 'go_horn'], banner: ['ready', '准备'] },
     right:   { sfx: 'splat_big', fx: 'explosion', trigger: 'jump', prop: 'draw', feed: '答对了' },
-    wrong:   { sfx: 'ui_back', glow: 'coral', detour: 8, why: true, retry: 'rephrase' },
+    wrong:   { sfx: 'ui_back', glow: 'coral', detour: N.race.detour, why: true, retry: 'rephrase' },
     wrong2:  { sfx: 'ui_toggle', showAnswer: true, open: true, relearn: true },
     streak3: { sfx: 'special_ready', prop: 'shield' },
     streak5: { sfx: 'special_activate', prop: 'lane', banner: ['special', '墨道！'] },
@@ -256,7 +251,7 @@ export const EFFECTS = {
   },
   duel: {
     start:   { sfx: ['ready', 'go_horn'], banner: ['go', '开始'] },
-    right:   { sfx: 'splat_big', fx: 'explosion', trigger: 'shoot', flood: 2.5, floodPerStreak: 0.5, floodMax: 4.5, special: 15, feed: '答对了' },
+    right:   { sfx: 'splat_big', fx: 'explosion', trigger: 'shoot', flood: N.duel.flood[0], floodPerStreak: N.duel.flood[1], floodMax: N.duel.flood[2], special: N.duel.special, feed: '答对了' },
     wrong:   { sfx: 'ui_back', glow: 'coral', why: true, retry: 'rephrase' },
     wrong2:  { sfx: 'ui_toggle', showAnswer: true, relearn: true },
     streak3: { sfx: 'special_ready', special: 100 },
@@ -291,14 +286,14 @@ export const BANNERS = [...new Set(Object.values(EFFECTS).flatMap((f) => Object.
 export const RULES = {
   puzzle: {
     zh: '解密闯关', enemies: false, clock: false, route: 'through',
-    gate: { trigger: 3.0, opensOn: 'right', wrongOpensAfter: 2, lockAll: true },
+    gate: { trigger: N.gate.trigger, opensOn: 'right', wrongOpensAfter: 2, lockAll: true },
     place: { path: 'A* spawn→spawn on G.nav', snap: 'nearest nav node to the spot tag, else at × route length', wet: 0, spawnZone: false, spacing: 10, width: 3 },
     freeze: true,          // the world holds still while she answers (DESIGN: 做题时画面不动)
     walk: 'stick or auto-walk (tap the next gate on the map)',
   },
   race: {
-    zh: '道具赛', enemies: false, clock: true, route: 'loop', bots: 3,
-    checkpoint: { trigger: 3.0, question: 1, detour: 8, props: true },
+    zh: '道具赛', enemies: false, clock: true, route: 'loop', bots: N.race.bots,
+    checkpoint: { trigger: N.gate.trigger, question: 1, detour: N.race.detour, props: true },
     place: { path: 'A* spawn→far spawn, back by the other lane', snap: 'same as puzzle', wet: 0, spacing: 12 },
     freeze: 'her only (bots keep running; their delay is the fairness)',
     rubber: 'BOT_ANSWER.rubber',
@@ -314,8 +309,8 @@ export const RULES = {
     zh: 'Boss 战（周考）', enemies: 'HULLBREAKER', clock: true, route: 'arena', mode: 'boss',
     phases: 'L → R → W → S = HP bands 100–66 · 66–33 · 33–10 · 10–0', perDay: 1, window: 10, opens: 'review day + 1',
     answer: { right: 'a weak-point hit worth phaseHp / n', wrong: 'the boss gets a move (phase-appropriate); she dodges; no HP of hers counts' },
-    squad: 'she + 3 bots (bots fight it as in Boss Battle, only she answers)',
-    time: 'EXAM_MECHANICS.boss.minutes per phase (config LEARN.boss.phaseTime, §6 proposal)',
+    squad: 'she + ' + N.boss.squad + ' bots (bots fight it as in Boss Battle, only she answers)',
+    time: 'config.js LEARN.boss.phaseTime per phase (EXAM: 14 / 14 / 10 / 6 min)', phaseTime: N.boss.phaseTime,
   },
 };
 
@@ -324,7 +319,7 @@ export const RULES = {
 // course's own 开场抽查 (w2+) covers it as well.
 export const RETRY = {
   immediate: { choice: 'reshuffle + show the Chinese gloss', type: 'show the hint (mode H if it were first)', listen: 'replay slowly, both words', write: 'show the key forms that were missing' },
-  relearnGate: { at: 0.9, zh: '回炉门', form: 'another form of the same item', max: 12, extraMinutes: 0 },
+  relearnGate: { at: 0.9, zh: '回炉门', form: 'another form of the same item', max: N.relearnMax, extraMinutes: 0 },
   later: {
     'word-board': 'flash-type', 'flash-type': 'word-board', 'flash-flip': 'flash-type', 'symbol-door': 'symbol-door+tip',
     'grammar-board': 'grammar-board+lesson', 'pron-quiz': 'pron-quiz+lesson', 'dictation-pool': 'dictation-pool+slow',
@@ -426,10 +421,10 @@ export function planDay(week, d, form) {
 
 /* ───────────────────────────── the boss: the week's 周考 (EXAM.md §2.3) ───────────────────────────── */
 const BOSS_PHASES = [
-  { id: 'L', zh: '听力', hp: [1.0, 0.66], n: 20, k: ['listening', 'pron'], minutes: 14, bossPhase: 1, moves: ['slam', 'barrage'] },
-  { id: 'R', zh: '阅读 · 词汇 · 语法', hp: [0.66, 0.33], n: 20, k: ['vocab', 'grammar', 'reading'], minutes: 14, bossPhase: 2, moves: ['sweep', 'charge', 'crablets'] },
-  { id: 'W', zh: '写作', hp: [0.33, 0.10], n: 1, k: ['writing'], minutes: 10, bossPhase: 3, moves: ['frenzy'], task: { sentences: 3, zh: '一条消息的 3 个要点：写 3 句（WT 判关键形式）' } },
-  { id: 'S', zh: '口语', hp: [0.10, 0.0], n: 1, k: ['speaking'], minutes: 6, bossPhase: 3, moves: [], task: { questions: 4, readAloud: 2, zh: '4 个 Part 1 问题 + 朗读 2 句；说完就是最后一击（评分等语音服务器）' } },
+  { id: 'L', zh: '听力', hp: [1.0, 0.66], n: 20, k: ['listening', 'pron'], minutes: N.boss.phaseTime.L / 60, bossPhase: 1, moves: ['slam', 'barrage'] },
+  { id: 'R', zh: '阅读 · 词汇 · 语法', hp: [0.66, 0.33], n: 20, k: ['vocab', 'grammar', 'reading'], minutes: N.boss.phaseTime.R / 60, bossPhase: 2, moves: ['sweep', 'charge', 'crablets'] },
+  { id: 'W', zh: '写作', hp: [0.33, 0.10], n: 1, k: ['writing'], minutes: N.boss.phaseTime.W / 60, bossPhase: 3, moves: ['frenzy'], task: { sentences: 3, zh: '一条消息的 3 个要点：写 3 句（WT 判关键形式）' } },
+  { id: 'S', zh: '口语', hp: [0.10, 0.0], n: 1, k: ['speaking'], minutes: N.boss.phaseTime.S / 60, bossPhase: 3, moves: [], task: { questions: 4, readAloud: 2, zh: '4 个 Part 1 问题 + 朗读 2 句；说完就是最后一击（评分等语音服务器）' } },
 ];
 function stableHash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
 function dueSet(week) { try { return new Set(store.due(week)); } catch (e) { return new Set(); } }

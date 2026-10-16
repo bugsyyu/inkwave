@@ -6,7 +6,7 @@ import { Input } from './core/input.js';
 import { TouchControls, shouldUseTouch, isTouchDevice } from './core/touch.js';
 import { mapTheme,
   DEFAULT_SETTINGS, QUALITY, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, WEAPONS, WEAPON_ORDER, WEAPON_SUCCESSOR, ZONES, SUB, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER,
-  MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH, OFFLINE_MAPS, mapOfflineOk, mapNoBots, mapBossOk,
+  MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH, OFFLINE_MAPS, mapOfflineOk, mapNoBots, mapBossOk, LEARN,
 } from './config.js';
 import { Level } from './world/level.js';
 import { MAP_LAYOUTS } from './world/maps.js';
@@ -30,7 +30,7 @@ import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
-import { loadWeek, puzzleLevel } from './learn/api.js';   // 关卡学习 (docs/LEARN.md): the level a learning match is built from
+import { buildLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
 
 const params = new URLSearchParams(location.search);
 // dev-only: ?devstage lets an online-only stage (config onlineOnly — Cargo Terminal) boot as the backdrop and be walked
@@ -317,9 +317,10 @@ class Game {
     this._applyAudioVolumes();
     requestAnimationFrame((t) => this._loop(t));
     // ?learn=w1d1&kind=puzzle — straight into a learning level (the main menu's 学习 · Learn does the same by hand)
+    // (?learn=w1&kind=boss is the week's 周考; &short=1 is the audits' shortened level: 2 gates, a 60 s clock)
     if (params.has('learn')) {
-      const m = /^w?(\d+)d(\d+)$/i.exec(params.get('learn') || '') || [];
-      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'puzzle' });
+      const m = /^w?(\d+)(?:d(\d+))?$/i.exec(params.get('learn') || '') || [];
+      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'puzzle', short: params.has('short') });
     } else if (params.has('autostart')) {
       const pm = params.get('mode');
       this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
@@ -516,7 +517,7 @@ class Game {
       // 关卡学习 (docs/LEARN.md): a day of the course as a level — { week, day, kind } (kind: only 'puzzle' so far)
       startLearn: (o) => self.startLearn(o),
       isLearn: () => !!(self.match && self.match.learn && G.mode === 'match'),
-      learnInfo: () => (self.match?.learn ? { week: self.match.learn.week, day: self.match.learn.day, kind: 'puzzle', map: self.mapDef.name } : null),
+      learnInfo: () => (self.match?.learn ? { week: self.match.learn.week, day: self.match.learn.day, kind: self.match.learnKind || 'puzzle', map: self.mapDef.name } : null),
       // practice: solo on a random stage (no enemies, no clock); the loadout can be changed mid-session
       startPractice: (o) => self.startPractice(o),
       isPractice: () => self._inPractice(),
@@ -595,6 +596,8 @@ class Game {
     // only a live round pauses on focus loss; intro / time's up / judge / results release the mouse on purpose.
     // Holding the map is never a reason to pause (some browsers/embeds steal focus on TAB): relock on the next click.
     if (this.match?.controller?.mapHeld || (this.rig?.mapK ?? 0) > 0) { this._relock = true; return; }
+    // 关卡学习: a race / duel question releases the mouse for the answer card while the round runs on (learn.hold) — not a pause
+    if (this.match?.learn?.hold) { this._relock = true; return; }
     if (G.mode === 'match' && this.match && !this.match.paused && this.match.state === 'playing' && !this.menus?.current) this.pause();
   }
   // pull the fog back while the view is overhead (the stage is ~150 m away up there), restore it exactly after
@@ -815,7 +818,8 @@ class Game {
       learn,
     };
     opts.duration = opts.mode === 'zones' ? (o.duration || ZONES.duration) : opts.mode === 'boss' ? (o.duration || BOSS_MODE.duration)
-      : Math.min(MATCH.maxDuration, o.duration || this.settings.matchLength || MATCH.defaultDuration);
+      : learn ? (o.duration || MATCH.defaultDuration)   // (a learning level's clock is the form's own: a duel's rounds, the boss's phases)
+        : Math.min(MATCH.maxDuration, o.duration || this.settings.matchLength || MATCH.defaultDuration);
     if (!practice) this.lastMatchOpts = opts;
     G.audio?.init?.();
     G.audio?.duck?.(1, 0.01);   // a new stage picked from the practice pause menu starts un-ducked
@@ -836,7 +840,7 @@ class Game {
       map = OFFLINE_MAPS[0];
     }
     if (opts.mode === 'boss' && !mapBossOk(map.id)) opts.mode = 'turf';
-    await this._buildWorld(map, learn ? 'turf' : opts.mode);   // no-op when this stage (+ mode variant) is already built (a level plays the turf stage)
+    await this._buildWorld(map, learn ? (learn.world || 'turf') : opts.mode);   // no-op when this stage (+ mode variant) is already built (a level plays the turf stage; a duel the zones one)
     const theme = mapTheme(map, opts.time);
     this.time = opts.time === 'dusk' ? 'dusk' : 'day';
     if (theme !== this.theme) {
@@ -874,12 +878,14 @@ class Game {
     this._fade(0, 500);
   }
 
-  // 关卡学习: build the day's level and start it as a 'learn' match on the level's stage (only the puzzle form so far)
+  // 关卡学习: build the day's level (or the week's boss) in the asked form and start it as a 'learn' match on the
+  // level's stage, at the level's time of day — { week, day, kind: puzzle | race | duel | boss, short? }
   async startLearn(o = {}) {
-    const week = clamp(+o.week || 1, 1, 3), day = clamp(+o.day || 1, 1, 7);
-    let level = null;
-    try { await loadWeek(week); level = puzzleLevel(week, day); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
-    return this.startMatch({ mode: 'learn', mapId: level.stage || 'tidewater', learn: { kind: 'puzzle', level: { ...level, week, day } } });
+    const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
+    const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'puzzle';
+    let learn = null;
+    try { learn = await buildLearn({ week, day, kind, short: !!o.short }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
+    return this.startMatch({ mode: 'learn', mapId: learn.level.stage || 'tidewater', time: learn.time || 'day', duration: learn.duration, learn });
   }
 
   _inPractice() { return !!(this.match && this.match.practice && G.mode === 'match'); }

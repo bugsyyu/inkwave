@@ -231,6 +231,7 @@ export class LearnFlow {
     if (!g.queue.length) { this._open(g); return; }
     const item = g.queue.shift();
     const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
+    this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
     this.hud?.ask(p, {
@@ -247,7 +248,7 @@ export class LearnFlow {
     else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
     else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
     else r = judge(item, ans);
-    const { first } = store.recordFirst({ itemId: item.id, ok: r.ok, day: this.dayKey, at: Date.now() });
+    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now() });   // (A's store: the dictation percent is the leaf; the day is today's date)
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
@@ -267,7 +268,7 @@ export class LearnFlow {
   //   stress / listen-choice rows → the same choice, options reshuffled (indices mapped back)
   _altPrompt(item) {
     const base = prompt(item);
-    if (base.type === 'typed') {
+    if (base.type !== 'choice') {   // ('type' from A's engine, 'typed' from the stub: anything she types)
       const pool = this._wordPool(item);
       const opts = [{ text: item.en, zh: item.zh }];
       for (const w of pool) { if (opts.length >= 4) break; if (norm(w.en) !== norm(item.en)) opts.push({ text: w.en, zh: w.zh }); }
@@ -279,7 +280,7 @@ export class LearnFlow {
       return { type: 'typed', text: `换个问法：把「${right.zh}」的英文打出来`, zh: right.zh, tts: null, placeholder: '输入这个英文词', _alt: 'typed-of-choice' };
     }
     const perm = item.options.map((_, i) => i); shuffle(perm);
-    return { ...base, text: `换个问法：${base.text}`, options: perm.map((i) => ({ text: item.options[i].en, zh: item.options[i].zh })), _perm: perm };
+    return { ...base, text: `换个问法：${base.text}`, options: perm.map((i) => base.options[i]), _perm: perm };   // (the engine's own option texts, reshuffled: a word's options are its meanings)
   }
   // single words of this level (other gates' items and option words) as distractors, sentences for a sentence
   _wordPool(item) {
@@ -345,7 +346,7 @@ export class LearnFlow {
     this.finishT = -1;
     this.match.paused = true;
     G.input?.exitLock?.();
-    const dueIds = store.due(this.week);
+    let dueIds = []; try { dueIds = store.due(this.level.weekRef || this.week); } catch (e) { dueIds = []; }   // (A's store wants the week object: the level carries it as weekRef)
     const byId = new Map(); for (const g of this.level.gates) for (const it of g.items) byId.set(it.id, it);
     const due = dueIds.map((id) => byId.get(id)).filter(Boolean).map((it) => ({ en: it.en, zh: it.zh }));
     const data = { done: this.right.size, total: this.total, due, firsts: this.firsts, locks: this.gates.reduce((n, g) => n + g.locks, 0), week: this.week, day: this.day };
