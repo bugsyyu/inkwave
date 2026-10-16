@@ -202,7 +202,8 @@ export class PlayHost {
         // nothing low or high standing between the home pad and it (the pads have no collision: she hops over the ground)
         let flat = true;
         for (const [rx, rz] of [[0, 0], [0.65, 0], [-0.65, 0], [0, 0.65], [0, -0.65]]) { const gy = L.groundHeight(x + rx, z + rz, q.y + 1.2); if (!(gy > -Infinity && Math.abs(gy - q.y) < 0.3)) { flat = false; break; } }
-        const walk = nav.nearest(_v.set(x, q.y, z), 0.8, true) >= 0;
+        // (a walkable node within 0.75 m: the grid keeps 0.46 m from every collider — a fountain basin's cells are not in it)
+        const k = nav.nearest(_v.set(x, q.y, z), 0.8, true), walk = k >= 0 && Math.hypot(nav.nodes[k].x - x, nav.nodes[k].z - z) < 0.75;
         const clear = !P || !P.los || (P.los(_w.set(q.x, q.y + 0.4, q.z), _v.set(x, q.y + 0.4, z)) && P.los(_w.set(q.x, q.y + 1.1, q.z), _v.set(x, q.y + 1.1, z)));
         // and open sky over it (5 m): nothing between the stage camera and the pads
         const sky = !P || !P.los || P.los(_w.set(x, q.y + 0.5, z), _v.set(x, q.y + 5.5, z));
