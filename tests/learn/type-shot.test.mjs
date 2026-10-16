@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 import { LEARN } from '../../src/config.js';
 const THREE = await import('three');
 const { typeState, typeStep, PHASES, TypeShot } = await import('../../src/learn/play/type/shot.js');
+const CTX = await import('../../src/core/ctx.js');
+const await_ctx = () => CTX;
 
 const run = (s, evs) => evs.reduce((st, e) => typeStep(st, e), s);
 
@@ -100,4 +102,22 @@ test('TypeShot: the answer is not an input before 射 (begin ignores it, key tak
   for (const k of 'sec') shot.key(k);
   assert.ok(!JSON.stringify(shot.s).includes('secret'));
   assert.equal(LEARN.type.coral.toLowerCase(), '#f08a7a');
+});
+
+test('reduced motion (LEVELS §5 REDUCED): no hop, no shake; the shot and the verdict still play through', () => {
+  const ctx = await_ctx();
+  const shakes = [];
+  const off = ctx.on('shake', (e) => shakes.push(e));
+  const shot = new TypeShot({ team: 0, color: '#ff8a14', reduced: true });
+  const a = mockActor();
+  shot.mount(a);
+  shot.begin({ mode: 'word', target: new THREE.Vector3(0, 1.45, 6.5) });
+  for (const k of 'go') shot.key(k);
+  shot.submit(); shot.resolve({ ok: true, right: 'go' });
+  let t = 0; while (shot.phase !== 'done' && t < 8) { step(shot, 0.05); t += 0.05; }
+  off();
+  assert.equal(shot.phase, 'done');
+  assert.ok(!a.calls.includes('jump'), 'no hop');
+  assert.equal(shakes.length, 0, 'no camera shake');
+  assert.equal(shot.rig.reduced, true); assert.equal(shot.word.reduced, true);
 });

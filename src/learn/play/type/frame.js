@@ -89,4 +89,4 @@ export function frameFor(o = {}) {
   return withTarget.fits && Math.hypot(withTarget.pos[1] - 1.2, withTarget.pos[2]) < Math.hypot(rigOnly.pos[1] - 1.2, rigOnly.pos[2]) * 1.35 ? withTarget : rigOnly;
 }
 
-export { project as projectRig };
+export { project as projectRig, search as searchFrame };
