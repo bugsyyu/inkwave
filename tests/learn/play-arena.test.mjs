@@ -19,7 +19,8 @@ import { prompt } from '../../src/learn/engine.js';
 import { store, setBackend } from '../../src/learn/store.js';
 import { LEARN } from '../../src/config.js';
 import { planDay, bossPlan, quizPlan } from '../../src/learn/design.js';
-import { canPlayArena, arenaKind, weakSockets, WEAK_SOCKETS, clusterLocals, cameraPositions, orbitBasis, bossBallRadius } from '../../src/learn/play/arena/m1.js';
+import { canPlayArena, arenaKind, weakSockets, WEAK_SOCKETS, clusterLocals, cameraPositions, orbitBasis, bossBallRadius, arenaTypeFrame, TYPE_PTS } from '../../src/learn/play/arena/m1.js';
+import { RIG_POINTS, projectRig } from '../../src/learn/play/type/frame.js';
 import { arenaAltPrompt, wordPool } from '../../src/learn/play/arena/alt.js';
 import { canClaim } from '../../src/learn/forms/common.js';
 const { LearnFlow } = await import('../../src/learn/flow.js');
@@ -175,6 +176,33 @@ test('the cluster: locals ↔ world round the anchor in any basis (the same pixe
   const A = LEARN.arena;
   assert.ok(Math.abs(bossBallRadius(12, 844, 52) - Math.max(A.bossBall, Math.min(A.bossBallMax, A.bossPx * (2 * 12 * Math.tan((52 * Math.PI) / 360)) / 844))) < 1e-9);
   assert.equal(bossBallRadius(2, 844, 52), A.bossBall); assert.equal(bossBallRadius(80, 390, 52), A.bossBallMax);
+});
+
+test('the typing frame in an arena (PLAY §3 M4, the main session\'s note on play-wire): for the band the strip and the game keyboard really leave — her head below the keyboard\'s MIDDLE row, the whole typewriter and its sheet (the carriage\'s whole travel) inside, portrait / landscape / desktop / iPhone SE', () => {
+  const R = RIG_POINTS;
+  const screens = [
+    { W: 390, H: 844, top: 242, bottom: 548, strip: { x0: 16, x1: 374 } },                       // (the duel's strip and keyboard as measured in the browser)
+    { W: 844, H: 390, top: 113, bottom: 238, strip: { x0: 247, x1: 597 }, avoid: [{ x: 664, y: 34, w: 64, h: 64 }, { x: 752, y: 34, w: 64, h: 64 }, { x: 290, y: 0, w: 260, h: 50 }] },
+    { W: 844, H: 390, top: 140, bottom: 238, strip: { x0: 120, x1: 724 } },                       // (a two-line strip as wide as the screen allows: the band only)
+    { W: 1280, H: 720, top: 96, bottom: 396, strip: { x0: 300, x1: 980 } },
+    { W: 375, H: 667, top: 230, bottom: 430, strip: { x0: 16, x1: 359 } },
+    { W: 667, H: 375, top: 110, bottom: 210, strip: { x0: 160, x1: 507 } },
+  ];
+  for (const s of screens) {
+    const f = arenaTypeFrame(s), tag = `${s.W}×${s.H}`;
+    assert.ok(f.fits && f.region, `${tag}: a frame fits`);
+    const px = (p) => { const [x, y, z] = projectRig(p, f.pos, f.look, f.fov, s.W / s.H); assert.ok(z > 0.3, `${tag}: in front`); return [((x + 1) / 2) * s.W, ((1 - y) / 2) * s.H]; };
+    const pts = TYPE_PTS.map(px), reg = f.region;
+    for (const [x, y] of pts) assert.ok(x >= reg.x0 - 0.5 && x <= reg.x1 + 0.5 && y >= reg.y0 - 0.5 && y <= reg.y1 + 0.5, `${tag}: a rig point at ${x.toFixed(0)},${y.toFixed(0)} inside ${JSON.stringify(reg)}`);
+    assert.ok((reg.what !== 'band' || reg.y0 >= s.top) && reg.y1 <= s.bottom && reg.x0 >= 16 && reg.x1 <= s.W - 16, `${tag}: the region is under the strip's bottom (or beside it), over the keyboard, 16 px from the sides`);
+    if (reg.what !== 'band') assert.ok(reg.x1 <= s.strip.x0 || reg.x0 >= s.strip.x1, `${tag}: a corner region is beside the strip`);
+    for (const r of s.avoid || []) assert.ok(!(r.x < reg.x1 && r.x + r.w > reg.x0 && r.y < reg.y1 && r.y + r.h > reg.y0), `${tag}: clear of ${JSON.stringify(r)}`);
+    assert.ok(px(R.head)[1] > px(R.midRow)[1], `${tag}: her head below the middle row on the screen`);
+    // the sheet's whole travel: the carriage's two ends (rig.js _carriageX) ± half the sheet
+    assert.ok(TYPE_PTS.some((p) => Math.abs(p[0]) > 1.3 && p[1] >= 2.3), `${tag}: the sheet's travel is framed`);
+  }
+  // the landscape duel screen: the corner left of the strip gives a bigger rig than the 125-px band
+  assert.equal(arenaTypeFrame(screens[1]).region.what, 'left');
 });
 
 test('the sources: the arena never pauses the match nor holds her (no match.paused = true, no hold = true), judges only through _judgeRecord; the forms\' card path goes through _judgeRecord too', () => {

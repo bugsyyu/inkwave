@@ -20,6 +20,8 @@ import { frameFor, FRAME } from '../type/frame.js';
 import { wordBox } from '../type/inkword.js';
 import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
+import { arenaTypeFrame } from './m1.js';
+import { VERDICT_H } from '../../../ui/play-strip.js';
 import { ieltsNow } from '../../ielts.js';
 
 const A = LEARN.arena;
@@ -33,7 +35,16 @@ export class ArenaType {
     this.log = [];
   }
   get still() { return !!this.cur; }
-  get pose() { return this.cur ? this.cur.pose : null; }
+  // (the pose is frame.js's rig-frame pose, put in the world round where she is NOW: in an arena a typed question can
+  // catch her mid-run — she slides to a stop on the first frames — and the lens must stay on the rig, not where she was)
+  get pose() { const C = this.cur; if (!C || !C.pose) return null; this._toWorld(C.pose); return C.pose; }
+  _toWorld(P) {
+    const a = this.match.local, C = this.cur; if (!a || !C) return P;
+    const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw), q = P.f.pos, l = P.f.look;
+    P.pos.set(a.pos.x + cy * q[0] + sy * q[2], a.pos.y + q[1], a.pos.z - sy * q[0] + cy * q[2]);
+    P.look.set(a.pos.x + cy * l[0] + sy * l[2], a.pos.y + l[1], a.pos.z - sy * l[0] + cy * l[2]);
+    return P;
+  }
 
   _ensure() {
     if (this.shot) return;
@@ -85,29 +96,46 @@ export class ArenaType {
     this.shot.opts.groundY = this.mode === 'boss' ? _v.y - 0.1 : t.y;
     this.shot.begin({ mode, target: _v.clone() });
     this.keys.setMode(mode); this.keys.clear(); this.keys.setHintUsed(false); this.keys.show();
+    this._crosshair(false);   // (typing is no shooting: the HUD's reticle hides until the rig is done — back in clear())
     this.cur = { g, item, p, mode, yaw, targetY: _v.y, dist: Math.min(FRAME.dist, t.dist), t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '', held: null, shield: A.shield };
-    this.cur.pose = this._pose('type');
     // her ink under her feet and a bubble round her: typing is never ambushed (PLAY §5.3)
     G.paint?.splat?.(_w.set(a.pos.x, a.pos.y + 0.05, a.pos.z), A.ring, 0, { kind: 'blast' });
     G.fx?.ring?.(_w.set(a.pos.x, a.pos.y + 0.15, a.pos.z), _up, G.teamColors[0], { radius: A.ring, life: 0.45 });
     if (G.specials && G.specials.giveShield) G.specials.giveShield(a, A.shield, false);
     H.strip?.show(p, { replay: () => H.say(p.tts, { slow: !!(p._tip && p._tip.slow) }) });
     H.strip?.fit(H.m1._topKeys());
+    this.cur.pose = this._pose('type');   // (after the strip is up: the pose is framed in the band it really leaves)
     if (p.tts) H.say(p.tts, { slow: !!(p._tip && p._tip.slow) });
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, mode, dist: +t.dist.toFixed(1), at: _v.toArray().map((v) => +v.toFixed(1)) });
     return true;
   }
 
   // the rig-frame pose from frame.js → world: origin at her feet, +Z her facing, +X her left (as wire/type.js)
+  //   'type'  arenaTypeFrame (arena/m1.js): the band between the strip as it is and the keyboard's top, or on a wide
+  //           screen the corner beside the strip when the rig is bigger there — her head below the middle row, the whole
+  //           typewriter and its sheet inside (PLAY §3 M4); 'word': frame.js's, under the strip with its verdict
   _pose(phase, text) {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
-    const W = innerWidth, H = innerHeight, aspect = W / H;
-    const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0, dist: C.dist };
-    if (phase === 'word') { const b = wordBox(text || C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.targetY + this.shot.lift - a.pos.y }; }
-    const f = frameFor(o);
-    const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw);
-    const toW = (q) => new THREE.Vector3(a.pos.x + cy * q[0] + sy * q[2], a.pos.y + q[1], a.pos.z - sy * q[0] + cy * q[2]);
-    return { pos: toW(f.pos), look: toW(f.look), fov: f.fov, fits: f.fits };
+    const W = innerWidth, H = innerHeight, aspect = W / H, s = this.host.strip?.rect();
+    let f;
+    if (phase === 'type') {
+      const top = s ? s.bottom : H * 0.1, bottom = H - this.keys.frac * H;
+      f = arenaTypeFrame({ W, H, top, bottom, strip: s ? { x0: s.x, x1: s.x + s.w } : null, avoid: this._avoid() });
+    } else {
+      const o = { phase, aspect, kbFrac: 0, dist: C.dist, topFrac: s ? Math.min(0.45, (Math.max(s.bottom, s.y + VERDICT_H) + 8) / H) : undefined };
+      const b = wordBox(text || C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.targetY + this.shot.lift - a.pos.y };
+      f = frameFor(o);
+    }
+    return this._toWorld({ f, pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: f.fov, fits: f.fits, phase, region: f.region ? f.region.what : null });
+  }
+  // what the typing frame keeps clear of beside the strip: the touch layer's top keys, the HUD's score row, the forms' pills
+  _avoid() {
+    const out = this.host.m1._topKeys();
+    if (typeof document !== 'undefined') for (const sel of ['.iw-hud__top', '.iw-lf__phase', '.iw-lf__bag', '.iw-lf__note']) {
+      const el = document.querySelector(sel); if (!el || !el.getClientRects().length) continue;
+      const b = el.getBoundingClientRect(); if (b.width > 0 && b.height > 0) out.push({ x: b.left - 6, y: b.top - 6, w: b.width + 12, h: b.height + 12 });
+    }
+    return out;
   }
 
   _hint() {
@@ -116,6 +144,7 @@ export class ArenaType {
     const p = C.p, h = p.hint || {};
     const line = h.zh || h.ipa ? [h.zh, h.ipa ? `/${h.ipa}/` : ''].filter(Boolean).join('  ') : (C.item.zh || '');
     this.host.strip?.show({ text: p.text, zh: line ? `提示：${line}` : '', tts: p.tts }, { replay: () => this.host.say(p.tts) });
+    C.pose = this._pose('type');   // (the hint's line makes the strip taller)
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'hint' });
   }
 
@@ -196,18 +225,22 @@ export class ArenaType {
     C.t += dt;
     a.aimYaw = C.yaw; a.fireFacing = Math.max(a.fireFacing || 0, 0.3);
     // the bubble holds while she types (LEARN.arena.shield s at least), goes a moment after 射
-    if (!C.answered && a.status && a.status.shield < 1.5 && G.specials && G.specials.giveShield) G.specials.giveShield(a, 1.5, false);
+    // (topped up in place while the bubble is still on — giveShield again would replay shield_up every frame)
+    if (!C.answered && a.status && a.status.shield < 1.5) { if (a.status.shield > 0.05) a.status.shield = 1.5; else if (G.specials && G.specials.giveShield) G.specials.giveShield(a, 1.5, false); }
     if (this.host.resized) { C.pose = this._pose(C.answered ? 'word' : 'type', C.text); this.keys.layout(); }
   }
 
+  // the HUD's crosshair cluster (hud.js .iw-xh: it rewrites the class per weapon, never the inline style)
+  _crosshair(on) { const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = on ? '' : 'hidden'; this.xhHidden = !on; }
   clear() {
     this.cur = null;
+    if (this.xhHidden) this._crosshair(true);
     if (this.keys) this.keys.hide();
     if (this.shot) { this.shot.clear(); if (this.mounted) { this.shot.unmount(); this.mounted = false; } }
   }
   debug() {
     const C = this.cur;
-    return C ? { item: C.item.id, mode: C.mode, phase: this.shot.phase, text: this.shot.text, answered: C.answered, hinted: C.hinted, held: !!C.held, verdict: C.verdict, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, shield: this.match.local && this.match.local.status ? +this.match.local.status.shield.toFixed(2) : null, pose: C.pose && { pos: C.pose.pos.toArray().map((v) => +v.toFixed(2)), fov: C.pose.fov, fits: C.pose.fits }, log: this.log.slice(-10) } : { idle: true, mounted: this.mounted, log: this.log.slice(-6) };
+    return C ? { item: C.item.id, xhHidden: !!this.xhHidden, mode: C.mode, phase: this.shot.phase, text: this.shot.text, answered: C.answered, hinted: C.hinted, held: !!C.held, verdict: C.verdict, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, shield: this.match.local && this.match.local.status ? +this.match.local.status.shield.toFixed(2) : null, pose: C.pose && { pos: C.pose.pos.toArray().map((v) => +v.toFixed(2)), fov: C.pose.fov, fits: C.pose.fits, phase: C.pose.phase, region: C.pose.region }, log: this.log.slice(-10) } : { idle: true, mounted: this.mounted, log: this.log.slice(-6) };
   }
   dispose() { this.clear(); this.shot?.dispose(); this.keys?.destroy(); this.shot = null; this.keys = null; }
 }

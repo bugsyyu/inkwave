@@ -30,7 +30,8 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
 const LEARN_Q = opt('learn', FORM === 'boss' ? 'w1d7' : FORM === 'quiz' ? 'w1d1' : 'w1d6');
-const QUERY = `?learn=${LEARN_Q}&kind=${FORM}&short=1&quality=low&nofullscreen&noclips`;
+const GATE = +opt('gate', 0);   // (a duel day's gate N and N+1: ?short=1&gate=N — a typed gate is w1d6 --gate 4)
+const QUERY = `?learn=${LEARN_Q}&kind=${FORM}&short=1&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '');
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const T0 = Date.now();
 let VIEW = '';
@@ -62,7 +63,7 @@ async function finishAll(code) {
 }
 process.on('unhandledRejection', (e) => { allFails.push('driver error ' + String(e && e.message || e)); finishAll(1); });
 
-for (const viewName of VIEWS_WANT) {
+for (const viewName of VIEWS_WANT) { try {
   VIEW = viewName;
   const V = VIEWS[viewName] || VIEWS.portrait;
   const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch });
@@ -83,7 +84,7 @@ for (const viewName of VIEWS_WANT) {
     if (!SHOTS || shotDone.has(name)) return;
     shotDone.add(name);
     fs.mkdirSync(SHOTS, { recursive: true });
-    const f = path.join(SHOTS, `${FORM}-${VIEW}-${name}.png`);
+    const f = path.join(SHOTS, `${FORM}${GATE ? '-g' + GATE : ''}-${VIEW}-${name}.png`);
     await page.screenshot({ path: f, timeout: 180000 });
     say('shot', f);
   };
@@ -180,7 +181,7 @@ for (const viewName of VIEWS_WANT) {
     else { for (let pass = 0; pass < 4; pass++) { await ev((k) => { const P = __inkwave.match.learn.arena.m1, rig = __inkwave.rig, cam = rig.gameCam; const c = P.T.slots[k].pos; const dx = c.x - cam.position.x, dy = c.y - cam.position.y, dz = c.z - cam.position.z; rig.yaw = Math.atan2(dx, dz); rig.pitch = Math.atan2(dy, Math.hypot(dx, dz)); }, right); await step(16.7); } await ev(() => __inkwave.debug.fire(true)); await step(16.7); await ev(() => __inkwave.debug.fire(false)); }
     const v = await untilAnswered();
     const lg = await ev(() => __inkwave.match.learn.arena.m1.debug().log.slice(-8));
-    const fire = lg.find((e) => e.ev === 'fire'), hit = lg.find((e) => e.ev === 'hit' && e.deliberate), ans = lg.find((e) => e.ev === 'answer');
+    const fire = lg.findLast((e) => e.ev === 'fire'), hit = lg.findLast((e) => e.ev === 'hit' && e.deliberate), ans = lg.findLast((e) => e.ev === 'answer');
     check(!!v && v.ok === true, `${label}: the tapped round landed on it: 答对了`, v || lg);
     check(!!fire && !!hit && !!ans && hit.t === ans.t, `${label}: the answer is taken on the hit frame`, { fire, hit, ans });
     for (let i = 0; i < 6; i++) await step(100);
@@ -205,6 +206,31 @@ for (const viewName of VIEWS_WANT) {
     check(!!s.kb && keysOut.length === 0, `${label}: the game keyboard up, every key inside the screen`, { kb: s.kb, out: keysOut });
     check(d.phase === 'typing' && d.pose && d.pose.fits !== false, `${label}: typing (${d.mode}), the type frame`, d.pose);
     check(s.rigMode === 'path', `${label}: the lens is the station's (rig in path mode)`, s.rigMode);
+    // the type frame as RENDERED (PLAY §3 M4: her head below the keyboard's middle row; the whole typewriter and its paper
+    // between the strip and the game keyboard): the camera springs to the pose first, then the real keycaps (the
+    // InstancedMesh's instances), the paper's corners and her head (the rig frame's head point) are projected with the
+    // game's own camera
+    for (let i = 0; i < 40; i++) { const dd = await ev(() => { const S = __inkwave.match.learn.arena.type, C = S.cur, cam = __G.camera; return C && C.pose ? cam.position.distanceTo(C.pose.pos) : 0; }); if (dd < 0.03) break; await step(50); }
+    const fr = await ev(async (kbTop) => {
+      const F = await import('./src/learn/play/type/frame.js');
+      const S = __inkwave.match.learn.arena.type, rig = S.shot.rig, cam = __G.camera, W = innerWidth, H = innerHeight;
+      cam.updateMatrixWorld(); rig.root.updateMatrixWorld(true);
+      const V = rig.root.position.constructor, M = rig.caps.matrixWorld.constructor;
+      const scr = (v) => { const p = v.clone().project(cam); return [(p.x + 1) / 2 * W, (1 - p.y) / 2 * H, p.z]; };
+      const keys = [], m = new M(), v = new V();
+      for (let i = 0; i < rig.caps.count; i++) { rig.caps.getMatrixAt(i, m); v.setFromMatrixPosition(m).applyMatrix4(rig.caps.matrixWorld); keys.push(scr(v)); }
+      rig.paper.geometry.computeBoundingBox(); const b = rig.paper.geometry.boundingBox, paper = [];
+      for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) paper.push(scr(new V(x, y, (b.min.z + b.max.z) / 2).applyMatrix4(rig.paper.matrixWorld)));
+      const head = scr(rig.root.localToWorld(new V(...F.RIG_POINTS.head))), mid = scr(rig.root.localToWorld(new V(...F.RIG_POINTS.midRow)));
+      const strip = document.querySelector('.iw-ps__box'), sb = strip && !document.querySelector('.iw-ps.is-off') ? strip.getBoundingClientRect().bottom : 0;
+      const pts = keys.concat(paper), ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
+      const ext = (q) => [Math.min(...q.map((p) => p[0])), Math.min(...q.map((p) => p[1])), Math.max(...q.map((p) => p[0])), Math.max(...q.map((p) => p[1]))].map(Math.round);
+      return { head: head.map(Math.round), mid: mid.map(Math.round), headBelowMid: head[1] > mid[1], stripBottom: Math.round(sb), kbTop, top: Math.round(Math.min(...ys)), bottom: Math.round(Math.max(...ys)), left: Math.round(Math.min(...xs)), right: Math.round(Math.max(...xs)), keys: ext(keys), paper: ext(paper), W, H, hullYaw: +rig.hullYaw.toFixed(2), yaw: +S.cur.yaw.toFixed(2), region: S.cur.pose && S.cur.pose.region, xh: getComputedStyle(__G.hud.xh).visibility };
+    }, s.kb ? s.kb[1] : innerHeight);
+    check(fr.headBelowMid, `${label}: her head below the keyboard's middle row on the screen (head y ${fr.head[1]} > mid row y ${fr.mid[1]})`, fr);
+    check(fr.top >= fr.stripBottom - 2 && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2, `${label}: the whole typewriter and its paper between the strip (${fr.stripBottom}) and the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right}`, fr);
+    check(fr.xh === 'hidden', `${label}: the crosshair hidden while she types`, fr.xh);
+    report.typeFrame = report.typeFrame || []; report.typeFrame.push(fr);
     if (FORM !== 'boss') check(s.shield > 0, `${label}: a shield on her while she types (${s.shield} s)`);
     check(!s.hold && s.paused === false, `${label}: still no hold, no pause while typing`);
     await shot('m4-type-' + d.mode);
@@ -307,5 +333,5 @@ for (const viewName of VIEWS_WANT) {
   if (bad.length) allFails.push(`${VIEW}: ${bad.length} bad responses`);
   if (errs.length) allFails.push(`${VIEW}: ${errs.length} console errors: ${errs[0]}`);
   await ctx.close();
-}
+} catch (e) { allFails.push(`${viewName}: driver error ${String(e && e.message || e).slice(0, 300)}`); say('driver error', String(e && e.message || e).slice(0, 600)); } }
 await finishAll();

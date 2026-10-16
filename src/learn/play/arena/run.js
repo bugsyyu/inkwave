@@ -33,6 +33,10 @@ export class ArenaRun extends PlayRun {
     this.mode = opts.mode || 'zone';
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
+    // (the labels are drawn in the HUD's Rubik, as play-1's are: a round's atlas waits for the font — the first round's
+    // prep comes from the form's constructor, before the page has it)
+    const U = LEARN.playUi;
+    this._fonts = (typeof document !== 'undefined' && document.fonts ? Promise.all([document.fonts.load(`800 ${U.font}px Rubik`), document.fonts.load(`600 ${U.font - 2}px Rubik`)]).catch(() => null) : Promise.resolve()).then(() => { this._fontsIn = true; });
   }
 
   canAsk(g, item, p) { return canPlayArena(item, p); }
@@ -40,7 +44,8 @@ export class ArenaRun extends PlayRun {
   // the atlas of a round / a phase is drawn when it begins (the prep board, the phase banner): the forms call prep(g)
   _prep() { /* (PlayRun's constructor asks for the gates 2 ahead of flow.cur — an arena's gates are rounds / phases) */ }
   prep(g) {
-    if (!g || g._play) return;
+    if (!g || g._play || g._prepping) return;
+    if (!this._fontsIn) { g._prepping = true; this._fonts.then(() => { g._prepping = false; if (!this.disposed) this.prep(g); }); return; }
     const labels = gateLabels(g.items, prompt, canPlayArena);   // (a retry reshuffles the same options: the same labels)
     g._play = { atlas: labels.length ? this.T.atlas(g.id, labels) : null, labels, region: null, anchor: null, rights: 0 };
   }
@@ -124,20 +129,26 @@ export class ArenaRun extends PlayRun {
         }
         objs.push(o);
       }
-      // every object clears the ground under it (closer first, then a shorter band, then a lift within the safe area)
-      let need = 0;
-      const L0 = G.level;
+      // every object clears the ground under it and nothing solid stands between her head, the lens or her muzzle and it
+      // (play-1's rules — a stage's low walls and containers sit between her and the zone): closer first, then a shorter
+      // band, then a lift within the safe area
+      let need = 0, blocked = false;
+      const L0 = G.level, P = G.physics;
+      _e.set(a.pos.x, a.pos.y + 1.4, a.pos.z);
+      _m.set(a.pos.x, a.pos.y + 1.05, a.pos.z).addScaledVector(_r, 0.3);
       for (const o of objs) {
         const bottom = o.kind === 'ball' ? o.plate.y - o.plate.h / 2 : o.y - o.h / 2;
         const gy = L0 ? L0.groundHeight(o.x, o.z, bottom + 4) : -Infinity;
         if (gy > -Infinity) need = Math.max(need, gy + M.clear - bottom);
+        if (P && (!P.los(_e, _c.set(o.x, o.y, o.z)) || !P.los(_o, _c) || !P.los(_m, _c))) blocked = true;
+        if (P && o.kind === 'ball' && !P.los(_o, _c.set(o.plate.x, o.plate.y, o.plate.z))) blocked = true;   // (its label too)
       }
       const dMin = boom + 1.6;
-      if (need > 0.01 && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
+      if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
       if (need > 0.01 && safe.h > 151) { safe.h = Math.max(150, safe.h - (need / wpp + 8)); L = layoutTargets(C.labels.length, C.labels, W / H, safe, { avoid: S.avoid }); C.layout = L; continue; }
       const room = Math.max(0, Math.min(...L.items.map((it) => (it.kind === 'ball' ? it.y - it.r : it.y))) - S.safe.y) * wpp;
       if (need > 0.01 && lift < room - 0.01) { lift = Math.min(room, lift + need); continue; }
-      C.sunk = need > 0.01 ? +need.toFixed(2) : 0;
+      C.sunk = need > 0.01 ? +need.toFixed(2) : 0; C.blocked = blocked;
       break;
     }
     C.D = D; C.lift = lift; C.placed = true;
@@ -148,7 +159,7 @@ export class ArenaRun extends PlayRun {
     C.locals = clusterLocals(objs, anchor, { right: _r, up: _u, back: _b.copy(_f).negate() });
     this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _b });
     this.reg.set(this.T.spheres, C.serial);
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', mode: 'zone', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, kind: L.kind, fits: L.fits, cover: L.cover || null, rows: L.rows || null, anchor: anchor.toArray().map((v) => +v.toFixed(2)), avoid: S.avoid.map((r) => [r.what, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', mode: 'zone', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, rows: L.rows || null, anchor: anchor.toArray().map((v) => +v.toFixed(2)), avoid: S.avoid.map((r) => [r.what, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
 
   // the boss: a ball on each weak-point socket (its plate hanging under it), or long labels as planks stacked over the

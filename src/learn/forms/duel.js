@@ -61,12 +61,13 @@ export class DuelFlow extends LearnFlow {
     this.streak = 0; this.rightN = 0; this.firstRight = 0; this.relearn = []; this.relearnRight = 0; this.relearnAsked = false;
     this.wins = 0; this.rounds = []; this.enemyRights = 0;
     this.scoredN = new Set(this.level.gates.flatMap((g) => g.items.filter((it) => it.meta && it.meta.scored).map((it) => it.id))).size;
-    this._prevSpecial = false; this._clockTxt = ''; this._cells = null;
+    this._prevSpecial = false; this._clockTxt = ''; this._cells = null; this._askWait = 0;
     this.phase = 'prep';
     // 题即玩法 (play-5): the zone's questions are things over the zone — the host asks them, judges through _judgeRecord
     this.arena = LEARN.play && match.mode === 'learn' ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out) }) : null;
     this._startPrep();
   }
+  _farFromZone(a) { this._zoneCentre(_v); return Math.hypot(_v.x - a.pos.x, _v.z - a.pos.z) > LEARN.arena.askNear; }
   // the live zone's centre on its floor (the cluster floats LEARN.arena.lift over it)
   _zoneCentre(out) {
     const Z = this.Z, z = Z && Z.active && Z.active.zones[0], c = z ? z.center : null;
@@ -177,7 +178,9 @@ export class DuelFlow extends LearnFlow {
     if (this.hold) { a.intent.move.set(0, 0, 0); return; }
     if (!this.asking) {
       if (!g.queue.length) { this.askT -= dt; if (this.askT <= 0) this._roundEnd(this.Z.losing() < 0 ? -1 : 1 - this.Z.losing(), 'answered'); return; }
-      if (a.alive) { this.askT -= dt; if (this.askT <= 0) this._ask(g); }
+      // (题即玩法: the cluster floats over the zone — a question waits up to LEARN.arena.askWait s for her to come within
+      // askNear m of it; she is never made to wait longer, the cluster then comes up towards it, within her shot)
+      if (a.alive) { this.askT -= dt; if (this.askT <= 0) { if (this.arena && this._farFromZone(a) && (this._askWait += dt) < LEARN.arena.askWait) return; this._askWait = 0; this._ask(g); } }
     }
   }
 

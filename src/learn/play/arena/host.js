@@ -135,7 +135,7 @@ export class ArenaHost {
     if (S === this.type && a && !a.alive && this.type.cur) { this.type.abort(); this.kind = null; this.cur = null; this.cam.release(G.rig, a); this.resized = false; return; }
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
-    if (S === this.echo) G.playTap = this.echo.tapApi;
+    if (S && S === this.echo) G.playTap = this.echo.tapApi;
     const pose = S ? S.pose : null;
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && (this.kind === 'm1' || !S)) this.cam.release(G.rig, a);
