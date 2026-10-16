@@ -116,7 +116,8 @@ async function sample(query, label, prepSrc, learn = true) {
     const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.length ? +s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))].toFixed(1) : null; };
     raf.splice(0, 2); ft.splice(0, 2);   // (the first frames after the fast-forward carry its uploads)
     const F = I.match.learn, d = F && F.debug ? F.debug() : {};
-    return { actors: I.match.actors.length, frames: ft.length, frameP50: q(ft, 0.5), frameP95: q(ft, 0.95), frameMax: +Math.max(...ft).toFixed(1), rafP50: q(raf, 0.5), rafP95: q(raf, 0.95), calls: I.perf && I.perf.calls, tris: I.perf && I.perf.tris, rowShown: !!(d.row), s: d.s, paused: I.match.paused, stage: I.mapDef.id };
+    const answered = F && F.log ? F.log.filter((e) => e.name === 'learn:answer').map((e) => (e.ok ? 'right' : 'wrong')) : [];
+    return { answered, actors: I.match.actors.length, frames: ft.length, frameP50: q(ft, 0.5), frameP95: q(ft, 0.95), frameMax: +Math.max(...ft).toFixed(1), rafP50: q(raf, 0.5), rafP95: q(raf, 0.95), calls: I.perf && I.perf.calls, tris: I.perf && I.perf.tris, rowShown: !!(d.row), s: d.s, paused: I.match.paused, stage: I.mapDef.id };
   }, PERF_S);
   await ctx.close();
   return { label, query, bootS, prep, ...r };
@@ -127,7 +128,13 @@ const FF = `const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTi
   const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) go.click(); else if (i > 2) break; await sleep(400); } };`;
 async function scenarioPerf() {
   const day = opt('day', 'w1d3');
-  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!F._shown() && k++ < 40) ff(0.5); ff(0.6); return { s: +F.sNow.toFixed(1), row: !!F._shown(), started: F.started }; })()`);
+  // (the runner: to the first row, into its right lane, on to 5 m before it — so the sampled seconds hold a right
+  // curtain bursting: fx.explosion, paint.flood, the boost, and the next row being built)
+  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!F._shown() && k++ < 40) ff(0.5);
+    const row = F._shown(); if (!row) return { row: false };
+    const want = row.centers[F.rightAnswer()]; k = 0; while (Math.abs(F.latT - want) > 0.05 && k++ < 6) { F.swipe(want < F.latT ? 'left' : 'right'); ff(0.05); }
+    k = 0; while (row.s - F.sNow > 5 && k++ < 80) ff(0.1);
+    return { s: +F.sNow.toFixed(1), row: true, ahead: +(row.s - F.sNow).toFixed(1), lat: +F.latT.toFixed(2), want }; })()`);
   // (the race walking to its first gate: at the gate its card holds the match, which is not a frame to compare)
   const race = await sample(`?learn=${day}&kind=race`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
   // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight

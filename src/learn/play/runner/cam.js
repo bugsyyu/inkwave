@@ -92,7 +92,9 @@ export class RunnerCam {
     const kb = this.boom.step(k, k < this.boom.x ? 18 : 3, dt);
     cam.position.set(x + bx * kb, y + ph + by * kb, z + bz * kb);
     cam.up.set(0, 1, 0);
-    let lx = x + fx * ahead, ly = y + lookH, lz = z + fz * ahead;
+    // (a wall-shortened boom sits the lens low: look further down then, so the road and the boards stay mid-screen and
+    // never climb under the question strip)
+    let lx = x + fx * ahead, ly = y + lookH - (1 - kb) * 1.6, lz = z + fz * ahead;
     const fw = this.fw = (this.fw || 0) + ((focus ? focus.w : 0) - (this.fw || 0)) * Math.min(1, dt * 4);   // (eased in and out)
     if (focus && fw > 0.001) { lx += (focus.x - lx) * fw * 0.5; ly += (focus.y - ly) * fw * 0.5; lz += (focus.z - lz) * fw * 0.5; }
     cam.lookAt(lx, ly, lz);

@@ -297,6 +297,7 @@ export class TouchControls {
   releaseAll() {
     for (const b of this.buttons) b.el.classList.remove('is-down');
     this.roles.clear();
+    this._sw?.clear();   // (墨浪跑酷 swipe hook)
     this.move.id = null; this.look.id = null;
     this.input.touch.mx = 0; this.input.touch.mz = 0;
     this.input.touch.fingers = 0;
