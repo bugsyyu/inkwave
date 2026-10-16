@@ -413,14 +413,11 @@ export class InkWord {
     if (this.phase === 'done' && !live) this.mesh.count = 0;
   }
 
-  /** compile the blob material (the gate flow warms it with the rig, two gates ahead) */
-  warm(renderer, camera) {
-    const sc = new THREE.Scene(), was = this.mesh.parent, cnt = this.mesh.count;
-    this.mesh.count = 1; sc.add(this.mesh);
-    if (this.scene && this.scene.environment) sc.environment = this.scene.environment;
-    const done = () => { this.mesh.count = cnt; if (was) was.add(this.mesh); };
-    const p = renderer.compileAsync ? renderer.compileAsync(sc, camera) : Promise.resolve(renderer.compile(sc, camera));
-    return p.then(done, (e) => { done(); throw e; });
+  /** compile the blob material against the game scene's lights, in place (the gate flow warms it with the rig) */
+  warm(renderer, camera, target = this.scene) {
+    const cnt = this.mesh.count; this.mesh.count = Math.max(1, cnt);
+    try { return renderer.compileAsync ? renderer.compileAsync(this.mesh, camera, target || null) : Promise.resolve(renderer.compile(this.mesh, camera, target || null)); }
+    finally { this.mesh.count = cnt; }
   }
 
   dispose() { this.mesh.parent?.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.dispose(); }

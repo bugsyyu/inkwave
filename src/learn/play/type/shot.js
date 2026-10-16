@@ -10,9 +10,11 @@
 //   shot.submit() → text | null             射: the text typed (null when empty) — the flow judges it right away
 //   shot.resolve(verdict) → Promise         { ok, pct?, right, toks?, typedOk? } — plays once the word has formed
 //   shot.landed / shot.formed → Promise     the shell landed / the letters formed (for the camera's 'word' frame)
-//   shot.clear() · shot.update(dt) · shot.unmount() · shot.dispose() · shot.warm(renderer, camera)
+//   shot.clear() · shot.update(dt) · shot.unmount() · shot.dispose() · shot.warm(renderer, camera, scene)
+//   isReduced(settings) — reduced motion as the game reads it (the default for opts.reduced)
 //   shot.phase · shot.text · shot.hinted
 import * as THREE from 'three';
+import { G } from '../../../core/ctx.js';
 import { TypeRig } from './rig.js';
 import { InkWord } from './inkword.js';
 
@@ -60,8 +62,15 @@ export function typeStep(s, ev) {
 
 const _v = new THREE.Vector3();
 
+/** reduced motion as the game reads it (LEVELS §5): the system setting, or camera shake off in the settings */
+export function isReduced(settings = G.settings) {
+  const sys = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return !!(sys || (settings && settings.cameraShake === 0));
+}
+
 export class TypeShot {
   constructor(o = {}) {
+    if (o.reduced == null) o = { ...o, reduced: isReduced() };
     this.opts = o;
     this.rig = new TypeRig(o);
     this.word = new InkWord(o);
@@ -134,7 +143,7 @@ export class TypeShot {
   clear() { this.word.clear(); this._go({ t: 'clear' }); }
 
   update(dt) { this.rig.update(dt); this.word.update(dt); }
-  warm(renderer, camera) { return Promise.all([this.rig.warm(renderer, camera), this.word.warm(renderer, camera)]); }
+  warm(renderer, camera, target) { return Promise.all([this.rig.warm(renderer, camera, target), this.word.warm(renderer, camera, target)]); }
   dispose() { this.rig.dispose(); this.word.dispose(); }
 }
 

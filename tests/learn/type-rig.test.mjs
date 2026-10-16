@@ -141,8 +141,19 @@ test('paper model: a space at the bell returns the carriage, a full line wraps, 
   for (let i = 0; i < DECK.cols; i++) paperType(pm2, 'b');
   const w = paperType(pm2, 'c');
   assert.ok(w.ret && w.col === 0 && w.line === 1, 'a letter past the last column goes to the next line');
-  assert.deepEqual(paperBack(pm2), { col: 0, line: 1, back: false });
+  assert.deepEqual(paperBack(pm2), { col: 0, line: 1, back: false, empty: false });
   const up = paperBack(pm2);
-  assert.ok(up.back && up.line === 0 && up.col === DECK.cols, '⌫ at a line start goes back up');
+  assert.ok(up.back && !up.empty && up.line === 0 && up.col === DECK.cols - 1, '⌫ at the start of a wrapped line erases the last letter above');
+  const sp = paperBack(pm);
+  assert.ok(sp.back && sp.empty && sp.line === 0 && sp.col === T.wrapAt, '⌫ over a space-return only un-returns');
   assert.equal(paperBack(paperModel()), null, 'nothing to erase on a fresh sheet');
+  // the text and the paper agree, whatever is typed and erased
+  const pm3 = paperModel(); let text = '';
+  const seq = 'the quick brown fox jumps over the lazy dog again\b\b\b\b\b\bxyzzyxyzzyxyzzy\b\b';
+  for (const ch of seq) {
+    if (ch === '\b') { if (text) { paperBack(pm3); text = text.slice(0, -1); } }
+    else { paperType(pm3, ch); text += ch; }
+    const glyphs = pm3.lines.reduce((a, n) => a + n, 0) + pm3.wraps.filter((w) => w === 'space').length;
+    assert.equal(glyphs, text.length, `after ${JSON.stringify(text)}`);
+  }
 });

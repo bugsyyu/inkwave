@@ -67,6 +67,20 @@ if (stageName === 'tidewater') {
   box(-9, -6.5, 0, 1.1, 9, 13, '#cfd6d8'); box(6, 8.5, 0, 0.8, 7, 10, '#c9a27c'); box(6.3, 7.8, 0.8, 1.6, 7.4, 9.4, '#cf9c88');
   box(-25, 25, 0, 3.6, 21.4, 22, '#ece4d4');
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.08, 48), mat('#f3f1ec', 0.5)); pad.position.set(0, 0.04, -3.5); pad.receiveShadow = true; deck.add(pad);
+  // paint stand-in (fx-lab's): glossy team-ink discs on the deck where the game would G.paint.splat
+  const N = 400, discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 0.22, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), N);
+  discs.count = 0; discs.receiveShadow = true; discs.frustumCulled = false; scene.add(discs);
+  let next = 0; const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion();
+  G.paint = {
+    splat(p, r, team, o = {}) {
+      const k = 0.85 + ((o.seed || 0.5) * 0.3);
+      m4.compose(new THREE.Vector3(p.x, 0.006 + next * 1e-5, p.z), q4.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (o.seed || 0) * 6.28), new THREE.Vector3(r * 1.2 * k, 1, r * k));
+      discs.setMatrixAt(next, m4); discs.setColorAt(next, G.teamColors[team] || G.teamColors[0]);
+      next = (next + 1) % N; discs.count = Math.max(discs.count, next || N);
+      discs.instanceMatrix.needsUpdate = true; if (discs.instanceColor) discs.instanceColor.needsUpdate = true;
+      return r * r * 3;
+    },
+  };
 }
 const env = new Environment(renderer, scene, { bounds, theme: params.get('theme') || 'day', shadowSize: Q.shadowSize, footprint });
 scene.environment = env.envMap; G.env = env;
@@ -79,14 +93,18 @@ try {
   fx = new FX(scene, { quality: qualityName }); fx.setLighting?.(env.getSkyColors?.());
   const ray = new THREE.Raycaster(), dir = new THREE.Vector3(), hit = { point: new THREE.Vector3(), normal: new THREE.Vector3() };
   fx.setCollider((from, to) => {
-    if (physics) { const { Hit } = G._physMod || {}; }
     dir.subVectors(to, from); const len = dir.length(); if (len < 1e-6) return null;
     ray.set(from, dir.multiplyScalar(1 / len)); ray.far = len;
     const hs = ray.intersectObjects(level ? scene.children.filter((o) => o.isMesh && o.material === levelMat) : deck.children, false);
     if (!hs.length) return null;
     hit.point.copy(hs[0].point); hit.normal.copy(hs[0].face.normal).transformDirection(hs[0].object.matrixWorld); return hit;
   });
-  fx.onDropletLand = (point, normal, color, size) => { if (paint) { const t = color.r > color.b ? 0 : 1; paint.splat(point.clone().addScaledVector(normal, 0.05), Math.min(0.45, Math.max(0.12, size * 2.4)), t, { seed: Math.random() }); } };
+  // like main.js: a droplet in a team's ink paints that team's turf; the neutral grey of an unjudged word paints nothing
+  fx.onDropletLand = (point, normal, color, size) => {
+    if (!G.paint) return;
+    let t = -1; for (let k = 0; k < 2; k++) { const c = G.teamColors[k]; if (Math.abs(c.r - color.r) + Math.abs(c.g - color.g) + Math.abs(c.b - color.b) < 0.05) t = k; }
+    if (t >= 0) G.paint.splat(point.clone().addScaledVector(normal, 0.05), Math.min(0.45, Math.max(0.12, size * 2.4)), t, { seed: Math.random() });
+  };
   G.fx = fx;
 } catch (e) { console.warn('[type-lab] fx', e); }
 try {
@@ -199,8 +217,24 @@ window.lab = {
   },
   /** the verdict as engine.judge would give it */
   resolve(v) { return shot.resolve(v); },
+  /** canned verdicts for the demo texts: 'right' (what she typed), 'wrong' (beautiful), 'pct' (the o'clock sentence) */
+  demo(kind) {
+    if (kind === 'right') return shot.resolve({ ok: true, right: shot.text });
+    if (kind === 'wrong') return shot.resolve({ ok: false, right: DEMO.word.right });
+    const right = DEMO.sentence.right, toks = right.split(' ').map((t) => ({ t, ok: t !== "o'clock." }));
+    return shot.resolve({ ok: true, pct: 86, right, toks });
+  },
   /** next question: clear the word, fresh sheet, the target pops back, camera back to the typing frame */
   next(m = mode) { mode = m; shot.clear(); shot.begin({ mode, target: ball }); ball.visible = true; ballPop = 0; keys.setMode(mode); keys.clear(); keys.setHintUsed(false); keys.show(); window.__kbFrac = keys.frac; frame('type', true); return mode; },
+  /** draw calls / triangles of the rig + the word (on − off, main pass + shadow pass) and the JS cost of their update */
+  measure() {
+    const vis = (on) => { rig.root.visible = on; shot.word.mesh.visible = on; rig.shellG.visible = on && !!rig.shot; };
+    const count = () => { renderer.info.reset(); R.render(); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; };
+    vis(true); const on = count(); vis(false); const off = count(); vis(true);
+    const t0 = performance.now(); for (let i = 0; i < 300; i++) shot.update(1 / 60); const ms = (performance.now() - t0) / 300;
+    return { calls: on.calls - off.calls, tris: on.tris - off.tris, shadows: renderer.shadowMap.enabled, updateMs: +ms.toFixed(3), blobs: shot.word.mesh.count };
+  },
+  warm() { const t0 = performance.now(); return shot.warm(renderer, camera).then(() => +(performance.now() - t0).toFixed(0)); },
   info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs?.length, simT, text: rig.text, shot: !!rig.shot }; },
   state() { return { phase: shot.phase, text: shot.text, hinted: shot.hinted, wordPhase: shot.word.phase, blobs: shot.word.rows.map((r) => r.n), shot: rig.shot ? { t: +rig.shot.t.toFixed(2), launched: rig.shot.launched, landed: rig.shot.landed } : null }; },
 };

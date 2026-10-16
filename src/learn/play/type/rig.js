@@ -46,30 +46,34 @@ function spring(s, i, target, k, z, dt) {
   return nx;
 }
 
-/** the column/line model of the paper (pure; rig and tests share it) */
+/** the column/line model of the paper (pure; rig and tests share it). wraps[line] says how a line began: 'space' (a
+ *  space at the bell became the carriage return) or 'full' (the previous line ran out of columns). */
 export function paperModel() {
-  return { lines: [0], col: 0, line: 0 };
+  return { lines: [0], wraps: [null], col: 0, line: 0 };
 }
 /** Typing one character advances the paper model; a space at wrapAt+ (or a full line) returns the carriage.
  *  → { col, line, ret } where the glyph goes (ret = a carriage return happened first), or the return itself for a space. */
 export function paperType(pm, ch, cols = DECK.cols, wrapAt = T.wrapAt) {
-  if (ch === ' ' && pm.col >= wrapAt) { pm.lines.push(0); pm.line++; pm.col = 0; return { col: -1, line: pm.line, ret: true, space: true }; }
+  if (ch === ' ' && pm.col >= wrapAt) { pm.lines.push(0); pm.wraps.push('space'); pm.line++; pm.col = 0; return { col: -1, line: pm.line, ret: true, space: true }; }
   let ret = false;
-  if (pm.col >= cols) { pm.lines.push(0); pm.line++; pm.col = 0; ret = true; }
+  if (pm.col >= cols) { pm.lines.push(0); pm.wraps.push('full'); pm.line++; pm.col = 0; ret = true; }
   const at = { col: pm.col, line: pm.line, ret, space: ch === ' ' };
   pm.col++; pm.lines[pm.line] = pm.col;
   return at;
 }
-/** ⌫: → { col, line, back } of the cell freed (back = the carriage went back up a line) or null on an empty sheet */
+/** ⌫ (one character of the text): → { col, line, back, empty } — the cell freed (back = the carriage went up a line;
+ *  empty = the character was the space that made the return, so no glyph goes) — or null on an empty sheet. */
 export function paperBack(pm) {
   if (pm.col === 0) {
     if (pm.line === 0) return null;
+    const how = pm.wraps.pop();
     pm.lines.pop(); pm.line--; pm.col = pm.lines[pm.line];
-    // a wrap made by a space typed nothing on the old line: going back over it just un-returns
-    return { col: pm.col, line: pm.line, back: true, empty: true };
+    if (how === 'space') return { col: pm.col, line: pm.line, back: true, empty: true };
+    pm.col--; pm.lines[pm.line] = pm.col;     // a full line wrapped: the character erased is its last one
+    return { col: pm.col, line: pm.line, back: true, empty: false };
   }
   pm.col--; pm.lines[pm.line] = pm.col;
-  return { col: pm.col, line: pm.line, back: false };
+  return { col: pm.col, line: pm.line, back: false, empty: false };
 }
 
 export class TypeRig {
@@ -350,7 +354,7 @@ export class TypeRig {
       fx.burst?.(s.from, _v, grey, { count: this.reduced ? 4 : 10, speed: 3, size: 0.07, spread: 0.5 });
       if (!this.reduced) fx.ring?.(s.from, _v, grey, { radius: 0.5, life: 0.25 });
     }
-    emit('shake', { pos: s.from.clone(), amount: 0.15 });
+    if (!this.reduced) emit('shake', { pos: s.from.clone(), amount: 0.15 });
   }
   _land(s) {
     s.landed = true; s.tl = s.t;
@@ -467,15 +471,16 @@ export class TypeRig {
     this._shotTick(dt);
   }
 
-  /** compile every material the rig shows (call two gates ahead; three.js's compileAsync) */
-  warm(renderer, camera) {
-    const sc = new THREE.Scene();
-    const was = this.root.parent, shellWas = this.shellG.visible;
-    sc.add(this.root); this.shellG.visible = true; sc.add(this.shellG);
-    if (this.scene && this.scene.environment) sc.environment = this.scene.environment;
-    const done = () => { if (was) was.add(this.root); else sc.remove(this.root); this.shellG.visible = shellWas; if (this.scene && this.mounted) this.scene.add(this.shellG); else sc.remove(this.shellG); };
-    const p = renderer.compileAsync ? renderer.compileAsync(sc, camera) : Promise.resolve(renderer.compile(sc, camera));
-    return p.then(done, (e) => { done(); throw e; });
+  /** Compile every material the rig shows (keycaps, paper, plastic + ink instancing variants, the shell) against the
+   *  game scene's lights — in place, nothing is re-parented, so it can run while the rig is on screen. Call it two
+   *  gates ahead (three.js compileAsync: parallel where KHR_parallel_shader_compile exists). */
+  warm(renderer, camera, target = this.scene) {
+    const tgt = target || null, was = this.shellG.visible;
+    this.shellG.visible = true;           // compile() runs synchronously inside compileAsync: no frame sees this
+    try {
+      const c = (o) => (renderer.compileAsync ? renderer.compileAsync(o, camera, tgt) : Promise.resolve(renderer.compile(o, camera, tgt)));
+      return Promise.all([c(this.root), c(this.shellG)]);
+    } finally { this.shellG.visible = was; }
   }
 
   dispose() {
