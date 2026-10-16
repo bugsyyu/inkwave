@@ -161,21 +161,30 @@ function ctxOf() {
   return null;
 }
 
-// inside a tap: the lesson's silent clip on our element (Safari's media unlock), and INKWAVE's context resumed
+// inside a tap: the lesson's silent clip on our element (Safari's media unlock), and INKWAVE's context resumed. Unlocked
+// only once the play went through (or was taken over by a clip in the same tap); a refused one waits for the next tap.
+let unlocking = false;
+const UNLOCK_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'];
+function onFirstTap() { unlock(); }
+function detachUnlock() { if (W) UNLOCK_EVENTS.forEach((n) => W.removeEventListener(n, onFirstTap, true)); }
 export function unlock() {
   try { const c = ctxOf(); if (c && c.state === 'suspended') { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } } catch (e) { /* ignore */ }
-  if (unlocked || !W || inApp() || !enabled()) return;
+  if (unlocked || unlocking || !W) return;
+  if (inApp() || (clipsInst() && clips.off)) { detachUnlock(); return; }   // nothing to unlock: the App plays without a tap; no recordings here
+  if (!enabled()) return;
   const a = audioEl();
   // (something already playing on it: it is unlocked — never cut a word off for the silent clip)
   if (!a || !ieltsLoaded() || (cur && !a.paused)) return;
-  unlocked = true;
+  const ok = () => { unlocking = false; unlocked = true; detachUnlock(); };
+  unlocking = true;
   try {
     a.src = ieltsNow().Host.CLIP_SILENT;
     const p = a.play();
-    // refused: try again on the next tap. Interrupted (the 听 button's own clip takes the element in the same tap, an
-    // AbortError): the element was played inside the tap, which is what unlocks it
-    if (p && p.catch) p.catch((e) => { if (!e || e.name !== 'AbortError') unlocked = false; });
-  } catch (e) { unlocked = false; }
+    // interrupted (the 听 button's own clip takes the element in the same tap: an AbortError) is played inside the tap,
+    // which is what unlocks it; refused (NotAllowedError: not a tap after all) waits for the next one
+    if (p && p.then) p.then(ok, (e) => { if (e && e.name === 'AbortError') ok(); else unlocking = false; });
+    else ok();
+  } catch (e) { unlocking = false; }
 }
 
 export function stop() {
@@ -300,8 +309,7 @@ export function status() {
 // the page: unlock on the first tap / key (pointerup and touchend are the touch events Safari counts as a tap), stop when the
 // page hides or goes away; audits read G.learnAudio
 if (W && typeof document !== 'undefined') {
-  const first = () => { unlock(); if (unlocked || inApp()) ['pointerup', 'touchend', 'click', 'keydown'].forEach((n) => W.removeEventListener(n, first, true)); };
-  ['pointerup', 'touchend', 'click', 'keydown'].forEach((n) => W.addEventListener(n, first, true));
+  UNLOCK_EVENTS.forEach((n) => W.addEventListener(n, onFirstTap, true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
   W.addEventListener('pagehide', () => stop());
   G.learnAudio = { say, stop, unlock, status, base: () => clipsBase(W.location) };

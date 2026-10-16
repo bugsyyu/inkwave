@@ -140,3 +140,27 @@ test('her history counts here (read-only): due() and progress() read her answers
   assert.deepEqual(blobOf(b).base['ev-2026-08-17'].it[d.id], { '2026-08-20': { [Object.keys(blobOf(b).base['ev-2026-08-17'].it[d.id]['2026-08-20'])[0]]: [80, 'L'] } });
   assert.equal(store.hasAny(d.id), true, 'still counted, from her account');
 });
+
+test('attachWorkbench: answers a killed page left behind go in at start; each first answer goes in a moment later; quiet without a workbench', async () => {
+  await week();
+  const d = by('dictation').items[1], q = by('grammar').items[1];
+  // the game's store from an earlier page that recorded two answers and never pushed them (n 2, pushed 0)
+  const left = { v: 1, ev: { 'ev-2026-10-12': { v: 2, it: { [d.id]: { '2026-10-14': { '201500': [75, 'L'] } } } } }, n: 2, pushed: 0 };
+  const b = await setup({ [DATA_KEY]: herBlob(), [PREF_KEY]: '{}', [KEY]: JSON.stringify(left) });
+  const detach = store.attachWorkbench({ delay: 20 });
+  await new Promise((r) => setTimeout(r, 30));
+  assert.deepEqual(blobOf(b).base['ev-2026-10-12'].it[d.id], { '2026-10-14': { '201500': [75, 'L'] } }, 'caught up at start');
+  assert.equal(JSON.parse(b.m.get(KEY)).pushed, 2);
+  store.recordFirst({ itemId: q.id, ok: true, day: '2026-10-15', at: '2026-10-15T09:00:00+08:00' });
+  assert.equal(blobOf(b).base['ev-2026-10-12'].it[q.id], undefined, 'not at once');
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepEqual(blobOf(b).base['ev-2026-10-12'].it[q.id], { '2026-10-15': { '090000': [1, 'L'] } }, 'a moment later');
+  detach();
+  // no workbench: attaching and answering write nothing of hers
+  const c = await setup();
+  const off = store.attachWorkbench({ delay: 5 });
+  store.recordFirst({ itemId: q.id, ok: true, day: '2026-10-15' });
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(c.m.has(DATA_KEY), false);
+  off();
+});
