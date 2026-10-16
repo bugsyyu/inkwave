@@ -865,3 +865,16 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 5. **字弹的机位**（主会话的①）：不用 frame.js 的 `frameFor` 打字机位（它假设题条只占顶上 10 %、横屏放宽成「头低于最远那排」、没算纸跟着托架的行程），改用纯函数 `arenaTypeFrame`：题条真实底边到键盘真实顶边的带，纸在整段行程里的四角、键盘板、打击点、打到第 10 个字的行都在带里，头低于**中间那排**；宽屏再试题条左右两侧的角落，打字机哪里大放哪里；偏离屏幕中间靠**平移**相机（转相机会把纵深卷进高度，她的头就高过键盘）。位姿在她的身体坐标里算一次、每帧按她现在的位置换到世界（对抗赛里题来时她可能还在滑）。
 6. **打字时藏准星**（主会话的②）：`G.hud.xh.style.visibility = 'hidden'`，站清掉时还原（hud.js 每次换武器重写 class，不碰 inline style）。
 7. **备战板**照旧停住比赛（轮与轮之间、M6 课文），见拿不准的。
+
+**改了什么**（WIP `3b80c08` 之上；WIP 本身的清单见它的提交说明）：
+- `src/learn/play/arena/host.js`：对抗赛没有回声亭，`S === this.echo` 成了 `null === null`，每帧读 `null.tapApi`——游戏一帧都走不了（第一次进浏览器就停在这）。
+- `src/learn/play/arena/m1.js`：`arenaTypeFrame({ W, H, top, bottom, strip, avoid })`（纯，按屏幕缓存）、`searchRegion`、`TYPE_PTS`（含纸在托架整段行程里的四角，±1.37 m）。
+- `src/learn/play/arena/type.js`：打字机位换成 `arenaTypeFrame`（先出题条、再取景；提示多一行后重取景；位姿每帧按她现在的位置换到世界）；'word' 机位传题条连判定（`VERDICT_H`）的高度；打字时藏准星；泡泡盾在原地续（原来每帧 `giveShield`，每帧放一遍 `shield_up`）。
+- `src/learn/play/arena/run.js`：`_placeZone` 加回 play-1 的三条视线（横屏里标签落在矮墙后面）；标签图集等 Rubik 加载完再画；Boss：`bossNear()`、近 → 挂插口（`C.cluster 'boss'`）/ 远 → 题簇（`'zone'`）；取景俯仰到 0.9 rad；`_track` 跟着球；`_fire` 记下点射墨弹、`passes(prev)`。
+- `src/learn/forms/duel.js`：一题最多等 `askWait` 让她走近区域（`_farFromZone`）。`src/learn/forms/boss.js`：一题最多等 `bossWait` 让她走近（`_farFromBoss`，说一次「走近 Boss——答案挂在它的弱点上」）；`_wrapDamage` 旁包 `Boss.segHit`（点射的那颗墨弹不被它自己的命中球挡）。
+- `src/config.js`：`LEARN.arena.bossNear / bossWait`（加法）。
+- `tools/learn/arena-audit.mjs`：`--gate`、`--far`；每个方向一个 `try`；字靶按真实相机投影真实的键帽、纸和她的头；准星；Boss 出题前把她放到它前面 8 m；平射在 Boss 上只记一行；点之前重读投影；「在命中那一帧判」取最后一条日志。
+- `tests/learn/play-arena.test.mjs`：多一条——`arenaTypeFrame` 在 390 × 844 / 844 × 390（两种题条）/ 1280 × 720 / 375 × 667 / 667 × 375 上：头低于中间那排、`TYPE_PTS` 全在取景区里、取景区在题条下面或旁边、躲开 HUD 顶排；844 × 390 选左上角。
+- `docs/PLAY.md`：§3 M4 机位、§3 M5、§5.3 各一段「play-5 更正」。
+
+**动了别人地盘的**：`flow.js`、`touch.js`、`host.js`、`play/cam.js`、`weapons.js`、`main.js`、`actor.js`、`cameraRig.js` **一行没动**。共用文件只做了加法：`src/ui/play-strip.js`（WIP：`verdict` 多一个 `actions`，`this.acts`）、`src/learn/play/run.js`（WIP：构造函数多一个 `opts.Targets`）、`src/config.js`（`LEARN.arena`）。`Boss.segHit` / `Boss.applyDamage` 是在 BossFlow 里给这一局的实例包了一层（E 就这么包 `applyDamage`），boss 的文件没改。

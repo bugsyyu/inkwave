@@ -148,7 +148,7 @@ export class BossFlow extends LearnFlow {
     }
     // between its moves: idle, visible, no roar / intro running → the next question
     const idle = b.visible && !b.move && b.anim === 0 && !b.invuln;
-    if (idle) {
+    if (idle && (!this.arena || (m.local && m.local.alive))) {   // (题即玩法: never while she is splatted — the camera is not hers)
       this.askT -= dt;
       if (this.askT <= 0) {
         // (题即玩法: a choice hangs on its weak points — the boss waits up to LEARN.arena.bossWait s for her to come within

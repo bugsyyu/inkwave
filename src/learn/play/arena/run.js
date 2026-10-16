@@ -98,8 +98,8 @@ export class ArenaRun extends PlayRun {
   // after the form's wait, the duel's cluster towards it, within her shot: C.cluster says which)
   _place() {
     const C = this.cur; if (!C) return;
-    if (this.mode === 'boss' && this.bossNear(1.5)) { C.cluster = 'boss'; this._placeBoss(); }
-    else { C.cluster = 'zone'; C.socks = null; this._placeZone(); }
+    if (this.mode === 'boss' && this.bossNear(1.5)) { C.cluster = 'boss'; this.T.onTop(true); this._placeBoss(); }
+    else { C.cluster = 'zone'; C.socks = null; this.T.onTop(false); this._placeZone(); }
   }
   bossNear(slack = 0) {
     const b = this.bossOf && this.bossOf(), a = this.match.local; if (!b || !b.model || !a) return false;
@@ -209,6 +209,7 @@ export class ArenaRun extends PlayRun {
     }
     b.model.getSocket('shellTop', _c);
     if (!orbitBasis(G.camera.position, _c, _basis)) { _basis.right.set(1, 0, 0); _basis.up.set(0, 1, 0); _basis.back.set(0, 0, 1); }
+    if (!C.banner) spreadBalls(objs, n, _basis.right);
     C.placed = true; C.D = G.camera.position.distanceTo(_c);
     this.T.show(Atl, objs, _basis);
     this.reg.set(this.T.spheres, C.serial);
@@ -218,7 +219,15 @@ export class ArenaRun extends PlayRun {
   // ---------------------------------------------------------------------------------------------- per frame
   update(dt) {
     super.update(dt);
-    const C = this.cur; if (!C || !C.placed || this.match.paused) return;
+    const C = this.cur; if (!C || this.match.paused) return;
+    // the boss splatted her while the question was up: when she is back (at her spawn, far from it) the options are put
+    // where she can reach them again — framed and placed anew (near: on the weak points; far: towards it)
+    const a = this.match.local;
+    if (this.mode === 'boss' && a) {
+      if (!a.alive) C.wasDead = true;
+      else if (C.wasDead) { C.wasDead = false; if (!C.answered && !this.shot) { this._frame(); if (!this.frame.on) this._place(); this.log.push({ t: +this.flow.t.toFixed(2), ev: 'replace', why: 'respawn' }); } }
+    }
+    if (!C.placed) return;
     if (C.cluster === 'boss') { this._ride(); this._track(dt); } else this._orbit();
   }
   // the boss's balls ride a walking, turning boss: while the question is up and she has not looked round herself, the
@@ -262,7 +271,10 @@ export class ArenaRun extends PlayRun {
     const C = this.cur, b = this.bossOf && this.bossOf(); if (!b || !b.model || !this.T.n) return;
     b.model.getSocket('shellTop', _c);
     if (orbitBasis(G.camera.position, _c, _basis)) this.T.setBasis(_basis.right, _basis.up, _basis.back);
-    for (let k = 0; k < C.labels.length; k++) { const o = _pts[k]; o.kind = this.T.slots[k].kind; if (this._bossObj(k, o)) this.T.moveTo(k, o, o.plate); }
+    const n = C.labels.length;
+    for (let k = 0; k < n; k++) { const o = _pts[k]; o.kind = this.T.slots[k].kind; if (!this._bossObj(k, o)) return; }
+    if (!C.banner) spreadBalls(_pts, n, _basis.right);
+    for (let k = 0; k < n; k++) this.T.moveTo(k, _pts[k], _pts[k].plate);
     this.T.commit();
   }
 
@@ -322,3 +334,32 @@ export class ArenaRun extends PlayRun {
   dispose() { if (this._qAtlas) { this.T.freeAtlas(this._qAtlas); this._qAtlas = null; } super.dispose(); }
 }
 const NEUTRAL = new THREE.Color('#a39db8');
+
+// The weak points sit close (the eyes 1.3 m apart, the cannon between and under them): a ball the size a label needs at
+// 15 m (≈ 1.1 m) on each would overlap its neighbour and hide its label. So the balls keep their sockets' heights and are
+// pushed apart sideways, in the plane facing the camera (`right`), until no two of them — ball and the plate under it —
+// overlap: a few passes of pairwise separation, in place, nothing allocated. A ball moves off its socket only as far as
+// the crowd needs.
+function spreadBalls(objs, n, right) {
+  for (let k = 0; k < n; k++) {
+    const o = objs[k];
+    o._x = o.x * right.x + o.z * right.z; o._d = 0;
+    o._w = Math.max(2 * o.r, o.plate.w) + 0.2; o._y1 = o.y + o.r; o._y0 = o.plate.y - o.plate.h / 2;
+  }
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const A = objs[i], B = objs[j];
+      if (A._y0 > B._y1 || B._y0 > A._y1) continue;   // (one over the other: apart already)
+      const d = B._x - A._x, ov = (A._w + B._w) / 2 - Math.abs(d);
+      if (ov <= 1e-4) continue;
+      const s = d > 0 || (d === 0 && j > i) ? 1 : -1, h = ov / 2;
+      A._x -= s * h; A._d -= s * h; B._x += s * h; B._d += s * h; moved = true;
+    }
+    if (!moved) break;
+  }
+  for (let k = 0; k < n; k++) {
+    const o = objs[k], d = o._d; if (!d) continue;
+    o.x += right.x * d; o.z += right.z * d; o.plate.x += right.x * d; o.plate.z += right.z * d;
+  }
+}

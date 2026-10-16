@@ -140,12 +140,12 @@ for (const viewName of VIEWS_WANT) { try {
   });
   const inside = (b, s) => b.x >= s.x - 1 && b.y >= s.y - 1 && b.x + b.w <= s.x + s.w + 1 && b.y + b.h <= s.y + s.h + 1;
   async function waitFor(fn, max = 200, ms = 50) { for (let i = 0; i < max; i++) { const r = await ev(fn); if (r) return r; await step(ms); } return null; }
-  // the boss: her hand walks her to ~8 m in front of HULLBREAKER (on the nearest walkable node) while it waits for her to
+  // the boss: her hand walks her to ~11 m in front of HULLBREAKER (on the nearest walkable node) while it waits for her to
   // come close (LEARN.arena.bossNear) — as a player would; --far keeps her where she is (the options then come towards it)
   const FAR = args.includes('--far');
   const nearBoss = () => ev(() => {
     const m = __inkwave.match, b = m.boss, a = m.local, nav = __G.nav; if (!b || !a || !nav) return null;
-    const V = a.pos.constructor, want = new V(b.pos.x + Math.sin(b.yaw) * 8, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 8);
+    const V = a.pos.constructor, want = new V(b.pos.x + Math.sin(b.yaw) * 11, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 11);
     const k = nav.nearest(want, 6, true); if (k < 0) return null;
     const n = nav.nodes[k]; a.pos.set(n.x, n.y, n.z); a.vel.set(0, 0, 0);
     return [n.x, n.y, n.z].map((v) => +v.toFixed(1));
@@ -192,6 +192,7 @@ for (const viewName of VIEWS_WANT) { try {
     // (where it is NOW: the boss's balls ride a walking boss, the lens follows them)
     const dNow = await ev(() => __inkwave.match.learn.arena.m1.debug());
     const q = (dNow.projected.length ? dNow.projected : d.projected).find((x) => x.i === right);
+    if (!q) { check(false, `${label}: the right object is on the screen to tap`, { projected: dNow.projected, log: (dNow.log || []).slice(-4) }); return null; }
     if (V.touch) await tapAt(q.kind === 'ball' ? q.cx : q.x + q.w / 2, q.kind === 'ball' ? q.cy : q.y + q.h / 2);
     else { for (let pass = 0; pass < 4; pass++) { await ev((k) => { const P = __inkwave.match.learn.arena.m1, rig = __inkwave.rig, cam = rig.gameCam; const c = P.T.slots[k].pos; const dx = c.x - cam.position.x, dy = c.y - cam.position.y, dz = c.z - cam.position.z; rig.yaw = Math.atan2(dx, dz); rig.pitch = Math.atan2(dy, Math.hypot(dx, dz)); }, right); await step(16.7); } await ev(() => __inkwave.debug.fire(true)); await step(16.7); await ev(() => __inkwave.debug.fire(false)); }
     const v = await untilAnswered();

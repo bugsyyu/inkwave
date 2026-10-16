@@ -26,6 +26,18 @@ export class ArenaTargets extends PlayTargets {
     else if (S.kind !== 'ball') S.plate.pos.copy(S.pos);
     return this;
   }
+  // on the boss its claws and shell stand between her and the weak points: the balls and their plates draw over the
+  // scene (depth test off, after everything opaque; the balls still write depth, so the right answer's halo — tested as
+  // usual — rings them and never fills them) — over a zone they are ordinary objects again
+  onTop(on) {
+    on = !!on; if (this._top === on) return this;
+    this._top = on;
+    for (const [m, k] of [[this.balls, 20], [this.planks, 20], [this.plates, 23]]) {
+      if (m._ro0 == null) m._ro0 = m.renderOrder;
+      m.material.depthTest = !on; m.renderOrder = on ? m._ro0 + k : m._ro0;
+    }
+    return this;
+  }
   commit() {
     if (!this.n) return this;
     // (draining objects are no longer anything to hit: out() emptied the spheres — keep it so)
