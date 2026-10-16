@@ -110,13 +110,13 @@
       rec.dCross = +Fl.dNow.toFixed(2);
       rec.states = row.view ? row.view.curtains.map((cc) => cc.state + (cc.k ? ':coral' + cc.k.toFixed(2) : '')) : null;
       rec.slowT = +Fl.slowT.toFixed(2); rec.boostT = +Fl.boostT.toFixed(2);
-      if (W.__runShotAfter && rec.ok && !S.afterShot) await step(250);
-      await step(450); rec.vAfter = +spd().toFixed(2);
+      if (W.__runShotAfter && rec.ok && !S.afterShot) { await step(80); render(); rec.burstShot = true; S.burstPending = true; }
+      if (!S.burstPending) { await step(450); rec.vAfter = +spd().toFixed(2); }
       rec.leavesAfter = leaves(row.item.id);
       rec.verdict = (document.querySelector('.iw-run__verdict.is-on') || {}).textContent || '';
       S.rows.push(rec);
       // one shot just after the first right curtain: the burst into her ink (fx.explosion + paint.flood)
-      if (W.__runShotAfter && rec.ok && !S.afterShot) { S.afterShot = true; render(); S.shotsTaken++; return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug(), after: true }); }
+      if (W.__runShotAfter && rec.ok && !S.afterShot && rec.burstShot) { S.afterShot = true; S.burstPending = false; S.shotsTaken++; return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug(), after: true }); }
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)

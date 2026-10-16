@@ -77,6 +77,7 @@ export class RunnerFlow extends RaceFlow {
       on('respawn', ({ actor }) => { if (actor === this.match.local) this._respawned(actor); }),
     ];
     this._warm();
+    this._setFinish(this.finish.s + this.lineBack);   // (the finish ring, built by RaceFlow after _place, onto her line)
   }
 
   // ---------------------------------------------------------------------------------------------- the road
@@ -112,12 +113,15 @@ export class RunnerFlow extends RaceFlow {
     const len = this.T.len, lap = Math.floor(s / len), r = rawAt(this.T, s - lap * len);
     return clamp(lap * (this.loopN - 1) + Math.round(r), 0, this.path.length - 1);
   }
-  // the finish: the start of the lap at or after s (the start node — the line is the same spot every lap)
+  // the finish: the start of the lap at or after s (the start node — the bots' line, the same spot every lap). Hers is a
+  // few metres before it, short of the lap's last jump-up edge (the start deck on some stages): s − lineBack
   _setFinish(s) {
     const len = this.T.len, lap = Math.max(1, Math.ceil(s / len - 1e-6));
     const i = clamp(lap * (this.loopN - 1), 0, this.path.length - 1), n = G.nav.nodes[this.path[i]];
     if (!this.finish) this.finish = { id: 'finish', title: '终点', pos: new THREE.Vector3() };
-    Object.assign(this.finish, { pathIndex: i, node: this.path[i], s: lap * len }); this.finish.pos.set(n.x, n.y, n.z);
+    if (this.lineBack == null) { let b = 4; for (const j of this.T.jumps) if (len - j < 12) b = Math.max(b, len - j + 2); this.lineBack = b; }
+    Object.assign(this.finish, { pathIndex: i, node: this.path[i], s: lap * len - this.lineBack }); this.finish.pos.set(n.x, n.y, n.z);
+    if (this.finish.mesh) { at(this.T, this.finish.s, _p); const gy = G.level ? G.level.groundHeight(_p.x, _p.z, _p.y + 1) : _p.y; this.finish.mesh.position.set(_p.x, (Number.isFinite(gy) ? gy : _p.y) + 0.06, _p.z); this.finish.mesh.scale.set(2.2, 2.2, 1); }
   }
   // no gate markers (the rows are the gates); the ring geometry stays for the finish ring and the signs
   _buildMeshes() { this._geos = [new THREE.RingGeometry(0.85, 1.35, 40)]; this._mats = []; }
@@ -628,7 +632,8 @@ export class RunnerFlow extends RaceFlow {
     it.squid = true;   // (a squid all the way: a kid on the ink walks at 6 m/s and no swim boost reaches her)
     let jump = this._jumpQ;
     if (!jump && a.grounded && !(D && D.line)) {   // the lap's jump-up edges (0.5–1.25 m): hop them like the auto-walk does
-      const ahead = Math.max(1.4, sp * 0.16), base = Math.floor(this.sNow / T.len) * T.len;
+      // (a quarter second ahead: a swim jump is 1.5 m up by then, over the highest jump edge — 1.25 m — at any speed)
+      const ahead = Math.max(1.2, sp * 0.25), base = Math.floor(this.sNow / T.len) * T.len;
       for (const j of T.jumps) for (const sj of [base + j, base + T.len + j]) if (sj > this.sNow + 0.2 && sj < this.sNow + ahead) jump = true;
     }
     if (this._jumpQ && !a.grounded && !a.climbing) jump = false;
@@ -638,7 +643,11 @@ export class RunnerFlow extends RaceFlow {
   // her lateral room at s: the row's lanes in its zone, else the clear road (kept off the edges)
   _bounds(s) {
     const row = this._shown();
-    const r = roomAt(this.T, this.W, s, 0.45);
+    // in the last metres before a row, aim by the room where the row's run-in starts (wide enough for every lane, the
+    // placement made sure): the road just before it may be narrower, and an outer lane is reached diagonally
+    let sr = s;
+    if (row && row.kind !== 'glide' && this.sNow >= row.s - this.RR.runIn - 6 && s < row.s - this.RR.runIn) sr = row.s - this.RR.runIn;
+    const r = roomAt(this.T, this.W, sr, 0.45);
     let lo = -r.left, hi = r.right;
     if (row && row.kind !== 'glide' && s >= row.sAppear - 2 && s <= row.s + 1.5) { lo = Math.max(lo, row.centers[0] - 0.35); hi = Math.min(hi, row.centers[row.centers.length - 1] + 0.35); if (lo > hi) lo = hi = row.centers[0]; }
     else if (row && row.kind === 'glide') { const amp = Math.min(1.2, r.left, r.right); this.latT = amp * Math.sin(((s - row.s0) / Math.max(1, row.s1 - row.s0)) * Math.PI * 2); }

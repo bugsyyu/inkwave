@@ -114,7 +114,7 @@ async function sample(query, label, prepSrc, learn = true) {
     const tick = (t) => { raf.push(t - last); last = t; if (on) requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     await sleep(secs * 1000); on = false; I._frame = orig;
     const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.length ? +s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))].toFixed(1) : null; };
-    raf.shift();
+    raf.splice(0, 2); ft.splice(0, 2);   // (the first frames after the fast-forward carry its uploads)
     const F = I.match.learn, d = F && F.debug ? F.debug() : {};
     return { actors: I.match.actors.length, frames: ft.length, frameP50: q(ft, 0.5), frameP95: q(ft, 0.95), frameMax: +Math.max(...ft).toFixed(1), rafP50: q(raf, 0.5), rafP95: q(raf, 0.95), calls: I.perf && I.perf.calls, tris: I.perf && I.perf.tris, rowShown: !!(d.row), s: d.s, paused: I.match.paused, stage: I.mapDef.id };
   }, PERF_S);
@@ -128,7 +128,8 @@ const FF = `const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTi
 async function scenarioPerf() {
   const day = opt('day', 'w1d3');
   const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!F._shown() && k++ < 40) ff(0.5); ff(0.6); return { s: +F.sNow.toFixed(1), row: !!F._shown(), started: F.started }; })()`);
-  const race = await sample(`?learn=${day}&kind=race`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); ff(4); return { phase: F.phase, cur: F.cur }; })()`);
+  // (the race walking to its first gate: at the gate its card holds the match, which is not a frame to compare)
+  const race = await sample(`?learn=${day}&kind=race`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
   // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight
   const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', `(async () => { ${FF} ff(6); return { t: +I.match.time.toFixed(1) }; })()`, false);
   out.runs.push(runner, race, turf);

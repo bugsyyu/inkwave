@@ -65,6 +65,7 @@ export class RowView {
       const mat = curtainMaterial(); this.mats.push(mat);
       const sheet = new THREE.Mesh(SHEET, mat); sheet.scale.set(w, h, 1); sheet.renderOrder = 2;
       const L = labelTexture({ ...row.labels[i], banner: row.banner, tag: tags[i] || '' }); this.texs.push(L);
+      try { G.renderer?.initTexture?.(L.tex); } catch (e) { /* (uploaded on first draw instead) */ }   // up now, two rows ahead — not in the frame the row fades in
       const bm = new THREE.MeshBasicMaterial({ map: L.tex, transparent: true, depthWrite: false, toneMapped: false }); this.mats.push(bm);
       const bw = laneW - (row.banner ? 0.06 : 0.14);   // (boards nearly as wide as the lane: the curtains below show the gaps)
       const board = new THREE.Mesh(BOARD, bm); board.scale.set(bw, bw * L.aspect, 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;

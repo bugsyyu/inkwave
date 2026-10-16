@@ -4,7 +4,7 @@
 // alone and the rig moves nothing — it still adds its trauma shake, keeps gameCam for the audio and the aim, and turns
 // fovKick into the field of view). Everything rides critically-damped springs, nothing cuts:
 //   · the pivot follows her visual position (horizontal ω 9 with velocity feed-forward, vertical ω 5: soft through hops)
-//   · the yaw follows the road's heading a few metres ahead (ω 3.4): corners swing in, lane changes do not shake it
+//   · the yaw follows the road's heading the next ~0.8 s ahead (ω 4.2): corners swing in, lane changes do not shake it
 //   · boom, height, look-ahead and field of view per aspect — upright phone: higher, steeper and wider (a 4-lane row
 //     has to fit 390 px); landscape and desktop: lower and longer — blended on the aspect, sprung on a turn of the phone
 //   · a soft wall probe (physics.cameraProbe) pulls the boom in before a wall comes between them
@@ -23,7 +23,7 @@ class Spring {   // exact critically-damped spring (cameraRig's)
 // framing presets: [back m, up m, look-ahead m, look height m, vertical fov °]. Wide screens are framed by a horizontal
 // field of view instead (WIDE_H): a landscape phone's 2.16 : 1 at a fixed vertical angle sees 90° across and the row
 // shrinks to a strip in the middle; 72° across puts a four-lane row over 40 % of the width a dozen metres out.
-const TALL = [5.2, 3.3, 8, -0.7, 70], WIDE = [4.8, 3.0, 6, -0.3, 0], WIDE_H = 72;
+const TALL = [5.2, 3.3, 8, -0.7, 70], WIDE = [4.8, 3.0, 6, -0.8, 0], WIDE_H = 72;
 const _p = {}, _v = new THREE.Vector3(), _b = new THREE.Vector3(), _probe = { hard: 0, soft: 0, floor: false };
 
 export class RunnerCam {
@@ -52,9 +52,10 @@ export class RunnerCam {
     const rig = this.rig, cam = G.camera;
     if (!rig || !cam || !a) return;
     if (rig.mode !== 'path' || rig.path) { rig.mode = 'path'; rig.path = null; }
-    // the road's heading: the tangent averaged 2–9 m ahead
+    // the road's heading: the tangent averaged over the next ~0.8 s of road (2–9 m at the tide, further when boosted)
     let tx = 0, tz = 0;
-    if (yawRoad == null) { for (let d = 2; d <= 9; d += 1.75) { at(T, s + d, _p); tx += _p.tx; tz += _p.tz; } }
+    const span = clamp(Math.hypot(a.vel.x, a.vel.z) * 0.8, 7, 12);
+    if (yawRoad == null) { for (let d = 2; d <= 2 + span; d += span / 4) { at(T, s + d, _p); tx += _p.tx; tz += _p.tz; } }
     let yawT = yawRoad != null ? yawRoad : Math.atan2(tx, tz);
     if (focus && focus.w > 0) {
       let d = Math.atan2(focus.x - a.pos.x, focus.z - a.pos.z) - yawT; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
@@ -73,7 +74,7 @@ export class RunnerCam {
     }
     // unwrap the target next to the spring (no spinning the long way round)
     let yt = yawT; while (yt - this.yaw.x > Math.PI) yt -= Math.PI * 2; while (yt - this.yaw.x < -Math.PI) yt += Math.PI * 2;
-    const yaw = this.yaw.step(yt, 3.4, dt);
+    const yaw = this.yaw.step(yt, 4.2, dt);
     const lead = 0.1;
     const x = this.px.step(p.x + a.vel.x * lead, 9, dt), z = this.pz.step(p.z + a.vel.z * lead, 9, dt);
     const y = this.py.step(p.y + (a.grounded ? 0 : Math.max(0, a.vel.y) * 0.04), a.grounded ? 7 : 4, dt);
