@@ -31,6 +31,7 @@ import { at, roomAt } from './track.js';
 export const BOARDS_MAX = 6;   // boards a checkpoint shows at most (BoardSet's instances: the review day's 48 sounds would be 24)
 const chunk = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; };
 const _p = {};
+let _q = null, _r = null;   // (THREE vectors, made on first use: the pure helpers above stay three-free)
 
 // what a checkpoint's boards say (pure: Node-tested): [] for one without boards
 export function boardSpecsOf(g, level) {
@@ -141,12 +142,27 @@ export class RunnerBoards {
     const spots = boardSpots(F.T, F.W, s0, g._boards.n, o);
     const before = this.walk.list.length;
     this.walk.place(g.id, spots);
-    for (const L of this.walk.list.slice(before)) this.spots.push({ s: L.spot.s, s0: L.spot.s0, key: g.id, L });
+    // each board's framing pose must stand in the open and see the board (a narrow street with roofs over it: the
+    // pose in front of a board may be inside one) — else that board is not framed: she reads it from the chase camera
+    const Wd = typeof innerWidth !== 'undefined' ? innerWidth : 1280, Hd = typeof innerHeight !== 'undefined' ? innerHeight : 720;
+    this.walk.list.slice(before).forEach((L, k) => {
+      const f = this.walk.frameOf(before + k, Wd / Hd, Wd, Hd);
+      L.noFrame = !!(f && !this._clear(f, L));
+      this.spots.push({ s: L.spot.s, s0: L.spot.s0, key: g.id, L });
+    });
     const zone = { gate: g, s0: s0 - 1, s1: s0 + boardLength(g._boards.n, o) };
     g._boards.placed = true; g._boards.zone = zone;
     this.zones.push(zone);
     this.log.push({ t: +F.t.toFixed(2), ev: 'place', gate: g.id, n: spots.length, s0: +s0.toFixed(1) });
     return zone;
+  }
+  _clear(f, L) {
+    const P = G.physics; if (!P || !P.los) return true;
+    if (!_q) { _q = f.pos.clone(); _r = f.pos.clone(); }
+    const b = L.b, c = b.center, rx = Math.cos(b.yaw), rz = -Math.sin(b.yaw), hw = b.w / 2, hh = b.h / 2;
+    const at = (dx, dy) => _q.set(c.x + rx * dx, c.y + dy, c.z + rz * dx);
+    return P.los(f.pos, at(0, 0)) && P.los(f.pos, at(-hw * 0.9, hh * 0.9)) && P.los(f.pos, at(hw * 0.9, hh * 0.9)) && P.los(f.pos, at(0, -hh * 0.9))
+      && P.los(_r.set(L.view.x, L.view.y + 1.5, L.view.z), f.pos);
   }
   // gone for good (she is past them): the canvases freed
   free(g) {
@@ -175,12 +191,12 @@ export class RunnerBoards {
     const W = this.walk; if (!W) return;
     const k = boardAt(this.spots, s);
     this.cur = k;
-    const her = k >= 0 && this.spots[k].L ? this.spots[k].L.view : FAR;
+    const her = k >= 0 && this.spots[k].L && !this.spots[k].L.noFrame ? this.spots[k].L.view : FAR;
     W.update(dt, her, { aspect, speed: 0 });
   }
   debug() {
     const W = this.walk;
-    return W ? { framed: W.framed, cur: this.cur, n: W.list.length, read: W.list.filter((L) => L.read).length, zones: this.zones.map((z) => [+z.s0.toFixed(1), +z.s1.toFixed(1)]), spots: this.spots.map((sp) => +sp.s.toFixed(1)), framing: W.framing ? { fits: W.framing.frame.fits, rect: W.framing.frame.rect && { x: Math.round(W.framing.frame.rect.x), y: Math.round(W.framing.frame.rect.y), w: Math.round(W.framing.frame.rect.w), h: Math.round(W.framing.frame.rect.h) } } : null, strip: W.strip.isOpen, log: this.log.slice(-8) } : { idle: true };
+    return W ? { framed: W.framed, cur: this.cur, n: W.list.length, read: W.list.filter((L) => L.read).length, zones: this.zones.map((z) => [+z.s0.toFixed(1), +z.s1.toFixed(1)]), spots: this.spots.map((sp) => +sp.s.toFixed(1)), noFrame: this.spots.filter((sp) => sp.L && sp.L.noFrame).length, framing: W.framing ? { fits: W.framing.frame.fits, rect: W.framing.frame.rect && { x: Math.round(W.framing.frame.rect.x), y: Math.round(W.framing.frame.rect.y), w: Math.round(W.framing.frame.rect.w), h: Math.round(W.framing.frame.rect.h) } } : null, strip: W.strip.isOpen, log: this.log.slice(-8) } : { idle: true };
   }
   dispose() {
     if (typeof removeEventListener === 'function') { removeEventListener('pointerdown', this._pd, true); removeEventListener('pointerup', this._pu, true); removeEventListener('pointercancel', this._pu, true); }

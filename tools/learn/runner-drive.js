@@ -112,8 +112,10 @@
         await step(400);
         g.typed = Gl.shot.text;
         g.frame = await frameCheck();
-        if (g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
-        if (g.frame && !g.frame.headBelowRow) S.errors.push('glide ' + g.item + ': her head is not below the keys\' row ' + JSON.stringify(g.frame));
+        g.lensBlocked = (G.time || 0) < (Gl._blockUntil || 0);   // (the type pose was under a roof / past a wall: the chase camera has her — glide.js)
+        if (g.lensBlocked) S.blockedTypes = (S.blockedTypes || 0) + 1;
+        else if (g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
+        if (g.frame && !g.lensBlocked && !g.frame.headBelowRow) S.errors.push('glide ' + g.item + ': her head is not below the keys\' row ' + JSON.stringify(g.frame));
         if (g.inv.crosshair) S.errors.push('glide ' + g.item + ': the crosshair shows while she types');
         g.stage = 'fire';
         if (gShot('type-' + g.typeMode)) { render(); return 'type-' + g.typeMode; }
@@ -123,8 +125,9 @@
         await step(34);
         // the shell flies, the word forms (grey): stop the moment it has formed — the first frame of its verdict, or
         // (held) standing grey, waiting for her tap
-        let k = 0; while (k++ < 240) { const w = Gl.shot && Gl.shot.word; if (w && (w.phase === 'shown' || w.phase === 'resolving' || w.phase === 'done')) break; await step(17); }
-        g.held = !!Gl.held; g.wordPhase = Gl.shot && Gl.shot.word ? Gl.shot.word.phase : null;
+        // (TypeShot's own phase: firing → assembling → shown | resolving — the ink word's may still be the last item's 'done')
+        let k = 0; while (k++ < 300) { const ph = Gl.shot && Gl.shot.phase; if (ph === 'shown' || ph === 'resolving' || ph === 'done') break; await step(17); }
+        g.held = !!Gl.held; g.wordPhase = Gl.shot && Gl.shot.word ? Gl.shot.word.phase : null; g.shotPhase = Gl.shot ? Gl.shot.phase : null;
         g.wordCam = { pose: !!(Gl.cur && Gl.cur.wpose), passed: !!(Gl.cur && Gl.cur.passed), frame: Gl._fw || null };
         g.leavesHeld = g.held ? leaves(g.item) : null;
         if (g.held && g.leavesHeld !== g.leavesBefore) S.errors.push('glide ' + g.item + ': evidence written while held');
@@ -174,15 +177,17 @@
     const d = bw.debug(), f = { i, fits: d.framing ? d.framing.fits : null, rect: d.framing ? d.framing.rect : null, read: W2.list[i] ? W2.list[i].read : null, cam: G.camera.position.toArray().map((v) => +v.toFixed(1)) };
     // a tap on the first row hotspot (a word: it is spoken) — through the boards' own pointer listeners
     if (!S.boardTapped) {
-      const hot = W2.set.project(W2.list[i].b, G.camera, innerWidth, innerHeight).find((h) => /^row:|^listen|^follow/.test(h.id));
+      const hot = W2.set.project(W2.list[i].b, G.camera, innerWidth, innerHeight).find((h) => /^row:|^listen|^follow|^more/.test(h.id));
       if (hot) {
         S.boardTapped = true; let said = 0; const sp = Fl._speak; Fl._speak = function (...a) { said++; return sp.apply(this, a); };
         const x = hot.rect.x + hot.rect.w / 2, y = hot.rect.y + hot.rect.h / 2, id = ++pid, tgt = document.elementFromPoint(x, y) || window;
         tgt.dispatchEvent(new PointerEvent('pointerdown', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
         tgt.dispatchEvent(new PointerEvent('pointerup', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
         await step(60); Fl._speak = sp;
-        f.tap = { id: hot.id, said };
-        if (!said) S.errors.push('boards: a tap on ' + hot.id + ' said nothing');
+        const opened = !!(W2.strip && W2.strip.isOpen);
+        f.tap = { id: hot.id, said, opened };
+        if (hot.id === 'more' ? !opened : !said) S.errors.push('boards: a tap on ' + hot.id + (hot.id === 'more' ? ' opened no reading strip' : ' said nothing'));
+        if (opened && gShot('board-more')) { render(); b.framed.push(f); return 'board-more'; }
       }
     }
     b.framed.push(f);
@@ -279,7 +284,7 @@
   const firsts = {}; if (Fl) for (const e of Fl.log) if (e.name === 'learn:answer' && e.first) firsts[e.itemId] = (firsts[e.itemId] || 0) + 1;
   const twice = Object.keys(firsts).filter((k) => firsts[k] > 1); if (twice.length) S.errors.push('first answer recorded twice: ' + twice.join(', '));
   const xhAny = S.checks.filter((c) => c.crosshair).length;
-  const out = { boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
+  const out = { boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;

@@ -69,6 +69,10 @@ export class RunnerFlow extends RaceFlow {
     this.stats = { rows: 0, answered: 0, right: 0, wrong: 0, noAnswer: 0, beatRows: 0, onBeat: 0, offBeat: 0, detours: 0, branches: 0, glides: 0, boards: 0, skipped: [] };
     this.glide = new GlideStation(this);
     this.bw = new RunnerBoards(this);   // the 看板段's boards (play-3's BoardWalk along the road)
+    // (the write wall's sentences are asked too — the run's last 滑行段, PLAY §4 W / S: they count in the results card's
+    // 「做对」 and 「首答答对」 like every other scored item; RaceFlow counted the checkpoints' items only)
+    const wall = new Set(); for (const e of this.entries) if (e.exit) for (const it of e.items) wall.add(it.id);
+    this.scoredN += wall.size; this.total += wall.size;
     this.typed = opts.typed || RunnerFlow.typed || ((o) => this.glide.run(o));
     this.fairK = 1;   // the slow the bots share with her (a glide, a board stretch): × their move
     this._in = []; this._jumpQ = false; this._diveQ = false; this._padLat = 0; this._lastFrame = -1;

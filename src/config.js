@@ -692,6 +692,8 @@ export const LEARN = {
     glide: 34,                // m of a 滑行段 at least (typed items on play-type's rig, runner/glide.js: it lasts until its last item is answered)
     glideTide: 0.3,           // the tide on a 滑行段: × her swim speed — she rides the typing rig in kid form at about the crab special's pace (≈ 3.5 m/s); the racer bots slow by the same factor (fair)
     glideAhead: [9, 16],      // m ahead of her the ink word forms on 射 (her pace × the shell's flight + the verdict's show, clamped): it stands just ahead while it plays, she swims through the burst
+    glideShow: 4.6,           // s from 射 to the end of the word's verdict (flight ≤ 1.25 + forming ≤ 2.2 + verdict 1.5; play-4): × her pace + 2 m is where the word lands, so she reaches it as the verdict ends
+    glideReach: 24,           // m: the farthest a word lands (glideShow at a boosted pace)
     banner: { en: 12, zh: 8, max: 3 },   // longer labels make banner curtains, at most three in a row
     road: 1.25,               // m: half-width of the ink road between rows (rows widen it to their lanes)
     paintAhead: 18,           // m of road painted ahead of her (the tide pours on as she swims)

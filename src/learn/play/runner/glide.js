@@ -35,7 +35,7 @@ import { verdictLines } from '../m1.js';
 import { ieltsNow } from '../../ielts.js';
 import { at, roomAt } from './track.js';
 
-const _v = new THREE.Vector3(), _p = {};
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _p = {};
 
 export class GlideStation {
   constructor(flow) {
@@ -135,8 +135,9 @@ export class GlideStation {
     const C = this.cur; if (!C || C.answered) return;
     const F = this.flow, a = this.match.local;
     // the target first (submit() lobs at it)
-    const v = Math.max(1.5, Math.hypot(a.vel.x, a.vel.z)), [lo, hi] = this.R.glideAhead;
-    const dist = clamp(v * 3.2 + 2, lo, hi);
+    // (where she will be when the word's verdict ends — play-4: at 13 m she swam into it before it had formed)
+    const v = Math.max(1.5, Math.hypot(a.vel.x, a.vel.z)), lo = this.R.glideAhead[0], hi = this.R.glideReach || this.R.glideAhead[1];
+    const dist = clamp(v * (this.R.glideShow || 3.2) + 2, lo, hi);
     const sT = F.sNow + dist, room = roomAt(F.T, F.W, sT, 0.3);
     const side = room.left > room.right ? -Math.min(0.9, room.left - 0.6) : Math.min(0.9, room.right - 0.6);
     at(F.T, sT, _p);
@@ -246,15 +247,19 @@ export class GlideStation {
       const ahead = ((C.word.x - a.pos.x) * vx + (C.word.z - a.pos.z) * vz) / vl;
       if (ahead < 2.5) C.passed = true;
       if (C.passed) return null;
-      if (!C.wpose) {
+      if (C.wpose === undefined) {   // (once: false = no clear word frame)
         const dx = C.word.x - a.pos.x, dz = C.word.z - a.pos.z, dist = Math.max(3, Math.hypot(dx, dz)), wy = Math.atan2(dx, dz), s2 = Math.sin(wy), c2 = Math.cos(wy);
         const D = Math.min(FRAME.dist, dist), ox = C.word.x - s2 * D, oz = C.word.z - c2 * D, oy = a.pos.y;   // (the rig's spot in the composition)
         const b = wordBox(C.text || 'word');
         const f = frameFor({ phase: 'word', aspect, kbFrac: 0, topFrac: top, dist: D, word: { w: b.w, h: b.h, y: C.word.y - oy } });
-        C.wpose = { pos: new THREE.Vector3(ox + c2 * f.pos[0] + s2 * f.pos[2], oy + f.pos[1], oz - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
-        this._fw = { fits: f.fits, top, kb: 0, D: +D.toFixed(1) };
+        const pose = { pos: new THREE.Vector3(ox + c2 * f.pos[0] + s2 * f.pos[2], oy + f.pos[1], oz - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
+        // the lens must see the word and the rig's spot in the picture, and stand in the open (a terrace's roof, a wall
+        // by a bend): else no word frame — the chase camera keeps her and the word ahead of her (C.wpose = false)
+        const P = G.physics, clear = !P || !P.los || (P.los(pose.pos, pose.look) && P.los(pose.pos, _v.set(ox, oy + 1.4, oz)) && P.los(_v.set(a.pos.x, a.pos.y + 1.6, a.pos.z), pose.pos));
+        C.wpose = clear ? pose : false;
+        this._fw = { fits: f.fits, clear, top, kb: 0, D: +D.toFixed(1) };
       }
-      return C.wpose;
+      return C.wpose || null;
     }
     const kb = this.keys ? +this.keys.frac.toFixed(2) : 0;
     const key = `${aspect.toFixed(2)}|${kb}|${top}`;
@@ -266,6 +271,10 @@ export class GlideStation {
     P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);
     P.look.set(a.pos.x + cy * f.look[0] + sy * f.look[2], a.pos.y + f.look[1], a.pos.z - sy * f.look[0] + cy * f.look[2]);
     P.fov = f.fov; P.fits = f.fits;
+    // (the lens in the open, seeing the keys: under a roof or past a wall the chase camera takes her for a moment)
+    const Ph = G.physics, now = G.time || 0;
+    if (Ph && Ph.los && !(Ph.los(_v.set(a.pos.x, a.pos.y + 1.6, a.pos.z), P.pos) && Ph.los(P.pos, _w.set(a.pos.x + sy * 0.85, a.pos.y + 1.07, a.pos.z + cy * 0.85)))) { this._blockUntil = now + 0.6; this.stats.blocked = (this.stats.blocked || 0) + 1; }
+    if (now < (this._blockUntil || 0)) return null;
     return P;
   }
 
