@@ -203,7 +203,12 @@ export class LearnFlow {
       const next = g.state === 'next';
       M.lock.position.y = 1.7 + Math.sin(t * (next ? 2.4 : 1.2) + g.index) * 0.18;
       M.lock.rotation.y = t * (next ? 1.6 : 0.5);
-      if (this.play) { const k = g._lockPopAt != null ? Math.max(0, 1 - (t - g._lockPopAt) / 0.55) : 0; M.lock.scale.setScalar(1 + 0.7 * k * k); }   // a miss: the lock pops
+      if (this.play) {
+        const k = g._lockPopAt != null ? Math.max(0, 1 - (t - g._lockPopAt) / 0.55) : 0; M.lock.scale.setScalar(1 + 0.7 * k * k);   // a miss: the lock pops
+        // the follow camera standing in a gate (she stops just past it, the lens behind her) sees through its lock and beam
+        const c = G.camera, f = c ? Math.min(1, Math.max(0, (Math.hypot(c.position.x - g.pos.x, c.position.z - g.pos.z) - 0.9) / 1.6)) : 1;
+        M.lock.material.opacity = 0.95 * f; M.beam.material.opacity = 0.22 * f;
+      }
       if (next) { const s = 1 + Math.sin(t * 3.2) * 0.08; M.ring.scale.set(s, s, 1); }
     }
   }

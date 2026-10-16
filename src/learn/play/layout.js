@@ -14,7 +14,9 @@
 //   what is projected back for a tap (pick.js) and what the audit checks against the safe area.
 //   kind 'ball' | 'banner' for the whole item: any label longer than LEARN.m1.bannerEn English / bannerZh Chinese
 //   characters makes every object a banner (PLAY §4), stacked one per row (never squeezed side by side).
-//   fits: false when even the smallest allowed objects do not fit (the items are still returned, best effort).
+//   fits: false when even the smallest allowed objects do not fit (the items are still returned, best effort). When
+//   nothing fits round every avoid box, her silhouette ('her') may be covered (cover: 'her'), then any box (cover:
+//   'all'): every option is always on the screen.
 //
 //   isBanner(labels) · textWidth(s, px) · labelBox(label, font, font2) · wrapLines(s, maxW, px) — the measures the layout
 //   and the label atlas (atlas.js) share, so a plate drawn 2 gates ahead has the shape the layout gave it.
@@ -106,7 +108,7 @@ const ARRANGE = { 1: [[1]], 2: [[2], [1, 1]], 3: [[3], [2, 1], [1, 1, 1]], 4: [[
 
 // one arrangement of balls (counts per row) with every row band a share `f` of its slot, packed from the top → its items
 // and its score (the ball diameter every object gets; a row split very unevenly round an avoid box scores less)
-function ballsIn(rows, boxes, safe, avoid, f = 1) {
+function ballsIn(rows, boxes, safe, avoid, f = 1, maxD = 150) {
   const bh = (safe.h / rows.length) * f, gap = 6, items = [], cells = [];
   let d = Infinity, k = 0, even = 1;
   for (let r = 0; r < rows.length; r++) {
@@ -125,7 +127,7 @@ function ballsIn(rows, boxes, safe, avoid, f = 1) {
   for (const c of cells) {
     const lb = boxes[c.i];
     const lw = Math.min(c.w - 8, lb.w), lh = lb.h * Math.min(1, lw / lb.w);
-    d = Math.min(d, c.w * 0.62, c.h - lh - gap - 8, 150);
+    d = Math.min(d, c.w * 0.62, c.h - lh - gap - 8, maxD);
   }
   if (!(d >= 34)) return { score: d, items: null };
   for (const c of cells) {
@@ -194,24 +196,42 @@ export function layoutTargets(n, labels, aspect, safe, opts = {}) {
   while (labels.length < n) labels.push({ text: '', zh: '' });
   const avoid = opts.avoid || [];
   const banner = opts.banner != null ? !!opts.banner : isBanner(labels);
-  const landscape = aspect >= 1;
-  if (banner) {
-    // the planks are the atlas's boxes; when they do not fit the font steps down (17 → 15 → 14), never below 14 px
-    const bannerW = opts.bannerW || M.bannerW;
-    let out = null;
-    for (const f of [opts.font || U.font, 15, 14]) {
-      out = bannersIn(Math.min(n, M.bannerMax), labels, safe, avoid, bannerW, f, f - 2);
-      out.font = f; out.font2 = f - 2;
-      if (out.fits) break;
-    }
-    return { kind: 'banner', fits: out.fits, items: out.items, font: out.font, font2: out.font2, bannerW };
+  // every avoid box first; when the objects do not fit round them, her silhouette may be covered (the controls and the
+  // minimap never are, unless nothing fits at all) — an option is never dropped
+  const sets = [avoid];
+  if (avoid.some((a) => a.what === 'her')) sets.push(avoid.filter((a) => a.what !== 'her'));
+  if (avoid.length) sets.push([]);
+  let out = null;
+  for (let k = 0; k < sets.length; k++) {
+    const r = banner ? bannersLayout(n, labels, safe, sets[k], opts) : ballsLayout(n, labels, aspect, safe, sets[k], opts);
+    if (r.fits && r.items.length === n) return k ? { ...r, cover: k === 1 ? 'her' : 'all' } : r;
+    if (!out || r.items.length > out.items.length) out = r;
   }
+  return out;
+}
+
+function bannersLayout(n, labels, safe, avoid, opts) {
+  // the planks are the atlas's boxes; when they do not fit the font steps down (17 → 15 → 14), never below 14 px
+  const bannerW = opts.bannerW || M.bannerW;
+  let out = null;
+  for (const f of [opts.font || U.font, 15, 14]) {
+    out = bannersIn(Math.min(n, M.bannerMax), labels, safe, avoid, bannerW, f, f - 2);
+    out.font = f; out.font2 = f - 2;
+    if (out.fits) break;
+  }
+  return { kind: 'banner', fits: out.fits, items: out.items, font: out.font, font2: out.font2, bannerW };
+}
+
+function ballsLayout(n, labels, aspect, safe, avoid, opts) {
+  const landscape = aspect >= 1;
   const font = opts.font || U.font, font2 = opts.font2 || font - 2;
   const boxes = labels.map((l) => labelBox(l, font, font2));
+  // a ball is never more than ~2.6 label plates tall (on a big screen a huge ball dwarfs its 17 px label)
+  const maxD = opts.maxD || Math.max(72, Math.min(150, Math.round(2.6 * Math.max(...boxes.map((b) => b.h)))));
   let best = null;
   for (const rows of ARRANGE[n]) {
     for (const f of [1, 0.85, 0.7, 0.55, 0.45, 0.4]) {
-      const r = ballsIn(rows, boxes, safe, avoid, f);
+      const r = ballsIn(rows, boxes, safe, avoid, f, maxD);
       if (!r || !r.items) continue;
       // landscape wants one row (PLAY §6.2) unless two rows are a quarter bigger; upright the squarer grid; a smaller
       // band (objects higher up, off her and the controls) wins ties
@@ -221,8 +241,8 @@ export function layoutTargets(n, labels, aspect, safe, opts = {}) {
     }
   }
   if (!best) {
-    // nothing clears every avoid box: the plain grid over the safe area (best effort; the audit reports it)
-    const r = ballsIn(landscape ? [n] : ARRANGE[n][Math.min(1, ARRANGE[n].length - 1)], boxes, safe, []);
+    // nothing clears these avoid boxes: the plain grid over the safe area (best effort; the audit reports it)
+    const r = ballsIn(landscape ? [n] : ARRANGE[n][Math.min(1, ARRANGE[n].length - 1)], boxes, safe, [], 1, maxD);
     return { kind: 'ball', fits: false, items: r && r.items ? r.items : [], font, font2, rows: null };
   }
   best.items.sort((a, b) => a.i - b.i);

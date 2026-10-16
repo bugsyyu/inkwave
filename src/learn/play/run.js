@@ -187,16 +187,24 @@ export class PlayRun {
     if (rig && P && P.cameraProbe) {
       const probe = this._probe || (this._probe = { hard: 0, soft: 0, floor: false }), want = rig.dist || 4.5;
       _w.set(a.pos.x, a.pos.y + 1.85, a.pos.z);
-      for (const dy of [0, 0.22, -0.22, 0.45, -0.45]) for (const p of [0.04, -0.06, -0.16, -0.26]) {
+      const gp = C.g.pos;
+      for (const dy of [0, 0.22, -0.22, 0.45, -0.45, 0.8, -0.8]) for (const p of [0.04, -0.06, -0.16, -0.26, -0.36]) {
         const y = yaw0 + dy;
         _f.set(-Math.sin(y) * Math.cos(p), -Math.sin(p), -Math.cos(y) * Math.cos(p));
         P.cameraProbe(_w, _f, want, 0.62, probe);
         const boom = Math.min(probe.soft, probe.hard);
-        const score = Math.min(boom, want * 0.8) * 2 - Math.abs(dy) * 1.2 - Math.abs(p - 0.02) * 1.5;
-        if (score > best.score) best = { yaw: y, pitch: p, score, boom };
+        // and she must be in sight from there (a prop between the lens and her — the fountain by the first gate — hides her)
+        _c.copy(_w).addScaledVector(_f, boom); _c.y += 0.15;
+        _e.set(a.pos.x, a.pos.y + 1.2, a.pos.z);
+        const seen = P.los(_c, _e) && P.los(_c, _o.set(a.pos.x, a.pos.y + 1.9, a.pos.z));
+        // and not standing in the gate she just reached (she stops ~1 m past it: a lens right behind her sits in its
+        // lock and beam)
+        const inGate = Math.max(0, 2.2 - Math.hypot(_c.x - gp.x, _c.z - gp.z));
+        const score = Math.min(boom, want * 0.8) * 2 - Math.abs(dy) * 1.2 - Math.abs(p - 0.02) * 1.5 - (seen ? 0 : 6) - inGate * 1.4;
+        if (score > best.score) best = { yaw: y, pitch: p, score, boom, seen };
       }
     }
-    this.frame = { yaw: best.yaw, pitch: best.pitch, boom: best.boom, t: 0, on: !this.reduced && !!rig };
+    this.frame = { yaw: best.yaw, pitch: best.pitch, boom: best.boom, seen: best.seen, t: 0, on: !this.reduced && !!rig };
     C.placed = false;
   }
 
@@ -271,7 +279,7 @@ export class PlayRun {
     C.D = D; C.lift = lift; C.placed = true;
     this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() });
     this.reg.set(this.T.spheres, C.serial);   // (the live array: a burst or draining object drops out of it)
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), kind: L.kind, fits: L.fits, safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), kind: L.kind, fits: L.fits, cover: L.cover || null, safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
 
   // ---------------------------------------------------------------------------------------------- per frame
@@ -429,7 +437,7 @@ export class PlayRun {
       asking: !!C, answered: !!(C && C.answered), item: C && C.item.id, n: C && C.labels.length, banner: C && C.banner, serial: this.serial,
       labels: C && C.labels, rightIndex: C && (C.p._perm ? C.p._perm.indexOf(C.item.answer) : C.item.answer),
       safe: C && C.screen && C.screen.safe, stripBottom: C && C.screen && C.screen.stripBottom, avoid: C && C.screen && C.screen.avoid, layout: C && C.layout && C.layout.items.map((it) => it.rect), fits: C && C.layout && C.layout.fits,
-      projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
+      projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, seen: this.frame.seen, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
       verdict: C && C.verdict, shot: this.shot && { k: this.shot.k, fired: this.shot.fired }, log: this.log.slice(-40),
       her: this.match.local ? [this.match.local.pos.x, this.match.local.pos.y, this.match.local.pos.z].map((v) => +v.toFixed(2)) : null, cam: G.camera ? [G.camera.position.x, G.camera.position.y, G.camera.position.z].map((v) => +v.toFixed(2)) : null,
       atlases: [...this.T.atlases.values()].map((A) => ({ key: A.key, w: A.w, h: A.h, scale: A.scale, n: A.n })), calls: G.renderer?.info?.render?.calls,

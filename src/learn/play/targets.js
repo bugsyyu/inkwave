@@ -25,17 +25,17 @@ import { plankSpheres } from './hit.js';
 const MAXO = 4, MAXB = 3, NOUV = [0, 0, 0, 0];
 export const COLORS = { idle: '#a39db8', coral: '#f08a7a', ink: '#ff8a14' };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3();
-const _rot = new THREE.Matrix4(), _c = new THREE.Color(), _c2 = new THREE.Color();
+const _rot = new THREE.Matrix4(), _c = new THREE.Color();
 const ease = (k) => 1 - Math.pow(1 - k, 3);
 // a spring-ish pop: 0 → 1.08 → 1 over the stagger (no overshoot when reduced)
 const pop = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 + Math.sin(k * Math.PI) * 0.12 * (1 - k) - Math.pow(1 - k, 3));
 
 function inkMaterial() {
   const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.05, emissive: 0x000000, envMapIntensity: 1.15 });
-  const U = { uTime: { value: 0 } };
+  const U = { uTime: { value: 0 }, uInk: { value: new THREE.Color(COLORS.ink) } };
   mat.userData.u = U;
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = U.uTime;
+    sh.uniforms.uTime = U.uTime; sh.uniforms.uInk = U.uInk;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         uniform float uTime;
@@ -49,14 +49,17 @@ function inkMaterial() {
         }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
+        uniform vec3 uInk;
         varying vec4 vPlay;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
+          // the ink's own rim light (the rounds' look); the right one after a miss rims in her ink
           float iwRim = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0);
-          totalEmissiveRadiance += vColor.rgb * (0.14 + 0.5 * iwRim) * (1.0 + 1.6 * vPlay.z);
+          vec3 iwCol = mix(vColor.rgb, uInk, saturate(vPlay.z));
+          totalEmissiveRadiance += iwCol * (0.14 + 0.5 * iwRim) * (1.0 + 1.6 * vPlay.z);
         }`);
   };
-  mat.customProgramCacheKey = () => 'iw-play-ink-1';
+  mat.customProgramCacheKey = () => 'iw-play-ink-2';
   return mat;
 }
 
@@ -159,7 +162,7 @@ export class PlayTargets {
     return p;
   }
 
-  setInk(color) { this.inkColor.copy(color); this.haloMat.color.copy(color); this.plateMat.userData.u.uOutline.value.copy(color); }
+  setInk(color) { this.inkColor.copy(color); this.haloMat.color.copy(color); this.plateMat.userData.u.uOutline.value.copy(color); this.inkMat.userData.u.uInk.value.copy(color); }
 
   // ---------------------------------------------------------------------------------------------- the gate's atlas
   atlas(key, labels) {
@@ -211,8 +214,9 @@ export class PlayTargets {
   state(i, s) {
     const S = this.slots[i]; if (!S || !S.on) return;
     S.state = s;
+    // (the right one keeps its grey ink and gets her ink round it — the halo, the plate's ring, its rim — so it never
+    // reads like the coral one when her team colour is an orange)
     S.want.set(s === 'coral' ? COLORS.coral : COLORS.idle);
-    if (s === 'right') { S.want.copy(this.inkColor).lerp(_c2.set(COLORS.idle), 0.35); }
     this.anim = true;
   }
   // the hit one goes at once (the caller's explosion takes its place); the others drain away

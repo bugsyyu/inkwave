@@ -64,7 +64,8 @@ test('layoutTargets: four word balls on a phone held upright (2 × 2 round her),
     checkLayout(name, L, S, 4);
     if (S.W < S.H) assert.notDeepEqual(L.rows, [4], `${name}: upright never one row of four`);
     else assert.equal(L.rows.length, 1, `${name}: on its side one row (${JSON.stringify(L.rows)})`);
-    assert.ok(L.d >= (S.W < 500 || S.H < 500 ? 56 : 90), `${name}: balls big enough to tap and read: ${L.d.toFixed(0)} px`);
+    assert.ok(L.d >= (S.W < 500 || S.H < 500 ? 56 : 80), `${name}: balls big enough to tap and read: ${L.d.toFixed(0)} px`);
+    assert.ok(L.d <= 2.6 * L.items[0].label.h / L.items[0].labelScale + 1, `${name}: never a balloon dwarfing its label: ${L.d.toFixed(0)} px`);
     // the order on screen is the option order: left to right, then top to bottom
     const ys = L.items.map((it) => Math.round(it.y)), xs = L.items.map((it) => it.x);
     for (let k = 1; k < 4; k++) assert.ok(ys[k] > ys[k - 1] + 1 || (Math.abs(ys[k] - ys[k - 1]) <= 1 && xs[k] > xs[k - 1]), `${name}: reading order`);
@@ -89,6 +90,24 @@ test('layoutTargets: a 54-character label makes banners — planks of the atlas\
     assert.ok(L.items.every((it) => it.lines >= 2), `${name}: both lines on every plank`);
     assert.ok(L.items.every((it) => it.w >= LEARN.m1.bannerW * 0.8 && it.w <= LEARN.m1.bannerW + 0.5), `${name}: the atlas's plank, at most a little smaller`);
   }
+});
+
+test('layoutTargets: when she fills the screen (a short boom at the first gate) the objects may cover her, never the keys — and no option is ever dropped', () => {
+  const safe = { x: 16, y: 247, w: 358, h: 597 - 12 };
+  const keys = [{ x: 18, y: 690, w: 128, h: 128, what: 'touch:stick' }, { x: 262, y: 700, w: 112, h: 112, what: 'touch:jump' }];
+  const her = { x: 40, y: 230, w: 310, h: 614, what: 'her' };
+  for (const [labels, kind] of [[LONG, 'banner'], [WORD, 'ball'], [QUIZ3, 'ball'], [PRON2, 'ball']]) {
+    const n = labels.length;
+    const L = layoutTargets(n, labels, 390 / 844, safe, { avoid: [her, ...keys] });
+    assert.equal(L.kind, kind);
+    assert.equal(L.items.length, n, `${kind} ×${n}: every option`);
+    assert.equal(L.cover, 'her', `${kind} ×${n}: over her, not over the keys`);
+    for (const it of L.items) { assert.ok(insideSafe(it.rect, safe)); for (const a of keys) assert.ok(!overlaps(it.rect, a), `${kind}: clear of ${a.what}`); }
+    // nothing fits round a box over the whole safe area: still every option, best effort
+    const all = layoutTargets(n, labels, 390 / 844, safe, { avoid: [{ ...safe, what: 'touch:wall' }] });
+    assert.equal(all.items.length, n);
+  }
+  assert.equal(layoutTargets(4, WORD, 390 / 844, SCREENS.phonePortrait.safe, { avoid: SCREENS.phonePortrait.avoid }).cover, undefined, 'room round her: nothing covered');
 });
 
 test('pickTarget: a hit inside, the 16 px slop around, a 44 pt floor for a small object, the nearest of two overlapping, banners as rectangles, objects off screen ignored', () => {

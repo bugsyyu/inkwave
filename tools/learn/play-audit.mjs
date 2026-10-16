@@ -109,8 +109,15 @@ say('boot', JSON.stringify(report.boot));
 check(report.boot.play, 'LEARN.play is on: the puzzle has its play layer');
 
 // a stretch of plain walking first (the frame-time baseline on this stage)
-const sampleFrames = async (n, label) => {
-  const r = await ev(async (n) => { const D = __inkwave.debug; D.frameTimes.start(); for (let i = 0; i < n; i++) { D.step(16.7); if (i % 5 === 4) await new Promise((r) => setTimeout(r, 0)); } return D.frameTimes.stop(); }, n);
+// (a few unsampled frames first: the first steps after a freeze carry shader / texture uploads of whatever comes into view)
+const sampleFrames = async (n, label, warm = 30) => {
+  const r = await ev(async ([n, warm]) => {
+    const D = __inkwave.debug;
+    for (let i = 0; i < warm; i++) { D.step(16.7); if (i % 5 === 4) await new Promise((r) => setTimeout(r, 0)); }
+    D.frameTimes.start();
+    for (let i = 0; i < n; i++) { D.step(16.7); if (i % 5 === 4) await new Promise((r) => setTimeout(r, 0)); }
+    return D.frameTimes.stop();
+  }, [n, warm]);
   say('frames', label, JSON.stringify(r));
   return r;
 };
@@ -159,7 +166,7 @@ const checkAsked = async (label) => {
   const boxes = (d && d.projected || []).map((q) => (q.kind === 'ball' ? { x: Math.min(q.cx - q.r, q.label.x), y: q.cy - q.r, w: Math.max(q.cx + q.r, q.label.x + q.label.w) - Math.min(q.cx - q.r, q.label.x), h: q.label.y + q.label.h - (q.cy - q.r) } : { x: q.x, y: q.y, w: q.w, h: q.h }));
   const out = boxes.filter((b) => !(b.x >= safe.x - 1 && b.y >= safe.y - 1 && b.x + b.w <= safe.x + safe.w + 1 && b.y + b.h <= safe.y + safe.h + 1));
   check(boxes.length === (d && d.n) && !out.length, `${label}: every object's projected box inside the safe area (${boxes.length} objects)`, { safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), out });
-  report[label] = { item: d && d.item, labels: d && d.labels, banner: d && d.banner, strip: s.strip, safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), framing: { D: d && d.D, pitch: d && d.pitch, rig: s.rig }, atlases: d && d.atlases, calls: d && d.calls };
+  report[label] = { item: d && d.item, labels: d && d.labels, banner: d && d.banner, strip: s.strip, safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), framing: { D: d && d.D, lift: d && d.lift, ease: d && d.framing, place: d && (d.log || []).filter((e) => e.ev === 'place').pop(), rig: s.rig, her: d && d.her, cam: d && d.cam }, atlases: d && d.atlases, calls: d && d.calls };
   return s;
 };
 // pick object k: a tap on its projected centre (touch), or the crosshair laid on it and fire pressed (desktop)
