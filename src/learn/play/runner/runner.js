@@ -370,7 +370,7 @@ export class RunnerFlow extends RaceFlow {
     if (row.kind === 'boards') {   // nothing asked: she swims past them, slowly; each is framed as she comes up to it
       const g = this.gates[row.gate];
       this.stats.boards++;
-      this.ui.say(`看板段：${row.n} 块展板 · 慢慢游过去读一读`);
+      // (no pill: FormsUi's say sits top-centre, right over a framed board's title in landscape — the board is the message)
       this._emit('learn:boards', { gate: g ? g.id : null, n: row.n, s0: +row.s0.toFixed(1), s1: +row.s1.toFixed(1) });
       return;
     }
