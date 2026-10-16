@@ -658,6 +658,36 @@ export const LEARN = {
   streak: { three: 3, five: 5 },   // the two streak thresholds every form celebrates
   relearnMax: 12,             // 回炉门: at most this many items come back before the exit (the rest wait for tomorrow)
   starsKey: 'inkwave:learn:design:v1',   // stars + walked days (local only; never the evidence document)
+  // ---- 题即玩法 (docs/PLAY.md; play-1 = docs/LEARN.md §18): a question is a thing on the stage, an answer a game action.
+  // true: the puzzle's choice items (单词选义 / 语法小测 / 发音小测) are ink targets (M1) — no pause, no hold, no card; the
+  // other items keep the card until their phase. false: every item is the card, exactly as before. ?play=0 / ?play=1 override.
+  play: typeof location !== 'undefined' && /[?&]play=/.test(location.search) ? !/[?&]play=0(?:&|$)/.test(location.search) : true,
+  // the play layer's screen rules, shared by every play kind (the strip, the safe area, a tap on a question object)
+  playUi: {
+    side: 16,                 // px kept clear at the left / right edge (the safe area)
+    slop: 16,                 // px a question object's projected box grows by for a tap (PLAY §6.1)
+    minHit: 44,               // pt: the smallest tap area of a question object, whatever its projected size
+    tapMs: 350,               // a finger down → up within this and …
+    tapMove: 14,              // … moving under this many px is a tap (a longer drag looks around, as before)
+    font: 17,                 // pt: the strip's question line and a label's first line (the second line 15)
+  },
+  // M1 墨靶 ink-target (PLAY §3 M1): ink balls (or banner planks for long labels) floating past the gate, shot to answer
+  m1: {
+    bannerEn: 12, bannerZh: 8,  // a label longer than this many English / Chinese characters makes the whole item banners (PLAY §4)
+    bannerMax: 3,             // at most this many banners (no banner item in the courses has more options)
+    ball: 0.55,               // m: the ball's radius at its ideal distance (the layout's pixels set the depth, then this)
+    near: 3, far: 8.5,        // m past the camera boom the targets may float: within her shot (shooter range 12.5 m)
+    clear: 0.35,              // m a target keeps above the ground under it (the framing pitches up until it does)
+    tilt: 0.42,               // rad: the framing never pitches up more than this
+    frameRate: 4.5,           // 1/s: how fast the camera eases to the framing pose (dampAngle; reduced motion holds still)
+    frameFor: 1.2,            // s of easing at most (her own look input ends it at once)
+    turnFor: 0.26,            // s at most a tap-shot waits for her to turn (aimFace springs) before it leaves the muzzle
+    turnTol: 0.22,            // rad: … or less once she faces it this well
+    flood: [2.5, 0.5, 4.5],   // m of her ink a right answer pours under the targets: base, + per right at this gate, cap
+    nextMs: 650,              // ms after a right answer before the next item's targets come up (reduced motion 400)
+    atlasMax: 1024,           // px: a gate's label atlas is at most this wide and this tall (PLAY §7 says 1024 × 512: see LEARN §18)
+    atlasScale: 2,            // texels per CSS px a label is drawn at (crisp on a 2x / 3x phone)
+  },
 };
 
 // ---- On-screen touch controls (src/core/touch.js) ----

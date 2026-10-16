@@ -288,6 +288,14 @@ export class LearnFlow {
   _retriesLeft() { let n = 0; for (const g of this.gates) for (const it of g.queue) if (it._form === 'alt') n++; return n; }
 
   _answer(g, item, p, ans) {
+    const { r, again } = this._judgeRecord(g, item, p, ans);
+    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
+  }
+
+  // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
+  // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
+  _judgeRecord(g, item, p, ans) {
     let r;
     if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
     else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
@@ -305,8 +313,7 @@ export class LearnFlow {
       if (item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; }
       this._styleGates();
     }
-    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
+    return { r, first, again };
   }
 
   // The other form of an item (asked when the first answer was wrong), judged through the same judge():

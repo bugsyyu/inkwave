@@ -857,6 +857,7 @@ export class Projectiles {
     // pooled: clear the per-kind optional fields so nothing leaks from the projectile's previous life
     p.volley = null; p.belowFalloff = 0; p.belowFalloffMax = 0; p.burst = null; p.weaponId = null;
     p.delay = 0; p.head = false; p.wid = null; p.dmgFar = undefined; p.vol = null; p.sp = undefined; p.ghost = false;
+    p.playTag = 0;   // 题即玩法 (src/learn/play/hit.js): a pooled round never carries an old aim at a question object
     // look (visual only; _draw falls back to size / defaults for anything left unset)
     p.vis = 0; p.tail0 = undefined; p.tailK = undefined; p.wob = undefined; p.wobF = 0; p.nose = 0; p.sats = 0;
     return p;
@@ -1624,6 +1625,8 @@ export class Projectiles {
       // enemy ink curtains and devices (sprinklers, beacons) catch shots; so do special objects (bubbles, tanks)
       if (!dead && G.subs && G.subs.blockShot(p.prev, p.pos, p.team, p.damage || 10)) dead = true;
       if (!dead && G.specials && G.specials.shotHit(p.prev, p.pos, p.team, p.damage || 10, p.owner)) dead = true;
+      // 题即玩法 (docs/PLAY.md §3 M1): a question object a round meets is hit directly; only a deliberate round answers
+      if (!dead && G.playTargets && G.playTargets.shotHit(p)) dead = true;
       // world
       // boss mode: HULLBREAKER's hit spheres and its crablets
       if (!dead && G.boss) {
