@@ -457,3 +457,133 @@ keys.onSubmit = () => {
 2. 回炉 M1 ↔ M4、跑酷的「滑行段」、联机里的打字（答案还是一串字，接法照旧）。
 3. 「我的写法也对」的按钮在题条上（play-1 的 `play-strip.js`）；这里只负责把对 / 错演出来。
 4. 真机：iPhone 的帧时间、触感（`pointerdown` 出字、长按连删）、横屏刘海两侧的安全区（版式测试按 47 px 算过）。
+
+## 21. play-3 交付（2026-10-16，分支 `play-3`：节拍台 M3 + 展板路 M6 + 回声亭 M7 + 翻牌靶 M8 + 路标——WIP：模块独立做好、Node 里验过；浏览器里节拍台的台子还没显示、其余四种没进过浏览器；接进门的流程是下一步）
+
+PLAY §9 第 3 期：做完这一期，解谜里除了还没接的，没有一种条目非得是卡片。听辨对子 174、音标 96 是节拍台；课文 24、单词展板、语法讲解行、阅读课文是展板；口语 21 是回声亭；复习日 150 张是翻牌靶；打卡 / 周报 / 入门小测是路标。PLAY §3 的 M3 / M6 / M7 / M8 / 路标已改成做出来的样子。
+
+**先读了什么**：PLAY 全文（§1 不变量——特别是 1 不暂停不定身没面板、2 一条判分路、3 证据如实、4 节奏不等于对错、6 错是珊瑚色、8 不加素材、9 同一个样子；§3、§4 的表、§6、§7 预算、§8 横屏）；LEVELS §1（覆盖矩阵）、§2（2.1 放门、2.6 回炉、2.7 效果）、§5（动作、声音、镜头、减少动效）；本文 §8、§15（翻牌 `F`）、§19（字弹的接口写法）；CONTRACTS（`trigger` / `setDance`、§2 的声音名）。代码：`flow.js`（门、路标的占位、`_answer` 和翻牌那一段）、`hud-learn.js`（翻牌卡 154 行起：记得 → `_submit(true)`、不记得 → `_submit(false)`）、`forms/common.js`（`boardOf`、`flipPrompt / flipJudge / cardFor`、`relearnTip`）、`forms/ui.js`（展板卡）、`engine.js`、`store.js`（`how`）、`design.js`（`MECHANICS`、`EFFECTS`、`REDUCED`）、`content.js` 的条目形状、`music.js`（`Player` 的 `stepDur / barDur / t0 / nextBarTime`，`FileTrack` 没有拍速）、`learn/audio.js`、`character.js`（`trigger('jump' / 'land')`、`setDance('victory')`）、`decor.js`（出生垫的着色器和底座）、`fx.js`、`paint.js`、`cameraRig.js`、`type/{frame,atlas,mats}.js`；play-runner 分支的 `lanes.js`（拍子函数）、play-1 分支的 `targets.js / pick.js / hit.js / run.js / play-strip.js`（题物、点射、题条、`_judgeRecord`）——只读。
+
+**先定的**：
+1. **四个玩法都不判、不写**（照 §19 字弹）：它们只交出动作——节拍台交「跳上第几块台」，翻牌靶交「认识 / 不熟」= 卡片的 `true / false`，回声亭和路标什么都不交（只有「说完了」「走完了」「开经典页」）。判和首答都在流程那一条路上（play-1 的 `_judgeRecord`）；源码里没有 `judge(` / `recordFirst` / `item.answer`，测试扫。节拍台在 `resolve()` 之前根本不知道哪块对。
+2. **拍子和跑酷一个约定**：`clock.js` 的六个函数和 play-runner `lanes.js` 同名、同参数、同返回值、同窗口 `max(0.15, 0.35 × stepDur)`，合并后可以只留一份。合成曲子的第一拍从音频时钟换到游戏时钟；录音没有拍速，用 `LEARN.beat.bpm`。
+3. **四块台是跳舞毯的十字**（↑ ← → ↓），不是 2 × 2：「点四个象限」「四个方向滑」「方向键」三种输入只有十字能一一对上（象限 = 离哪块台的投影近，等于屏幕的上 / 左 / 右 / 下四边）；A–D / 1–4 按选项顺序（阅读顺序：上、左、右、下）。
+4. **落地才交答案、起跳定踩没踩准**：答案和画面一起（她落在那块台上的那一刻）；拍子只看她什么时候起跳。
+5. **展板没有翻页键**：走到跟前就框、站着不动一直框、走出去就放；自动走（竖屏唯一的走法）在每块没看过的板前停（`nextSpot()`），按「自动走」继续。
+6. **板上的字由纯函数排**：画布 1024 宽、最高 930、所有字 ≥ 54 画布像素——这三个数是从「横 844 × 390 / iPhone SE 横屏框住时最小字 ≥ 17 px」倒推的；放不下的进阅读条，从不缩字。
+7. **翻牌靶的靶和 play-1 的题物同一套方法名**（`InkTargets`），合并后换成 `PlayTargets` 只改构造一处。
+
+**改了什么**（都在 `src/learn/play/{beat,board,echo,flip}/`，别人的文件只有 `config.js` 加了 `LEARN.beat / board / echo / flip`）：
+- `beat/clock.js`（纯）：拍子网格六个函数（和跑酷同一约定）+ `gridFromMusic(music, gameNow, fallbackBpm, cache)`（合成曲子换到游戏时钟；录音、没声音时一个固定的网格；不变就返回同一个对象，每帧不分配）。
+- `beat/round.js`（纯）：一题的小节状态机 `BeatRound`——`start(grid, now)` 定词的小节线 W、跳的重拍 D = W + 一小节、答题小节到 D + 一小节；`tick(t)` 一个一个吐事件（`speak` / `silent` / `defer`）；`input(t, pad)` 只收一次、只从词放出来以后收，`onBeat / off` 只量离 D 多远。
+- `beat/pads.js`（纯）：`stageLayout(n, aspect)` 竖横两套台子（竖屏窄而深、横屏宽而浅）、标签牌放在外侧、俯视机位按安全带二分出最近的距离再把内容居中、牌子放大到小字 ≥ 17 px；`padOfTap / padOfSwipe / padOfKey / padRegionRadius`。
+- `beat/mats.js`：出生垫的底座网格（decor 的 lathe 轮廓缩到单位半径）和台面着色器（decor 的样子 + 箭头、逼近环、拍子、连击光，按实例的颜色 / 光 / 池子 / 图形）；标签牌材质（字图里的一格 + 她的墨描边 + 珊瑚色）。
+- `beat/stage.js`：`BeatStage`——台子、牌子、她的跳（`carry(actor)` 在 `actor.update` 之后把她放在弧线上 / 台子上）、点 / 滑 / 键、`resolve` 的演出、`frame(aspect)` 给相机、`warm`；`beat/padset.js`：回声亭和打卡垫用的零散台子（同一套底座和台面，2 个 draw call）。
+- `board/text.js`（纯）：中英文折行（中文任意两字之间、避头尾：句读不开头——上一行最后一个字带下来；英文按词、超长的词按字母）、`clampLines`（「…」）、近似字宽（Node 用）/ 画布字宽（页面用）。
+- `board/paint.js`：板子说什么（`wordsSpec / soundsSpec / lessonSpec / noteSpec / passageSpec / echoSpec / signSpec`）和画布上哪里（`layoutBoard`：纯，返回绘制指令、热区、`cut`、最小字号、给阅读条的 `full`）；`drawBoard` 照指令画（深色玻璃、她的墨的边、按钮、播放 / 麦克风 / 书 / 勾 / 外链图标）。
+- `board/frame.js`（纯）：`frameBoard`（正对板子、填满 HUD 顶排到屏幕下沿那一带、居中）、`boardSpots(route, n)`（沿路在她右手边、门前往回排、对着她来的方向）。
+- `board/hotspot.js`（纯）：`pickHotspot`（每个热区抬到 ≥ 44 再外扩、重叠时离自己的框最近的赢）、`canvasToBoard`。
+- `board/set.js`：`BoardSet`——板身和柱子各一个 `InstancedMesh`，每块板面一个四边形 + 自己的 CanvasTexture；升起的弹跳；热区投影；预热（留着一个面材质，程序常驻缓存）。`board/walk.js`：`BoardWalk`——区、取景、看过、`nextSpot`、热区动作（再听、跟读、听全文、读全文）。`board/strip.js`：阅读条（DOM，样式在 JS 里，`ReadStrip.owns(e)`）。`board/signs.js`：`Signs`（打卡垫、周报牌、入门小测牌）。
+- `echo/booth.js`：`EchoBooth`。
+- `flip/targets.js`：`InkTargets`（两个墨球 + 标签牌，play-1 `PlayTargets` 的方法名）+ `pickTarget`（play-1 `pick.js` 球的规则）；`flip/deck.js`：`FlipDeck`（卡片、翻、靶、`hitShapes`、`frame`）、`drawCard`、`RATE`。
+- 实验室 `tools/play3-lab.html` + `play3-lab.js`：游戏自己的 `Renderer`（同一套后期和调色）、`Environment`、`FX`、声音、小鱿鱼，默认一块轻甲板（地上的墨用 fx-lab 那种圆片代替），`?stage=tidewater` 换成真关卡 + 真 `PaintSystem`；内容是真的第 1 周（`loadWeek` + `engine.judge`，实验室一条证据都不写）；`?m=beat&n=2|4 / board / read / echo / flip / signs`、`?quality / ?reduced / ?shadows=0`；`window.lab`：`freeze / step / render / measure / cost / warm / state`，每种玩法自己的 `ask / hop / tap / swipe / key / goto / hot / hotspots / stepIn / stepOut / flipCard / rate / targets`。顶上一条是题条的替身（play-1 的 `play-strip.js` 没合并）。
+
+**接口（门的流程要调的；四个都照字弹 M4 的样子：玩法自己不判、不写，答案交给流程那一条路，流程判完再 `resolve`）**：
+
+```js
+import { BeatStage } from './learn/play/beat/stage.js';          // 节拍台 M3：听辨对子（2 块）、音标（4 块）
+import { BoardWalk } from './learn/play/board/walk.js';          // 展板路 M6
+import { boardSpots } from './learn/play/board/frame.js';
+import { wordsSpec, soundsSpec, lessonSpec, noteSpec, passageSpec } from './learn/play/board/paint.js';
+import { EchoBooth } from './learn/play/echo/booth.js';          // 回声亭 M7
+import { Signs } from './learn/play/board/signs.js';             // 路标
+import { FlipDeck } from './learn/play/flip/deck.js';            // 翻牌靶 M8
+import { ReadStrip } from './learn/play/board/strip.js';         // ReadStrip.owns(e)：touch.js 跳过阅读条上的手指
+
+const ink = G.teamColors[0], hex = G.teamHex[0], reduced = isReduced();   // (type/shot.js 的 isReduced)
+// 关卡载入时建好、预热（compileAsync 就地编译，不挪对象）
+const beat = new BeatStage({ scene: G.scene, camera: G.camera, team: 0, color: ink, reduced });
+const boards = new BoardWalk({ scene: G.scene, camera: G.camera, color: hex, reduced, root: uiRoot });
+const echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced, root: uiRoot });
+const signs = new Signs({ scene: G.scene, camera: G.camera, color: hex, reduced, root: uiRoot });
+const flip = new FlipDeck({ scene: G.scene, camera: G.camera, color: ink, team: 0, reduced });   // 合并后可传 { targets: play-1 的 PlayTargets }
+await Promise.all([beat, boards, echo, signs, flip].map((m) => m.warm(G.renderer, G.camera, G.scene)));
+// 前两道门：画好这道门的东西（字图 / 板子 / 卡面），门开了 free
+beat.prepare(g.id, g.items.map((it) => prompt(it).options));      // 每个条目的选项（选项顺序）
+boards.prepare(g.id, specsOf(g));   // 单词 5 个一块 wordsSpec(rows, k, n)；音标 2 个一块 soundsSpec；语法 lessonSpec(title, step.meta.lesson)；阅读 passageSpec(step.meta.passage)；课文 / 打卡的话 noteSpec(title, text)
+echo.prepare(g.id, speakItem);  signs.prepare('signs', [{ id, kind: 'checkin' | 'weekly' | 'placement', title, text }]);
+flip.prepare(nextItems);        // 卡面，往前画 2–3 张
+// 每帧（暂停时不调）
+beat.update(dt, G.time); beat.carry(match.local);                 // carry 在 actor.update 之后：她的跳、她站在哪块台上
+boards.update(dt, a.pos, { aspect, speed }); echo.update(dt, G.time, a.pos, { aspect, speed }); signs.update(dt, G.time, a.pos, { aspect, speed }); flip.update(dt);
+// 相机：谁有 framing / frame() 就弹簧过渡过去（世界坐标 { pos, look, fov }），没有就回到跟随（减少动效：原地停）
+const pose = boards.framing || echo.framing || signs.framing || (beat.phase !== 'off' && beat.frame(aspect)) || (flip.phase !== 'off' && flip.frame(aspect));
+// 点击：touch.js 先问 G.playTap（play-1 加的钩子），四个都给 { down(x, y, id) → bool, up(x, y, id, cancel) }
+G.playTap = beatUp ? beat.tapApi : flipUp ? flip.tapApi : boards.tapApi;   // （同一时刻只有一个在场）
+addEventListener('keydown', (e) => { if (beat.key(e)) { e.preventDefault(); e.stopPropagation(); } }, true);   // 舞台在时 WASD / 方向键 / A–D 不会变成走路
+
+// —— 节拍台：一道听辨 / 音标门
+beat.mount(a);
+beat.open({ origin: g.pos /* 地上 */, yaw: 路线往前的方向, n: g.items[0].options.length, aspect, her: a.pos });   // 她跳上家台
+beat.on.speak = (replay) => playWord(p, { both: replay && p._tip?.speakBoth });     // 词（回炉的对子：两个都放）
+beat.on.answer = (pad, info) => {                                  // 她落地了：pad 是选项序号；info.onBeat 只管舞和加速
+  const { r, first } = flow._judgeRecord(g, item, p, pad);        // play-1 的那一条路（_perm / _alt 照旧映射）
+  beat.resolve({ ok: r.ok, right: rightAnswerOf(item, p) /* 舞台上的序号 */, canonical: r.canonical }).then(() => flow._askNext(g));
+};
+beat.on.defer = () => { g.queue.push(item); flow._askNext(g); };   // 整小节没动两次：排到最后，不写证据
+beat.on.say = (text, o) => strip.verdict({ ok: false, head: text });   // play-strip 合并后
+beat.ask({ key: g.id, labels: p.options, now: G.time });          // 下一题；门开了 beat.close(); beat.free(g.id)
+// —— 展板路：门前那一段
+boards.place(g.id, boardSpots(routeToGate, specs.length));        // 她来的路的最后一段（[{ x, y, z }]，到门为止）
+boards.on.speak = (text, o) => sayAudio(text, { slow: o.slow, onEnd: o.onEnd, device });
+autoWalkTarget = boards.nextSpot() || g.pos;                       // 自动走：先到下一块没看过的板
+boards.questionUp = !!flow.asking;                                 // 出题时阅读条收起、不开
+// —— 回声亭：出口区
+echo.open({ key: g.id, item, at, yaw }); echo.on.speak = …; echo.on.done = () => flow.signDone(item); echo.on.classic = () => openClassic('speak', item);
+// —— 路标
+signs.place('signs', spots); signs.on.checkin = (s) => writeStars(dayKey, …) /* 本机星表，照旧 */; signs.on.classic = (s) => openClassic(s.kind);
+// —— 翻牌靶：复习日 150 张
+flip.ask({ item, at: 她前面 LEARN.flip.ahead m 的地上, yaw: 朝她, aspect });
+flip.on.speak = (text) => playWord(text);
+flip.on.rate = (ans) => { const { r } = flow._judgeRecord(g, item, flipPrompt(item), ans); flip.resolve({ ok: r.ok }).then(() => flow._askNext(g)); };   // ans 就是卡片的 true / false
+flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排回队首：下一题就是字弹 M4（TypeShot）打这个词 */ };
+// 射：play-1 的 ShotTargets 登记 flip.hitShapes()，有意的直接命中 → flip.hit(target)（'card' | 0 | 1）
+```
+
+接的时候要注意的：① 节拍台上 `beat.on.answer` 给的 `pad` 是**舞台上的**序号（`p.options` 的顺序）：重排过的题（`_perm`）照旧由 `_judgeRecord` 映射回原序号；`resolve` 的 `right` 也要用舞台上的序号（`forms/common.js` 的 `rightAnswerOf(item, p)`）。② `carry(actor)` 每帧在 `actor.update` 之后调：跳的时候把她放在弧线上、`vel = (0, vy, 0)`；舞台在时流程要停她的移动 / 开火输入（触屏层用 `G.playTap`，键盘用 `beat.key(e)` 吃掉）。③ 舞台约 6 × 6 m（横屏四块台最宽：两侧台子在 ±2.55 m），台子只是画面、没有碰撞：要放在门前开阔、近乎平的地方（`_groundY` 用 `G.level.groundHeight`，高差 > 0.6 m 的就按原点高）。④ 展板、回声亭、路标、翻牌的 `framing` / `frame()` 是世界坐标的 `{ pos, look, fov }`：交给 `cameraRig` 的弹簧（减少动效时不动）；`fov` 是竖直视角，和 §19 一样要换成 `zoom`。⑤ 阅读条在 window 捕获阶段的 `touch.js` 前面拦不住：`touch.js` 要跳过 `ReadStrip.owns(e)`（和 `PlayKeys.owns(e)` 一样）。
+
+**测试**：`npm run test:learn` 118 → 147（+29）：
+- `play3-beat` 12：窗口永不小于 ±150 ms、慢歌按 0.35 × stepDur 放宽（和跑酷同一约定）、`nearestBeat / onBeat / nextBar / beatPulse`；`gridFromMusic`（合成曲子换到游戏时钟、录音退到固定网格、不变就同一个对象）；一题的小节（词在小节线、跳在下一重拍、词前点不算答、一题只收一次）；**节奏不改对错**：−2.2 … +2.2 s 十一个时刻跳同一块台，交出的序号一样、`engine.judge` 一样、`recordFirst` 写的叶子一样 `[1, L]`，错台踩准了照样错；**整小节没动**：`speak0 → silent → speak1 → defer`，证据是空的；竖横 + iPhone SE + iPad + 桌面六种屏 × 2 / 4 块：都在安全带里、牌子小字 ≥ 17 px、每块台的点击区半径 ≥ 32 px、左在左上在上、屏幕四边 / 两半点到对的台；滑和键的映射；源码里没有判分；舞台本身（Node 里建）：**落地才交答案、踩准看起跳**、对且踩准才跳舞、没踩准不跳、错了那块珊瑚对的那块亮、减少动效不跳舞、两个空小节只 defer 不交答案不写证据、WASD 被吃掉 Esc 不吃；转屏台子滑到另一套、相机位姿是版式的、一道门的字图每个标签都在。
+- `play3-board` 8：中英文折行（句读不开头、什么都不丢、超长词按字母断、「…」）；三周**每一块板**（单词 90 块、音标、语法讲解、课文、打卡的话、回声亭、周报 / 入门小测，共 200 多块）：字 ≥ 54 画布像素、都在画布里、热区在板内不重叠、单词板每个词一行热区 + 跟读、回声亭三个按钮、路标的经典页、截了就有「读全文」；最长的打卡话和每篇课文：板上是开头、阅读条是全文；**六种屏框住时每块板最小字 ≥ 17 px**、她的头在板下沿下面；`pickHotspot`（20 px 的按钮也是 44 + 外扩、重叠取近的）；沿路摆板（门前、右手、对着她、间距）；走近框住 / 读过 / 走开放手 / 路过不抢镜 / 停一下才框 / 转屏重框；阅读条：读全文打开、走开收起、出题时收起且打不开、听全文放整篇。
+- `play3-flip` 5：卡片的「记得」交 `true`、「不记得」交 `false`（读 `hud-learn.js` 源码核）；**翻牌 → F 和卡片等价**：牌子走「升起 → 点卡 → 翻 → 射靶」，交给 `LearnFlow.prototype._answer`（流程自己的那段代码）写出的叶子和卡片的答案写出的一模一样（`[1, F]` / `[0, F]`），不熟的照旧排回队首、`_flipTyped`、不上锁；翻之前不能评；认识炸成她的墨、不熟没有珊瑚色并交给字弹；竖横两屏点卡片翻、认识在左不熟在右、按标签也点得中；靶的方法名和 play-1 一样、`hitShapes` 翻前是卡、翻后是两个靶。
+- `play3-echo` 4：站进亭子放范例（英文）、走出去 = 说完了、证据没动；板上「再听」「评分 · 经典页」「说完了」（只算一次）；打卡垫踩上去只走完一次、周报牌开经典页、证据是空的；回声亭 / 板子 / 路标 / 翻牌的源码里没有判分和写证据。
+
+`npm run check` 241 个文件绿。
+
+**实测**（headless、`flock -w 9000 /tmp/ielts-browser.lock nice -n 10`、`/opt/pw-browsers/chromium` + SwiftShader、实验室固定步长）：只跑成了一组——节拍台竖 390 × 844（2 块，`quality=low`、阴影关）、横 844 × 390（4 块，low）、桌面 1280 × 720（4 块，high + 阴影）。**结果不对：台子、标签牌都没画出来**（画面里只有她和甲板），可 `lab.measure()` 量到舞台确实多了 draw call（竖 2 块 4 个 / 4.9 千三角形、横 4 块 4 个 / 8.2 千、桌面 high 7 个 / 1.6 万），状态机、她跳过去落在台子的位置、判定、珊瑚 / 提示的状态都对（`lab.state()`），Node 里同样的实例矩阵也对。还没查出来（见「交接」）。展板 / 课文 / 回声亭 / 翻牌 / 路标**没进过浏览器**（锁被另外两个工作流的长批次占着，排了一个多小时没轮到）；只有 Node 测试和 `npm run check`。每帧 JS、预热时间、帧时间都还没量。
+
+**拿不准的**：
+1. 四块台用十字（跳舞毯）而不是 2 × 2：「四个象限」我理解成「屏幕的上 / 左 / 右 / 下四边」（离哪块台近）。要 2 × 2 的话方向键就对不上了。
+2. 跳的时机：答案在落地时交、踩准看起跳；整小节没动以「答题小节」（重拍到下一个小节线）为准。
+3. 单词展板一块 5 个词：意思特别长的（「adj./n. 橙色（的） n. 橙子」）在板上截成一行加「…」，全文在「全文」里——为了横屏也 ≥ 17 px。
+4. 展板取景是正对板子、水平看过去：她在镜头和板子之间、头在板下沿下面，画面里只看到她的头顶或看不到她。
+5. 打卡垫「走完了」只发 `on.checkin`，星表照旧由流程写（`writeStars`）；路标的「经典页」只发 `on.classic(sign)`，开哪个地址由流程定（App 里 `../index.html`）。
+
+**没做的**：
+1. **接进门的流程**（`flow.js` 归 play-1）：接口写在上面。
+2. 跑酷里的「拍子上换道」（play-runner 的）、对抗赛 / Boss 里的节拍台和回声亭。
+3. 回炉的「两个词都先放一遍」「口型 tip 先给」：节拍台给了 `on.speak(replay)`，放什么由流程定。
+4. 浏览器里的实测和截图（只有一组节拍台的，而且有上面那个没画出来的问题）；真机帧时间。
+
+**交接**（10-16 收尾时写）：
+- **做到哪**：
+  - M3 节拍台：纯逻辑（拍子、一小节的状态机、竖横版式、输入映射）完整、测试齐；舞台（`beat/stage.js`、`beat/mats.js`）代码完整、Node 里跑得通（跳、落地交答案、对错演出、defer），**浏览器里台子和牌子没显示**——第一件要修的事。
+  - M6 展板路：排版、取景、热区、走近 / 走开、阅读条都写完、Node 测试齐（三周每块板 × 六种屏）；没在浏览器里看过。
+  - M7 回声亭、路标：写完、Node 测试齐；没在浏览器里看过。
+  - M8 翻牌靶：写完、和卡片的 `F` 等价有测试；没在浏览器里看过。
+- **先看哪些文件**：本节的「接口」；`src/learn/play/beat/stage.js`（`open / ask / update / resolve`）和 `beat/mats.js`；`tools/play3-lab.js`（`window.lab`，每种玩法一个 `M.xxx`）；测试 `tests/learn/play3-*.test.mjs`；截图脚本的写法：实验室页 `tools/play3-lab.html?m=beat&n=2&quality=low&shadows=0`，`window.lab.freeze(); lab.step(ms); lab.render(); lab.measure(); lab.state()`。
+- **已知坑**：
+  1. 台子不显示：先在页面里加 `?shadercheck`（`renderer.js` 默认关掉了着色器报错，坏了的着色器不出声），看台面的 `ShaderMaterial`（`padFaceMaterial`）和牌子的 `onBeforeCompile` 有没有编译错；再看 `beat.base`（就是普通的 `MeshStandardMaterial`，它也没显示，所以也可能不是着色器）——查 `renderer.properties.get(mesh.material).currentProgram`、实例矩阵（`beat.base.getMatrixAt`）、`beat.group.matrixWorld`。我排队等锁的调试脚本没轮到。
+  2. 浏览器锁很挤：另外两个工作流的批次一跑几十分钟；一次多截几张、`flock` 外面别套 `timeout`（等锁的时间也算进去，会被杀）。
+  3. Node 测试里 three 要在注册 `three-hook.mjs` 之后动态 `import`（静态 import 先解析，会找不到 `three`）——`paint.js`、`atlas.js` 都间接引 three。
+  4. 回声亭、跟读用的 `setTimeout` 都 `unref` 了，不然 Node 测试会多等 9 秒。
