@@ -38,6 +38,9 @@ export class BossFlow extends LearnFlow {
     this.perPhase = {};
     for (const g of this.gates) this.perPhase[g.phase] = { zh: g.zh, asked: 0, right: 0, firstRight: 0, total: g.items.length, skipped: 0, timeUp: false };
     this.scoredN = this.gates.filter((g) => g.phase !== 'S').reduce((n, g) => n + g.items.length, 0);
+    // (B's constructor counted the plan's gates, which are empty for a boss: the questions are the phases' items — the
+    // card's 「第 n / 共几题」 reads this; the S cards are not questions)
+    this.total = this.scoredN;
     this._prevSpecial = false; this._clockTxt = ''; this._wrapDamage(); this.clock = 0;
     this._startPhase(0);
     this._unsubs = [];

@@ -106,3 +106,21 @@ test('the scan bites: it flags an English label and lets keys, classes and Chine
   const code = `h('b', { class: 'iw-x' }, 'LOW INK'); this._hint('Esc', 'B'); play('ui_click'); h('span', null, '继续'); t('pause.resume'); x = 'Saved!';`;
   assert.deepEqual(englishLiterals(code), ['LOW INK', 'Saved!']);
 });
+
+test('?lang=en is INKWAVE\'s original English (a fresh module instance with that query)', async () => {
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  Object.defineProperty(globalThis, 'location', { value: { search: '?learn=w1d1&lang=en' }, configurable: true, writable: true });
+  try {
+    const en = await import('../../src/ui/i18n.js?lang-en-test');
+    assert.equal(en.LANG, 'en'); assert.equal(en.isZh, false);
+    assert.equal(en.t('bn.go'), 'GO!');
+    assert.equal(en.t('bn.oneMinute'), '1 minute left!');
+    assert.equal(en.t('hud.yeah'), 'YEAH!');
+    assert.equal(en.t('main.play'), 'PLAY');
+    assert.equal(en.t('jd.wins', { team: 'TANGERINE' }), 'TANGERINE WINS!');
+    assert.equal(en.gameName('weapon', 'shooter', 'Spritzer'), 'Spritzer');
+    assert.equal(en.teamName('Tangerine'), 'Tangerine');
+  } finally {
+    if (had) Object.defineProperty(globalThis, 'location', had); else delete globalThis.location;
+  }
+});

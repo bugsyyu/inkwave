@@ -28,7 +28,7 @@ const CSS = `
 .iw-lf__rank div.is-me { background: var(--self); color: var(--self-ink); }
 .iw-lf__rank i { width: 18px; text-align: center; font-style: normal; }
 .iw-lf__phase { position: absolute; left: 50%; top: 92px; translate: -50% 0; display: flex; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(21,18,28,.7); font-size: 13px; font-weight: 800; }
-.iw-lf__phase span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.1); color: #bbb; }
+.iw-lf__phase span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.1); color: #bbb; white-space: nowrap; }
 .iw-lf__phase span.is-on { background: var(--self); color: var(--self-ink); }
 .iw-lf__phase span.is-done { background: rgba(255,255,255,.28); color: #fff; }
 .iw-lf__board { position: absolute; left: 50%; bottom: 24px; translate: -50% 0; width: min(560px, calc(100vw - 32px)); max-height: min(70vh, 560px); display: none; flex-direction: column; gap: 12px; padding: 18px 20px 16px; border-radius: 22px; background: rgba(21,18,28,.9); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 18px 50px rgba(0,0,0,.45); pointer-events: auto; }
@@ -121,7 +121,8 @@ export class FormsUi {
   setPhases(list) {
     this.phase.innerHTML = '';
     if (!list) return;
-    list.forEach((p) => this.phase.appendChild(h('span', { class: p.state === 'on' ? 'is-on' : p.state === 'done' ? 'is-done' : '' }, `${p.id} ${p.zh}`)));
+    // (the first word of the phase's name: L 听力 · R 阅读 · W 写作 · S 口语 — the strip has to fit a phone's width)
+    list.forEach((p) => this.phase.appendChild(h('span', { class: p.state === 'on' ? 'is-on' : p.state === 'done' ? 'is-done' : '', title: `${p.id} ${p.zh}` }, `${p.id} ${String(p.zh || '').split(' · ')[0]}`)));
   }
 
   // ---- the board (看板 / 备战): title, heading, rows [{ en, ipa, zh, tts } | { text }], go label → onGo()
