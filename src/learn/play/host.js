@@ -20,6 +20,7 @@ import { TypeStation } from './wire/type.js';
 import { BeatStation, isBeatItem } from './wire/beat.js';
 import { FlipStation } from './wire/flip.js';
 import { BoardStation } from './wire/boards.js';
+import { ExitStation } from './wire/exit.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
@@ -44,7 +45,7 @@ export class PlayHost {
     this.m1 = new PlayRun(flow);
     this.strip = this.m1.strip; this.reduced = this.m1.reduced;
     this.cam = new PlayCam({ reduced: this.reduced });
-    this.type = new TypeStation(this); this.beat = new BeatStation(this); this.flip = new FlipStation(this); this.boards = new BoardStation(this);
+    this.type = new TypeStation(this); this.beat = new BeatStation(this); this.flip = new FlipStation(this); this.boards = new BoardStation(this); this.exit = new ExitStation(this);
     this.stations = { type: this.type, beat: this.beat, flip: this.flip };
     this.kind = null; this.cur = null; this.resized = false; this.log = [];
     this._onKey = (e) => { if (this.kind === 'beat' && this.beat.key(e)) { e.preventDefault(); e.stopPropagation(); } };
@@ -95,12 +96,14 @@ export class PlayHost {
     if (this._warmT > 0) { this._warmT -= dt; if (this._warmT <= 0) this._warmAll(); }
     this.m1.update(dt);
     if (m.paused) { this.resized = false; return; }
-    this.type.update(dt); this.beat.update(dt); this.flip.update(dt); this.boards.update(dt);
+    this.type.update(dt); this.beat.update(dt); this.flip.update(dt); this.boards.update(dt); this.exit.update(dt);
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
-    // the lens: the station's pose, else a framed board on the walk, else back to following her
-    const pose = S ? S.pose : (this.kind === 'm1' ? null : this.boards.pose);
+    // between questions the boards / the exit area take the taps on their hotspots (a question's station sets its own)
+    if (!this.kind) G.playTap = this.boards.tapApi || this.exit.tapApi || null;
+    // the lens: the station's pose, else a framed board on the walk (or an exit station), else back to following her
+    const pose = S ? S.pose : (this.kind === 'm1' ? null : (this.boards.pose || this.exit.pose));
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && this.kind !== 'm1') this.cam.release(G.rig, a);
     this.cam.update(dt, G.rig, G.camera);
@@ -142,10 +145,28 @@ export class PlayHost {
     if (next) this._placeBoards(next);
   }
 
+  // ---------------------------------------------------------------------------------------------- the exit area
+  exitStart() {
+    const F = this.flow, nav = G.nav, path = F.path || [];
+    if (!nav || path.length < 4) return false;
+    const end = nav.nodes[path[path.length - 1]], back = nav.nodes[path[Math.max(0, path.length - 6)]];
+    this._clearStation(); this.kind = null; this.cur = null;
+    this.cam.release(G.rig, this.match.local);
+    F.hud?.playMode?.(false);
+    const on = this.exit.start(end, back);
+    if (on) this.log.push({ t: +F.t.toFixed(2), ev: 'exit' });
+    return on;
+  }
+  exitSpot() { return this.exit.nextSpot(); }
+  exitDone() { return this.exit.done; }
+
   // ---------------------------------------------------------------------------------------------- shared helpers
-  // the auto-walk's target on the way to gate g: the next unread board's viewing spot (she stops there), else null (the gate)
+  // the auto-walk's target on the way to gate g: the next unread board's viewing spot (she stops there), else null (the
+  // gate); in the exit area the next station (the booth, the check-in pad)
   autoTarget(g) {
-    if (this.flow.phase !== 'walk' || !G.nav) return null;
+    if (!G.nav) return null;
+    if (this.flow.phase === 'exit') { const s = this.exit.nextSpot(); return s && s.node >= 0 ? { node: s.node, stop: true, exit: s.kind } : null; }
+    if (this.flow.phase !== 'walk') return null;
     const s = this.boards.nextSpot(); if (!s) return null;
     const k = G.nav.nearest(_v.set(s.x, s.y, s.z), 1.5, true);
     return k >= 0 ? { node: k, stop: true, board: s.i } : null;
@@ -200,13 +221,13 @@ export class PlayHost {
   // what the audits read
   debug() {
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
-    return { mechanic: this.kind, item: this.cur && this.cur.item.id, cam: { on: this.cam.on, want: !!this.cam.want, fov: +this.cam.fov.toFixed(1), rigMode: G.rig && G.rig.mode }, still: !!(S && S.still), m1: this.m1.debug(), station: S ? S.debug() : null, boards: this.boards.debug(), log: this.log.slice(-12) };
+    return { mechanic: this.kind, item: this.cur && this.cur.item.id, cam: { on: this.cam.on, want: !!this.cam.want, fov: +this.cam.fov.toFixed(1), rigMode: G.rig && G.rig.mode }, still: !!(S && S.still), m1: this.m1.debug(), station: S ? S.debug() : null, boards: this.boards.debug(), exit: this.exit.debug(), log: this.log.slice(-12) };
   }
   dispose() {
     if (typeof window !== 'undefined') { window.removeEventListener('keydown', this._onKey, true); window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
     this.cam.release(G.rig, this.match.local);
-    this.type.dispose(); this.beat.dispose(); this.flip.dispose(); this.boards.dispose();
+    this.type.dispose(); this.beat.dispose(); this.flip.dispose(); this.boards.dispose(); this.exit.dispose();
     this.m1.dispose();
   }
 }

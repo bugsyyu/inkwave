@@ -120,8 +120,21 @@ const tapAt = async (x, y) => { if (V.touch) await page.touchscreen.tap(Math.rou
 // walk (the auto-walk; a board stop is a frame check + 「自动走」 again) until a question is up or the level is done
 async function walkOn() {
   for (let i = 0; i < 400; i++) {
-    const s = await ev(() => { const F = __inkwave.match.learn, H = F.play; return { phase: F.phase, auto: F.auto, asking: !!(H.cur && F.asking), framed: H.boards.framed, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') }; });
+    const s = await ev(() => { const F = __inkwave.match.learn, H = F.play; const X = H.exit.debug(); return { phase: F.phase, auto: F.auto, asking: !!(H.cur && F.asking), framed: H.boards.framed, exit: X.idle ? null : X, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') }; });
     if (s.asking || s.done) return s;
+    if (s.phase === 'exit' && !s.auto) {
+      // a stop in the exit area: the booth (the sample plays; walking on = 说完了) or the check-in pad (踩上去 = 走完了)
+      for (let k = 0; k < 6; k++) await step(250);
+      const x = await ev(() => __inkwave.match.learn.play.exit.debug());
+      const st = await state();
+      check(!st.paused && !st.panelShown, 'exit: the world runs on, no card');
+      if (x.echo && x.echo.framed >= 0 && !report.echoSeen) { report.echoSeen = true; check(x.echo.state === 'in' || x.echo.state === 'done', `M7: in the booth (${x.echo.state}), its board framed`, x); await shot('m7-booth'); }
+      if (x.signs && x.signs.framed >= 0 && !report.signSeen) { report.signSeen = true; await shot('signs-board'); }
+      report.exit = x;
+      await ev(() => __inkwave.match.learn.autoWalk(true));
+      await step(500);
+      continue;
+    }
     if (s.phase === 'walk' && !s.auto) {
       if (s.framed >= 0) {
         for (let k = 0; k < 4; k++) await step(250);   // the camera comes round, the board counts as read
@@ -240,6 +253,10 @@ async function answerFlip(s) {
   await tapAt(front.card.x + front.card.w / 2, front.card.y + front.card.h / 2);
   const back = await waitFor(() => { const d = __inkwave.match.learn.play.flip.debug(); return d.phase === 'back' && d.targets.length === 2 ? d : null; }, 40, 100);
   check(!!back, 'M8: a tap flips it: the back, the two rating targets', back);
+  for (let i = 0; i < 6; i++) await step(100);   // (the targets pop in over 0.4 s)
+  const bk = await ev(() => __inkwave.match.learn.play.flip.debug());
+  const safe = { x: 0, y: s.strip ? s.strip.rect[1] + s.strip.rect[3] : 0, w: s.W, h: s.H };
+  check(bk.targets.length === 2 && bk.targets.every((t) => t.cx - t.r >= safe.x && t.cx + t.r <= safe.x + safe.w && t.cy - t.r >= safe.y && t.cy + t.r <= safe.y + safe.h), 'M8: both targets on the screen under the strip', bk.targets);
   await shot('m8-back');
   const t = back.targets[0];
   await tapAt(t.cx, t.cy);
@@ -283,8 +300,9 @@ try { while (guard++ < MAXQ + 8) {
   for (let i = 0; i < 8; i++) await step(100);
   if (n >= MAXQ) break;
 } } catch (e) { check(false, 'driver error', String(e && e.message || e)); }
-const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
+const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, log: F.log.map((e) => e.name.replace('learn:', '') + (e.kind ? ':' + e.kind : '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
 report.end = end; report.seen = seen;
 say('end', JSON.stringify({ ...end, host: undefined }));
 check(end.opened >= 1, `gates opened: ${end.opened} / ${end.gates}`);
+if (report.exit) { const x = await ev(() => __inkwave.match.learn.play.exit.debug()); report.exit = x; check(x.done && (!x.spots.some((s) => s.kind === 'checkin') || x.checked), `exit: walked (spoke ${x.spoke}, checked ${x.checked})`, x); const signs = end.log.includes('sign'); check(signs, 'learn:sign in the log'); }
 await finish();

@@ -48,11 +48,21 @@ export class FlipStation {
     D.prepare((g.queue || []).slice(0, 2));
     const aspect = innerWidth / innerHeight;
     D.ask({ item, at: _v.clone(), yaw: yaw + Math.PI, aspect });   // (the card's face turns to her)
-    this.cur = { g, item, p, yaw, t: 0, answered: false, verdict: null, pose: D.frame(aspect) };
+    this.cur = { g, item, p, yaw, t: 0, answered: false, verdict: null, pose: this._pose(aspect) };
     H.strip?.show({ text: p.text, zh: '', tts: null }, {});
     H.strip?.fit(H.m1._topKeys());
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id });
     return true;
+  }
+  // the deck's own frame is a board's: straight on, level — and she stands between the lens and the card. So the same
+  // distance, but the lens raised over her and tilted down (LEARN.flip.pitch): the card and both targets stay in the band,
+  // her head drops under the card's lower edge on the screen
+  _pose(aspect) {
+    const D = this.deck, f = D.frame(aspect), c = D.at, p = LEARN.flip.pitch, lift = LEARN.flip.lift;
+    const dx = f.pos.x - c.x, dz = f.pos.z - c.z, d = Math.hypot(dx, dz) * 1.12, fx = dx / (Math.hypot(dx, dz) || 1), fz = dz / (Math.hypot(dx, dz) || 1);
+    const look = new THREE.Vector3(c.x, c.y + lift - 0.1, c.z);
+    const pos = new THREE.Vector3(c.x + fx * d * Math.cos(p), c.y + lift + d * Math.sin(p), c.z + fz * d * Math.cos(p));
+    return { pos, look, fov: f.fov, fits: f.fits };
   }
   _rate(ans) {
     const C = this.cur; if (!C || C.answered) return;
@@ -76,7 +86,7 @@ export class FlipStation {
     D.update(dt);
     const C = this.cur, a = this.match.local;
     if (C && a) { a.aimYaw = C.yaw; a.fireFacing = Math.max(a.fireFacing || 0, 0.3); }
-    if (C && this.host.resized) C.pose = D.frame(innerWidth / innerHeight);
+    if (C && this.host.resized) C.pose = this._pose(innerWidth / innerHeight);
   }
   clear() { this.cur = null; this.deck?.clear(); }
   debug() {

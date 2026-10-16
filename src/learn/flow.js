@@ -52,12 +52,12 @@ export class LearnFlow {
     this.inkQueue = [];               // trail splats still to land: [{ at, x, y, z }]
     this.right = new Set();           // item ids answered right (each counts once)
     this.firsts = 0;                  // answers that were the day's first for their item
-    this.total = lv.gates.reduce((n, g) => n + g.items.length, 0);
     this.asked = 0;
     this.finishT = -1;
     this.group = new THREE.Group(); this.group.name = 'learn-gates';
     G.scene.add(this.group);
     this._place();
+    this.total = this.gates.reduce((n, g) => n + g.items.length, 0);
     this._buildMeshes();
     this._buildSigns();
     this.hud?.start(this);
@@ -84,6 +84,9 @@ export class LearnFlow {
     const len = cum[cum.length - 1];
     // how many gates fit (never fewer than one): extra gate defs are merged into the last one so no item is lost
     const defs = this.level.gates.map((g) => ({ ...g, items: g.items.slice() }));
+    // 题即玩法 (play-wire, PLAY §4 「写句 → M4 写字墙」): the write wall's sentences are the last gate — typed on the rig at
+    // the exit, judged W as the boss's W phase judges them (the sign stood here as a placeholder since B, asking nothing)
+    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') for (const sg of this.level.signs || []) if (sg.design && sg.design.mechanic === 'write-wall' && sg.items && sg.items.length) defs.push({ ...sg, items: (this.level.short ? sg.items.slice(0, 2) : sg.items).slice(), kind: 'write' });
     const fit = Math.max(1, Math.min(defs.length, Math.floor((len - P.firstGateMin) / P.minGateGap) + 1));
     while (defs.length > fit) { const last = defs.pop(); defs[defs.length - 1].items.push(...last.items); }
     const n = defs.length;
@@ -229,6 +232,7 @@ export class LearnFlow {
     this._pourInk();
     this.play?.update(dt);
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
+    if (this.phase === 'exit') { this._exitUpdate(dt); return; }
     if (this.phase !== 'walk') return;
     const a = this.match.local, g = this.gates[this.cur];
     if (!a || !g || !a.alive || this.match.state !== 'playing') return;
@@ -241,6 +245,22 @@ export class LearnFlow {
       this.hud.walk({ dist: d, angle: rel, index: this.cur + 1, total: this.gates.length, auto: this.auto, title: g.title });
     }
     if (d < this.P.gateRadius && Math.abs(a.pos.y - g.pos.y) < 2.5) this._arrive(g);
+  }
+
+  // the exit area (题即玩法 play-wire, src/learn/play/wire/exit.js): the walk to its stations — the booth, then the check-in
+  // pad; stepping onto the pad ends the day (the results after it, as after the last gate before)
+  _exitUpdate(dt) {
+    const a = this.match.local, H = this.play;
+    if (!a || !a.alive || this.match.state !== 'playing' || !H) return;
+    const s = H.exitSpot();
+    if (this.auto) { if (s && s.node >= 0) this._autoWalk(a, { node: s.node, pos: s }, dt); else this.autoWalk(false); }
+    if (this.hud && s) {
+      const cam = G.camera, fw = cam.getWorldDirection(_v);
+      const want = Math.atan2(s.x - a.pos.x, s.z - a.pos.z), have = Math.atan2(fw.x, fw.z);
+      let rel = want - have; while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2;
+      this.hud.walk({ dist: Math.hypot(a.pos.x - s.x, a.pos.z - s.z), angle: rel, index: this.gates.length, total: this.gates.length, auto: this.auto, title: s.title });
+    }
+    if (H.exitDone()) { this.phase = 'done'; this.finishT = 0.9; this.hud?.hide(); }
   }
 
   // ---------------------------------------------------------------------------------------------- auto-walk
@@ -414,7 +434,11 @@ export class LearnFlow {
     this._styleGates();
     this.match.paused = false;
     this.autoPath = null;   // a new target
-    if (!next) { this.phase = 'done'; this.finishT = 0.9; return; }
+    if (!next) {
+      // 题即玩法 (play-wire): the day ends on the exit area's stations — the 回声亭, the 打卡垫 (踩上去 = 走完了) — when it has them
+      if (this.play && this.play.exitStart()) { this.phase = 'exit'; this.autoPath = null; this._emit('learn:exit', { signs: (this.level.signs || []).length }); G.input?.requestLock?.(); return; }
+      this.phase = 'done'; this.finishT = 0.9; return;
+    }
     this.phase = 'walk';
     G.input?.requestLock?.();   // the answer's key / tap was the gesture …
     if (G.game) G.game._relock = true;   // … and if the browser still refuses, the next click on the stage takes the mouse back

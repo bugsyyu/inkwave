@@ -671,6 +671,7 @@ export const LEARN = {
     ahead: 3.2,               // m in front of her
     side: 1.35,               // m either side of the card the two rating targets float
     ball: 0.38,               // m: a rating target's radius
+    pitch: 0.62,              // rad: the lens looks down on the card this much (over her head: she never hides it — play-wire)
   },
   // 墨浪跑酷 (docs/PLAY.md §3 M2 / M3, §5.2; src/learn/play/runner, LEARN §20): the race as a lane runner — she swims the
   // lap on her own ink, every question a row of curtains across the road; ?learn=w1d3&kind=runner while race.js stays
