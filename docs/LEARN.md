@@ -842,3 +842,13 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 2. 复习日的周报牌 / 入门小测牌、打卡的星表。
 3. 道具赛换跑酷 + 滑行段接字弹；对抗赛 / 今日小考 / Boss M5；双人；横屏键盘拆两半；删卡片——主会话另派。
 4. 帧时间对比（PLAY §7）没量；真机。
+
+**交接**（收尾时写；分支 `play-wire`，没推，从 dev `2929440` 建出）：
+- **做到哪**：解谜（`kind=puzzle`）里三周每一个条目都有玩法，`_askNext` 的「照旧卡片」分支在三周的内容上走不到（`toCard` 还在：开关关掉、其它形式继承的流程照旧）。竖屏 `w1d1` 三组 + `w1d7` 翻牌、横屏四组都在浏览器里走过（上表）；写字墙 + 出口区、改过选址 / 朝向之后的横屏、`w2d1` / `w1d2` 的复跑看本节末尾。
+- **先看哪些文件**：`src/learn/play/host.js`（`kindOfItem` 分站 → `ask` / `update` 的镜头和站立 → `stageSpot` / `facingYaw` / `exitStart`）→ `cam.js` → `wire/type.js`（`ask` 的朝向和落点、`_pose`、`_submit`）→ `wire/beat.js` → `wire/flip.js`（`_pose`）→ `wire/boards.js`（`gateSpecs`、`place`）→ `wire/exit.js`；`flow.js` 里 `this.play` / `phase === 'exit'` / `_altPrompt` 的几处；审计 `tools/learn/wire-audit.mjs`（`walkOn` 的板停和出口停、四个 `answerXxx`）；测试 `tests/learn/play-wire.test.mjs`。
+- **已知坑**：
+  1. 舞台 / 字弹 / 出口区的位置都是按导航网格、地面高差和 `physics.los` 挑的，装饰性的道具（不在物理里的）躲不开；一个关卡一个样，截图要看。
+  2. 审计的每一步都是冻时钟步进，SwiftShader 下一道门 2 题约 2–3 分钟，三道门 + 出口区要 `--budget 900` 以上；键盘滑入是 CSS 动画走墙钟，打字前要等它停稳（`kbSettled`）。
+  3. `cam.release` 后 rig 的 `follow(actor, true)` 把镜杆重置到 `dist`，第一帧可能穿进她身后的墙，rig 自己的探杆下一帧就收回来。
+  4. `hud.playMode(true)` 在展板框住时也会调（藏走路条）；谁 `playMode(false)` 要看 `flow.phase`（`wire/boards.js` 的 `on.unframed`）。
+  5. 字弹的 `TypeShot` 一题结束 `_next` 在 Promise 里回流程；流程若在同一帧里 `clear()`（换站 / 门开），`InkWord.clear()` 会让等着的 Promise 落地，不会卡。
