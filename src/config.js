@@ -615,6 +615,23 @@ export const LEARN = {
     stunStreak: 5,            // a streak this long stuns the boss once
   },
   quiz: { n: 8, minutes: 6 }, // 今日小考: one duel round after the exit (days 1–6)
+  // 字弹 M4 (docs/PLAY.md §3 M4, src/learn/play/type/): the 打字蟹 typewriter rig, the game keyboard and the 3D ink word.
+  // No colour here depends on whether a letter is right (PLAY §1.3): a pressed key lights in her team colour, every
+  // printed glyph is the neutral grey ink, the fired word is grey until resolve().
+  type: {
+    glyph: '#454a54',         // the paper's ink
+    word: '#8d929b',          // the ink word before the verdict
+    coral: '#f08a7a',         // a wrong answer (never the other team's colour, LEVELS §5)
+    holdKey: 0.075,           // s a tapped cap stays down
+    printDelay: 0.05,         // s from the key to the type-bar's strike (the glyph prints on impact)
+    wrapAt: 9,                // a space at this column or later is a carriage return (the bell); the paper is 14 columns wide
+    blobs: { low: 480, medium: 760, high: 1000, ultra: 1200 },   // ink-word blob cap per quality (one draw call)
+    wordH: 0.62,              // m: the ink word's letter height on one line
+    wordMaxW: 4.4,            // m: a longer text wraps, then shrinks to fit wordMaxW × wordMaxH
+    wordMaxH: 1.9,
+    flight: [0.75, 1.25],     // s: the shell's time of flight (near, far)
+    verdictS: 1.5,            // s the verdict show takes before resolve() settles
+  },
   // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
   // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question
   // to both players at once; the first right answer (by each player's own time, LEARN §14) floods the live zone

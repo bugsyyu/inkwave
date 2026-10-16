@@ -1009,7 +1009,7 @@ export class Actor {
     if (Math.abs(this.smoothY) < 1e-4 && Math.abs(this.smoothYV) < 1e-3) { this.smoothY = 0; this.smoothYV = 0; }
     const ch = this.character;
     ch.root.position.copy(this.pos);
-    ch.root.position.y += this.smoothY + (this.specialActive?.seat || 0);   // riding the crab tank
+    ch.root.position.y += this.smoothY + (this.specialActive?.seat || 0) + (this.learnSeat || 0);   // riding the crab tank / the 字弹 type rig (learn/play/type/rig.js)
     ch.root.rotation.y = this.yaw;
     ch.setHurt(Math.max(this.hurtFlash, 1 - this.hp / PLAYER.hp) * (this.hp < PLAYER.hp ? 1 : 0), G.teamColors[this.enemyTeam]);
     ch.update(dt, a);
