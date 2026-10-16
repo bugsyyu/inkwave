@@ -129,6 +129,61 @@ export const GROUPS = {
     const q = await c.measure('level-question', { scopes: HUD, extra: await c.ev(() => ({ phase: __inkwave.match.learn.phase, type: __G.hud.learn._ask && __G.hud.learn._ask.p.type })) });
     q.backOk = null;
   },
+  // a real 双人联机赛 on the phone: a room on this run's relay, 双人联机赛 short (2 questions) against the bots, started from
+  // the session API (the room screen's own countdown runs on the menus' clock, frozen here); the match stepped at ≤ 2×
+  // real time with the renderer skipped (the relay drops a socket that floods it) — then rendered for the measurements:
+  // a question up, the room's pause (the real one: G.netm), and, if the budget allows, the results
+  async versus2(c) {
+    const HUD = ['.iw-learn', '.iw-hud', '.iw-lf', '.iw-touch'];
+    await c.ev(async () => { await __G.net.create('Ann'); __G.net.setSettings({ mode: 'versus2', learn: { week: 1, day: 1, short: true }, bots: true }); });
+    c.say('room', JSON.stringify(await c.ev(() => ({ code: __G.net.code, mode: __G.net.lobby.mode, learn: __G.net.lobby.learn, block: __G.net.startBlock() }))));
+    await c.ev(() => __G.net.start());
+    const built = await c.waitFor(() => !!(__G.net.state === 'match' && __inkwave.match && __inkwave.match.learn && __inkwave.match.learnKind === 'versus2'), 60000, 'the match built');
+    if (!built) return;
+    c.say('match built', JSON.stringify(await c.ev(() => ({ actors: __inkwave.match.actors.length, names: __inkwave.match.actors.map((a) => a.name), state: __inkwave.match.state }))));
+    // step: 1/24 s frames, 4 a chunk, paced to ≤ 2× real time
+    const stepUntil = async (pred, maxSec, what) => {
+      const t0 = Date.now(); let sim = 0;
+      while (sim < maxSec) {
+        if (await c.ev(pred)) return true;
+        await c.ev(() => { const I = __inkwave; I._skipRender = true; try { for (let j = 0; j < 4; j++) I._frame(1 / 24); } finally { I._skipRender = false; } });
+        sim += 4 / 24;
+        const ahead = (sim * 1000) / 2 - (Date.now() - t0); if (ahead > 0) await c.sleep(ahead);
+      }
+      c.say('step timeout:', what); return false;
+    };
+    const up = await stepUntil(() => !!(__G.hud.learn._ask && !__G.hud.learn._ask.answered), 40, 'a question');
+    // (main.js _intro shows the HUD from a 3 s wall-clock timer if the intro is still running; stepped at 2× the intro is
+    // over by then and the HUD would stay hidden — on a phone the intro runs in real time. Shown here as it would be.)
+    await c.ev(() => __G.hud.setVisible(true));
+    const t0 = Date.now(); await c.ev(() => __inkwave.debug.step(16.7)); c.say(`first render ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+    const q = await c.measure('v2-question', { scopes: HUD, reached: up, extra: await c.ev(() => ({ kind: __inkwave.match.learnKind, mode: __inkwave.match.mode, state: __inkwave.match.state, hud: __G.hud.el.className, hold: !!__inkwave.match.learn.hold, touchLive: __G.touch && __G.touch.enabled, weaponKeys: [...document.querySelectorAll('.iw-touch__btn')].filter((b) => getComputedStyle(b).display !== 'none').length, prog: (document.querySelector('.iw-learn__prog') || {}).textContent })) });
+    q.backOk = null;
+    await c.ev(() => { const F = __inkwave.match.learn, a = F.rightAnswer ? F.rightAnswer() : null, H = __G.hud.learn; if (H.choices && typeof a === 'number') H.choices[a].click(); else if (H.input) { H.input.value = String(a); H._submit(H.input.value); } });
+    await stepUntil(() => !__inkwave.match.learn.hold, 8, 'the card gone');
+    const pl = await c.measure('v2-play', { scopes: HUD, extra: await c.ev(() => ({ touchLive: __G.touch && __G.touch.enabled, weaponKeys: [...document.querySelectorAll('.iw-touch.is-live .iw-touch__btn')].filter((b) => getComputedStyle(b).display !== 'none').length, timer: (document.querySelector('.iw-timer__txt') || {}).textContent })) });
+    pl.backOk = null;
+    // the room's pause (online: the match runs on underneath)
+    await c.ev(() => __inkwave.pause());
+    const pz = await c.measure('v2-pause', { back: '.iw-pause__menu [data-id="resume"]', extra: await c.ev(() => ({ screen: __inkwave.menus.current, live: (document.querySelector('.iw-pause__live') || {}).textContent, quit: (document.querySelector('.iw-pause__menu [data-id="quit"]') || {}).textContent })) });
+    await c.tap('.iw-pause__menu [data-id="resume"]', 'back to the match');
+    pz.backOk = await c.ev(() => __inkwave.menus.current === null);
+    // on to the end: the second question (answered right), the host calls the match, INKWAVE's judge (its animation runs on
+    // the HUD's own clock: sped up as F's script does), then the results — the real ones, with the questions strip
+    const answerUp = () => c.ev(() => { const F = __inkwave.match.learn, A = __G.hud.learn._ask; if (!A || A.answered) return false; const a = F.rightAnswer ? F.rightAnswer() : null, H = __G.hud.learn; if (H.choices && typeof a === 'number') H.choices[a].click(); else if (H.input) { H.input.value = String(a); H._submit(H.input.value); } return true; });
+    const t1 = Date.now();
+    while (Date.now() - t1 < 45000) {
+      await answerUp();
+      if (await c.ev(() => { const m = __inkwave.match; if (m && (m.state === 'judge' || m.state === 'results') && __G.hud) __G.hud.timeScale = 25; return __inkwave.menus.current === 'results'; })) break;
+      await stepUntil(() => __inkwave.menus.current === 'results' || !!(__G.hud.learn._ask && !__G.hud.learn._ask.answered), 3, 'next');
+    }
+    const inRes = await c.ev(() => __inkwave.menus.current === 'results');
+    c.say('results?', inRes, JSON.stringify(await c.ev(() => ({ state: __inkwave.match && __inkwave.match.state, hud: __G.hud && __G.hud.el.className }))));
+    if (!inRes) return;
+    await c.ev(() => { const r = document.querySelector('.iw-results'); if (r) { r.classList.remove('is-intro'); r.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); } });
+    const rs = await c.measure('v2-results', { back: '.iw-res__btns [data-id="toroom"], .iw-res__btns [data-id="leave"]', extra: await c.ev(() => ({ title: (document.querySelector('.iw-res__title') || {}).textContent, tags: [...document.querySelectorAll('.iw-res__tag')].map((e) => e.textContent.trim()), strip: (document.querySelector('.iw-res__learn') || {}).textContent, online: !!document.querySelector('.iw-res__lobby') })) });
+    rs.backOk = null;
+  },
 };
 
 // from main: 联机 → the hub → 开一个房间 (this run's relay) → the room; its row (back = 离开, checked by the caller)
