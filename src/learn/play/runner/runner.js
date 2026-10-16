@@ -231,7 +231,7 @@ export class RunnerFlow extends RaceFlow {
     this.glide.update(dt);
     const shown = this._shown();
     this.bw.questionUp = !!(shown && shown.kind !== 'boards');   // (the reading strip never opens over a row or the typing)
-    this.bw.update(dt, this.sNow, this._aspect());
+    this.bw.update(dt, shown && shown.kind === 'boards' ? this.sNow : -1e9, this._aspect());   // (framed only on its own stretch)
     this._prepBoards();
     this._propKey(a);
     this._readInput();
@@ -307,6 +307,9 @@ export class RunnerFlow extends RaceFlow {
   _build() {
     if (this.detour && this.detour.line) return;
     while (this._live() < 2 && this.queue.length) {
+      // (a 看板段 waits for the 滑行段 in front of it to end: typing takes as long as it takes, and she must not swim
+      // past the boards while she types — w2d3 in landscape did, and the board counted as read from behind the keyboard)
+      if (this.queue[0].kind === 'boards' && this.rows.some((r) => r.kind === 'glide' && r.state !== 'done')) break;
       const e = this.queue.shift();
       const R = this.RR, v = PLAYER.swimSpeed * R.tide;
       if (e.kind === 'boards') {   // the 看板段: the boards rise along the road now (seen from afar), framed one by one as she comes
