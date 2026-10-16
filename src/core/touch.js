@@ -17,6 +17,8 @@
 import { G } from './ctx.js';
 import { TOUCH } from '../config.js';
 import { t as tx } from '../ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the portrait gate's words
+import { PlayKeys } from '../ui/play-keys.js';   // 题即玩法 (docs/PLAY.md §6.4): the game keyboard owns its own touches
+import { ReadStrip } from '../learn/play/board/strip.js';   // … and the reading strip its own (scroll, ✕)
 
 // Left share of the screen that owns the movement stick. The rest is look / fire / buttons.
 const MOVE_ZONE = 0.44;
@@ -185,6 +187,8 @@ export class TouchControls {
     // The controls are invisible unless the layer is live, so they must be untouchable too — a hidden control that
     // still fires is how a tap lands on a button nobody can see (and, for the map latch, one that then gets wiped).
     if (!this.enabled) return;
+    // 题即玩法 (play-wire, LEARN §19 / §21): a finger on the game keyboard or on the reading strip is theirs — never a stick, a look or a tap-shot
+    if (PlayKeys.owns(e) || ReadStrip.owns(e) || (G.match?.learn?.play && e.target && e.target.closest && e.target.closest('.iw-ps__play, .iw-learn__btn'))) return;   // (nor the strip's ▶ or the level's own buttons)
     // ---- 墨浪跑酷 swipe hook (src/learn/play/runner, docs/LEARN.md §20): a level that steers by swipes exposes
     // match.learn.swipe(dir). Then a finger is a swipe wherever it lands — no stick, no look — except on ⏸ and on the
     // level's own DOM buttons (▶ 再听, the prop bag), which keep their click.

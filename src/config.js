@@ -578,6 +578,7 @@ export const LEARN = {
     inkStep: 1.2,             // m between the trail's splats
     autoWalkSpeed: 1,         // 0..1 of the run speed when the level walks her to the next gate (phones: one tap)
     jumpAhead: 0.7,           // m before a jump-up edge the auto-walk presses jump
+    exitWalkMax: 40,          // s the exit area's walk may spend on one station before passing it over (play-wire)
   },
   ui: {
     hit: 44,                  // pt: the smallest tap target in the question layer (iPhone first)
@@ -671,6 +672,7 @@ export const LEARN = {
     ahead: 3.2,               // m in front of her
     side: 1.35,               // m either side of the card the two rating targets float
     ball: 0.38,               // m: a rating target's radius
+    pitch: 0.62,              // rad: the lens looks down on the card this much (over her head: she never hides it — play-wire)
   },
   // 墨浪跑酷 (docs/PLAY.md §3 M2 / M3, §5.2; src/learn/play/runner, LEARN §20): the race as a lane runner — she swims the
   // lap on her own ink, every question a row of curtains across the road; ?learn=w1d3&kind=runner while race.js stays
