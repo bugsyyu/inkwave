@@ -59,7 +59,7 @@ export function onPlate(x, v, n = 0, out = new V3()) {
  *  capH. uv = top face in [0, 1]² (u → −X so a legend reads from behind the deck, v → the far row); elsewhere −1. */
 function capGeo() {
   const w = DECK.pitch - DECK.gap, h = DECK.capH;
-  const g = rbox(w, h, w, 0.22, 20, 10, (q) => {
+  const g = rbox(w, h, w, 0.22, 16, 8, (q) => {
     if (q.y > 0) { const r2 = (q.x * q.x + q.z * q.z) / (w * w * 0.25); q.y -= 0.0045 * Math.max(0, 1 - r2); }   // dished top
     const t = (q.y + h / 2) / h; q.x *= 1 + 0.07 * (1 - t); q.z *= 1 + 0.07 * (1 - t);   // flared skirt
   });
