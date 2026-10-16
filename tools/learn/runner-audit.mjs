@@ -1,9 +1,13 @@
 // 墨浪跑酷 browser audit (docs/LEARN.md §20). Serves this checkout, opens the game in Chromium (software GL works:
 // SwiftShader args), and runs one of:
-//   --scenario runner  ?learn=<day>&kind=runner: tools/learn/runner-drive.js rows (wrong, right, none, right … by
-//                      default) through the real inputs; screenshots of rows (--shots <dir>, --shotRows 1,3);
-//                      the PLAY §1 invariants per row, evidence leaves, coral / slow, no-answer = nothing written
-//   --scenario forms   the existing race audit: tools/learn/drive-forms.js on ?kind=race&short=1&fast=1 (race.js unchanged)
+//   --scenario runner  ?learn=<day>&kind=race (play-4: the race IS the runner under LEARN.play): tools/learn/runner-drive.js
+//                      rows (wrong, right, none, right … by default) through the real inputs; the 滑行段's typed items
+//                      (--glidePlan right,hint,wrong,near) on the game keyboard; the 看板段's boards; screenshots of rows
+//                      (--shots <dir>, --shotRows 1,3) and of the first type frame / ink word / held strip / board;
+//                      the PLAY §1 invariants per row / item / stretch, evidence leaves, coral / slow, no-answer = nothing
+//                      written, the crosshair hidden while she types, the type frame measured, first answers once
+//   --scenario forms   the existing race audit: tools/learn/drive-forms.js on ?kind=race&short=1&fast=1&play=0 (the card
+//                      race: LEARN.play off — race.js unchanged)
 //   --scenario perf    frame-time sampler: the runner vs the race vs a plain turf match on the same stage, real-time loop (not stepped), the
 //                      cost of each _frame call (sim + render) → p50 / p95 / max, after `state === 'playing'` for 3 s
 // Every run fails on a console error, a page error or a 4xx / failed request (the dev error beacon /__inkwave_error/… is
@@ -21,7 +25,7 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const flag = (k) => args.includes('--' + k);
 const SCEN = opt('scenario', 'runner'), Wd = +opt('w', 1280), Ht = +opt('h', 720), TOUCH = flag('touch'), DPR = +opt('dpr', 1);
 const SHOTS = opt('shots', null), OUT = opt('out', null), SHOT_ROWS = (opt('shotRows', '1') || '').split(',').filter(Boolean).map(Number);
-const PLAN = opt('plan', null), MAXROWS = +opt('maxRows', 0), PERF_S = +opt('perfSeconds', 40);
+const PLAN = opt('plan', null), MAXROWS = +opt('maxRows', 0), PERF_S = +opt('perfSeconds', 40), GPLAN = opt('glidePlan', null);
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', wasm: 'application/wasm', txt: 'text/plain; charset=utf-8', ico: 'image/x-icon', mp3: 'audio/mpeg', ogg: 'audio/ogg', glb: 'model/gltf-binary', bin: 'application/octet-stream' };
 const beacons = [];
 const srv = http.createServer((q, r) => {
@@ -54,20 +58,25 @@ async function open(query, learn = true) {
   const t0 = Date.now();
   await page.goto(base + 'index.html' + query, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction((learn) => window.__inkwave && __inkwave.match && !__inkwave.match.attract && (!learn || (__inkwave.match.mode === 'learn' && __inkwave.match.learn)), learn, { timeout: 420000, polling: 250 });
+  // (the game keyboard's slide-in is a CSS transition on wall time: the frozen, stepped audit measures where it rests)
+  await page.addStyleTag({ content: '.iw-pk__panel { transition: none !important; }' });
   if (process.env.RUNLOG) console.log('[run] level built after', ((Date.now() - t0) / 1000).toFixed(1), 's');
   return { ctx, page, bootS: +((Date.now() - t0) / 1000).toFixed(1) };
 }
 
 async function scenarioRunner() {
-  const q = opt('query', '?learn=w1d3&kind=runner&short=1') + '&quality=low&nofullscreen';
+  const q = opt('query', '?learn=w1d3&kind=race&short=1&gate=6') + '&quality=low&nofullscreen&noclips';
   const { ctx, page, bootS } = await open(q);
   // the plan per row, a row cap, and which rows (1-based, in the order they come up) get a screenshot
-  await page.evaluate(([plan, maxRows, rows, after]) => {
+  await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs]) => {
     if (after) window.__runShotAfter = true;
+    if (gplan) window.__glidePlan = gplan.split(',');
+    if (gshots) window.__glideShots = true;
+    window.__runWallMs = wallMs;
     if (plan) window.__runPlan = plan.split(',');
     if (maxRows) window.__runMaxRows = maxRows;
     const want = new Set(rows); let seen = 0; window.__runShots = () => want.has(++seen);
-  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter')]);
+  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000)]);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/runner-drive.js'), 'utf8');
   let res, k = 0;
   for (;;) {
@@ -76,9 +85,9 @@ async function scenarioRunner() {
     const file = path.join(SHOTS, `runner-${Wd}x${Ht}-${res.shot}.png`);
     fs.mkdirSync(SHOTS, { recursive: true });
     await page.screenshot({ path: file });
-    const ui = await page.evaluate(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; }; return { strip: r('.iw-ps:not(.is-off) .iw-ps__box'), play: r('.iw-ps:not(.is-off) .iw-ps__play'), rotate: r('.iw-run__rotate.is-on'), q: (document.querySelector('.iw-ps__q') || {}).textContent, fontQ: getComputedStyle(document.querySelector('.iw-ps__q')).fontSize, lanes: r('.iw-ps__lanes.is-on'), tag: (document.querySelector('.iw-ps__tag.is-on') || {}).textContent }; });
-    console.log('shot', file, JSON.stringify({ row: res.row, ui, dbg: { s: res.dbg.s, lat: res.dbg.lat, d: res.dbg.d, speed: res.dbg.speed, row: res.dbg.row } }));
-    if (++k > 8) break;
+    const ui = await page.evaluate(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; }; return { strip: r('.iw-ps:not(.is-off) .iw-ps__box'), play: r('.iw-ps:not(.is-off) .iw-ps__play'), rotate: r('.iw-run__rotate.is-on'), q: (document.querySelector('.iw-ps__q') || {}).textContent, fontQ: getComputedStyle(document.querySelector('.iw-ps__q')).fontSize, lanes: r('.iw-ps__lanes.is-on'), tag: (document.querySelector('.iw-ps__tag.is-on') || {}).textContent, kb: r('.iw-pk:not(.is-off) .iw-pk__panel'), acts: [...document.querySelectorAll('.iw-ps__act')].map((b) => b.textContent) }; });
+    console.log('shot', file, JSON.stringify({ row: res.row, glide: res.glide && { item: res.glide.item, plan: res.glide.plan, typed: res.glide.typed, frame: res.glide.frame, held: res.glide.held }, boards: res.boards && { n: res.boards.n, framed: res.boards.framed }, ui, dbg: { s: res.dbg.s, lat: res.dbg.lat, d: res.dbg.d, speed: res.dbg.speed, row: res.dbg.row, glide: res.dbg.glide && { phase: res.dbg.glide.phase, band: res.dbg.glide.band, fits: res.dbg.glide.fits } } }));
+    if (++k > 16) break;
   }
   if (SHOTS && flag('finalShot')) {   // the end: the results card over the finished run
     const file = path.join(SHOTS, `runner-${Wd}x${Ht}-end.png`);
@@ -89,7 +98,7 @@ async function scenarioRunner() {
 }
 
 async function scenarioForms() {
-  const q = opt('query', '?learn=w1d2&kind=race&short=1&fast=1') + '&quality=low&nofullscreen';
+  const q = opt('query', '?learn=w1d2&kind=race&short=1&fast=1&play=0') + '&quality=low&nofullscreen';
   const { ctx, page, bootS } = await open(q);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/drive-forms.js'), 'utf8');
   const res = JSON.parse(await page.evaluate(drive));
@@ -136,7 +145,7 @@ async function scenarioPerf() {
     k = 0; while (row.s - F.sNow > 5 && k++ < 80) ff(0.1);
     return { s: +F.sNow.toFixed(1), row: true, ahead: +(row.s - F.sNow).toFixed(1), lat: +F.latT.toFixed(2), want }; })()`);
   // (the race walking to its first gate: at the gate its card holds the match, which is not a frame to compare)
-  const race = await sample(`?learn=${day}&kind=race`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
+  const race = await sample(`?learn=${day}&kind=race&play=0`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
   // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight
   const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', `(async () => { ${FF} ff(6); return { t: +I.match.time.toFixed(1) }; })()`, false);
   out.runs.push(runner, race, turf);

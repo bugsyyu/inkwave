@@ -904,7 +904,7 @@ export class RunnerFlow extends RaceFlow {
       detour: this.detour ? { branch: !!this.detour.line, u: this.detour.u != null ? +this.detour.u.toFixed(1) : null, len: this.detour.len || 0, k: this.detour.k || 0 } : null,
       clock: +this.clock.toFixed(1), bag: this.bag.slice(), stats: { ...this.stats, skipped: this.stats.skipped.length },
       racers: this.racers.map((r) => ({ id: r.id, cp: r.cp, state: r.state, finish: r.finish })), me: { cp: this.me.cp, finish: this.me.finish, place: this.place || null },
-      fairK: +this.fairK.toFixed(2), glide: this.glide.debug(), boards: this.bw.debug(),
+      fairK: +this.fairK.toFixed(2), glide: this.glide.debug(), boards: this.bw.debug(), cam: { lift: +this.cam.lift.x.toFixed(2), occl: { ...this.cam.occl } },
     };
   }
   effects() { return { cur: this.cur, bag: this.bag.length, streak: this.streak, detour: !!this.detour, relearn: this.relearn.length }; }

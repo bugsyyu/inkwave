@@ -8,6 +8,9 @@
 //   · boom, height, look-ahead and field of view per aspect — upright phone: higher, steeper and wider (a 4-lane row
 //     has to fit 390 px); landscape and desktop: lower and longer — blended on the aspect, sprung on a turn of the phone
 //   · a soft wall probe (physics.cameraProbe) pulls the boom in before a wall comes between them
+//   · a prop by the road (a crane leg, a boat's side, a bin, a railing — their colliders are in the physics) between
+//     the lens and her, or the row being asked, cranes the lens up and a little in (a spring, play-4): over low props
+//     the road and the curtains show again; it lets down once the line is clear for a moment
 //   · a station's pose (play-4: play-type's frames on the 滑行段, a framed board — world { pos, look, fov }) is blended
 //     in and out on a spring weight (the same convention as the play stations: path mode, a spring, fov through the
 //     rig — never a cut); the pose itself moves with her, so the blend is the only easing it needs
@@ -27,7 +30,7 @@ class Spring {   // exact critically-damped spring (cameraRig's)
 // field of view instead (WIDE_H): a landscape phone's 2.16 : 1 at a fixed vertical angle sees 90° across and the row
 // shrinks to a strip in the middle; 72° across puts a four-lane row over 40 % of the width a dozen metres out.
 const TALL = [5.2, 3.3, 8, -0.7, 70], WIDE = [4.8, 3.0, 6, -0.8, 0], WIDE_H = 72;
-const _p = {}, _v = new THREE.Vector3(), _b = new THREE.Vector3(), _probe = { hard: 0, soft: 0, floor: false };
+const _p = {}, _v = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3(), _probe = { hard: 0, soft: 0, floor: false };
 
 export class RunnerCam {
   constructor() {
@@ -35,6 +38,7 @@ export class RunnerCam {
     this.f = [new Spring(), new Spring(), new Spring(), new Spring(), new Spring()];
     this.boom = new Spring(1); this.on = false; this.fresh = true;
     this.ow = new Spring(0); this.ov = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52 };   // a station's pose and its weight
+    this.lift = new Spring(0); this.liftHold = 0; this.occl = { frames: 0, blocked: 0, still: 0 };   // the crane-up over a prop
   }
   // take the lens from the rig: from wherever the camera is now (the intro's fly-in ends behind her)
   take(rig) {
@@ -96,6 +100,19 @@ export class RunnerCam {
     if (G.physics?.cameraProbe) { G.physics.cameraProbe(pivot, _b, bl, 0.45, _probe); k = clamp(_probe.soft / bl, 0.3, 1); }
     const kb = this.boom.step(k, k < this.boom.x ? 18 : 3, dt);
     let cx = x + bx * kb, cy = y + ph + by * kb, cz = z + bz * kb;
+    // a prop between the lens and her (her chest) or the row's middle: crane up (≤ 2.2 m) and in (≤ 1.2 m) on a spring
+    // (it lets down 0.6 s after the lines are clear); the look point stays — the view tips down over the prop
+    const L = this.lift.x;
+    if (G.physics?.los && !pose) {
+      const ch = _c.set(p.x, p.y + 0.8, p.z), lens = _d.set(cx, cy, cz);
+      let hid = !G.physics.los(lens, ch);
+      if (!hid && focus && focus.w > 0.2) hid = !G.physics.los(lens, _e.set(focus.x, focus.y, focus.z));
+      this.occl.frames++;
+      if (hid) { this.occl.blocked++; this.liftHold = 0.6; } else this.liftHold = Math.max(0, this.liftHold - dt);
+      if (L > 0.5) { lens.set(cx + fx * 1.2 * L, cy + 2.2 * L, cz + fz * 1.2 * L); if (!G.physics.los(lens, ch)) this.occl.still++; }
+    }
+    const lift = this.lift.step(this.liftHold > 0 && !pose ? 1 : 0, this.liftHold > 0 ? 4 : 2, dt);
+    if (lift > 0.001) { cx += fx * 1.2 * lift; cy += 2.2 * lift; cz += fz * 1.2 * lift; }
     cam.up.set(0, 1, 0);
     // (a wall-shortened boom sits the lens low: look further down then, so the road and the boards stay mid-screen and
     // never climb under the question strip)

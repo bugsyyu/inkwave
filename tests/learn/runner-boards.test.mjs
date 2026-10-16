@@ -105,3 +105,34 @@ test('the 看板段 judges nothing and writes nothing; the runner slows the bots
   const run = readFileSync(new URL('../../src/learn/play/runner/runner.js', import.meta.url), 'utf8');
   assert.match(run, /row\.kind === 'boards'\) \{ k = R\.boards\.tide; fair = R\.boards\.tide; \}/, 'the tide and the bots: the same slow');
 });
+
+test('the chase lens over a prop (play-4): a collider between the lens and her or the row cranes it up and in on a spring, never a jump; clear again, it lets down; a station\'s pose is never lifted', async () => {
+  const THREE = await import('three');
+  const { G } = await import('../../src/core/ctx.js');
+  const { RunnerCam } = await import('../../src/learn/play/runner/cam.js');
+  const { nav, start, goal } = ringNav();
+  const route = loopRoute(nav, start, goal, { avoid: 6 });
+  const T = buildTrack(nav.nodes, route.loop, { keep: straighten(nav, route.loop, { edgeType: nav.edgeType }) });
+  const keep = { camera: G.camera, physics: G.physics, settings: G.settings };
+  let blocked = true;
+  G.camera = new THREE.PerspectiveCamera(60, 390 / 844, 0.1, 500); G.settings = { fov: 82 };
+  G.physics = { los: () => !blocked, cameraProbe: (p, d, len, r, out) => { out.soft = out.hard = len; return out; } };
+  try {
+    const cam = new RunnerCam(); cam.take({ mode: 'follow', path: null, zoom: 0, fovKick: 0 });
+    const p = {}; at(T, 10, p);
+    const her = { pos: new THREE.Vector3(p.x, 0, p.z), vel: new THREE.Vector3(p.tx * 7, 0, p.tz * 7), grounded: true };
+    let prev = null, maxStep = 0;
+    const run = (n) => { for (let i = 0; i < n; i++) { cam.update(1 / 60, her, T, 10, 390 / 844); const c = G.camera.position.clone(); if (prev) maxStep = Math.max(maxStep, c.distanceTo(prev)); prev = c; } };
+    blocked = false; run(240); const y0 = G.camera.position.y; maxStep = 0;   // (settled behind her first)
+    blocked = true; run(90);
+    assert.ok(cam.lift.x > 0.9 && G.camera.position.y > y0 + 1.8, `cranes up over the prop: lift ${cam.lift.x.toFixed(2)}, +${(G.camera.position.y - y0).toFixed(2)} m`);
+    assert.ok(maxStep < 0.12, `a spring, not a jump: ${maxStep.toFixed(3)} m a frame at most`);
+    assert.ok(cam.occl.blocked >= 90 && cam.occl.frames >= 330);
+    blocked = false; run(240);
+    assert.ok(cam.lift.x < 0.05, `lets down once the line is clear: ${cam.lift.x.toFixed(3)}`);
+    // a station's pose (the typing rig, a framed board) is never lifted
+    blocked = true; const pose = { pos: new THREE.Vector3(p.x + 1, 2, p.z), look: new THREE.Vector3(p.x, 1, p.z + 3), fov: 52 };
+    for (let i = 0; i < 90; i++) cam.update(1 / 60, her, T, 10, 390 / 844, null, null, pose);
+    assert.ok(cam.lift.x < 0.05, 'no lift under a station\'s pose');
+  } finally { Object.assign(G, keep); }
+});
