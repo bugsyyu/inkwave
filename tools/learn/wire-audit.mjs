@@ -163,8 +163,20 @@ async function answerM1(s, right) {
   else { for (let pass = 0; pass < 4; pass++) { await ev((k) => { const P = __inkwave.match.learn.play.m1, rig = __inkwave.rig, cam = rig.gameCam; const c = P.T.slots[k].pos; const dx = c.x - cam.position.x, dy = c.y - cam.position.y, dz = c.z - cam.position.z; rig.yaw = Math.atan2(dx, dz); rig.pitch = Math.atan2(dy, Math.hypot(dx, dz)); }, right); await step(16.7); } await ev(() => __inkwave.debug.fire(true)); await step(16.7); await ev(() => __inkwave.debug.fire(false)); }
   return untilAnswered();
 }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// the keyboard's slide-in is a CSS transition on wall time (the sim is frozen): wait until its panel has come to rest on the screen
+async function kbSettled() {
+  let last = null;
+  for (let i = 0; i < 40; i++) {
+    const r = await ev(() => { const kb = document.querySelector('.iw-pk__panel'); if (!kb || document.querySelector('.iw-pk.is-off')) return null; const b = kb.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round); });
+    if (r && last && r.join() === last.join() && r[1] + r[3] <= V.h + 1) return r;
+    last = r; await sleep(60);
+  }
+  return last;
+}
 async function answerType(s, right) {
   const d = s.dbg.station;
+  s.kb = await kbSettled();
   check(!!s.kb && s.kb[0] >= 0 && s.kb[1] >= 0 && s.kb[0] + s.kb[2] <= s.W + 1 && s.kb[1] + s.kb[3] <= s.H + 1, 'M4: the game keyboard up, inside the screen', s.kb);
   check(d.phase === 'typing' && d.pose && d.pose.fits !== false, `M4: typing (${d.mode}), the type frame`, d.pose);
   check(s.rigMode === 'path', 'M4: the lens is the station\'s (rig in path mode)', s.rigMode);
@@ -189,8 +201,13 @@ async function answerType(s, right) {
   await step(50);
   const v = await waitFor(() => { const d = __inkwave.match.learn.play.type.debug(); return d.verdict ? d : null; }, 40, 50);
   check(!!v && v.verdict, 'M4: 射 → judged', v && v.log);
-  for (let i = 0; i < 10; i++) await step(150);   // the shell flies, the word forms
+  // the shell flies (0.75–1.25 s), the word forms, then the verdict plays: shoot the formed word before it bursts
+  // (the station's shot: 'assembling' once the shell landed, 'shown' / 'resolving' once the letters formed, then 'done' → the next item)
+  const formed = await waitFor(() => { const S = __inkwave.match.learn.play.type.shot; return S.word && (S.word.phase === 'assembling' || S.word.phase === 'shown' || S.word.phase === 'resolving') ? S.word.phase : null; }, 90, 50);
+  check(!!formed, 'M4: the shell landed, the ink word forms at the target', formed);
+  for (let i = 0; i < 12; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.word.phase); if (ph === 'shown' || ph === 'resolving') break; await step(50); }
   await shot('m4-word-' + d.mode);
+  for (let i = 0; i < 8; i++) await step(150);
   return v && v.verdict;
 }
 async function answerBeat(s, right) {

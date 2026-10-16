@@ -62,19 +62,27 @@ export class TypeStation {
     const yaw = H.facingYaw(g, a);
     if (!this.mounted) { a.yaw = a.aimYaw = yaw; this.shot.mount(a); this.mounted = true; }
     else if (Math.abs(((yaw - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.4) { a.yaw = a.aimYaw = yaw; this.shot.rig.hullYaw = yaw; }
-    _v.set(a.pos.x + Math.sin(yaw) * FRAME.dist, a.pos.y, a.pos.z + Math.cos(yaw) * FRAME.dist);
-    const gy = G.level ? G.level.groundHeight(_v.x, _v.z, a.pos.y + 2.5) : -Infinity;
-    const targetY = gy > -Infinity && Math.abs(gy - a.pos.y) < 2.5 ? gy : a.pos.y;
-    _v.y = targetY + 0.1;
+    // the spot the word grows on: FRAME.dist m ahead on ground near her own level, with a clear line from her head to it;
+    // a wall, a ledge or a planter there pulls it closer (the ink word is about 4 m wide: it wants an open stretch)
+    let targetY = a.pos.y, dist = FRAME.dist;
+    for (const d of [FRAME.dist, 5.2, 4.2, 3.4]) {
+      _v.set(a.pos.x + Math.sin(yaw) * d, a.pos.y, a.pos.z + Math.cos(yaw) * d);
+      const gy = G.level ? G.level.groundHeight(_v.x, _v.z, a.pos.y + 1.0) : -Infinity;
+      const near = gy > -Infinity && Math.abs(gy - a.pos.y) < 0.9;
+      const clear = !G.physics || !G.physics.los || G.physics.los(_w.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _v.set(_v.x, (near ? gy : a.pos.y) + 1.4, _v.z));
+      dist = d; targetY = near ? gy : a.pos.y;
+      if (near && clear) break;
+    }
+    _v.set(a.pos.x + Math.sin(yaw) * dist, targetY + 0.1, a.pos.z + Math.cos(yaw) * dist);
     this.shot.opts.groundY = targetY;
     this.shot.begin({ mode, target: _v.clone() });
     this.keys.setMode(mode); this.keys.clear(); this.keys.setHintUsed(false); this.keys.show();
-    this.cur = { g, item, p, mode, yaw, targetY, t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '' };
+    this.cur = { g, item, p, mode, yaw, targetY, dist, t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '' };
     this.cur.pose = this._pose('type');
     H.strip?.show(p, { replay: () => H.say(p.tts, { slow: !!(p._tip && p._tip.slow) }) });
     H.strip?.fit(H.m1._topKeys());
     if (p.tts) H.say(p.tts, { slow: !!(p._tip && p._tip.slow) });
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, mode });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, mode, dist, dy: +(targetY - a.pos.y).toFixed(2) });
     return true;
   }
 
@@ -82,7 +90,7 @@ export class TypeStation {
   _pose(phase, text) {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = innerWidth, H = innerHeight, aspect = W / H;
-    const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0 };
+    const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0, dist: C.dist };
     if (phase === 'word') { const b = wordBox(text || C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.targetY + 0.1 + this.shot.lift - a.pos.y }; }
     const f = frameFor(o);
     const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw);

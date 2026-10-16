@@ -173,11 +173,12 @@ export class PlayHost {
       const P = G.physics;
       for (const [lx, lz] of STAGE_PTS) {
         const x = q.x + cy * lx + sy * lz, z = q.z - sy * lx + cy * lz;
-        const gy = L.groundHeight(x, z, q.y + 1.2);
-        const flat = gy > -Infinity && Math.abs(gy - q.y) < 0.35;
+        // the pad and its rim near-flat at the stage's level (a fountain basin, a step: not flat), on the nav grid, and
+        // nothing low or high standing between the home pad and it (the pads have no collision: she hops over the ground)
+        let flat = true;
+        for (const [rx, rz] of [[0, 0], [0.65, 0], [-0.65, 0], [0, 0.65], [0, -0.65]]) { const gy = L.groundHeight(x + rx, z + rz, q.y + 1.2); if (!(gy > -Infinity && Math.abs(gy - q.y) < 0.3)) { flat = false; break; } }
         const walk = nav.nearest(_v.set(x, q.y, z), 0.8, true) >= 0;
-        // and nothing standing between the home pad and it (a fountain, a planter: the pads have no collision, she hops over)
-        const clear = !P || !P.los || P.los(_w.set(q.x, q.y + 0.9, q.z), _v.set(x, q.y + 0.9, z));
+        const clear = !P || !P.los || (P.los(_w.set(q.x, q.y + 0.4, q.z), _v.set(x, q.y + 0.4, z)) && P.los(_w.set(q.x, q.y + 1.1, q.z), _v.set(x, q.y + 1.1, z)));
         if (flat && walk && clear) ok++; else dev += flat && clear ? 0.5 : 1;
       }
       const score = ok * 2 - dev - acc * 0.04;

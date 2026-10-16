@@ -150,6 +150,9 @@ export class LearnFlow {
     const signs = this.level.signs || [], nav = G.nav, path = this.path || [];
     this.signs = [];
     if (!signs.length || path.length < 4 || typeof document === 'undefined') return;
+    // (题即玩法 play-wire: the placeholders stood exactly where the last gate's objects float; the host's own stations —
+    // the echo booth, the check-in pad, the boards — take the exit area, LEARN §22)
+    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') return;
     const end = nav.nodes[path[path.length - 1]], back = nav.nodes[path[Math.max(0, path.length - 6)]];
     let fx = end.x - back.x, fz = end.z - back.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
     const sx = -fz, sz = fx, col = G.teamColors[0] || new THREE.Color('#ff8a14');
