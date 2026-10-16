@@ -123,8 +123,14 @@ export class BeatStation {
     if (this.host.resized) B.relayout(innerWidth / innerHeight);
   }
   clear() {
-    this.cur = null; this.open = null;
-    if (this.beat) { this.beat.close(); this.beat.unmount(); }
+    this.cur = null;
+    const B = this.beat, a = this.match.local, o = this.open;
+    this.open = null;
+    if (!B) return;
+    B.close(); B.unmount();
+    // the gate opened while she stood on an answer pad: the pads have no collision and a side pad can lie off the nav
+    // grid (a railing, a planter); the home pad is a route node — she steps back onto it so the walk on has a path
+    if (a && o && G.nav && B.at.pad !== 0 && G.nav.nearest(a.pos, 0.8, true) < 0) { a.pos.set(o.origin.x, o.origin.y + 0.05, o.origin.z); a.vel?.set(0, 0, 0); this.log.push({ t: +this.flow.t.toFixed(2), ev: 'home' }); }
   }
   debug() {
     const C = this.cur, B = this.beat;
