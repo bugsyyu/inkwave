@@ -184,10 +184,14 @@ for (const viewName of VIEWS_WANT) { try {
     let plainHit = null;
     for (let i = 0; i < 70; i++) { await step(16.7); const r = await ev((h0) => { const d = __inkwave.match.learn.arena.m1.debug(); const hits = (d.log || []).filter((e) => e.ev === 'hit'); return hits.length > h0 ? hits[hits.length - 1] : null; }, hitsBefore); if (r) { plainHit = r; break; } }
     const s2 = await state();
-    check(!!plainHit && plainHit.deliberate === false, `${label}: a plain round of hers met the object (deliberate: false)`, plainHit || 'no hit logged');
+    // (on the boss a plain round may meet HULLBREAKER's own shell first — that is a boss hit, not an answer: only logged)
+    if (FORM === 'boss' && !plainHit) say(`info ${label}: the plain round met the boss (or fell short) before the ball — no answer either way`);
+    else check(!!plainHit && plainHit.deliberate === false, `${label}: a plain round of hers met the object (deliberate: false)`, plainHit || 'no hit logged');
     check(s2.answers.length === before && !s2.dbg.m1.answered, `${label}: … and answered nothing (learn:answer unchanged, the question still up)`, { answers: s2.answers.length, before });
     // the tap on the right object → the round, the hit on it, the answer
-    const q = d.projected.find((x) => x.i === right);
+    // (where it is NOW: the boss's balls ride a walking boss, the lens follows them)
+    const dNow = await ev(() => __inkwave.match.learn.arena.m1.debug());
+    const q = (dNow.projected.length ? dNow.projected : d.projected).find((x) => x.i === right);
     if (V.touch) await tapAt(q.kind === 'ball' ? q.cx : q.x + q.w / 2, q.kind === 'ball' ? q.cy : q.y + q.h / 2);
     else { for (let pass = 0; pass < 4; pass++) { await ev((k) => { const P = __inkwave.match.learn.arena.m1, rig = __inkwave.rig, cam = rig.gameCam; const c = P.T.slots[k].pos; const dx = c.x - cam.position.x, dy = c.y - cam.position.y, dz = c.z - cam.position.z; rig.yaw = Math.atan2(dx, dz); rig.pitch = Math.atan2(dy, Math.hypot(dx, dz)); }, right); await step(16.7); } await ev(() => __inkwave.debug.fire(true)); await step(16.7); await ev(() => __inkwave.debug.fire(false)); }
     const v = await untilAnswered();

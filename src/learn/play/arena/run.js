@@ -10,7 +10,7 @@
 // for LEARN.arena.frameFor s when a question comes (her own look ends it). A round of hers that meets an object while
 // she fights only splats on it (ShotTargets: deliberate = false) — never an answer.
 import * as THREE from 'three';
-import { G } from '../../../core/ctx.js';
+import { G, damp, dampAngle } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { PlayRun } from '../run.js';
 import { ArenaTargets } from './targets.js';
@@ -85,7 +85,8 @@ export class ArenaRun extends PlayRun {
       const dx = t.x - a.pos.x, dz = t.z - a.pos.z, d = Math.hypot(dx, dz);
       if (d > 1.5) yaw = Math.atan2(dx, dz);
       // the lens looks a little up at the cluster / the boss's eyes from behind her: the objects sit in the upper middle
-      pitch = Math.max(-0.2, Math.min(0.3, Math.atan2(t.y - (a.pos.y + 1.6), Math.max(3, d)) - 0.1));
+      // (the boss: up at the balls over its eyes — it stands 3.7 m tall at its eyes, she is within 13 m of it)
+      pitch = this.mode === 'boss' ? Math.max(-0.3, Math.min(0.9, Math.atan2(t.y + 0.4 - (a.pos.y + 1.85), Math.max(2, d)))) : Math.max(-0.2, Math.min(0.3, Math.atan2(t.y - (a.pos.y + 1.6), Math.max(3, d)) - 0.1));
     }
     this.frame = { yaw, pitch, still: true, t: 0, on: !this.reduced && !!rig, boom: rig ? rig.curDist : null, seen: true, blocked: 0 };
     C.placed = false;
@@ -218,8 +219,34 @@ export class ArenaRun extends PlayRun {
   update(dt) {
     super.update(dt);
     const C = this.cur; if (!C || !C.placed || this.match.paused) return;
-    if (C.cluster === 'boss') this._ride(); else this._orbit();
+    if (C.cluster === 'boss') { this._ride(); this._track(dt); } else this._orbit();
   }
+  // the boss's balls ride a walking, turning boss: while the question is up and she has not looked round herself, the
+  // follow camera keeps easing (dampAngle on the rig's own yaw / pitch, as the framing does) towards their middle — her
+  // look input ends it for this question; reduced motion: none
+  _track(dt) {
+    const C = this.cur, rig = G.rig, a = this.match.local, Fr = this.frame;
+    if (!C || C.answered || !rig || !a || this.reduced || (Fr && Fr.looked) || !this.T.n) return;
+    if (G.input && G.input.mouse && (G.input.mouse.dx || G.input.mouse.dy)) { if (Fr) Fr.looked = true; return; }
+    if (Fr && Fr.on) return;   // (PlayRun's own ease first)
+    _p.set(0, 0, 0); for (let k = 0; k < C.labels.length; k++) _p.add(this.T.centre(k, _e));
+    _p.multiplyScalar(1 / Math.max(1, C.labels.length));
+    const px = rig.pivot || _e.set(a.pos.x, a.pos.y + 1.85, a.pos.z);
+    const dx = _p.x - px.x, dz = _p.z - px.z;
+    rig.yaw = dampAngle(rig.yaw, Math.atan2(dx, dz), A.frameRate, dt);
+    rig.pitch = damp(rig.pitch, Math.max(-0.3, Math.min(0.9, Math.atan2(_p.y - px.y, Math.max(2, Math.hypot(dx, dz))))), A.frameRate, dt);
+  }
+  // the tagged round (a tap-shot / the crosshair's) is let through HULLBREAKER's own hit spheres on its way to the ball
+  // on the weak point (boss.js wraps Boss.segHit with this — weapons.js asks the boss after the question objects, but a
+  // claw or the shell may stand between her muzzle and the ball over the eye): kept by the round's prev vector, which is
+  // all segHit sees
+  _fire(k) {
+    const P = G.projectiles, n0 = P ? P.list.length : 0;
+    super._fire(k);
+    const p = P && P.list.length > n0 ? P.list[n0] : null;
+    if (p && p.playTag) { if (!this.tagged || this.tagged.size > 32) this.tagged = new Map(); this.tagged.set(p.prev, p); }
+  }
+  passes(prev) { const p = this.tagged && this.tagged.get(prev); return !!(p && G.playTargets === this.reg && this.reg.through(p)); }
   // the duel's cluster: its objects back in the world round the anchor, in the camera's basis as it is now
   _orbit() {
     const C = this.cur, cam = G.camera; if (!C.locals || !this.T.n) return;

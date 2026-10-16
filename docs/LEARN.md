@@ -852,3 +852,16 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
   3. `cam.release` 后 rig 的 `follow(actor, true)` 把镜杆重置到 `dist`，第一帧可能穿进她身后的墙，rig 自己的探杆下一帧就收回来。
   4. `hud.playMode(true)` 在展板框住时也会调（藏走路条）；谁 `playMode(false)` 要看 `flow.phase`（`wire/boards.js` 的 `on.unframed`）。
   5. 字弹的 `TypeShot` 一题结束 `_next` 在 Promise 里回流程；流程若在同一帧里 `clear()`（换站 / 门开），`InkWord.clear()` 会让等着的 Promise 落地，不会卡。
+
+## 24. play-5 交付（2026-10-16，分支 `play-5`：对抗赛 + 今日小考 → 区域里的靶场；Boss 周考 → 弱点 M5——PLAY §5.3、§5.4、§3 M5）
+
+**先读了什么**：PLAY §1（12 条逐条核）、§3 M1 / M4 / M5 / M7、§4 表的「对抗赛」「Boss」两列、§5.3、§5.4、§6、§10；本文 §18（题物 / 题条 / `_judgeRecord`）、§19（字弹的接口）、§21（回声亭）、§22（play-wire 的「接口」「交接」）；上一个子代理的 WIP 提交 `3b80c08` 的说明和它的全部代码（`src/learn/play/arena/*`、`forms/duel.js`、`forms/boss.js` 的改动、`play-strip.js` 的 `actions`、`tests/learn/play-arena.test.mjs`、`tools/learn/arena-audit.mjs`）；dev 的 `flow.js`（`_judgeRecord(g, item, p, ans, o)`）、`play/host.js`、`play/cam.js`、`wire/type.js`、`wire/exit.js`、`type/frame.js`、`type/rig.js`（托架、纸）、`core/touch.js`（`_down` 的跳过）、`game/cameraRig.js`（FOV、path 模式）、`game/weapons.js`（墨弹先过 `G.playTargets` 再过 Boss 的命中球）、`game/specials.js`（`giveShield`）、`boss/bossModel.js` / `bossModelGeo.js`（插口）；主会话看过 play-wire 截图后指出的两处（打字机位、打字时的准星）。
+
+**先定的**：
+1. **合并**：`git merge claude/upbeat-newton-virpn1`（`3eefc21`）没有冲突——`play/cam.js` 两边逐字节一样（WIP 就是抄的 play-wire），`config.js` 自动合并；合并后 183 / 183。
+2. **`_judgeRecord`**：对抗赛 / Boss 各自**覆盖**这个方法（名字和签名 `(g, item, p, ans, o)` 和 dev 的同一个，`o.hinted → H`、`o.self → S` 同义），卡片路（开关关掉）和墨靶、字弹、回声亭都只调它；不再有别的判分 / 写首答的地方（测试扫源码：两个形式里 `recordFirst(` 各一次，在 `_judgeRecord` 里）。没有改成调 `super._judgeRecord`：dev 的那条自己再判一次 `judge(item, ans)`，「我的写法也对」要的是 `judge(…, { claimed: true })` 的结果（不然 `S` 记成错），Boss 的「扣住」也要在写之前返回——这两样都得改 flow.js 不止一行。判分映射（翻牌 / 换问法 / 重排）在 `forms/common.js judgeAnswer` 和 flow.js 里各写了一遍，这是 B / E 时就有的，测试核两边写出同一片叶子；主会话合并时可以把 flow.js 那五行换成 `judgeAnswer(item, p, ans)`（一行）。
+3. **对抗赛的题簇**：按屏幕排（`layoutTargets`），放在朝区域中心、离镜头 `boom + 3…8.5 m` 的平面上，躲地面、躲挡视线的东西（play-1 的三条视线），然后钉在锚点上随相机转。她离区域中心超过 `askNear` 14 m 时一题最多等 `askWait` 6 s（WIP 里有这两个键没接）。
+4. **Boss 的弱点**：她离 Boss 的眼睛 ≤ `bossNear` 13 m（墨弹射程 12.5 m）时挂在插口上；远就最多等 `bossWait` 8 s，再远就浮成题簇（第一次审计里出题时她在 47.7 m 外）。
+5. **字弹的机位**（主会话的①）：不用 frame.js 的 `frameFor` 打字机位（它假设题条只占顶上 10 %、横屏放宽成「头低于最远那排」、没算纸跟着托架的行程），改用纯函数 `arenaTypeFrame`：题条真实底边到键盘真实顶边的带，纸在整段行程里的四角、键盘板、打击点、打到第 10 个字的行都在带里，头低于**中间那排**；宽屏再试题条左右两侧的角落，打字机哪里大放哪里；偏离屏幕中间靠**平移**相机（转相机会把纵深卷进高度，她的头就高过键盘）。位姿在她的身体坐标里算一次、每帧按她现在的位置换到世界（对抗赛里题来时她可能还在滑）。
+6. **打字时藏准星**（主会话的②）：`G.hud.xh.style.visibility = 'hidden'`，站清掉时还原（hud.js 每次换武器重写 class，不碰 inline style）。
+7. **备战板**照旧停住比赛（轮与轮之间、M6 课文），见拿不准的。

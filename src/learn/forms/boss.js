@@ -78,6 +78,9 @@ export class BossFlow extends LearnFlow {
     const b = this.boss; if (!b) return;
     const orig = b.applyDamage.bind(b);
     b.applyDamage = (atk, d, weak, point) => (atk && atk._learnHit ? orig(atk, d, weak, point) : (b.model?.flash?.(0.25, !!weak), 0));
+    // (题即玩法: her tap-shot at a ball on a weak point flies through the boss's own hit spheres — arena/run.js passes())
+    const seg = b.segHit.bind(b);
+    b.segHit = (p0, p1, pad) => (this.arena && this.arena.m1.passes(p0) ? null : seg(p0, p1, pad));
   }
 
   // ---------------------------------------------------------------------------------------------- phases
