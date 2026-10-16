@@ -8,6 +8,9 @@
 //   · boom, height, look-ahead and field of view per aspect — upright phone: higher, steeper and wider (a 4-lane row
 //     has to fit 390 px); landscape and desktop: lower and longer — blended on the aspect, sprung on a turn of the phone
 //   · a soft wall probe (physics.cameraProbe) pulls the boom in before a wall comes between them
+//   · a station's pose (play-4: play-type's frames on the 滑行段, a framed board — world { pos, look, fov }) is blended
+//     in and out on a spring weight (the same convention as the play stations: path mode, a spring, fov through the
+//     rig — never a cut); the pose itself moves with her, so the blend is the only easing it needs
 import * as THREE from 'three';
 import { G, clamp, smoothstep } from '../../../core/ctx.js';
 import { at } from './track.js';
@@ -31,6 +34,7 @@ export class RunnerCam {
     this.px = new Spring(); this.py = new Spring(); this.pz = new Spring(); this.yaw = new Spring();
     this.f = [new Spring(), new Spring(), new Spring(), new Spring(), new Spring()];
     this.boom = new Spring(1); this.on = false; this.fresh = true;
+    this.ow = new Spring(0); this.ov = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52 };   // a station's pose and its weight
   }
   // take the lens from the rig: from wherever the camera is now (the intro's fly-in ends behind her)
   take(rig) {
@@ -47,8 +51,9 @@ export class RunnerCam {
   }
 
   // a: her actor; T + s: the road and where she is on it; yawRoad: an override heading (a detour branch) or null;
-  // focus: { x, y, z, w } — the row being asked (PLAY §6.2 镜头框住题物): heading and look point lean towards it by w
-  update(dt, a, T, s, aspect, yawRoad = null, focus = null) {
+  // focus: { x, y, z, w } — the row being asked (PLAY §6.2 镜头框住题物): heading and look point lean towards it by w;
+  // pose: a station's { pos, look, fov } (world) to blend to, or null
+  update(dt, a, T, s, aspect, yawRoad = null, focus = null, pose = null) {
     const rig = this.rig, cam = G.camera;
     if (!rig || !cam || !a) return;
     if (rig.mode !== 'path' || rig.path) { rig.mode = 'path'; rig.path = null; }
@@ -90,17 +95,27 @@ export class RunnerCam {
     let k = 1;
     if (G.physics?.cameraProbe) { G.physics.cameraProbe(pivot, _b, bl, 0.45, _probe); k = clamp(_probe.soft / bl, 0.3, 1); }
     const kb = this.boom.step(k, k < this.boom.x ? 18 : 3, dt);
-    cam.position.set(x + bx * kb, y + ph + by * kb, z + bz * kb);
+    let cx = x + bx * kb, cy = y + ph + by * kb, cz = z + bz * kb;
     cam.up.set(0, 1, 0);
     // (a wall-shortened boom sits the lens low: look further down then, so the road and the boards stay mid-screen and
     // never climb under the question strip)
     let lx = x + fx * ahead, ly = y + lookH - (1 - kb) * 1.6, lz = z + fz * ahead;
     const fw = this.fw = (this.fw || 0) + ((focus ? focus.w : 0) - (this.fw || 0)) * Math.min(1, dt * 4);   // (eased in and out)
     if (focus && fw > 0.001) { lx += (focus.x - lx) * fw * 0.5; ly += (focus.y - ly) * fw * 0.5; lz += (focus.z - lz) * fw * 0.5; }
-    cam.lookAt(lx, ly, lz);
     // field of view: rig fov = vBase + (fovKick − zoom) · 0.8 in path mode; a touch wider at swim speed
     const sp = Math.hypot(a.vel.x, a.vel.z);
-    const want = vfov + clamp((sp - 8) * 0.6, 0, 4);
+    let want = vfov + clamp((sp - 8) * 0.6, 0, 4);
+    // a station's pose: weighed in on a spring (and out again from the last pose given)
+    if (pose) { this.ov.pos.copy(pose.pos); this.ov.look.copy(pose.look); this.ov.fov = pose.fov || want; }
+    const w = this.ow.step(pose ? 1 : 0, 3.2, dt);
+    if (w > 0.001) {
+      const O = this.ov;
+      cx += (O.pos.x - cx) * w; cy += (O.pos.y - cy) * w; cz += (O.pos.z - cz) * w;
+      lx += (O.look.x - lx) * w; ly += (O.look.y - ly) * w; lz += (O.look.z - lz) * w;
+      want += (O.fov - want) * w;
+    }
+    cam.position.set(cx, cy, cz);
+    cam.lookAt(lx, ly, lz);
     const base = G.settings?.fov ?? 82;
     const vBase = 2 * Math.atan(Math.tan((base * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI);
     rig.zoom = 0; rig.fovKick = (want - vBase) / 0.8;

@@ -9,7 +9,8 @@
 //   Straight through the gap between two curtains (where each row starts her) is no answer: no evidence, asked again.
 // 听辨对子 / 音标 rows are beat rows (M3 in the runner): the curtains pulse to music.js, the word comes a bar before the
 // downbeat she reaches the row on, and a lane change inside the beat window adds a bigger boost and a flourish — the
-// lane alone is the answer (PLAY §1 rule 4). Typed items: a clearly-marked 滑行段 stub (the typing weapon is play-type's).
+// lane alone is the answer (PLAY §1 rule 4). Typed items (单词卡 / 听写句 / 写句): the 滑行段 — play-type's rig and the game
+// keyboard on the road (glide.js: the tide slows, the bots slow the same, she types while the ink carries her on).
 //
 // Never a pause, never a hold: match.paused stays false and match.learn.hold is never set while she runs (the results
 // card at the very end holds the finished match, like every form's). No card: hud-learn's question layer is never asked.
@@ -24,7 +25,7 @@ import * as THREE from 'three';
 import { G, on, clamp, damp } from '../../../core/ctx.js';
 import { LEARN, PLAYER } from '../../../config.js';
 import { RaceFlow } from '../../forms/race.js';
-import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf } from '../../forms/common.js';
+import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf } from '../../forms/common.js';
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { laneCenters, dividerStart, laneOf, nextLane, readLead, leadDistance, beatGrid, onBeat, beatPulse, syncTide } from './lanes.js';
@@ -33,6 +34,7 @@ import { detourBranch, branchLine, branchAt } from './detour.js';
 import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, rowAnswer, planCourse } from './rows.js';
 import { RowView, HerMark } from './view.js';
 import { RunnerCam } from './cam.js';
+import { GlideStation, glideMove } from './glide.js';
 import { RunnerTips } from './tips.js';
 import { PlayStrip } from '../../../ui/play-strip.js';   // play-1's question strip: the one strip of every play kind (play-4)
 import { say, stop as stopVoice } from '../../audio.js';
@@ -42,10 +44,9 @@ const _p = {}, _q = {}, _pr = {};
 const TAGS = ['A', 'B', 'C', 'D'];
 const FAR = new THREE.Vector3(1e6, 0, 1e6);
 
-// play-type's typing rig plugs in here (LEARN §20 「接口」): RunnerFlow.typed = async ({ items, gate, flow }) => { … }.
-// It answers each item through engine.judge → store.recordFirst itself and resolves when done; the 滑行段 lasts at least
-// LEARN.runner.glide m and until it resolves. The stub answers nothing — no evidence for typed items yet.
-const typedStub = async () => ({ answered: 0, stub: true });
+// the 滑行段's hook (LEARN §20 「接口」): RunnerFlow.typed = async ({ items, gate, flow, row }) => { … } — the default is
+// glide.js (play-type's rig); a test or a lab may hand in its own. The stretch lasts at least LEARN.runner.glide m and
+// until it resolves.
 
 export class RunnerFlow extends RaceFlow {
   // hud-learn's question card is never used (LearnFlow's ctor assigns it and calls start(): both land here and do
@@ -63,7 +64,9 @@ export class RunnerFlow extends RaceFlow {
     this.rows = []; this.lastEnd = this.RR.firstRow; this.paintS = -4; this.detour = null; this.leapS = null;
     this.queue = this.entries.map((e) => ({ ...e, tries: 0, noAns: 0, alt: false }));
     this.stats = { rows: 0, answered: 0, right: 0, wrong: 0, noAnswer: 0, beatRows: 0, onBeat: 0, offBeat: 0, detours: 0, branches: 0, glides: 0, skipped: [] };
-    this.typed = opts.typed || RunnerFlow.typed || typedStub;
+    this.glide = new GlideStation(this);
+    this.typed = opts.typed || RunnerFlow.typed || ((o) => this.glide.run(o));
+    this.fairK = 1;   // the slow the bots share with her (a glide, a board stretch): × their move
     this._in = []; this._jumpQ = false; this._diveQ = false; this._padLat = 0; this._lastFrame = -1;
     this.stop = false; this.boards = null; this.phase = 'walk';
     this.cam = new RunnerCam();
@@ -92,11 +95,12 @@ export class RunnerFlow extends RaceFlow {
     this.loop = loop; this.loopN = loop.length;
     this.T = buildTrack(nav.nodes, loop, { keep: straighten(nav, loop, { edgeType: et }), edgeType: et });
     this.W = clearWidths(nav, this.T);
-    this.entries = entriesOf(this.level.gates);
+    this.entries = entriesOf(this.level.gates, this.level.signs, { short: !!this.level.short });
     const plan = planCourse(this.entries, this.T, this.W, R, { swimSpeed: PLAYER.swimSpeed });
-    const rowsN = this.entries.filter((e) => e.kind !== 'glide').length;
+    const rowsN = this.entries.filter((e) => e.kind !== 'glide').length, typedN = this.entries.reduce((n, e) => n + (e.kind === 'glide' ? e.items.length : 0), 0);
     this.lapsPlan = Math.max(1, Math.ceil((plan.end + 20) / this.T.len));
-    const spare = Math.ceil(((rowsN * 0.35 + LEARN.relearnMax) * 32) / this.T.len) + 1;   // retries, no-answers, 回炉
+    // retries, no-answers, 回炉 — and the typing: a 滑行段 lasts as long as its items take (≈ 14 s a word at the glide tide)
+    const spare = Math.ceil(((rowsN * 0.35 + LEARN.relearnMax) * 32 + typedN * 14 * R.glideTide * PLAYER.swimSpeed) / this.T.len) + 1;
     this.laps = this.lapsPlan + spare;
     const path = loop.slice(); for (let k = 1; k < this.laps; k++) for (let i = 1; i < loop.length; i++) path.push(loop[i]);
     this.path = path; this.cum = cumulative(nav.nodes, path);
@@ -172,6 +176,7 @@ export class RunnerFlow extends RaceFlow {
     const I = G.input, fr = G.game && G.game._frameN != null ? G.game._frameN : G.time;
     if (fr === this._lastFrame || !I) return;   // (a slow frame runs two sub-steps: read a key once)
     this._lastFrame = fr;
+    if (this.glide.typing) return;   // (the game keyboard has the keys; a swipe is nothing on the 滑行段)
     const pr = (c) => I.wasPressed(c);
     if (pr('KeyA') || pr('ArrowLeft')) this._in.push('left');
     if (pr('KeyD') || pr('ArrowRight')) this._in.push('right');
@@ -187,7 +192,7 @@ export class RunnerFlow extends RaceFlow {
     }
   }
   _apply(dir) {
-    if (!this.started || this.stop) return;
+    if (!this.started || this.stop || this.glide.active) return;
     if (dir === 'up') { this._jumpQ = true; return; }
     if (dir === 'down') { this._diveQ = true; return; }
     if (this.detour && this.detour.line) return;   // (the branch steers)
@@ -211,8 +216,9 @@ export class RunnerFlow extends RaceFlow {
     this.clock += dt;
     const txt = `圈 ${fmtClock(this.clock)}`;
     if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
-    for (const r of this.racers) this._botLap(r, dt);
+    for (const r of this.racers) { this._botLap(r, dt); if (this.fairK < 1 && r.state === 'run') r.a.intent.move.multiplyScalar(this.fairK); }   // (fair: the bots slow with her on a 滑行段 / by the boards)
     if ((this._rankT -= dt) <= 0) { this._rankT = 0.5; this.me.progress = this.cum[this.pathIndexAt(Math.max(0, this.sNow))]; this._rank(); }
+    this.glide.update(dt);
     this._propKey(a);
     this._readInput();
     while (this._in.length) this._apply(this._in.shift());
@@ -229,7 +235,7 @@ export class RunnerFlow extends RaceFlow {
   // she should never stand: pushed against something for 0.6 s → a hop; 2 s → the game's own super jump back onto the
   // road a few metres on (a railing, a prop the lap brushes, a ledge she met off-centre)
   _unstick(a, dt) {
-    if (!a.alive || a.superJumpState || this.stop) { this._stuckT = 0; return; }
+    if (!a.alive || a.superJumpState || this.stop || this.fairK < 1) { this._stuckT = 0; return; }   // (a slow stretch is not a snag)
     const P = this._stuckP || (this._stuckP = { x: a.pos.x, z: a.pos.z });
     if (Math.hypot(a.pos.x - P.x, a.pos.z - P.z) > 0.8) { P.x = a.pos.x; P.z = a.pos.z; this._stuckT = 0; return; }
     const was = this._stuckT || 0;
@@ -291,12 +297,12 @@ export class RunnerFlow extends RaceFlow {
         continue;
       }
       const item = e.item;
-      let p = rowPrompt(item, { alt: e.alt });
+      let p = rowPrompt(item, { alt: e.alt, base: e.prompt });
       const lanes = rowLanes(item, p, R.banner);
       const lead = readLead(rowLabels(item, p).map(labelText), R.lead), D = leadDistance(lead, v);
       const want = Math.max(this.lastEnd + D, this.sNow + D + 1.5);
       const spot = placeRow(this.T, this.W, want, lanes, { laneW: R.laneW, gap: R.gap, runIn: R.runIn, runOut: R.runOut, slide: R.slide, search: this.T.len * 2 }) || { s: want, lanes, c: 0 };
-      if (spot.lanes < p.options.length) p = rowPrompt(item, { order: p._perm, lanes: spot.lanes });
+      if (spot.lanes < p.options.length) p = rowPrompt(item, { order: e.prompt ? null : p._perm, lanes: spot.lanes, base: e.prompt ? p : null });
       if (e.alt) p.text = p.text.startsWith('换个问法') ? p.text : '换个问法：' + p.text;
       if (e.relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
       const labels = rowLabels(item, p), banner = labels.some((l) => isBanner(l, R.banner));
@@ -423,8 +429,8 @@ export class RunnerFlow extends RaceFlow {
       focus = this._focus || (this._focus = {});
       focus.x = _q.x + _q.rx * row.c; focus.y = _q.y + 1.1; focus.z = _q.z + _q.rz * row.c; focus.w = w;
     }
-    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus);
-    this.mark.update(a, Math.atan2(a.vel.x, a.vel.z));
+    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : null);
+    this.mark.update(this.glide.active ? null : a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);
   }
   _aspect() { const c = G.camera; return c && c.aspect ? c.aspect : (typeof innerWidth !== 'undefined' ? innerWidth / innerHeight : 16 / 9); }
@@ -452,6 +458,8 @@ export class RunnerFlow extends RaceFlow {
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g ? g.id : 'gate:relearn', lane, beat, relearn: !!row.e.relearn, kind: row.kind });
     if (r.ok) this._rightRow(row, lane, beat); else this._wrongRow(row, lane, r);
+    // (a typed word's 「选义」 row: picked right → it is typed again next, PLAY §4 「再回来打」; missed → the answer was given)
+    if (row.e.then && r.ok) this.queue.unshift(row.e.then);
     this._checkGates();
   }
 
@@ -568,8 +576,14 @@ export class RunnerFlow extends RaceFlow {
       if (this.relearn.length && !this.relearnAsked) {   // 回炉: the missed items once more, with their help, before the line
         this.relearnAsked = true;
         // (the item marked _relearn like the race's 回炉门: a miss there is not queued again and takes no detour)
-        for (const it of relearnPlan(this.relearn)) this.queue.push({ gate: this.gates.length, kind: it.meta && (it.meta.kind === 'pair' || it.meta.kind === 'sym') ? 'beat' : 'lane', item: { ...it, _relearn: true }, tries: 1, noAns: 0, alt: true, relearn: true });
-        this.ui.say(`回炉：错过的 ${this.queue.length} 题再来一次`);
+        const typed = [];
+        for (const it of relearnPlan(this.relearn)) {
+          const m = it.meta || {};
+          if (m.input === 'type' || m.input === 'write') typed.push({ ...it, _relearn: true });   // (typed again on the rig, with its help)
+          else this.queue.push({ gate: this.gates.length, kind: m.kind === 'pair' || m.kind === 'sym' ? 'beat' : 'lane', item: { ...it, _relearn: true }, tries: 1, noAns: 0, alt: true, relearn: true });
+        }
+        if (typed.length) this.queue.push({ gate: this.gates.length, kind: 'glide', items: typed, relearn: true, tries: 1, noAns: 0 });
+        this.ui.say(`回炉：错过的 ${this.queue.reduce((n, e) => n + (e.kind === 'glide' ? e.items.length : 1), 0)} 题再来一次`);
         return;
       }
       this.phase = 'final';
@@ -578,21 +592,26 @@ export class RunnerFlow extends RaceFlow {
     }
   }
 
-  // ---------------------------------------------------------------------------------------------- 滑行段 (typed: a stub)
+  // ---------------------------------------------------------------------------------------------- 滑行段 (typed items)
+  // the stretch's items go to the typing rig (glide.js, or a `typed` hook handed in); the row stays shown — the tide
+  // slow, the bots slow with her — until they are all answered and she is past its end
   _glide(row) {
     this.stats.glides++;
-    const items = row.e.items, g = this.gates[row.gate];
-    this._ask('glide', { text: `滑行段：这一站的 ${items.length} 个打字题`, zh: '字弹（游戏键盘）在下一期接上 · 这一次先滑过去，不计分', tts: null });
-    this._emit('learn:glide', { gate: g ? g.id : null, items: items.length, stub: this.typed === typedStub });
+    const e = row.e, items = e.items;
+    const g = this.gates[row.gate] || (e.exit ? this._exitGate(e) : this._relearnGate());
+    this._emit('learn:glide', { gate: g.id, items: items.length, relearn: !!e.relearn, exit: !!e.exit });
     row.typedDone = false;
-    Promise.resolve().then(() => this.typed({ items, gate: g, flow: this })).catch((e) => console.warn('[runner] typed', e)).then(() => { row.typedDone = true; });
+    Promise.resolve().then(() => this.typed({ items, gate: g, flow: this, row })).catch((err) => console.warn('[runner] typed', err)).then(() => { row.typedDone = true; });
   }
+  _exitGate(e) { return this._exitG || (this._exitG = { id: e.signId || 'gate:write', title: '写字墙', index: this.gates.length, locks: 0, queue: [] }); }
+  _relearnGate() { return this._relearnG || (this._relearnG = { id: 'gate:relearn', title: '回炉', index: this.gates.length, locks: 0, queue: [] }); }
   _glideDone(row) {
     row.state = 'done'; row.doneT = 0;
     this.strip.hide();
     // (a typing rig that took longer than the stretch: rows built behind where she now is go back to the queue)
     for (let i = this.rows.length - 1; i >= 0; i--) { const r = this.rows[i]; if (r.state === 'built' && r.sAppear < this.sNow + 2) { r.view?.dispose(); this.rows.splice(i, 1); this.queue.unshift(r.e); } }
     this.lastEnd = Math.max(this.lastEnd, this.sNow + 2);
+    if (this.finish && this.lastEnd + 20 > this.finish.s && this.phase !== 'final') this._setFinish(this.lastEnd + 20);
     this._checkGates();
   }
 
@@ -624,12 +643,13 @@ export class RunnerFlow extends RaceFlow {
   // the branch's own pace on a detour; × a boost after a right curtain, × the coral slow after a wrong one
   _tide(dt) {
     const R = this.RR, row = this._shown(), D = this.detour;
-    let k = 1;
+    let k = 1, fair = 1;
     if (D && D.line) k = D.k;
     else if (D && D.slow) { k = 0.45; if ((D.t -= dt) <= 0) this.detour = null; }
     else if (row && row.kind !== 'glide' && this.sNow < row.s + 0.5) k = row.tide || R.tide;
-    else if (row && row.kind === 'glide') k = 0.85;
+    else if (row && row.kind === 'glide') { k = R.glideTide; fair = R.glideTide; }   // (she types: slow — and the bots just as slow)
     this.tideK = damp(this.tideK, k, 3.2, dt);
+    this.fairK = damp(this.fairK, fair, 3.2, dt);
     this.swimK = this.tideK * (this.boostT > 0 ? this.boostK : 1) * (this.slowT > 0 ? R.slow[0] : 1);
   }
 
@@ -661,6 +681,11 @@ export class RunnerFlow extends RaceFlow {
     let dx = tx - a.pos.x, dz = tz - a.pos.z; const dl = Math.hypot(dx, dz) || 1;
     it.move.set(dx / dl, 0, dz / dl);
     it.squid = true;   // (a squid all the way: a kid on the ink walks at 6 m/s and no swim boost reaches her)
+    // the 滑行段: a kid riding the typing rig (a submerged squid is invisible; the crab special rides the same way), at
+    // the glide tide's pace — her run speed × the move's magnitude (actor.js _horizontal); no swipes, only the lap's own
+    // jump-up edges below
+    const glide = this.glide.active;
+    if (glide) { it.squid = false; it.move.multiplyScalar(glideMove()); this._jumpQ = this._diveQ = false; }
     let jump = this._jumpQ;
     if (!jump && a.grounded && !(D && D.line)) {   // the lap's jump-up edges (0.5–1.25 m): hop them like the auto-walk does
       // (a quarter second ahead: a swim jump is 1.5 m up by then, over the highest jump edge — 1.25 m — at any speed)
@@ -681,7 +706,7 @@ export class RunnerFlow extends RaceFlow {
     const r = roomAt(this.T, this.W, sr, 0.45);
     let lo = -r.left, hi = r.right;
     if (row && row.kind !== 'glide' && s >= row.sAppear - 2 && s <= row.s + 1.5) { lo = Math.max(lo, row.centers[0] - 0.35); hi = Math.min(hi, row.centers[row.centers.length - 1] + 0.35); if (lo > hi) lo = hi = row.centers[0]; }
-    else if (row && row.kind === 'glide') { const amp = Math.min(1.2, r.left, r.right); this.latT = amp * Math.sin(((s - row.s0) / Math.max(1, row.s1 - row.s0)) * Math.PI * 2); }
+    else if (row && row.kind === 'glide') { this.latT = damp(this.latT, 0, 1.5, 1 / 60); }   // (the ink carries her down the middle while she types)
     // onto the middle of the road for a jump-up edge just ahead and for the line (the lap's own way up a ledge / onto the
     // start deck is the route's line; a metre off it the ledge may be a wall)
     const T = this.T, base = Math.floor(s / T.len) * T.len;
@@ -787,7 +812,7 @@ export class RunnerFlow extends RaceFlow {
       { b: `第 ${this.place} 名`, t: `· 用时 ${fmtClock(this.clock)}（名次只是奖杯，不进星）` },
       { b: `${this.firstRight} / ${this.scoredN}`, t: '首答答对' },
       this.stats.beatRows ? { b: `${this.stats.onBeat} / ${this.stats.beatRows}`, t: '节拍行踩在拍子上（只管加速，不管对错）' } : '',
-      this.stats.glides ? `滑行段 ${this.stats.glides} 段：打字题这次没计分（下一期接上字弹）` : '',
+      this.stats.glides ? { b: `${this.glide.stats.right} / ${this.glide.stats.asked}`, t: `滑行段打字答对（${this.stats.glides} 段${this.glide.stats.hinted ? `，用了 ${this.glide.stats.hinted} 次提示` : ''}）` } : '',
       this.relearn.length ? { b: `${this.relearnRight} / ${this.relearn.length}`, t: '回炉清了' } : '没有要回炉的',
       stars > st.before ? `星星 ${st.before} → ${stars}` : `星星 ${stars}（只涨不掉）`,
     ].filter(Boolean), stars);
@@ -802,8 +827,13 @@ export class RunnerFlow extends RaceFlow {
       const v = new RowView(fake, this.T); v.setVisible(true);
       G.scene.add(v.group); G.renderer.compile(v.group, G.camera); G.scene.remove(v.group); v.dispose();
     } catch (e) { console.warn('[runner] warm', e); }
+    this.glide.warm();   // (the typing rig, the ink word and the keyboard: built and compiled now, not on the road)
   }
-  rightAnswer() { const r = this._shown(); return r && r.kind !== 'glide' ? rightLane(r.item, r.p) : null; }
+  rightAnswer() {
+    const r = this._shown();
+    if (r && r.kind === 'glide') { const C = this.glide.cur; return C && !C.answered ? rightAnswerOf(C.item, C.p) : null; }   // (the text to type)
+    return r ? rightLane(r.item, r.p) : null;
+  }
   debug() {
     const a = this.match.local, row = this._shown();
     return {
@@ -816,6 +846,7 @@ export class RunnerFlow extends RaceFlow {
       detour: this.detour ? { branch: !!this.detour.line, u: this.detour.u != null ? +this.detour.u.toFixed(1) : null, len: this.detour.len || 0, k: this.detour.k || 0 } : null,
       clock: +this.clock.toFixed(1), bag: this.bag.slice(), stats: { ...this.stats, skipped: this.stats.skipped.length },
       racers: this.racers.map((r) => ({ id: r.id, cp: r.cp, state: r.state, finish: r.finish })), me: { cp: this.me.cp, finish: this.me.finish, place: this.place || null },
+      fairK: +this.fairK.toFixed(2), glide: this.glide.debug(),
     };
   }
   effects() { return { cur: this.cur, bag: this.bag.length, streak: this.streak, detour: !!this.detour, relearn: this.relearn.length }; }
@@ -826,6 +857,7 @@ export class RunnerFlow extends RaceFlow {
     for (const r of this.rows) r.view?.dispose();
     this.rows = [];
     this.cam.release(G.rig, this.match.local);
+    this.glide.dispose();
     this.mark.dispose();
     stopVoice(); this.strip.dispose(); this.tips.end();
     G.hud?.el?.classList.remove('is-learn', 'is-runner');
