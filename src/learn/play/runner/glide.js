@@ -181,7 +181,7 @@ export class GlideStation {
     C.verdict = { ok: r.ok, first, again, head: vl.head, why: vl.why, pct: r.pct ?? null, self: !!out.self };
     this.stats[r.ok ? 'right' : 'wrong']++;
     if (out.self) this.stats.self++;
-    F.strip.verdict(vl, { ms: r.ok ? 1600 : this.R.verdictMs + 600 });
+    F.strip.verdict(vl, { ms: r.ok ? 2600 : this.R.verdictMs + 1800 });   // (up through the shell's flight and the word's show)
     const E = r.ok ? EFFECTS.race.right : again ? EFFECTS.race.wrong : EFFECTS.race.wrong2;
     G.audio?.play?.(E.sfx, { volume: 0.7 });
     if (r.ok) { F.streak++; F.rightN++; if (item._relearn) F.relearnRight++; F._onRight(); }
@@ -225,33 +225,42 @@ export class GlideStation {
   // The band is the real one (PLAY §3 M4 机位: her head below the keyboard's middle row, the whole typewriter and the
   // paper between the question strip and the game keyboard): the strip's bottom edge as it stands on the screen (upright
   // in the runner it sits under the standings, ~ a quarter down — frame.js's default 0.1 would put the rig under it) and
-  // the keyboard's share. The search runs once per phase / band / aspect (frameFor is a search); the pose is re-based on
-  // her every frame. After 射 the lens looks at the word — until she has swum up to it (it stands on the road ahead of
-  // her): then it hands back to the chase camera (a held sentence may wait there for her tap).
+  // the keyboard's share. The search runs once per band / aspect (frameFor is a search); the typing pose is re-based on
+  // her every frame. After 射 the word's frame is taken once, in the world, aimed from where she was at 射 straight at
+  // the spot the word forms (frame.js wants it dead ahead; on the road it may stand a little to the side): the lens holds
+  // there while she swims on towards the word — she rides up into the picture — until she is at it (2.5 m): then it
+  // hands back to the chase camera (a held sentence may wait there for her tap). cam.js eases one pose into the next.
   _framed() {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = typeof innerWidth !== 'undefined' ? innerWidth : 1280, H = typeof innerHeight !== 'undefined' ? innerHeight : 720, aspect = W / H;
     const phase = C.answered ? 'word' : 'type';
     const yaw = this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : this.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
-    if (phase === 'word' && C.word) {
-      const ahead = (C.word.x - a.pos.x) * sy + (C.word.z - a.pos.z) * cy;
-      if (ahead < 2.5) C.passed = true;
-      if (C.passed) return null;
-    }
-    const kb = phase === 'type' && this.keys ? +this.keys.frac.toFixed(2) : 0;
     const sr = this.flow.strip && this.flow.strip.rect ? this.flow.strip.rect() : null;
     const top = sr ? +clamp(Math.round(((sr.bottom + 6) / H) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
-    const key = `${phase}|${aspect.toFixed(2)}|${kb}|${top}|${C.answered ? C.dist.toFixed(1) : ''}|${C.text}`;
+    if (phase === 'word') {
+      if (!C.word) return null;
+      const sp = Math.hypot(a.vel.x, a.vel.z), vx = sp > 0.5 ? a.vel.x : sy, vz = sp > 0.5 ? a.vel.z : cy, vl = Math.hypot(vx, vz) || 1;
+      const ahead = ((C.word.x - a.pos.x) * vx + (C.word.z - a.pos.z) * vz) / vl;
+      if (ahead < 2.5) C.passed = true;
+      if (C.passed) return null;
+      if (!C.wpose) {
+        const dx = C.word.x - a.pos.x, dz = C.word.z - a.pos.z, dist = Math.max(3, Math.hypot(dx, dz)), wy = Math.atan2(dx, dz), s2 = Math.sin(wy), c2 = Math.cos(wy);
+        const b = wordBox(C.text || 'word');
+        const f = frameFor({ phase: 'word', aspect, kbFrac: 0, topFrac: top, dist, word: { w: b.w, h: b.h, y: C.word.y - a.pos.y } });
+        C.wpose = { pos: new THREE.Vector3(a.pos.x + c2 * f.pos[0] + s2 * f.pos[2], a.pos.y + f.pos[1], a.pos.z - s2 * f.pos[0] + c2 * f.pos[2]), look: new THREE.Vector3(C.word.x, C.word.y, C.word.z), fov: f.fov, fits: f.fits };
+        this._f = { ...f, top, kb: 0 };
+      }
+      return C.wpose;
+    }
+    const kb = this.keys ? +this.keys.frac.toFixed(2) : 0;
+    const key = `${aspect.toFixed(2)}|${kb}|${top}`;
     if (this._fkey !== key) {
       this._fkey = key;
-      const o = { phase, aspect, kbFrac: kb, topFrac: top, dist: C.answered ? C.dist : undefined };
-      if (phase === 'word') { const b = wordBox(C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.word.y - a.pos.y }; }
-      this._f = frameFor(o); this._f.top = top; this._f.kb = kb;
+      this._f = frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); this._f.top = top; this._f.kb = kb;
     }
     const f = this._f, P = this._pose;
     P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);
-    if (phase === 'word' && C.word) P.look.set(C.word.x, C.word.y, C.word.z);
-    else P.look.set(a.pos.x + cy * f.look[0] + sy * f.look[2], a.pos.y + f.look[1], a.pos.z - sy * f.look[0] + cy * f.look[2]);
+    P.look.set(a.pos.x + cy * f.look[0] + sy * f.look[2], a.pos.y + f.look[1], a.pos.z - sy * f.look[0] + cy * f.look[2]);
     P.fov = f.fov; P.fits = f.fits;
     return P;
   }

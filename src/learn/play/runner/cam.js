@@ -13,7 +13,8 @@
 //     the road and the curtains show again; it lets down once the line is clear for a moment
 //   · a station's pose (play-4: play-type's frames on the 滑行段, a framed board — world { pos, look, fov }) is blended
 //     in and out on a spring weight (the same convention as the play stations: path mode, a spring, fov through the
-//     rig — never a cut); the pose itself moves with her, so the blend is the only easing it needs
+//     rig — never a cut); one station pose handing over to another (the typing frame → the ink word, one board → the
+//     next) eases across 0.8 s from the pose it was at (play-4: before, that hand-over was a cut)
 import * as THREE from 'three';
 import { G, clamp, smoothstep } from '../../../core/ctx.js';
 import { at } from './track.js';
@@ -39,6 +40,7 @@ export class RunnerCam {
     this.boom = new Spring(1); this.on = false; this.fresh = true;
     this.ow = new Spring(0); this.ov = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52 };   // a station's pose and its weight
     this.lift = new Spring(0); this.liftHold = 0; this.occl = { frames: 0, blocked: 0, still: 0 };   // the crane-up over a prop
+    this._poseObj = null; this.tr = null; this._trP = new THREE.Vector3(); this._trL = new THREE.Vector3(); this._trF = 52;   // a pose → pose hand-over
   }
   // take the lens from the rig: from wherever the camera is now (the intro's fly-in ends behind her)
   take(rig) {
@@ -123,7 +125,17 @@ export class RunnerCam {
     const sp = Math.hypot(a.vel.x, a.vel.z);
     let want = vfov + clamp((sp - 8) * 0.6, 0, 4);
     // a station's pose: weighed in on a spring (and out again from the last pose given)
-    if (pose) { this.ov.pos.copy(pose.pos); this.ov.look.copy(pose.look); this.ov.fov = pose.fov || want; }
+    if (pose) {
+      // another pose while one is (still) weighed in: ease from where the last one had the lens, never a cut
+      if (pose !== this._poseObj && this.ow.x > 0.02) { this._trP.copy(this.ov.pos); this._trL.copy(this.ov.look); this._trF = this.ov.fov; this.tr = { t: 0 }; }
+      this._poseObj = pose;
+      this.ov.pos.copy(pose.pos); this.ov.look.copy(pose.look); this.ov.fov = pose.fov || want;
+      if (this.tr) {
+        this.tr.t += dt; const k = smoothstep(0, 1, this.tr.t / 0.8);
+        this.ov.pos.lerpVectors(this._trP, pose.pos, k); this.ov.look.lerpVectors(this._trL, pose.look, k); this.ov.fov = this._trF + (this.ov.fov - this._trF) * k;
+        if (k >= 1) this.tr = null;
+      }
+    } else { this._poseObj = null; this.tr = null; }
     const w = this.ow.step(pose ? 1 : 0, 3.2, dt);
     if (w > 0.001) {
       const O = this.ov;

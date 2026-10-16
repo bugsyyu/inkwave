@@ -120,13 +120,20 @@
       }
       if (g.stage === 'fire') {
         press('fire');
-        await step(60);
-        let k = 0; while (k++ < 80) { const w = Gl.shot && Gl.shot.word; if (Gl.held || (w && (w.phase === 'shown' || w.phase === 'resolving' || w.phase === 'done'))) break; await step(50); }
+        await step(34);
+        // the shell flies, the word forms (grey): stop the moment it has formed — the first frame of its verdict, or
+        // (held) standing grey, waiting for her tap
+        let k = 0; while (k++ < 240) { const w = Gl.shot && Gl.shot.word; if (w && (w.phase === 'shown' || w.phase === 'resolving' || w.phase === 'done')) break; await step(17); }
         g.held = !!Gl.held; g.wordPhase = Gl.shot && Gl.shot.word ? Gl.shot.word.phase : null;
+        g.wordCam = { pose: !!(Gl.cur && Gl.cur.wpose), passed: !!(Gl.cur && Gl.cur.passed), fits: Gl._f ? Gl._f.fits : null };
         g.leavesHeld = g.held ? leaves(g.item) : null;
         if (g.held && g.leavesHeld !== g.leavesBefore) S.errors.push('glide ' + g.item + ': evidence written while held');
-        g.stage = g.held ? 'decide' : 'wait';
+        g.stage = g.held ? 'decide' : g.plan === 'wrong' ? 'wrongShot' : 'wait';
         if (gShot('word-' + g.typeMode)) { render(); return 'word-' + g.typeMode; }
+      }
+      if (g.stage === 'wrongShot') {   // a missed word plays its verdict: coral, sagging, the right spelling growing above it
+        g.stage = 'wait';
+        if (W.__glideShots && !(S.gShots && S.gShots.has('word-wrong'))) { await step(1100); if (gShot('word-wrong')) { render(); return 'word-wrong'; } }
       }
       if (g.stage === 'decide') {
         g.acts = [...document.querySelectorAll('.iw-ps__act')].map((b) => b.textContent);
