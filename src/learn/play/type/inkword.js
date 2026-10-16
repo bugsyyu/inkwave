@@ -289,8 +289,10 @@ export class InkWord {
         for (const f of [-0.6, 0.6]) if (half > 0.8) fx.explosion?.(_p.copy(c).addScaledVector(this.right, f * half), this.color, 0.9);
       }
     }
+    // sounds (CONTRACTS §2, LEVELS §5): the splash for the ink that bursts, the gate chime for a pass (a dictation
+    // passes at 80 % — it still shows the words she missed), the soft ui_back for a miss — never ui_error
     if (anyGood) this._play('splat_big', { pos: c, volume: 0.9 });
-    if (verdictOk) this._play('refill_full', { volume: 0.6 });
+    if (v.ok || verdictOk) this._play('refill_full', { volume: 0.6 });
     else if (anyBad) this._play('ui_back', { volume: 0.6 });
     // the correction: the right text above, her team ink; dictation marks the tokens she missed in coral
     if (!verdictOk && v.right) {

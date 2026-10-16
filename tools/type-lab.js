@@ -193,6 +193,17 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
+// the game keyboard: its keys drive the shot exactly as the gate flow will wire them
+const keys = new PlayKeys(document.getElementById('ui-root'), { mode, color: '#' + G.teamColors[TEAM].getHexString() });
+keys.onKey = (k) => shot.key(k);
+keys.onBackspace = () => shot.back();
+keys.onSubmit = () => window.lab.submit();
+keys.onHint = () => { shot.hint(); keys.setHintUsed(true); };
+keys.onReplay = () => G.audio?.play?.('ui_click');
+window.__kbFrac = keys.frac;
+frame('type');
+addEventListener('resize', () => { window.__kbFrac = keys.frac; });
+
 // ------------------------------------------------------------------ scripted control
 window.lab = {
   THREE, G, shot, rig, character, actor, scene, camera, renderer, R, target, ball, anim,
@@ -248,14 +259,5 @@ for (const b of document.querySelectorAll('#panel button')) b.addEventListener('
   else if (a === 'wrong') { if (shot.phase === 'typing') { if (!shot.text) for (const c of DEMO.word.typed) keys._press(c, keys.keyEls.get(c)); L.submit(); } L.resolve({ ok: false, right: DEMO.word.right }); }
   else if (a === 'pct') { if (shot.phase === 'typing') { if (!shot.text) for (const c of DEMO.sentence.typed) keys._press(c, keys.keyEls.get(c)); L.submit(); } L.resolve({ ok: false, pct: 71, right: DEMO.sentence.right, toks: [{ t: 'I', ok: true }, { t: 'usually', ok: true }, { t: 'get', ok: true }, { t: 'up', ok: true }, { t: 'at', ok: true }, { t: 'seven', ok: true }, { t: "o'clock.", ok: false }] }); }
 });
-// the game keyboard: its keys drive the shot exactly as the gate flow will wire them
-const keys = new PlayKeys(document.getElementById('ui-root'), { mode, color: '#' + G.teamColors[TEAM].getHexString() });
-keys.onKey = (k) => shot.key(k);
-keys.onBackspace = () => shot.back();
-keys.onSubmit = () => window.lab.submit();
-keys.onHint = () => { shot.hint(); keys.setHintUsed(true); };
-keys.onReplay = () => G.audio?.play?.('ui_click');
-window.__kbFrac = keys.frac;
-frame('type');
-addEventListener('resize', () => { window.__kbFrac = keys.frac; });
+
 window.__labReady = true;

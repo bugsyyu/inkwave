@@ -39,7 +39,7 @@ export const DECK = {
   platenR: 0.075,
   // paper (carriage-local: x = rig X, y up from the platen top, faces −Z): cols × lines of glyph cells; glyphs are drawn
   // bigger than the pitch (monospace letters overlap their neighbours' cells, the shader looks at both neighbours)
-  paperW: 1.68, paperH: 0.74, cols: 14, pitchX: 0.112, lineH: 0.175, glyph: 0.235, marginX: 0.056, firstLine: 0.1,
+  paperW: 1.46, paperH: 0.74, cols: 14, pitchX: 0.096, lineH: 0.165, glyph: 0.205, marginX: 0.058, firstLine: 0.1,
   tankAt: new V3(1.02, 0.97, 0.72), tankR: 0.085, tankH: 0.28,
 };
 DECK.strike = new V3(0, DECK.fanY + DECK.strikeH, DECK.fanZ);

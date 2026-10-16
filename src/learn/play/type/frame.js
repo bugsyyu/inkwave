@@ -16,7 +16,8 @@ export const RIG_POINTS = {
   plate: [[0.93, 0.98, 0.52], [-0.93, 0.98, 0.52], [0.93, 1.16, 1.18], [-0.93, 1.16, 1.18]],
   strike: [0, 1.5, 1.62],
   platenTop: [0, 1.6, 1.7],
-  paperTop: [[0.84, 2.3, 1.72], [-0.84, 2.3, 1.72]],
+  paperTop: [[0.75, 2.3, 1.72], [-0.75, 2.3, 1.72]],
+  typed10: [0.98, 1.72, 1.7],          // the typed line's first letter after ten letters (the carriage has slid left)
   head: [0, 1.95, -0.06],
   midRow: [0, 1.08, 0.86],
 };
@@ -81,7 +82,7 @@ export function frameFor(o = {}) {
   // the target is context (the shot's direction), wanted on screen above the paper when the band allows it — a
   // portrait band rarely does without pushing the camera far away, so the rig wins: typing frames the rig alone
   const ty = o.targetY ?? FRAME.targetY;
-  const pts = [...R.plate, R.strike, ...R.paperTop];
+  const pts = [...R.plate, R.strike, ...R.paperTop, R.typed10];
   const head = (P) => P(R.head) < P(R.midRow);            // her head below the plate's middle row
   const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4 });
   const rigOnly = search(pts, [head], { ...band, cz: 1.0 });

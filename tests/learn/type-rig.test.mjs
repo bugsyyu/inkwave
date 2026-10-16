@@ -157,3 +157,16 @@ test('paper model: a space at the bell returns the carriage, a full line wraps, 
     assert.equal(glyphs, text.length, `after ${JSON.stringify(text)}`);
   }
 });
+
+test('every sound the rig and the ink word play is a CONTRACTS §2 name (PLAY §1.8), never ui_error', () => {
+  const doc = readFileSync(new URL('../../docs/CONTRACTS.md', import.meta.url), 'utf8');
+  const sec = doc.slice(doc.indexOf('SFX names (all must exist)'), doc.indexOf('Music: original'));
+  const names = new Set((sec.match(/`([^`]+)`/g) || []).flatMap((s) => s.slice(1, -1).split(/\s+/)).map((n) => n.replace(/\(.*$/, '')).filter(Boolean));
+  assert.ok(names.has('ui_click') && names.has('bomb_throw') && names.size > 40, 'the contract list parsed');
+  for (const f of ['src/learn/play/type/rig.js', 'src/learn/play/type/inkword.js']) {
+    const src = readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+    const used = [...src.matchAll(/_play\('([a-z_]+)'/g)].map((m) => m[1]);
+    assert.ok(used.length, f);
+    for (const n of used) { assert.ok(names.has(n), `${f}: ${n} is not in CONTRACTS §2`); assert.notEqual(n, 'ui_error'); }
+  }
+});
