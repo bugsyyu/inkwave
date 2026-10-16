@@ -110,11 +110,10 @@ export class Coop2Flow extends LearnFlow {
     if (this.phase === 'walk') {
       const a = m.local, pad = this._myPad(g);
       if (a && a.alive && pad) {
-        if (this.auto) {
-          this._autoWalk(a, { node: pad.node }, dt);
-          if (Math.hypot(a.pos.x - pad.x, a.pos.z - pad.z) < 0.45) { this.autoWalk(false); a.intent.move.set(0, 0, 0); }
-        }
         const dist = Math.hypot(a.pos.x - pad.x, a.pos.z - pad.z);
+        if (this.auto) {   // (auto-walk ends on the pad itself)
+          if (dist < 0.45) { this.autoWalk(false); a.intent.move.set(0, 0, 0); } else this._autoWalk(a, { node: pad.node }, dt);
+        }
         if (this.hud) {
           const fw = G.camera.getWorldDirection(_v), want = Math.atan2(pad.x - a.pos.x, pad.z - a.pos.z), have = Math.atan2(fw.x, fw.z);
           let rel = want - have; while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2;
@@ -302,7 +301,9 @@ export class Coop2Flow extends LearnFlow {
     const g = this.gates[this.cur];
     return { form: 'coop2', host: this.isHost, phase: this.phase, cur: this.cur, gates: this.gates.length, q: this.q ? { q: this.q.q, role: this.q.role, id: this.q.item.id, type: this.q.view.type } : null,
       pads: g && g.pads ? g.pads.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1), p.fallback ? 'route' : 'side']) : null, on: g && g.pads ? padsHeld(g.pads, this._people(), this.C.padRadius).on : null,
-      mine: { ...this.mine }, pair: [this.pairRight, this.pairAsked], locks: this.gates.map((x) => x.locks) };
+      mine: { ...this.mine }, pair: [this.pairRight, this.pairAsked], locks: this.gates.map((x) => x.locks),
+      me: this.match.local ? [+this.match.local.pos.x.toFixed(1), +this.match.local.pos.y.toFixed(1), +this.match.local.pos.z.toFixed(1)] : null,
+      people: this._people().map((p) => [p.id, +p.x.toFixed(1), +p.z.toFixed(1)]), auto: this.auto, path: this.autoPath ? [this.autoK, this.autoPath.length] : null };
   }
 
   dispose() { clearTimeout(this._backT); this._unsub?.(); this.ui?.end(); super.dispose(); }

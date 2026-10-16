@@ -7,7 +7,7 @@ export async function driveCoop({ step, live, answer, state, shot, ev, check, ma
   const dbg = () => both(() => __inkwave.match.learn.debug());
   await both(() => __inkwave.match.learn.autoWalk(true));
   const seen = new Map();
-  let wrongDone = false, asks = 0, shots = 0, lastGateCheck = -1, splits = [], retry = null, lastSig = '';
+  let wrongDone = false, asks = 0, shots = 0, lastGateCheck = -1, splits = [], retry = null, lastSig = '', iter = 0;
   while (budgetLeft() > 6000) {
     await step(0.5);
     const D = await dbg();
@@ -41,6 +41,7 @@ export async function driveCoop({ step, live, answer, state, shot, ev, check, ma
     const S = await Promise.all([state(0), state(1)]);
     const sig = D.map((d, i) => `${d.phase} gate ${d.cur + 1}/${d.gates} on ${JSON.stringify(d.on)} q ${d.q ? d.q.q + d.q.role[0] : '-'} ${S[i].net}${S[i].err ? '!' + S[i].err : ''}`).join(' | ');
     if (sig !== lastSig) { lastSig = sig; say(sig); }
+    if (++iter % 8 === 1) say('  where:', D.map((d) => `me ${JSON.stringify(d.me)} auto ${d.auto} path ${JSON.stringify(d.path)} pads ${JSON.stringify(d.pads)}`).join(' | '));
     if (S.some((x) => x.net !== 'match')) { say('a client left the match'); break; }
     if (S.every((s) => s.learnCard)) { mark('results'); break; }
   }

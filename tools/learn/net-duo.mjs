@@ -74,7 +74,8 @@ try {
   say(`relay :${rport} · files :${hport}`);
 
   // ---- two browsers
-  const url = `http://127.0.0.1:${hport}/?skipTitle&quality=low&relay=ws://127.0.0.1:${rport}`;
+  // (the pages boot on the match's own stage: coop2 then needs no rebuild — on software GL a fresh stage's first frames stall)
+  const url = `http://127.0.0.1:${hport}/?skipTitle&quality=low&map=${MAP}&relay=ws://127.0.0.1:${rport}`;
   const open = async (i) => {
     const b = await puppeteer.launch({ executablePath: chromePath(), headless: 'new', defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
       args: gpuArgs([`--window-size=${W},${H}`, '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows']) });
