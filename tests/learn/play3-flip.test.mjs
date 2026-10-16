@@ -28,7 +28,7 @@ const step = (o, s, dt = 1 / 60) => { for (let i = 0; i < Math.round(s / dt); i+
 // the flow's own answer path, on a stub flow (the parts _answer touches)
 function answerThroughFlow(item, ans) {
   const verdicts = [];
-  const flow = { P: LEARN.puzzle, firsts: 0, right: new Set(), _emit() {}, _styleGates() {}, hud: { verdict: (v) => verdicts.push(v) } };
+  const flow = { P: LEARN.puzzle, firsts: 0, right: new Set(), _emit() {}, _styleGates() {}, hud: { verdict: (v) => verdicts.push(v) }, _judgeRecord: LearnFlow.prototype._judgeRecord };   // (play-1 moved the judging into _judgeRecord)
   const g = { id: 'gate:w1d7:flash', locks: 0, queue: [] };
   const p = flipPrompt(item);
   LearnFlow.prototype._answer.call(flow, g, item, p, ans);
