@@ -140,9 +140,20 @@ for (const viewName of VIEWS_WANT) { try {
   });
   const inside = (b, s) => b.x >= s.x - 1 && b.y >= s.y - 1 && b.x + b.w <= s.x + s.w + 1 && b.y + b.h <= s.y + s.h + 1;
   async function waitFor(fn, max = 200, ms = 50) { for (let i = 0; i < max; i++) { const r = await ev(fn); if (r) return r; await step(ms); } return null; }
+  // the boss: her hand walks her to ~8 m in front of HULLBREAKER (on the nearest walkable node) while it waits for her to
+  // come close (LEARN.arena.bossNear) — as a player would; --far keeps her where she is (the options then come towards it)
+  const FAR = args.includes('--far');
+  const nearBoss = () => ev(() => {
+    const m = __inkwave.match, b = m.boss, a = m.local, nav = __G.nav; if (!b || !a || !nav) return null;
+    const V = a.pos.constructor, want = new V(b.pos.x + Math.sin(b.yaw) * 8, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 8);
+    const k = nav.nearest(want, 6, true); if (k < 0) return null;
+    const n = nav.nodes[k]; a.pos.set(n.x, n.y, n.z); a.vel.set(0, 0, 0);
+    return [n.x, n.y, n.z].map((v) => +v.toFixed(1));
+  });
   // the round runs on: step until a question is up (or the level is done / a card came)
   async function untilQuestion() {
     for (let i = 0; i < 240; i++) {
+      if (FORM === 'boss' && !FAR && i % 4 === 0) { const at = await ev(() => { const F = __inkwave.match.learn; return F._nearSaid || (F.arena && F.arena.m1 && !F.arena.m1.bossNear()); }); if (at) { const p = await nearBoss(); if (i === 0) say('walked her to the boss', JSON.stringify(p)); } }
       const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind), card: !!(__G.hud.learn && __G.hud.learn._ask), board: !!document.querySelector('.iw-lf__board.is-on'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
       if (s.asking || s.card || s.done || s.echo) return s;
       if (s.board) { await ev(() => document.querySelector('.iw-lf__go').click()); }
@@ -222,13 +233,15 @@ for (const viewName of VIEWS_WANT) { try {
       rig.paper.geometry.computeBoundingBox(); const b = rig.paper.geometry.boundingBox, paper = [];
       for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) paper.push(scr(new V(x, y, (b.min.z + b.max.z) / 2).applyMatrix4(rig.paper.matrixWorld)));
       const head = scr(rig.root.localToWorld(new V(...F.RIG_POINTS.head))), mid = scr(rig.root.localToWorld(new V(...F.RIG_POINTS.midRow)));
-      const strip = document.querySelector('.iw-ps__box'), sb = strip && !document.querySelector('.iw-ps.is-off') ? strip.getBoundingClientRect().bottom : 0;
+      const strip = document.querySelector('.iw-ps__box'), sr = strip && !document.querySelector('.iw-ps.is-off') ? strip.getBoundingClientRect() : null, sb = sr ? sr.bottom : 0;
       const pts = keys.concat(paper), ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
       const ext = (q) => [Math.min(...q.map((p) => p[0])), Math.min(...q.map((p) => p[1])), Math.max(...q.map((p) => p[0])), Math.max(...q.map((p) => p[1]))].map(Math.round);
-      return { head: head.map(Math.round), mid: mid.map(Math.round), headBelowMid: head[1] > mid[1], stripBottom: Math.round(sb), kbTop, top: Math.round(Math.min(...ys)), bottom: Math.round(Math.max(...ys)), left: Math.round(Math.min(...xs)), right: Math.round(Math.max(...xs)), keys: ext(keys), paper: ext(paper), W, H, hullYaw: +rig.hullYaw.toFixed(2), yaw: +S.cur.yaw.toFixed(2), region: S.cur.pose && S.cur.pose.region, xh: getComputedStyle(__G.hud.xh).visibility };
+      return { head: head.map(Math.round), mid: mid.map(Math.round), headBelowMid: head[1] > mid[1], stripBottom: Math.round(sb), stripX: sr ? [Math.round(sr.left), Math.round(sr.right)] : null, kbTop, top: Math.round(Math.min(...ys)), bottom: Math.round(Math.max(...ys)), left: Math.round(Math.min(...xs)), right: Math.round(Math.max(...xs)), keys: ext(keys), paper: ext(paper), W, H, hullYaw: +rig.hullYaw.toFixed(2), yaw: +S.cur.yaw.toFixed(2), region: S.cur.pose && S.cur.pose.region, xh: getComputedStyle(__G.hud.xh).visibility };
     }, s.kb ? s.kb[1] : innerHeight);
     check(fr.headBelowMid, `${label}: her head below the keyboard's middle row on the screen (head y ${fr.head[1]} > mid row y ${fr.mid[1]})`, fr);
-    check(fr.top >= fr.stripBottom - 2 && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2, `${label}: the whole typewriter and its paper between the strip (${fr.stripBottom}) and the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right}`, fr);
+    // (under the strip — or, on a wide screen, in the corner beside it: clear of the strip's sides)
+    const clearOfStrip = fr.top >= fr.stripBottom - 2 || (fr.stripX && (fr.right <= fr.stripX[0] + 2 || fr.left >= fr.stripX[1] - 2));
+    check(clearOfStrip && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2 && fr.top >= -2, `${label}: the whole typewriter and its paper clear of the strip (${fr.stripBottom}${fr.stripX ? ', x ' + fr.stripX.join('–') : ''}) and over the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right} (${fr.region})`, fr);
     check(fr.xh === 'hidden', `${label}: the crosshair hidden while she types`, fr.xh);
     report.typeFrame = report.typeFrame || []; report.typeFrame.push(fr);
     if (FORM !== 'boss') check(s.shield > 0, `${label}: a shield on her while she types (${s.shield} s)`);

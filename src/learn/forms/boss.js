@@ -50,7 +50,7 @@ export class BossFlow extends LearnFlow {
     // card's 「第 n / 共几题」 reads this; the S cards are not questions)
     this.total = this.scoredN;
     this._prevSpecial = false; this._clockTxt = ''; this._wrapDamage(); this.clock = 0;
-    this._pendingMove = false; this._cardPaused = false; this._echoClearT = -1; this.A = LEARN.arena;
+    this._pendingMove = false; this._cardPaused = false; this._echoClearT = -1; this.A = LEARN.arena; this._nearWait = 0; this._nearSaid = false;
     // 题即玩法 (play-5): the questions are on the boss — the host asks them, judges through _judgeRecord
     this.arena = LEARN.play && match.mode === 'learn' ? new ArenaHost(this, { mode: 'boss', boss: () => this.boss }) : null;
     this._startPhase(0);
@@ -72,6 +72,7 @@ export class BossFlow extends LearnFlow {
       return { id: 'phase:' + ph.id, phase: ph.id, zh: ph.zh, title: `${ph.id} ${ph.zh}`, stepId: ph.id, kind: ph.id === 'S' ? 'lesson' : 'mixed', index: k, pathIndex: 0, node: -1, pos: pos.clone(), state: k === 0 ? 'next' : 'locked', locks: 0, items, queue: items.slice(), hp: ph.hp, moves: ph.moves, minutes: ph.minutes };
     });
   }
+  _farFromBoss() { const b = this.boss, a = this.match.local; if (!b || !a || !this.arena) return false; return !this.arena.m1.bossNear(); }
   // only her answers hurt the boss; the squad's (and her own weapon's) hits become a flash
   _wrapDamage() {
     const b = this.boss; if (!b) return;
@@ -144,7 +145,16 @@ export class BossFlow extends LearnFlow {
     }
     // between its moves: idle, visible, no roar / intro running → the next question
     const idle = b.visible && !b.move && b.anim === 0 && !b.invuln;
-    if (idle) { this.askT -= dt; if (this.askT <= 0) { if (g.phase === 'S') this._card(g); else this._ask(g); } }
+    if (idle) {
+      this.askT -= dt;
+      if (this.askT <= 0) {
+        // (题即玩法: a choice hangs on its weak points — the boss waits up to LEARN.arena.bossWait s for her to come within
+        // bossNear m, once saying so; then the options come towards it within her shot)
+        if (g.phase !== 'S' && this.arena && this._farFromBoss() && (this._nearWait += dt) < this.A.bossWait) { if (!this._nearSaid) { this._nearSaid = true; this.ui.say('走近 Boss——答案挂在它的弱点上'); } return; }
+        this._nearWait = 0; if (this._nearSaid) { this._nearSaid = false; this.ui.say(''); }
+        if (g.phase === 'S') this._card(g); else this._ask(g);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------------------------- questions (L / R / W)

@@ -93,7 +93,18 @@ export class ArenaRun extends PlayRun {
   _settled() { return true; }   // (she never stands still in an arena: the objects come up when the ease ends)
 
   // ---------------------------------------------------------------------------------------------- placement
-  _place() { if (this.mode === 'boss') this._placeBoss(); else this._placeZone(); }
+  // (the boss: on its weak points when she is within LEARN.arena.bossNear m of its eyes — her round reaches them — else,
+  // after the form's wait, the duel's cluster towards it, within her shot: C.cluster says which)
+  _place() {
+    const C = this.cur; if (!C) return;
+    if (this.mode === 'boss' && this.bossNear(1.5)) { C.cluster = 'boss'; this._placeBoss(); }
+    else { C.cluster = 'zone'; C.socks = null; this._placeZone(); }
+  }
+  bossNear(slack = 0) {
+    const b = this.bossOf && this.bossOf(), a = this.match.local; if (!b || !b.model || !a) return false;
+    b.model.getSocket('eyeL', _p); b.model.getSocket('eyeR', _b); _p.lerp(_b, 0.5);
+    return Math.hypot(_p.x - a.pos.x, _p.z - a.pos.z) <= A.bossNear + slack;
+  }
 
   // the duel: PlayRun's screen layout, on a plane in front of the camera as it is now, at the zone's distance (within
   // LEARN.arena.near / far of the boom), lifted off the ground; then the cluster is pinned to its own anchor
@@ -207,7 +218,7 @@ export class ArenaRun extends PlayRun {
   update(dt) {
     super.update(dt);
     const C = this.cur; if (!C || !C.placed || this.match.paused) return;
-    if (this.mode === 'boss') this._ride(); else this._orbit();
+    if (C.cluster === 'boss') this._ride(); else this._orbit();
   }
   // the duel's cluster: its objects back in the world round the anchor, in the camera's basis as it is now
   _orbit() {
@@ -278,7 +289,7 @@ export class ArenaRun extends PlayRun {
 
   debug() {
     const d = super.debug(), C = this.cur;
-    d.mode = this.mode; d.anchor = C && C.anchor ? C.anchor.toArray().map((v) => +v.toFixed(2)) : null; d.socks = C && C.socks || null;
+    d.mode = this.mode; d.cluster = C ? C.cluster || null : null; d.anchor = C && C.anchor ? C.anchor.toArray().map((v) => +v.toFixed(2)) : null; d.socks = C && C.socks || null;
     return d;
   }
   dispose() { if (this._qAtlas) { this.T.freeAtlas(this._qAtlas); this._qAtlas = null; } super.dispose(); }
