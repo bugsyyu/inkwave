@@ -7,7 +7,7 @@
 //
 //   const S = new PlayStrip(hud)   (hud.root: #ui-root)
 //   S.show(p, { replay })          p = the prompt ({ text, zh, tts }); replay() is ▶ (shown only when p.tts)
-//   S.verdict({ ok, head, why })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
+//   S.verdict({ ok, head, why, actions? })   S.question()  (back to the question line, e.g. for a retry)   S.hide()
 //   S.rect() → the strip's box (CSS px) or null when hidden — the top of the safe area under it (src/learn/play/run.js)
 //   S.fit(keys)                    clear of the touch layer's top-row keys (pause / map) — run.js calls it after show()
 //   S.setInk(hex)                  her team colour
@@ -45,6 +45,12 @@ const CSS = `
 .iw-ps.is-ok .iw-ps__head { color: var(--self); }
 .iw-ps.is-bad .iw-ps__box { border-color: var(--coral); }
 .iw-ps.is-bad .iw-ps__head { color: var(--coral); }
+.iw-ps__acts { display: none; gap: 8px; margin-top: 8px; }
+.iw-ps.is-acts .iw-ps__acts { display: flex; flex-wrap: wrap; }
+.iw-ps__act { pointer-events: auto; min-height: 44px; padding: 8px 16px; border-radius: 14px; border: 1.5px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .12); color: #fff;
+  font: 700 16px 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.iw-ps__act.is-primary { background: var(--self); color: var(--self-ink); border-color: var(--self); }
+.iw-ps__act:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .iw-ps__box.is-flash { animation: iw-ps-flash .5s ease-out; }
 @keyframes iw-ps-flash { 0% { box-shadow: 0 0 0 0 var(--self), 0 6px 24px rgba(0,0,0,.35); } 100% { box-shadow: 0 0 0 14px transparent, 0 6px 24px rgba(0,0,0,.35); } }
 @media (orientation: portrait) and (max-width: 640px) {
@@ -74,7 +80,8 @@ export class PlayStrip {
     this.head = h('b', { class: 'iw-ps__head' });
     this.why = h('span', { class: 'iw-ps__why' });
     this.text = h('div', { class: 'iw-ps__text' }, this.q, this.zh);
-    this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why);
+    this.acts = h('div', { class: 'iw-ps__acts' });
+    this.verd = h('div', { class: 'iw-ps__verdict' }, this.head, this.why, this.acts);
     this.box = h('div', { class: 'iw-ps__box' }, this.play, this.text, this.verd);
     this.el = h('div', { class: 'iw-ps is-off', role: 'status', 'aria-live': 'polite' }, this.box);
     (hud && hud.root ? hud.root : document.body).appendChild(this.el);
@@ -112,19 +119,34 @@ export class PlayStrip {
     this.play.style.display = canPlay ? '' : 'none';
     this.box.classList.toggle('is-noplay', !canPlay);
     this.el.classList.remove('is-off', 'is-verdict', 'is-ok', 'is-bad');
+    this._acts(null);
     this.on = true;
     if (!prefersReducedMotion()) restartAnim(this.box, 'is-enter');
   }
-  question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); }
+  question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); this._acts(null); }
+  // v.actions (play-5: 「我的写法也对」 / 「继续」 on a held sentence): [{ text, primary?, onTap }] — buttons ≥ 44 pt under the
+  // verdict, the only other thing on the strip a touch reaches; gone with the next question() / show() / hide()
+  _acts(list) {
+    this.acts.innerHTML = '';
+    const on = !!(list && list.length);
+    this.el.classList.toggle('is-acts', on);
+    if (!on) return;
+    for (const a of list) {
+      const b = h('button', { class: 'iw-ps__act' + (a.primary ? ' is-primary' : ''), type: 'button' }, a.text);
+      b.addEventListener('click', (e) => { e.stopPropagation(); this._acts(null); a.onTap?.(); });
+      this.acts.appendChild(b);
+    }
+  }
   verdict(v) {
     this.head.textContent = v.head || '';
     this.why.textContent = v.why || '';
+    this._acts(v.actions || null);
     this.el.classList.add('is-verdict');
     this.el.classList.toggle('is-ok', !!v.ok); this.el.classList.toggle('is-bad', !v.ok);
     if (v.ok && !prefersReducedMotion()) restartAnim(this.box, 'is-flash');
   }
   playing(on) { this.play.classList.toggle('is-playing', !!on); }
-  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; }
+  hide() { this.on = false; this.el.classList.add('is-off'); this._replay = null; this._acts(null); }
   rect() {
     if (!this.on) return null;
     const b = this.box.getBoundingClientRect();

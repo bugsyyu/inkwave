@@ -8,6 +8,11 @@
 // The round ends when her questions run out, at a knockout, or when its clock (the gate's course minutes, clamped)
 // runs down; a day is as many rounds as gates, then the 回炉 round when something was missed, then the results.
 // Stars and evidence come from the questions alone; the rounds won are a trophy.
+//
+// 题即玩法 play-5 (docs/PLAY.md §5.3, LEARN §24): under LEARN.play a question is a thing over the contested zone — ink
+// targets (every choice) or the 打字蟹 with a shield (anything typed; src/learn/play/arena/) — never a hold, never
+// match.paused, never a card; the first deliberate round on the right target is the answer, the zone floods. The one
+// judging path is _judgeRecord below (the card, flag off, goes through it too). The prep board between rounds stays.
 import * as THREE from 'three';
 import { G, emit } from '../../core/ctx.js';
 import { LEARN } from '../../config.js';
@@ -18,6 +23,8 @@ import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
 import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
 import { FormsUi } from './ui.js';
+import { ArenaHost } from '../play/arena/host.js';
+import { arenaAltPrompt } from '../play/arena/alt.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
@@ -56,7 +63,16 @@ export class DuelFlow extends LearnFlow {
     this.scoredN = new Set(this.level.gates.flatMap((g) => g.items.filter((it) => it.meta && it.meta.scored).map((it) => it.id))).size;
     this._prevSpecial = false; this._clockTxt = ''; this._cells = null;
     this.phase = 'prep';
+    // 题即玩法 (play-5): the zone's questions are things over the zone — the host asks them, judges through _judgeRecord
+    this.arena = LEARN.play && match.mode === 'learn' ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out) }) : null;
     this._startPrep();
+  }
+  // the live zone's centre on its floor (the cluster floats LEARN.arena.lift over it)
+  _zoneCentre(out) {
+    const Z = this.Z, z = Z && Z.active && Z.active.zones[0], c = z ? z.center : null;
+    if (c) return out.set(c[0], c[1], c[2]);
+    const g = this.gates[this.round];
+    return g ? out.copy(g.pos) : out.set(0, 0, 0);
   }
 
   // rounds, not route points: one per gate, standing at the centre zone
@@ -84,6 +100,7 @@ export class DuelFlow extends LearnFlow {
       }
     }
     this.prepOn = true; this.hold = true; this.phase = 'prep';
+    this.arena?.prep(g);   // (the round's label atlas is drawn while the board is up: nothing drawn mid-round)
     for (const a of this.match.actors) if (a.isBot && a.alive) a.character.setDance?.('lobby_pose');
     this._emit('learn:round', { round: this.round + 1, total: this.gates.length, gate: g.id, state: 'prep' });
   }
@@ -111,6 +128,7 @@ export class DuelFlow extends LearnFlow {
     if (this.phase !== 'round') return;
     const g = this.gates[this.round], Z = this.Z;
     this.phase = 'between'; this.hold = true; this.asking = null;
+    this.arena?.gateOpened(g);   // (its objects go, the rig unmounts, the lens is hers)
     Z.winner = winner; Z.reason = reason;   // (freezes the rules; a knockout already set them)
     g.state = 'open';
     const res = { round: this.round + 1, gate: g.id, winner, reason, counts: [Math.ceil(Z.count[0]), Math.ceil(Z.count[1])], left: g.queue.length };
@@ -139,6 +157,7 @@ export class DuelFlow extends LearnFlow {
   update(dt) {
     this.t += dt;
     this._pourInk();
+    this.arena?.update(dt);   // (every frame, paused or not: it waits itself)
     const m = this.match;
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing') return;
@@ -169,11 +188,23 @@ export class DuelFlow extends LearnFlow {
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
     if (this.hintNext && p.type !== 'choice' && !p._flip) { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
     this.asking = { gate: g, item, p };
+    this.asked++;
+    this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._relearn ? 'relearn' : item._form || 'normal' });
+    // 题即玩法: the question is a thing over the zone — she keeps playing (no hold, no pause, no card)
+    if (this.arena && this.arena.canAsk(g, item, p)) {
+      G.audio?.play?.('ui_confirm', { volume: 0.6 });
+      this.arena.ask(g, item, p);
+      if ((this.echoNext || (p._tip && (p._tip.slow || p._tip.speakBoth))) && p.tts) {
+        this.echoNext = false;
+        const again = p._tip && p._tip.speakBoth && item.meta && item.meta.pair ? item.meta.pair.filter((w) => w !== p.tts)[0] : p.tts;
+        setTimeout(() => { if (this.asking && this.asking.item === item) this.arena.say(again || p.tts); }, 1900);
+      }
+      return;
+    }
+    // the card (flag off, or a kind the arena has no play for — the review day's flip card): held, as before
     this.hold = true; a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.jump = false;
     G.input?.exitLock?.();
     G.audio?.play?.('ui_confirm', { volume: 0.6 });
-    this.asked++;
-    this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._relearn ? 'relearn' : item._form || 'normal' });
     this.hud?.ask(p, {
       gate: { index: Math.min(g.index + 1, this.gates.length), total: this.gates.length, locks: g.locks, title: g.title },
       item: { n: this.asked, total: this.total + this._retriesLeft(), retry: item._form === 'alt' },
@@ -188,13 +219,23 @@ export class DuelFlow extends LearnFlow {
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
   firstsN() { return this.firsts; }
 
+  // the card's answer (flag off / a flip card): the one judging path, then the card's verdict
   _answer(g, item, p, ans) {
-    const r = judgeAnswer(item, p, ans);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });
+    const { r, again } = this._judgeRecord(g, item, p, ans);
+    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._after());
+  }
+  // The one judging path (PLAY §1 rule 2), whatever asked — the card's button, a round on an ink target, the typed
+  // sheet: judge (B's mapping of the reworded forms) → the day's first answer into the store (hinted: a 墨雨 hint or the
+  // keyboard's 提示 → H) → the duel's consequences (the flood, the streak, the retry / 回炉, the shield). Same shape as
+  // flow.js's: { r, first, again }. (After play-wire's _judgeRecord(…, o) merges, the first three lines can be super's.)
+  _judgeRecord(g, item, p, ans, o = {}) {
+    const r = o.judged || judgeAnswer(item, p, ans);
+    const hinted = !!(p._hinted || o.hinted);
+    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.self ? { self: true } : {}) });
     const first = !!rec.first;
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, flip: !!p._flip });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, flip: !!p._flip });
     let again = false;
     if (r.ok) { if (item._relearn) this.relearnRight++; this.streak++; this.rightN++; this._onRight(); }
     else if (p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; G.audio?.play?.('ui_toggle', { volume: 0.5 }); }   // 不记得: type it right away
@@ -203,7 +244,14 @@ export class DuelFlow extends LearnFlow {
       if (!item._relearn && item._tries < this.P.retries) { item._tries++; item._form = 'alt'; g.queue.push(item); again = true; G.audio?.play?.(EFFECTS.duel.wrong.sfx, { volume: 0.6 }); }
       else { G.audio?.play?.(EFFECTS.duel.wrong2.sfx, { volume: 0.6 }); if (!item._relearn) this.relearn.push(item); if (this.shield) { this.shield = false; this.enemyT += this.model.duelCadence; this.ui.say('护盾：对面这一次没得「答题」'); } }
     }
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._after());
+    return { r, first, again };
+  }
+  // the arena's stations call this when their verdict has been shown (the puzzle's name for it): the next question
+  _askNext() { if (this.arena) this.arena.clear(); this._after(); }
+  // the other form of a missed item: the arena's (a word's 回炉 choice stays ink balls, a dictation is heard slowly), else B's
+  _altPrompt(item) {
+    if (this.arena) { const p = arenaAltPrompt(this.gates, item); if (p) return p; }
+    return super._altPrompt(item);
   }
   _after() {
     this.asking = null; this.hold = false; this.askT = this.D.askGap;
@@ -314,9 +362,9 @@ export class DuelFlow extends LearnFlow {
 
   debug() {
     const Z = this.Z;
-    return { form: 'duel', round: this.round + 1, rounds: this.gates.length, phase: this.phase, prep: this.prepOn, hold: this.hold, time: +this.match.time.toFixed(1), zone: Z ? { owner: Z.owner, count: Z.count.map((c) => Math.ceil(c)), share: Z.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))) } : null, bag: this.bag.slice(), streak: this.streak, relearn: this.relearn.length, results: this.rounds, enemyRights: this.enemyRights, wins: this.wins };
+    return { form: 'duel', round: this.round + 1, rounds: this.gates.length, phase: this.phase, prep: this.prepOn, hold: this.hold, time: +this.match.time.toFixed(1), zone: Z ? { owner: Z.owner, count: Z.count.map((c) => Math.ceil(c)), share: Z.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))) } : null, bag: this.bag.slice(), streak: this.streak, relearn: this.relearn.length, results: this.rounds, enemyRights: this.enemyRights, wins: this.wins, asking: this.asking ? { item: this.asking.item.id, type: this.asking.p.type, play: this.asking.play || null } : null, arena: this.arena ? this.arena.debug() : null };
   }
   effects() { const Z = this.Z; return { round: this.round + 1, share: Z ? Z.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))) : null, owner: Z ? Z.owner : null, special: +this.match.local.special.toFixed(0), bag: this.bag.length, streak: this.streak }; }
 
-  dispose() { this.ui?.end(); super.dispose(); }
+  dispose() { this.arena?.dispose(); this.arena = null; this.ui?.end(); super.dispose(); }
 }
