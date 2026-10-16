@@ -206,7 +206,7 @@ export class LearnFlow {
       if (this.play) {
         const k = g._lockPopAt != null ? Math.max(0, 1 - (t - g._lockPopAt) / 0.55) : 0; M.lock.scale.setScalar(1 + 0.7 * k * k);   // a miss: the lock pops
         // the follow camera standing in a gate (she stops just past it, the lens behind her) sees through its lock and beam
-        const c = G.camera, f = c ? Math.min(1, Math.max(0, (Math.hypot(c.position.x - g.pos.x, c.position.z - g.pos.z) - 0.9) / 1.6)) : 1;
+        const c = G.camera, f = c ? Math.min(1, Math.max(0, (Math.hypot(c.position.x - g.pos.x, c.position.z - g.pos.z) - 1.5) / 1.8)) : 1;
         M.lock.material.opacity = 0.95 * f; M.beam.material.opacity = 0.22 * f;
       }
       if (next) { const s = 1 + Math.sin(t * 3.2) * 0.08; M.ring.scale.set(s, s, 1); }

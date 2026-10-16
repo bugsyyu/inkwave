@@ -27,7 +27,7 @@
 //   debug():          what the audits read (tools/learn/play-audit.mjs)
 import * as THREE from 'three';
 import { G, damp, dampAngle, angleDiff } from '../../core/ctx.js';
-import { LEARN, WEAPONS } from '../../config.js';
+import { LEARN, WEAPONS, PLAYER } from '../../config.js';
 import { EFFECTS } from '../design.js';
 import { prompt } from '../api.js';
 import { PlayTargets } from './targets.js';
@@ -159,10 +159,12 @@ export class PlayRun {
     return out;
   }
   // her silhouette on the screen (the follow camera keeps her there whatever it looks at): feet to the top of her head
+  // (PLAYER.height, her hair a hand above it; PLAYER.radius and a little to each side)
   _herRect(W, H) {
     const a = this.match.local, cam = G.camera; if (!a || !cam) return null;
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const [dy, dx] of [[0, -0.45], [0, 0.45], [1.0, -0.5], [1.0, 0.5], [2.05, -0.4], [2.05, 0.4]]) {
+    const h = (a.form === 'squid' ? PLAYER.squidHeight : PLAYER.height) + 0.12, w = PLAYER.radius + 0.06;
+    for (const [dy, dx] of [[0, -w], [0, w], [h * 0.55, -w], [h * 0.55, w], [h, -w * 0.85], [h, w * 0.85]]) {
       _o.set(a.pos.x, a.pos.y + dy, a.pos.z).addScaledVector(_r.set(Math.cos(G.rig?.yaw || 0), 0, -Math.sin(G.rig?.yaw || 0)), dx).project(cam);
       if (_o.z > 1) continue;
       const x = (_o.x + 1) / 2 * W, y = (1 - _o.y) / 2 * H;
@@ -295,7 +297,7 @@ export class PlayRun {
     C.D = D; C.lift = lift; C.placed = true;
     this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() });
     this.reg.set(this.T.spheres, C.serial);   // (the live array: a burst or draining object drops out of it)
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, rows: L.rows || null, d: L.d ? Math.round(L.d) : null, avoid: S.avoid.map((r) => [r.what, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]), safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
 
   // ---------------------------------------------------------------------------------------------- per frame
