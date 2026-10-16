@@ -3,6 +3,8 @@
 // NavGraph), the bots' dice and rubber band, the prop drops, the duel's flood radii, the boss's HP bands and time
 // budgets, the 回炉 queue, the stars that never go down, the judge mapping on A's content, the boards and tips.
 // 用法：node --test tests/learn/*.test.mjs
+import { register } from 'node:module';
+register(new URL('./three-hook.mjs', import.meta.url));   // `three` → vendor/ (no npm install here)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadWeek } from '../../src/learn/content.js';

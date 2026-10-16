@@ -35,6 +35,7 @@ const WIPES = new Set(['loading>title', 'title>main', 'results>main', 'pause>mai
 const LIGHT = new Set(['main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'online', 'lobby']);
 // ?netmock=1 → an offline stand-in for G.net (src/net/mock.js) so the online screens work without the relay
 const NETMOCK = typeof location !== 'undefined' && new URLSearchParams(location.search).get('netmock') === '1';
+const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';   // 关卡学习: opened from the IELTS-Base App
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = ['ALPHA', 'BRAVO'];
@@ -893,6 +894,8 @@ export class Menus {
         badge: h('span', { class: 'iw-btn__live' }, h('i'), 'LIVE') },
       // 关卡学习 (docs/LEARN.md): her IELTS course, a day a level
       { id: 'learn', label: '学习 · LEARN', sub: '解密闯关 · 道具赛 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', icon: GLYPHS.pencil, cls: 'iw-btn--menu iw-btn--learn', accept: () => this._go('learn'), sound: 'ui_confirm' },
+      // opened from the IELTS-Base App (?from=app): the way back to the classic workbench, ../index.html
+      ...(FROM_APP ? [{ id: 'book', label: '回课本 · BACK', sub: '回到雅思工作台', icon: GLYPHS.exit, cls: 'iw-btn--menu', accept: () => { location.href = '../index.html'; }, sound: 'ui_confirm' }] : []),
       { id: 'loadout', label: 'LOADOUT', icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: 'LOCKER', icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: 'SETTINGS', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },

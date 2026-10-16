@@ -34,7 +34,8 @@ export async function buildLearn({ week, day, kind, short = false }) {
     const level = { ...plan, week, day: 0, weekRef: w, gates: [], title: String(w.title || '') };
     return { kind, level, Flow: FLOWS.boss, time: plan.time || 'dusk', duration: short ? 60 * plan.phases.length : phaseTimeTotal(plan), world: 'turf', short, weekRef: w };
   }
-  let level = planDay(w, day, kind);
+  let level = planDay(w, day, kind);   // (a kind outside the four forms — 'plan', none given — is the day's planned form)
+  if (!FORMS.includes(kind)) kind = level.kind || 'puzzle';
   if (short) level = shortenLevel(level);
   // the numeric week / day the flows and the HUD read (A's head() writes week: 'w1'); the week object for store.due
   Object.assign(level, { week, day, weekRef: w });

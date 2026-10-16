@@ -316,11 +316,12 @@ class Game {
     if (!params.has('autostart')) setTimeout(() => { if (G.mode === 'menu') this.showcase.preloadLobby?.(); }, 2500);
     this._applyAudioVolumes();
     requestAnimationFrame((t) => this._loop(t));
-    // ?learn=w1d1&kind=puzzle — straight into a learning level (the main menu's 学习 · Learn does the same by hand)
+    // ?learn=w1d1&kind=puzzle — straight into a learning level (the main menu's 学习 · Learn does the same by hand);
+    // no kind (the IELTS-Base App's 「关卡」 entry) = the day's planned form, LEVELS.md §3
     // (?learn=w1&kind=boss is the week's 周考; &short=1 is the audits' shortened level: 2 gates, a 60 s clock)
     if (params.has('learn')) {
       const m = /^w?(\d+)(?:d(\d+))?$/i.exec(params.get('learn') || '') || [];
-      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'puzzle', short: params.has('short') });
+      this.api.startLearn({ week: +m[1] || 1, day: +m[2] || 1, kind: params.get('kind') || 'plan', short: params.has('short') });
     } else if (params.has('autostart')) {
       const pm = params.get('mode');
       this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
@@ -882,7 +883,7 @@ class Game {
   // level's stage, at the level's time of day — { week, day, kind: puzzle | race | duel | boss, short? }
   async startLearn(o = {}) {
     const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
-    const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'puzzle';
+    const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'plan';   // ('plan': buildLearn takes the day's planned form)
     let learn = null;
     try { learn = await buildLearn({ week, day, kind, short: !!o.short }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
     return this.startMatch({ mode: 'learn', mapId: learn.level.stage || 'tidewater', time: learn.time || 'day', duration: learn.duration, learn });
