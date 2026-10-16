@@ -6,6 +6,15 @@
 
 ## 2026-10-16
 
+### 14:36 play-3（WIP）：节拍台 M3 + 展板路 M6 + 回声亭 M7 + 翻牌靶 M8 + 路标（分支 `play-3`，LEARN §21，PLAY §3 已改成做出来的样子）
+
+- **为什么**：PLAY §9 第 3 期——听辨对子、音标、课文、单词展板、语法讲解、阅读课文、口语、复习日翻牌、路标都不再是卡片。
+- **先读了什么**：PLAY 全文；LEVELS §1、§2、§5；LEARN §8、§15、§19；CONTRACTS；`flow.js`、`hud-learn.js`（翻牌卡）、`forms/common.js`、`engine.js`、`store.js`、`design.js`、`music.js`、`learn/audio.js`、`character.js`、`decor.js`、`fx.js`、`paint.js`、`cameraRig.js`、`type/*`；play-runner 的 `lanes.js`、play-1 的题物 / 点射 / 题条（只读）。
+- **定了什么**：玩法不判不写，只交动作（台子序号、`true / false`）；拍子函数和跑酷同一约定；四块台是跳舞毯的十字；落地交答案、起跳定踩没踩准；展板走近就框、走开就放、没有翻页键；板上的字从「横屏框住时 ≥ 17 px」倒推（画布 1024 宽、≤ 930 高、字 ≥ 54）。
+- **改了什么**：`src/learn/play/{beat,board,echo,flip}/`、`tools/play3-lab.*`、`tests/learn/play3-*.test.mjs`、`config.js` 的 `LEARN.beat / board / echo / flip`。
+- **验证**：`npm run test:learn` 118 → 147，`npm run check` 绿。浏览器里只跑成一组节拍台截图：**台子和标签牌没画出来**（draw call 量得到、状态全对），没查完；展板 / 回声亭 / 翻牌 / 路标没进过浏览器（锁排了一个多小时）。
+- **没做的**：修好节拍台的显示并截图；四种的实测（draw call、每帧 JS、预热）；接进门的流程（play-1）。交接写在 LEARN §21 末尾。
+
 ### 13:05 字弹 M4：打字蟹 type rig + 游戏键盘 + 3D 墨字（分支 `play-type`，LEARN §19，PLAY §3 M4 已改成做出来的样子）
 
 - **为什么**：要打字的题是课程的一半（单词卡 900、听写句 206、写句 102）。业主 10-16：「最好迅速做一个键盘模型……保留输入时的人物运用该模型武器的动画，直到输入好了就展现出立体的3d输出结果在游戏世界里」。

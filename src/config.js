@@ -632,6 +632,46 @@ export const LEARN = {
     flight: [0.75, 1.25],     // s: the shell's time of flight (near, far)
     verdictS: 1.5,            // s the verdict show takes before resolve() settles
   },
+  // 节拍台 M3 · 展板路 M6 · 回声亭 M7 · 翻牌靶 M8 (docs/PLAY.md §3; play-3 = docs/LEARN.md §21; src/learn/play/{beat,board,echo,flip}/).
+  // Neutral until answered; a wrong one is coral (never a team colour); her ink only for what she got right.
+  beat: {
+    bpm: 105,                 // the beat grid when no synth track carries one (a recording has no tempo; the puzzle's menu song is 105)
+    lead: 0.45,               // s at least from the pads coming up to the word (the word plays on a bar line, the hop is the next downbeat)
+    font: 17,                 // px: the smaller line of a pad's label on screen (the plates grow until it is)
+    pitch: [0.92, 0.72],      // rad: the stage camera looks down this much (portrait, landscape)
+    swipe: 40,                // px: a drag this long is a swipe (shorter: a tap)
+    hop: 0.34,                // s: her hop onto a pad (reduced motion: hopReduced, low)
+    hopReduced: 0.2,
+    hopH: 0.75,               // m: the hop's height
+    danceFor: 0.8,            // s: the on-beat flourish (setDance('victory') → null; none under reduced motion)
+    ink: 1.25,                // m: her ink splat under a pad she got right
+    neutral: '#a39db8',       // the pads' glow before the answer (play-1's idle ink)
+    coral: '#f08a7a',
+    verdictMs: 1100,          // ms the 「差一点：是 ___」 line and the coral pad hold before the flow goes on
+  },
+  board: {
+    w: 2.3,                   // m: a board's width; its height follows its page (≤ maxH)
+    maxH: 1.9,
+    bottom: 1.62,             // m: the board's lower edge (over her head: she never hides it from the framing camera)
+    zone: 2.4,                // m round the viewing spot: in here the camera frames the board (walking out lets go)
+    view: 1.7,                // m in front of the board where she stands to read it
+    gap: 4.2,                 // m between boards along the approach
+    side: 1.5,                // m off the route (her right) a board stands
+    font: 17,                 // px: the smallest text on a framed board (canvas px ÷ the board's screen px decide it)
+    tex: 1024,                // px: a board canvas's width (crisp at 390 px wide: ~2.8 canvas px per screen px)
+    frameRate: 4.5,           // 1/s: the camera's spring towards the framing pose (reduced motion: holds)
+    readS: 1.2,               // s framed before a board counts as read
+  },
+  echo: { pad: 1.1, out: 1.9, sampleGap: 0.35 },   // m: inside = in the booth; past `out` = stepped out (说完了); s before the sample plays
+  flip: {
+    rise: 0.55,               // s: a card rising out of the ground
+    turn: 0.42,               // s: the flip
+    card: [1.25, 1.6],        // m: the card (w, h)
+    lift: 1.55,               // m: the card's centre above the ground
+    ahead: 3.2,               // m in front of her
+    side: 1.35,               // m either side of the card the two rating targets float
+    ball: 0.38,               // m: a rating target's radius
+  },
   // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
   // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question
   // to both players at once; the first right answer (by each player's own time, LEARN §14) floods the live zone
