@@ -85,8 +85,11 @@ function plateMaterial() {
         varying vec4 vState; varying vec2 vLocal;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         {
-          // coral wash over a wrong one; a ring in her ink round the right one (the plate's rounded rectangle)
-          diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, uCoral, 0.55) , vState.z * step(0.02, diffuseColor.a));
+          // coral wash over a wrong one's dark ground (its letters stay light: still readable); a ring in her ink round
+          // the right one (the plate's rounded rectangle)
+          float lum = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b));
+          float ground = 1.0 - smoothstep(0.3, 0.65, lum);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uCoral, 0.5 * ground * vState.z * step(0.02, diffuseColor.a));
           vec2 hs = vec2(vState.w * 0.5, 0.5), p = (vLocal - 0.5) * vec2(vState.w, 1.0);
           float r = 0.3; vec2 q = abs(p) - hs + r;
           float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -96,7 +99,7 @@ function plateMaterial() {
           diffuseColor.a *= vState.x;
         }`);
   };
-  mat.customProgramCacheKey = () => 'iw-play-plate-1';
+  mat.customProgramCacheKey = () => 'iw-play-plate-2';
   return mat;
 }
 
