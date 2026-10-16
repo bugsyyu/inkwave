@@ -13,6 +13,7 @@ import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
 import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
+import { say as sayAudio, stop as stopAudio } from '../learn/audio.js';   // the course's recordings (LEARN §16), else the device voice below
 
 const KIND_ZH = { typed: '听写', type: '听写', choice: '选择', write: '写句', read: '看一看' };
 const LOCK_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="28" width="36" height="28" rx="6" fill="currentColor"/><path d="M22 28v-7a10 10 0 0 1 20 0v7" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>';
@@ -93,7 +94,7 @@ export class LearnHud {
     this.hud.el?.classList.remove('is-learn');
     G.touch?.el?.classList.remove('is-learn');
     window.removeEventListener('keydown', this._onKey, true);
-    try { speechSynthesis?.cancel(); } catch { /* no synthesis */ }
+    stopAudio();   // the recording or the device's voice
     clearTimeout(this._vT);
   }
 
@@ -209,7 +210,7 @@ export class LearnHud {
     this._ask = null;
     clearTimeout(this._vT);
     window.removeEventListener('keydown', this._onKey, true);
-    try { speechSynthesis?.cancel(); } catch { /* no synthesis */ }
+    stopAudio();   // the recording or the device's voice
     this.el.classList.remove('is-ask');
     if (this.on) this.el.classList.add('is-walk');
   }
@@ -238,14 +239,21 @@ export class LearnHud {
   _play() {
     const a = this._ask; if (!a) return;
     const p = a.p;
+    stopAudio();   // (whatever was playing ends first, so its end does not clear this button)
     this.playBtn.classList.add('is-playing');
     const done = () => this.playBtn.classList.remove('is-playing');
     if (p.audio) {
       try { const au = new Audio(p.audio); au.onended = done; au.onerror = () => { done(); this._speak(p.tts, done); }; au.play().catch(() => { done(); this._speak(p.tts, done); }); return; } catch { /* fall through */ }
     }
-    this._speak(p.tts, done);
+    // a relearned sentence is heard slowly the first time (forms/common.js relearnTip: slow)
+    this._speak(p.tts, done, { slow: !!(p._tip && p._tip.slow) });
   }
-  _speak(text, done) {
+  // the course's recording of the text (src/learn/audio.js: IELTS-Base's app/audio/ in her App), else the device's voice
+  _speak(text, done, o) {
+    if (!text) { done?.(); return; }
+    sayAudio(text, { slow: !!(o && o.slow), onEnd: done, device: (t, end) => this._device(t, end) });
+  }
+  _device(text, done) {
     if (!text || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') { done?.(); return; }
     try {
       speechSynthesis.cancel();
