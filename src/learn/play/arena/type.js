@@ -31,6 +31,7 @@ export class ArenaType {
   constructor(host, opts = {}) {
     this.host = host; this.flow = host.flow; this.match = host.match;
     this.mode = opts.mode || 'zone'; this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
+    this.team = opts.team | 0;   // (play-6: her side — the rig, the ring under her, the ink word's splats are hers)
     this.shot = null; this.keys = null; this.cur = null; this.mounted = false;
     this.log = [];
   }
@@ -48,11 +49,11 @@ export class ArenaType {
 
   _ensure() {
     if (this.shot) return;
-    const color = G.teamColors[0] || new THREE.Color('#ff8a14');
-    this.shot = new TypeShot({ scene: G.scene, team: 0, color, quality: G.settings?.quality || 'high', reduced: this.host.reduced });
+    const color = G.teamColors[this.team] || G.teamColors[0] || new THREE.Color('#ff8a14');
+    this.shot = new TypeShot({ scene: G.scene, team: this.team, color, quality: G.settings?.quality || 'high', reduced: this.host.reduced });
     try { this.shot.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* warmed on first use */ }
     const root = (G.hud && G.hud.root) || document.body;
-    const keys = (this.keys = new PlayKeys(root, { mode: 'word', color: G.teamHex?.[0] || '#ff8a14', replay: true }));
+    const keys = (this.keys = new PlayKeys(root, { mode: 'word', color: G.teamHex?.[this.team] || G.teamHex?.[0] || '#ff8a14', replay: true }));
     keys.hide();
     keys.onKey = (k) => { if (this.cur && !this.cur.answered) this.shot.key(k); };
     keys.onBackspace = () => { if (this.cur && !this.cur.answered) this.shot.back(); };
@@ -99,8 +100,8 @@ export class ArenaType {
     this._crosshair(false);   // (typing is no shooting: the HUD's reticle hides until the rig is done — back in clear())
     this.cur = { g, item, p, mode, yaw, targetY: _v.y, dist: Math.min(FRAME.dist, t.dist), t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '', held: null, shield: A.shield };
     // her ink under her feet and a bubble round her: typing is never ambushed (PLAY §5.3)
-    G.paint?.splat?.(_w.set(a.pos.x, a.pos.y + 0.05, a.pos.z), A.ring, 0, { kind: 'blast' });
-    G.fx?.ring?.(_w.set(a.pos.x, a.pos.y + 0.15, a.pos.z), _up, G.teamColors[0], { radius: A.ring, life: 0.45 });
+    G.paint?.splat?.(_w.set(a.pos.x, a.pos.y + 0.05, a.pos.z), A.ring, this.team, { kind: 'blast' });
+    G.fx?.ring?.(_w.set(a.pos.x, a.pos.y + 0.15, a.pos.z), _up, G.teamColors[this.team] || G.teamColors[0], { radius: A.ring, life: 0.45 });
     if (G.specials && G.specials.giveShield) G.specials.giveShield(a, A.shield, false);
     H.strip?.show(p, { replay: () => H.say(p.tts, { slow: !!(p._tip && p._tip.slow) }) });
     H.strip?.fit(H.m1._topKeys());
@@ -206,6 +207,19 @@ export class ArenaType {
     const g = C.g; this.cur = null;
     this.flow._askNext(g);
   }
+  // play-6 (versus2's time limit, LEARN §25): the question closed before 射 — the keyboard goes, nothing is judged or
+  // written; the strip says so (v) and after ms the form's _askNext follows (update counts it). false when not typing
+  expire(v, ms = LEARN.ui.verdictMs) {
+    const C = this.cur; if (!C || C.answered) return false;
+    C.answered = true; C.expT = Math.max(0.05, ms / 1000);
+    this.keys.hide();
+    C.verdict = { ok: false, first: false, again: false, head: v && v.head, why: v && v.why, expired: true };
+    this.host.strip?.verdict({ ok: false, head: (v && v.head) || '', why: (v && v.why) || '' });
+    const a = this.match.local;
+    if (a && a.status && a.status.shield > 0.6) a.status.shield = 0.6;
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'expire', item: C.item.id });
+    return true;
+  }
   // she fell while typing (a knockout in the zone): the question goes back to the front of the queue, nothing written
   abort() {
     const C = this.cur; if (!C) return;
@@ -223,6 +237,7 @@ export class ArenaType {
     this.shot?.update(dt);
     const C = this.cur, a = this.match.local; if (!C || !a) return;
     C.t += dt;
+    if (C.expT > 0 && (C.expT -= dt) <= 0) { C.expT = 0; this._next(C); return; }   // (an expired question: expire())
     a.aimYaw = C.yaw; a.fireFacing = Math.max(a.fireFacing || 0, 0.3);
     // the bubble holds while she types (LEARN.arena.shield s at least), goes a moment after 射
     // (topped up in place while the bubble is still on — giveShield again would replay shield_up every frame)

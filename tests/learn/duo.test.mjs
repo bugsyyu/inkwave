@@ -16,7 +16,12 @@ import { judgeAnswer, rightAnswerOf, shortenLevel } from '../../src/learn/forms/
 import {
   mergeDue, spreadGates, buildQueue, canRequeue, answerTime, Referee, settle, tally,
   rolesFor, splitPrompt, padSpots, padNodes, padsApart, padsHeld, LEARN_WIRE, validQ,
+  seeded, seedOf, duoAltPrompt, duoMechanic, clueSpec,
 } from '../../src/learn/forms/duo.js';
+import { readFileSync } from 'node:fs';
+import { store, setBackend } from '../../src/learn/store.js';
+import { targetLabels } from '../../src/learn/play/m1.js';
+import { arenaKind } from '../../src/learn/play/arena/m1.js';
 
 const seq = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
 
@@ -197,4 +202,139 @@ test('the wire: the learning payload kinds on the room envelope, a q that is not
   const other = daySteps(w, 3)[0].items[0].id;
   const q2 = buildQueue({ gates: level.gates, due: mergeDue([[other], []]), has: (id) => byId.has(id), n: 12 });
   assert.equal(q2[0].id, other);
+});
+
+/* ───────────────────────────── 题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25) ───────────────────────────── */
+const WEEKS6 = [await loadWeek(1), await loadWeek(2), await loadWeek(3)];
+const { layoutBoard } = await import('../../src/learn/play/board/paint.js');   // (three, through the hook: after register())
+const memory = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; };
+const leafOf = (id) => { const ev = store.evidence(); for (const doc of Object.values(ev)) { const d = doc.it[id]; if (d) { const day = Object.values(d)[0]; return Object.values(day)[0]; } } return null; };
+const noRandom = (fn) => { const R = Math.random; Math.random = () => { throw new Error('Math.random on a screen of its own'); }; try { return fn(); } finally { Math.random = R; } };
+// one screen's question for an 'lq' (versus2.js / coop2.js _onAsk under the flag): the engine's prompt, or the seeded rewording
+const screenPrompt = (gates, base, q, alt) => { const it = { ...base, _tries: alt ? 1 : 0, _form: alt ? 'alt' : null }; return { it, p: alt ? duoAltPrompt(gates, it, seedOf(q, base.id), () => null) : prompt(it) }; };
+
+test('play-6 versus2: every question of the three weeks\' duel days is the SAME thing on both screens — the same mechanic, the same labels in the same order, the same right object — the reworded ones too (seeded by the question\'s number and id, never Math.random)', () => {
+  let asked = 0, alts = 0, choices = 0, typed = 0, reorders = 0;
+  for (const w of WEEKS6) for (let d = 1; d <= 7; d++) {
+    const level = planDay(w, d, 'duel');
+    const queue = buildQueue({ gates: level.gates, due: [], n: 40 });
+    const byId = new Map(level.gates.flatMap((g) => g.items.map((it) => [it.id, it])));
+    queue.forEach((e, i) => {
+      const base = byId.get(e.id);
+      for (const alt of [0, 1]) {
+        const q = i + 1;
+        // two screens, each building its own from the same 'lq' (no shared object, no shared random)
+        const A = noRandom(() => screenPrompt(level.gates, base, q, alt)), B = noRandom(() => screenPrompt(level.gates, base, q, alt));
+        const kind = duoMechanic(A.p);
+        assert.ok(kind === 'm1' || kind === 'type', `${base.id}${alt ? ' (reworded)' : ''}: a thing over the zone, not a card (${A.p.type})`);
+        assert.equal(arenaKind(A.it, A.p), kind, 'the arena routes it the same way');
+        assert.equal(duoMechanic(B.p), kind);
+        assert.deepEqual(targetLabels(B.p), targetLabels(A.p), `${base.id}: the same objects in the same order`);
+        assert.deepEqual(rightAnswerOf(B.it, B.p), rightAnswerOf(A.it, A.p), `${base.id}: the same right object`);
+        assert.equal(B.p.text, A.p.text);
+        if (kind === 'm1') {
+          choices++;
+          const k = rightAnswerOf(A.it, A.p);
+          assert.equal(judgeAnswer(A.it, A.p, k).ok, true, 'the right object judges right');
+          assert.equal(judgeAnswer(B.it, B.p, k).ok, true, '… on the other screen too');
+          if (A.p._perm) { assert.deepEqual([...A.p._perm].sort((x, y) => x - y), base.options.map((_, j) => j)); if (A.p._perm.some((x, j) => x !== j)) reorders++; }
+        } else typed++;
+        asked++; if (alt) alts++;
+      }
+    });
+  }
+  assert.ok(asked > 500 && alts > 250 && choices > 200 && typed > 50, `asked ${asked} (reworded ${alts}), ${choices} choices, ${typed} typed`);
+  assert.ok(reorders > 20, `a reworded choice is really reshuffled (${reorders})`);
+  // the seed is the question's: another number or another item, another draw
+  assert.notEqual(seedOf(1, 'a'), seedOf(2, 'a')); assert.notEqual(seedOf(1, 'a'), seedOf(1, 'b'));
+  const r1 = seeded(7), r2 = seeded(7); for (let k = 0; k < 5; k++) { const x = r1(); assert.equal(x, r2()); assert.ok(x >= 0 && x < 1); }
+});
+
+test('play-6 coop2: on every gate of the three weeks\' puzzle days only the answering side has something to answer with — ink targets or the 打字蟹, with no recording, no stem, no Chinese, judged like the prompt itself; the clue side\'s board has the stem, its Chinese and ▶, and no option, no input, no hotspot but 再听', () => {
+  let n = 0, boards = 0, withSound = 0;
+  for (const w of WEEKS6) for (let d = 1; d <= 7; d++) {
+    const level = planDay(w, d, 'puzzle');
+    for (const g of level.gates) g.items.forEach((base, i) => {
+      for (const alt of [0, 1]) {
+        const { it, p } = noRandom(() => screenPrompt(level.gates, base, i + 1, alt));
+        const hands = splitPrompt(p, 'hands'), clue = splitPrompt(p, 'clue');
+        const kind = duoMechanic(hands);
+        assert.ok(kind === 'm1' || kind === 'type', `${base.id}: the answering side plays it (${hands.type})`);
+        assert.equal(hands.tts, null); assert.equal(hands.audio, null); assert.equal(hands.zh, ''); assert.equal(hands.hint, null);
+        assert.notEqual(hands.text, p.text, 'not the stem');
+        if (kind === 'm1') {
+          assert.deepEqual(targetLabels(hands), targetLabels(p), 'the objects are the prompt\'s options, in its order');
+          for (let k = 0; k < p.options.length; k++) assert.equal(judgeAnswer(it, hands, k).ok, judgeAnswer(it, p, k).ok, 'the hands view judges as the prompt');
+        }
+        assert.equal(duoMechanic(clue), null, 'the clue side has nothing to answer with');
+        assert.equal(clue.options, undefined); assert.equal(clue.type, 'clue');
+        const L = layoutBoard(clueSpec(clue, 'Bo'));
+        assert.ok(L.hotspots.every((h) => h.id === 'listen' || h.id === 'more'), `${base.id}: the board's hotspots ${L.hotspots.map((h) => h.id)}`);
+        assert.equal(L.hotspots.some((h) => h.id === 'listen'), !!clue.tts, '再听 exactly when there is a recording');
+        assert.ok(L.minFont >= 54, 'every line ≥ 54 canvas px (≥ 17 px framed)');
+        n++; boards++; if (clue.tts) withSound++;
+      }
+    });
+  }
+  assert.ok(n > 3000 && withSound > 1000, `${n} questions, ${boards} clue boards (${withSound} with a recording)`);
+});
+
+test('play-6 the one judging path: versus2\'s _judgeRecord writes the day\'s first answer once (the 打字蟹\'s 提示 → H) and sends ONE \'la\' to the referee; coop2\'s on the answering side writes it and sends the verdict to both, the clue side writes nothing', async () => {
+  const { Versus2Flow } = await import('../../src/learn/forms/versus2.js');
+  const { Coop2Flow } = await import('../../src/learn/forms/coop2.js');
+  const w = WEEKS6[0], day = daySteps(w, 1).flatMap((s) => s.items);
+  const choice = day.find((x) => x.meta.input === 'choice' && x.meta.scored), word = day.find((x) => x.meta.kind === 'word' && x.meta.input === 'type');
+  const g = { id: 'v2:0', items: [choice], queue: [], locks: 0 };
+  // versus2
+  const stubV = (item, p) => ({ V: LEARN.versus2, firsts: 0, firstRight: 0, right: new Set(), rightN: 0, streak: 0, sent: [], q: { q: 3, item, p, t0: performance.now() / 1000, play: true, answered: false }, match: { local: { ink: 100 } }, _toHost(d) { this.sent.push(d); }, _emit() {}, _progress() {} });
+  setBackend(memory());
+  let F = stubV(choice, prompt(choice)), p = F.q.p;
+  let o = Versus2Flow.prototype._judgeRecord.call(F, g, choice, p, rightAnswerOf(choice, p));
+  assert.equal(o.r.ok, true); assert.equal(o.first, true); assert.equal(o.again, false); assert.equal(F.q.answered, true);
+  assert.deepEqual(F.sent.map((d) => [d.k, d.q, d.ok]), [['la', 3, 1]]);
+  assert.deepEqual(leafOf(choice.id), [1, 'L']);
+  F.q.answered = false; o = Versus2Flow.prototype._judgeRecord.call(F, g, choice, p, 0);
+  assert.equal(o.first, false, 'the day\'s first answer once');
+  setBackend(memory());
+  F = stubV(word, prompt(word));
+  Versus2Flow.prototype._judgeRecord.call(F, g, word, F.q.p, word.meta.ref || word.en, { hinted: true });
+  assert.equal(leafOf(word.id)[1], 'H', 'the 打字蟹\'s 提示 → H');
+  // coop2: the answering side
+  const stubC = (role, item, p) => ({ P: LEARN.puzzle, firsts: 0, mine: { asked: 0, right: 0, firsts: 0, firstRight: 0, clues: 0 }, sent: [], q: { q: 5, item, p, role, answered: false }, _bcast(d) { this.sent.push(d); } });
+  setBackend(memory());
+  const it0 = { ...choice, _tries: 0, _form: null }, hv = splitPrompt(prompt(it0), 'hands');
+  let C = stubC('hands', it0, prompt(it0));
+  const wrong = (rightAnswerOf(it0, hv) + 1) % hv.options.length;
+  o = Coop2Flow.prototype._judgeRecord.call(C, g, it0, hv, wrong);
+  assert.equal(o.r.ok, false); assert.equal(o.again, true, 'a first miss comes back (to the other hands)');
+  assert.equal(C.sent.length, 1); assert.equal(C.sent[0].k, 'la'); assert.equal(C.sent[0].ok, 0); assert.equal(C.sent[0].first, 1); assert.ok(C.sent[0].canonical);
+  assert.deepEqual(leafOf(choice.id), [0, 'L']); assert.equal(C.mine.firsts, 1);
+  // the clue side: nothing written, nothing sent
+  setBackend(memory());
+  C = stubC('clue', it0, prompt(it0));
+  Coop2Flow.prototype._judgeRecord.call(C, g, it0, splitPrompt(prompt(it0), 'clue'), 0);
+  assert.equal(leafOf(choice.id), null); assert.equal(C.sent.length, 0);
+});
+
+test('play-6 the sources: versus2 / coop2 judge only through _judgeRecord (the card too) and never hold or pause on the play path; the coop2 host judges nothing, never pauses, never holds', () => {
+  const root = new URL('../../src/learn/', import.meta.url);
+  for (const f of ['forms/versus2.js', 'forms/coop2.js']) {
+    const src = readFileSync(new URL(f, root), 'utf8');
+    assert.equal((src.match(/recordFirst\(/g) || []).length, 1, `${f}: recordFirst once (in _judgeRecord)`);
+    assert.ok(/_judgeRecord\(g, item, p, ans, o = \{\}\)/.test(src), `${f}: the one path's signature`);
+    assert.ok(/_askNext\(/.test(src), `${f}: _askNext is the form's (B's would ask its own queue)`);
+  }
+  const v = readFileSync(new URL('forms/versus2.js', root), 'utf8');
+  const i = v.indexOf('this.arena && this.arena.canAsk(g, it, p)'), j = v.indexOf('this.hold = true', i);
+  assert.ok(i > 0 && j > i);
+  const block = v.slice(i, j);
+  assert.ok(/return;/.test(block) && !/paused|exitLock|hold\s*=|intent\.move/.test(block), 'versus2: the play branch returns before the card\'s hold');
+  const c = readFileSync(new URL('forms/coop2.js', root), 'utf8');
+  for (const m of c.matchAll(/this\.hold = true/g)) {
+    const before = c.slice(Math.max(0, m.index - 400), m.index);
+    assert.ok(/if \(!this\.play\) \{/.test(before) || /_results\(\) \{/.test(before), 'coop2: a hold only without the play host (or on the results card)');
+  }
+  const h = readFileSync(new URL('play/duo/coop.js', root), 'utf8');
+  assert.ok(!/paused\s*=\s*true/.test(h) && !/\.hold\s*=\s*true/.test(h), 'coop.js: never a pause / a hold');
+  assert.ok(!/recordFirst\(/.test(h) && !/\bjudge\(/.test(h) && !/judgeAnswer\(/.test(h), 'coop.js: no judging of its own');
 });

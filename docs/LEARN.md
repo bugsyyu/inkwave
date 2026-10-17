@@ -1111,3 +1111,93 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
   2. 对抗赛的题簇钉在锚点上：她跑远了它就在身后，转回来才看得见（不跟着她）。
   3. 对抗赛的标签牌偶尔和机器人头上的名牌（DOM）叠在一起。
   4. 审计每一步都是冻时钟步进，SwiftShader 下一题约 1.5–2 分钟；Boss 八题两个方向要 `--budget 3000`。
+
+## 25. play-6 交付（2026-10-17，分支 `play-6`：双人联机赛 `versus2` / 双人合作赛 `coop2` → 同样的题物，房主判——PLAY §5.5、§9 第 6 期）
+
+**先读了什么**：PLAY §1（12 条逐条核）、§3 M1 / M4 / M6、§4 表的「对抗赛 / 小考 / 联机」一列、§5.5、§6、§10；本文 §14（中继、versus2 / coop2、线协议 `ls / ld / lq / la / lr / lc / lg`、`duo.js` 的裁判和拆题、两个浏览器的实测）、§18（题物 / 题条 / `_judgeRecord`）、§19（字弹的接口）、§22（解谜宿主 `play/host.js` + `wire/*` 的契约）、§24（play-5 的 `arena/*`：`ArenaHost`、题簇、字靶的墨圈 + 泡泡盾、`duel.js` 怎么接的）；代码：`forms/versus2.js`、`coop2.js`、`duo.js`、`duel.js`、`common.js`（`judgeAnswer`、`rightAnswerOf`）、`flow.js`（`this.play` 只给 `constructor === LearnFlow`、`_askNext`、`_altPrompt`）、`play/host.js`（`kindOfItem`、`_prep` / `_placeBoards` / 出口区）、`play/run.js`、`arena/{host,run,type,alt,m1,targets}.js`、`wire/type.js`、`board/{walk,set,paint}.js`、`ui/play-strip.js`、`ui/play-keys.js`、`type/{shot,inkword,rig}.js`（`team`）、`core/touch.js`（`G.playTap`、第 191 行 `G.match.learn.play`）、`game/weapons.js`（`G.playTargets`）、`game/match.js`（`learn.hold` 关控制器）、`forms/index.js buildNetLearn`、`net/session.js lessonOf`；测试 `duo.test.mjs`、`play-arena.test.mjs`；实测脚本 `tools/learn/net-duo.mjs`、`net-duo-coop.mjs`、`arena-audit.mjs`。
+
+**先定的**：
+1. **versus2 用 play-5 的 `ArenaHost`**（`mode 'zone'`，锚点 = 争夺中的区域中心）：对抗赛的题簇本来就是「浮在争夺中的区域上空」，选择题全是墨靶（音标 / 听辨也是，PLAY §4 这一列）、打字是打字蟹 + 脚下墨圈 + 泡泡盾。每个屏幕按自己的相机排自己的题簇，放法和对抗赛一样；**同样的是题物本身**：同一个机制、同样的标签、同样的顺序、同一个对的序号。它也挂成 `this.play`（`flow.dispose` 收它、`touch.js` 191 行见 `learn.play` 才把题条的 ▶ 留给题条——LEARN §24 拿不准的 9 在对抗赛里还在）。
+2. **两边同样的题物 = 同样的提示**：`engine.prompt` 是纯的；换问法（没人答对 → 换个问法再来一次）原来用 `Math.random` 抽干扰项、排顺序，两块屏不一样。改成 `duo.js duoAltPrompt(gates, item, seed)`：打字题走 arena 的换问法（`arenaAltPrompt` 多一个可选 `rnd`），选择题同题重排（`_perm`），**随机数用题号 + 条目 id 播种**（`seedOf(q, id)`，两边都有，`lq` 一个字段都没加）。「哪一个是…」开头的题（换成打字，没有随机）交回形式自己的 `_altPrompt`——三周里没有这种题（§18）。
+3. **coop2 不直接用 `PlayHost`**（任务书说「用解谜宿主的公开接口」）：`PlayHost.kindOfItem` 把听辨 / 音标送去节拍台，节拍台在小节线上**放这个词**——作答方不能听到任何东西；`PlayRun` 的标签图集只画 `canPlayM1` 的条目（听辨 / 音标的标签会是空的 `NOUV`）；它还会在路上立展板、建出口区（coop2 自己有 `_open`）。所以写了一个同契约的小宿主 `src/learn/play/duo/coop.js CoopPlay`，用的件都是现成的：墨靶 = play-5 的 `ArenaRun`（任何选择题、换问法自己一张小图集）、打字 = play-wire 的 `TypeStation`（`wire/type.js`，经它的宿主契约 `facingYaw / m1._topKeys / strip / say / reduced / resized`，play-fix 在改它，合并后自动跟上）、线索 = M6 `BoardWalk`、镜头 = `PlayCam`。
+4. **线索方 = 一块展板**：她站在自己的墨垫上，展板在她面前 `LEARN.board.view`（1.7 m）、朝去门的方向（地面在她这一层、她的头和板面之间、板面和**这块板在这块屏上 `frameBoard` 的取景位**之间、板子两头都没挡就用，否则左右转着找，都不行就用题条；竖屏板宽 1.3 m——板总是框满屏宽，屏上的字一样大，2.3 m 宽的板要把镜头放到她身后 4 m，进了凉亭 / 墙里），观景点就是她站的地方——一升起镜头就框住；板上是题干、中文、怎么做（「你看得到题目：讲给 Bo 听，Bo 来选」）和「再听」（有录音时，升起时就放一遍）。`duo.js clueSpec` 是纯数据，测试核它没有任何可答的热区。
+5. **作答方的「提示」**：`TypeStation._hint` 在没有 `p.hint` 时会把条目的中文放上题条——作答方「没有中文」（`splitPrompt` 的规矩）就破了。合作赛里作答方的提示键灰掉、按了只说「提示在队友那边：听队友说」，不记 `H`。
+6. **线索方的判定写在题条上**：答对「Bo答对了 · 答案：…」；答错而且这题会换问法**回到她手里**时只写「差一点 — 换个问法，这次你来答」，**不写正确答案**（她马上要答它，首答要干净）；最后一次答错才写「差一点：是 ___」。作答方的题物 / 墨字照解谜演对错（珊瑚色、对的那个描她的墨）。
+7. **versus2 的时间到**：站上演「时间到了：是 ___」（墨靶标出对的那个 / 打字蟹收键盘），什么都不判不写，停 `verdictMs` 再走；剩几秒在题条的小标签上（`PlayStrip.chip`，变了才写 DOM）。打字时被打倒（`ArenaType.abort`）这题还开着，她起来再出一次。
+8. **墨是她那一队的**：versus2 的访客在 1 队；`ArenaRun` / `ArenaType` / `TypeShot` 原来写死 0 队——访客打字时脚下那圈墨、墨字溅到地上的墨都会是对面的颜色、涂对面的地盘、还复制到房主屏上。`ArenaHost` 多一个 `opts.team`（默认 0），一路传下去。
+9. **浏览器实测用 playwright**：`net-duo.mjs` 用的 `puppeteer-core` 这台机器上没有（`/opt/node22/lib/node_modules` 只有 playwright）；新写 `tools/learn/net-duo-play.mjs`，冻页面、按消息和定时器步进的做法照 `net-duo.mjs`。coop2 默认用审计的手把两个人放到各自的墨垫上（B 的自动走不是这一期测的，3 分钟里放不下；`--walk` 照旧自动走）。
+10. **两种形式的判分都只剩一条路 `_judgeRecord(g, item, p, ans, o)`**（名字、签名和 dev / play-5 的同一个，`o.hinted → H`、`o.judged` 同义）：versus2 的卡片 `_answer`、墨靶、打字蟹都调它（judge → 她自己的 store → `la` 给裁判 → 答错掉墨罐），返回 `{ r, first, again: false }`（没人答对的题由房主重排，不在这里）；coop2 只有作答方的 `_judgeRecord` 写（judge → store → `la` 给两边，`_onAnswer` 在同一帧里上锁 / 重排），线索方调用也什么都不写。两个形式都覆盖 `_askNext`——B 的会从自己的队列出题（访客那边会自己起一串题）。
+
+**改了什么**：
+- `src/learn/forms/versus2.js`：开关下建 `ArenaHost`（`team` = 她在名单里的队，`edges` / `settle` 开）、挂成 `this.play`；`_gateOf(i)` 每道题一个「一题的门」、`_prepAhead` 在 `ls` 和上一题 `lc` 时画下一题的标签图集；`_altFor` 用 `duoAltPrompt`；`_onAsk` 的题物分支（不 hold、不清意图、不 exitLock、不出卡，`learn:question` 带 `play: true`）；`_judgeRecord` / `_askNext`；`_expire` 交给站上演；倒下后重出（`q.reask`）；`_progress` 写题条的小标签；`_onInk` 题在屏上时把「X 先答对了」写进小标签（横屏上 FormsUi 的提示行压在题条上）；`_stop` 收站；`debug()` 多 `hold / paused / play / answered / arena`。卡片路的行为没变（判分改走 `_judgeRecord`，写的东西一样）。
+- `src/learn/forms/coop2.js`：开关下 `this.play = new CoopPlay(this)`、每帧 `play.update`；`lg ask` 只在没有宿主时 hold；`_onAsk` 的题物分支（作答方 `play.ask(view)` + 小标签「n/N · 你答 · X说」，线索方 `play.clue(view)`）；换问法用 `duoAltPrompt`；`_judgeRecord` / `_askNext`；`_onAnswer` 给线索方 `clueVerdict`、预画下一题线索方的展板（按 `rolesFor` 推下一题谁拿线索）；门开 `play.gateOpened`；队友离开 `play.clear`；`debug()` 多 `hold / paused / play`。
+- 新 `src/learn/play/duo/coop.js`：`CoopPlay`（见先定的 3–6）——`ask`（作答方：墨靶 / 打字蟹，提示键改成「提示在队友那边」）、`clue`（线索方：展板，放不下用题条；竖屏板宽 1.3 m）、`_clueSpot`（地面、头 → 板面、板面 → 这块板在这块屏上的 `frameBoard` 取景位、板两头，都清楚才放；不行就 `noBoard` 记原因）、`clueVerdict`、`prepClue`（判定空当里先画下一题的线索展板）、`facingYaw`（打字蟹的取景位不被挡的朝向）、展板框住或打字时藏准星、`_anchor`（门后 6 m 的路线点：题物浮在那里、墨字落在那边）。
+- `src/learn/forms/duo.js`（加法）：`seeded`、`seedOf`、`duoAltPrompt`、`duoMechanic`、`clueSpec`。
+- `src/learn/play/arena/host.js`（加法）：`opts.team` 的说明、`expire(v, ms)`。`arena/run.js`（加法）：构造里按 `opts.team` 换墨色；`opts.edges`（视线核到标签牌下沿）、`opts.settle`（rig 的模式过渡结束才放）——都默认关；`expire(v, ms)`（标出对的那个、题条说一句、`next` 照常交回 `_askNext`）。`arena/type.js`（加法）：`opts.team` → `TypeShot` / 键盘颜色 / 脚下墨圈 / 光圈；`expire(v, ms)` + `update` 里一行倒计时。`arena/alt.js`：`wordPool` / `arenaAltPrompt` 多一个可选 `rnd`（默认 `Math.random`，对抗赛 / Boss 行为不变）。
+- `src/ui/play-strip.js`（加法）：`chip(text, kind)`。
+- `tests/learn/duo.test.mjs` +4 条（见测试）。新 `tools/learn/net-duo-play.mjs`。
+- `docs/PLAY.md` §5.5 一段「play-6 更正」。
+
+**动了别人地盘的**：`host.js`、`cam.js`、`wire/*`、`flow.js`（play-fix 在改）、`weapons.js`、`main.js`、`actor.js`、`cameraRig.js`、`src/net/*`、`touch.js`、`hud-learn.js`、`config.js`、`run.js`（play-1 的）**一行没动**。共用文件只做了加法：`src/ui/play-strip.js`（`chip`）、`src/learn/play/arena/*`（`opts.team`、`expire`、`rnd`；`ArenaType.update` 多一行只在 `expire` 之后才走的倒计时）。`wire/type.js` 的 `TypeStation` 是经它的宿主契约用的（`facingYaw / m1._topKeys / strip / say / reduced / resized`，外加作答方改了它键盘的 `onHint` 和 `setHintUsed(true)`）。
+
+**测试**：`npm run test:learn` 197 → 201（`duo.test.mjs` +4）：
+- **versus2 两边同一道题**：三周 21 个对抗赛日的队列（每日 40 题、每题原样 + 换问法各一次，共 1680 道：1114 墨靶、566 打字蟹），两块「屏」各自从同一个 `lq` 建题——同一个机制（和 `arenaKind` 一致、没有一道落到卡片）、同样的标签同样的顺序、同一个对的序号、对的那个两边都判对；换问法全程不碰 `Math.random`（测试里把它换成会抛错的函数）；重排的选择题真的重排了（358 道）。
+- **coop2 作答方才有题物**：三周解谜日的每道门每道题（原样 + 换问法，4200 道）：作答方的 view 有机制（墨靶 / 打字蟹）、没有录音 / 题干 / 中文 / 提示，墨靶的标签就是原题的选项、按序号判和原题一样；线索方的 view 没有机制、没有选项；线索展板的热区只有「再听」（有录音时才有）/「读全文」，字 ≥ 54 画布像素。
+- **一条路**：`Versus2Flow.prototype._judgeRecord`：首答一次、一个 `la`（q / ok）、叶子 `[1, L]`、提示 → `H`；`Coop2Flow.prototype._judgeRecord`：作答方写一次、`la` 带 ok / why / canonical / first、第一次答错 `again`；线索方调用什么都不写不发。
+- **源码**：两个形式 `recordFirst(` 各一次（在 `_judgeRecord` 里）、都覆盖 `_askNext`；versus2 的题物分支在卡片的 hold 之前 return（中间没有 paused / exitLock / hold / 清意图）；coop2 的 `hold = true` 只在「没有宿主」的分支和结果卡；`coop.js` 不判、不停、不定。
+- `npm run check` 280 个文件。全套跑了 7 次：第一次有 1 条没过（当时 197 条，没记下是哪条——机器负载 ~5，`relay.test` 是真 socket 计时），之后 6 次全过。
+
+**实测**（`tools/learn/net-duo-play.mjs`：自己起 Node 中继 + 文件服务、两个 Chromium（SwiftShader、`?quality=low`、阴影 / 泛光关、触屏），建房 → `lobby.learn.short` → 开局，开机后冻住页面、按消息和定时器、2 倍实时步进；每次都在 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10` 下一次一个、每次 ≤ 3 分钟（两个浏览器开机就要 72–78 s，第一次 `paint.flush` 每页卡 ~50 s，所以第一题在 ~140 s 才出来）；每题两块屏都核：没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、题条在；versus2：同一个机制 / 同样的标签同样的顺序 / 同一个对的序号、每个题物（球 + 标签牌 / 横幅）的投影都在安全区（题条下面、两边 16 px）、题物登记了、题条小标签有秒数，**真的点**题物（playwright 触屏 → `touch.js` → `G.playTap` → 她的墨弹 → 命中）/ 在游戏键盘上一个键一个键点、答完照样不暂停不定身，第 1 题访客先答对（按自己的钟早 1.5 s）、房主后答对 → 墨归访客，第 2 题房主答对、访客答错 → 墨归房主，两边的墨一样、区域份额一致、首答各 2 条各进各的 store、INKWAVE 的结算 + 学习条；coop2：两人在各自墨垫上、房主宣布、两边都在出题且没人被 hold，作答方有题物 / 打字蟹、题条上没有 ▶ / 题干 / 中文、题物在安全区，线索方是展板（或题条）、没有题物登记、没有键盘、没有卡片、展板热区只有「再听」/「读全文」，作答方第一次故意答错 → 两边都显示判定、线索方不给答案、这题换问法回到另一个人手里，两道门两边同步开、每台设备的首答 = 它自己的人答过的题、结果卡；2026-10-17 UTC）：
+
+| 轮 | 形式 · 屏 · 关 | 结果 | 看到的 / 改的 |
+|---|---|---|---|
+| r2 / r3 | versus2 · 竖 390 × 844 · w1d1 | r2 32 / 33（结算那条是 3 分钟到了），**r3 33 / 33** | 截图 `r2/versus2-portrait-question.png`：房主一排四个、访客 2 × 2；访客下排两个球被凉亭的栏杆 / 喷泉挡住一半、房主最左的标签被路灯杆挡住一角（装饰不在物理里，视线核不到——已知坑 1） |
+| r4 | coop2 · 横 844 × 390 · w1d1 | 56 / 56 | 截图 `r4/…-split.png`：线索方展板（题干 + 长元音 + 提示），作答方四个球；FormsUi 的提示行（top 18 %）压在作答方的题条上 → 不再说那一行、角色写进题条小标签；访客那块墨垫一次都没放上板 → 见 r5 |
+| r5 / r6 | coop2 · 竖 · w1d1 | 56 / 56 · **56 / 56** | r5 截图：房主的展板被凉亭的梁挡得只剩下半截——找地方时核的取景位是她身后 1.4 m，frameBoard 竖屏要把 2.3 m 的板框满屏宽，镜头其实在她身后 4 m → 按这块板在这块屏上的真实取景距离核、竖屏板宽 1.3 m；r6 截图 `r6/…-split.png`：整块板在屏上、字清楚；访客那块在第 1 道门放上了板，第 2 道门四周都挡（用题条） |
+| r7 / r12 | versus2 · 横 · w1d1 | **33 / 33** · 32 / 33（结算：3 分钟） | r7 截图：两边四个球都在观景台的石栏杆上面，挂在下面的标签牌落在栏杆后——标签中心擦着栏杆顶过去 → `ArenaRun opts.edges`（核到标签下沿）；r12 截图 `r12/versus2-landscape-question.png`：房主题簇拉近到 5.5 m、八块标签都在栏杆前 |
+| r8 | coop2 · 横 · w2d5（听写句 M4 + 发音小测） | 51 / 53（门 2 / 结果卡：3 分钟） | 打字题全过（作答方打字蟹、题条无 ▶、线索方展板带「再听」）；截图：作答方的画面是一排栏杆柱和地面，打字蟹不在画面里 → r14 / r15 |
+| r9 / r13 | versus2 · 竖 · w2d5 | 27 / 30 · 29 / 30（结算：3 分钟） | 第 1 题听写句：两边打字蟹（键盘颜色是各自队的）、都打对、墨归访客；r9 第 2 题（打字题之后的墨靶）两边的球都落到题条上面 → 打字蟹的镜头放回跟随有 0.6 s 的过渡，题簇在过渡里放了 → `ArenaRun opts.settle`；r13 全过 |
+| r10 | versus2 · 竖 · w1d1 · `&play=0` | **7 / 7** | 卡片照旧：两边同一张卡、墨按自己的用时、首答各记、结算 + 学习条 |
+| r11 | coop2 · 横 · w1d1 · `&play=0` | **9 / 9** | 卡片照旧：线索卡没有作答、作答卡没有录音，五题、两道门、结果卡 |
+| r14 / r15 | coop2 · 竖 · w2d5 | 53 / 53 · **53 / 53** | r14 截图：打字蟹又被访客墨垫背后的栏杆挡住、走路条冒在题条上面 → 打字的朝向找一个打字机位不被挡的方向、先 hide() 再 playMode(true)；r15 截图 `r15/…-split.png`：打字机整台在画面里（左下角还压着一点栏杆柱；纸在题条下面——`wire/type.js` 的取景，play-fix 的地盘），准星 r15 之后也藏了 |
+| r17 | coop2 · 横 · w2d5（最后的代码） | **53 / 53**（门、结果卡都进了 3 分钟） | 截图 `r17/…-split.png`：线索方展板带「再听」；作答方打字蟹整台在题条和键盘之间、她坐在里面、准星藏了（`fd334bd` 在浏览器里只在这一轮核过）；纸压在题条下面（`wire/type.js` 的取景） |
+| r16 | versus2 · 竖 · w1d1（最后的代码：edges + settle + 小标签） | **33 / 33**（第一题 140.5 s、结算 167.7 s） | 截图 `r16/versus2-portrait-question.png`：访客的 2 × 2 下排两个球和标签都在栏杆前了；房主最左那块标签还被路灯杆挡一角（装饰，已知坑 1） |
+
+截图（不提交）在主会话草稿目录的 `play6-shots/r*/` 下，每轮一张两边并排的（`*-c0.png` / `*-c1.png` 是各自那一张）。
+
+「3 分钟到了」的那几条（结算 / 门 2）是预算不够，不是行为错：开机 72–78 s + 第一次 flush ~50 s 以后只剩 ~35 s，打字题、截图（两页各渲一帧 ~9–12 s）会把最后的结算挤出去；同样的检查在 r3 / r7 / r16（versus2）、r4–r6 / r14 / r15（coop2）里都过了。
+
+**PLAY §1 的 12 条**（开关开着，两种形式）：1 不暂停 / 不定身 / 不弹面板 ✓（每题两块屏都核 `paused`、`hold`、`.iw-learn__panel`；coop2 的「站上墨垫后出题」不再 hold；打字时站着是 play-wire 的「清意图」，不是定身；结果卡上的 hold 是一局结束以后的，和解谜一样）；2 判分一条路 ✓（两个形式各一个 `_judgeRecord`，`recordFirst(` 各一次，源码测试）；3 证据如实 ✓（首答各记各的——versus2 每人自己的 store，coop2 只记作答方；提示 → `H`；coop2 作答方的提示不给中文所以没有 `H` 可记；打字提交前不给对错——打字蟹 / 键盘 / 墨字是 play-type 的，没改）；4 节奏——双人里没有节拍玩法（coop2 的听辨 / 音标也是墨靶，见先定的 3）；5 没有误答 ✓（墨靶只认点射 / 准星开火那颗带标记的墨弹；对面玩家的墨弹在本机没有标记，只在题物上溅一点灰）；6 不惩罚 ✓（错是珊瑚色 + 「差一点」；versus2 的答题时限和答错掉三成墨罐是 §14 原有的联机规矩）；7 每句英文配中文 ✓（题条、标签牌照 `engine.prompt`；coop2 作答方故意没有中文——那是线索方的一半，§5.5）；8 不加素材 ✓；9 画风流畅 ✓（同一套题物 / 打字蟹 / 展板；镜头只经 `PlayCam` 弹簧和 rig 的 `dampAngle`；标签图集在上一题关题时画、线索展板在判定的空当里先画；帧时间没量）；10 竖横 ✓（实测表）；11 内容不少 ✓（三周每道 versus2 / coop2 题、含换问法，都有玩法，测试核）；12 开关可退 ✓（`&play=0` 两轮）。
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **coop2 没有直接用 `PlayHost`**，而是同契约的 `CoopPlay`（先定的 3）：play-fix 改 `TypeStation` 的宿主契约（`facingYaw / m1._topKeys / strip / say / reduced / resized`、键盘的 `onHint / setHintUsed`）时 `coop.js` 要跟着改；它用 `_clearStation` 式的清法，没有调 `PlayHost` 的私有方法。
+2. **coop2 的听辨 / 音标是墨靶不是节拍台**：节拍台要在小节线上放这个词，作答方不能听；墨靶上就是两个 / 四个词，线索方念给他听。
+3. **线索方 = 展板，放不下就用题条**：tidewater 的访客那块墨垫贴着观景台的栏杆，竖屏第 2 道门四周都挡，用了题条（`noBoard` 的原因在宿主 log 里）。展板是这一题现画的（判定的空当里先画下一题的——按 `rolesFor` 推下一题谁拿线索；换问法的题当场画）。
+4. **作答方的「提示」不给中文、不记 `H`**（先定的 5）；作答方键盘上的 ▶ 按了没有声音（`TypeStation` 建键盘时就带着 ▶，作答方的 view 没有录音）——没藏，只是什么都不放。
+5. **线索方的判定不写会回到她手里的答案**（先定的 6）；作答方的题物照解谜标出对的那个——两个人在一个房间里说话，作答方看到了也会说，但线索方屏幕上的首答是干净的。
+6. **换问法的种子 = 题号 + 条目 id**，没加 `lq` 字段（房主迁移以后新房主从下一题接着出，题号照旧往下数，种子照样两边一致）。
+7. **versus2 时间到了给答案**（和卡片一样：「时间到了：是 ___」+ 中文），什么都不写。
+8. **打字时被打倒，这题她起来再出一次**（还在时限里的话）：play-5 的打字蟹倒下就 `abort`（对抗赛把题放回队首），versus2 的题是房主在出、还开着，所以在她复活后同一题重出，不另发消息。
+9. **题簇被装饰挡**：凉亭的栏杆 / 喷泉、路灯杆不在物理里，视线核不到（play-wire 已知坑 1、play-5 已知坑 2）；`edges` 只管到标签下沿、`settle` 只管镜头过渡。真要根治得用渲染的可见性测试。
+10. **`G.playTargets` 吃掉别人的墨弹**：本机的题簇浮在区域上空，对面玩家（在本机模拟的）和机器人的墨弹碰到它就停（`weapons.js` 1629 行，play-1 起就这样）——PvP 里题簇在她和对手之间时像一面小盾，两边对称。打字时脚下那圈墨会算进区域（两边都有）。桌面上准星压在题物上开火算答（和对抗赛一样）。
+11. **`ArenaRun` 的 `edges` / `settle` 默认关**：对抗赛 / 小考 / Boss 也有同样的毛病（打字题后接选择题、矮墙后的标签），没替它们打开——「别改已有行为」；要开是 `duel.js` / `boss.js` 里一个字段。
+12. **实测里 coop2 的两个人是审计的手放上墨垫的**（每一帧在 walk 阶段把她放到自己那块上），B 的自动走这一期没在浏览器里跑（`--walk` 可以跑，3 分钟放不下）。
+13. 全套测试第一次跑时有 1 条没过（197 条那时），之后 6 次全过，没抓到是哪条；`relay.test.mjs` 是真 socket 计时，机器负载 ~5。
+
+**没做的**：
+1. 帧时间对比（PLAY §7）没量；真机没跑。
+2. versus2 机器人填位、断线、房主迁移在新的题物下没在浏览器里跑（Node 里裁判照旧）；versus2 的「没人答对 → 换个问法再来」在浏览器里也没走到（每轮都有人答对），种子相同的换问法只在 Node 里核过（1680 道，含换问法）——coop2 的换问法在浏览器里走过（r4 / r6 / r8 / r14 / r15 / r17：交给另一个人）。
+3. 作答方键盘的 ▶ 没藏；`wire/type.js` 的取景（纸在题条下面）、准星——play-fix 的文件，coop2 这边藏了准星、选了朝向。
+4. 题物被装饰挡的根治（渲染可见性）；对抗赛 / Boss 打开 `edges` / `settle`。
+5. §14 没做的照旧：coop2 墨罐共用、`deploy/` docker-compose、versus2 房主迁移时丢掉正在问的那一题。
+
+**交接**（分支 `play-6`，没推，从 dev `c332209` 建出，没再合 dev）：
+- **做到哪**：开关下 versus2 / coop2 都没有卡片、不暂停、不定身；versus2 是对抗赛的题簇 / 打字蟹，两边同一道题同样的题物、答案照旧 `la → Referee → lr → lc`；coop2 线索方展板（或题条）、作答方墨靶 / 打字蟹，判定两边同时。竖横、选择 / 打字、`&play=0` 都在浏览器里走过（上表）。
+- **先看哪些文件**：`src/learn/forms/versus2.js`（`_onAsk` 的题物分支 → `_judgeRecord` → `_askNext` / `_expire`）→ `src/learn/forms/coop2.js`（`_onAsk`、`_judgeRecord`、`_onAnswer` 的 `clueVerdict`）→ `src/learn/play/duo/coop.js`（`ask` / `clue` / `_clueSpot` / `facingYaw` / `update`）→ `src/learn/forms/duo.js` 末尾（`duoAltPrompt` / `duoMechanic` / `clueSpec`）→ `arena/run.js` 的 `team / edges / settle / expire`；测试 `tests/learn/duo.test.mjs` 末尾 4 条；实测 `tools/learn/net-duo-play.mjs`。
+- **接口**：`ArenaHost(flow, { mode, anchor, team, edges, settle })`、`ArenaHost.expire(v, ms)`；`PlayStrip.chip(text, kind)`；`CoopPlay` 的契约同 `PlayHost`（`canAsk / ask / clue / clueVerdict / prep / prepClue / clear / gateOpened / update / facingYaw / say / debug / dispose`）。
+- **和 play-fix 撞的**：`coop.js` 用 `wire/type.js` 的 `TypeStation`（构造 `new TypeStation(host)`、`ask / update / gate / pose / still / clear / warm / dispose / debug`、`keys`）——如果 play-fix 改了它向宿主要的东西，`CoopPlay` 照着补；它若把 `arenaTypeFrame` 换进 `wire/type.js`，`CoopPlay.facingYaw` 里用的 `frameFor` 打字机位要换成同一个。没有动 `host.js / cam.js / wire/* / flow.js`。
+- **实测**：`NODE_PATH=/opt/node22/lib/node_modules flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/net-duo-play.mjs --mode versus2|coop2 --view portrait|landscape [--week 2 --day 5]（打字题） [--play 0] [--walk] --shots <dir>`；默认预算 176 s。
+- **已知坑**：
+  1. 题簇 / 展板被不在物理里的装饰挡（拿不准的 9）；对方玩家的名牌（DOM）偶尔压在一块标签上。
+  2. 3 分钟的实测里结算常常挤不进去（见上）；要看结算就别截图（不给 `--shots`）。
+  3. 线索展板是当场画的 CanvasTexture（判定空当里先画下一题的那张，猜错了就当场画）；换问法的题物标签也是当场画的小图集。

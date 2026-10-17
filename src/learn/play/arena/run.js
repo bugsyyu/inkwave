@@ -18,6 +18,7 @@ import { gateLabels, labelKey } from '../atlas.js';
 import { layoutTargets } from '../layout.js';
 import { answerOfTarget, verdictLines } from '../m1.js';
 import { prompt } from '../../api.js';
+import { rightAnswerOf } from '../../forms/common.js';
 import { canPlayArena, weakSockets, clusterLocals, cameraPositions, orbitBasis, bossBallRadius } from './m1.js';
 
 const A = LEARN.arena, M = LEARN.m1;
@@ -27,12 +28,20 @@ const _basis = { right: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), bac
 const _pts = Array.from({ length: 4 }, () => ({ x: 0, y: 0, z: 0, plate: { x: 0, y: 0, z: 0 } }));
 
 export class ArenaRun extends PlayRun {
-  // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre on its floor), boss() → the Boss }
+  // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre on its floor), boss() → the Boss,
+  //         team (play-6: her side — versus2's guest plays on team 1; her ink, the halo, the strip's colour; default 0),
+  //         edges (play-6: the sight lines go to each label's lower edge too, not only its middle — a landscape phone saw
+  //         the labels hang just behind a deck's balustrade whose top the middles cleared; default off: the duel as it was),
+  //         settle (play-6: the objects are placed only once the rig's mode blend is over — right after a typed question
+  //         the lens springs back from the 打字蟹's pose with its field of view for 0.6 s, and a cluster placed in that
+  //         blend ends up above the strip; default off) }
   constructor(flow, opts = {}) {
     super(flow, { Targets: ArenaTargets });
     this.mode = opts.mode || 'zone';
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
+    this.team = opts.team | 0; this.edges = !!opts.edges; this.settle = !!opts.settle;
+    if (this.team && G.teamColors[this.team]) { this.ink.copy(G.teamColors[this.team]); this.T.setInk(this.ink); this.strip?.setInk(G.teamHex?.[this.team]); }
     // her tap-shot flies to the object she tapped: on the crowded weak points (and in a cluster seen from her muzzle, lower
     // than the lens) another option's ball can stand on its way — it never eats that round (only its own target may)
     const shotHit = this.reg.shotHit.bind(this.reg), R = this.reg;
@@ -100,7 +109,7 @@ export class ArenaRun extends PlayRun {
     this.frame = { yaw, pitch, still: true, t: 0, on: !this.reduced && !!rig, boom: rig ? rig.curDist : null, seen: true, blocked: 0 };
     C.placed = false;
   }
-  _settled() { return true; }   // (she never stands still in an arena: the objects come up when the ease ends)
+  _settled() { return !(this.settle && G.rig && G.rig.blend && G.rig.blend.active); }   // (she never stands still in an arena: the objects come up when the ease ends — and, settle, the rig's blend)
 
   // ---------------------------------------------------------------------------------------------- placement
   // (the boss: on its weak points when she is within LEARN.arena.bossNear m of its eyes — her round reaches them — else,
@@ -163,6 +172,7 @@ export class ArenaRun extends PlayRun {
         if (gy > -Infinity) need = Math.max(need, gy + M.clear - bottom);
         if (P && (!P.los(_e, _c.set(o.x, o.y, o.z)) || !P.los(_o, _c) || !P.los(_m, _c))) blocked = true;
         if (P && o.kind === 'ball' && !P.los(_o, _c.set(o.plate.x, o.plate.y, o.plate.z))) blocked = true;   // (its label too)
+        if (P && this.edges && !P.los(_o, _c.set(o.plate.x, o.plate.y - o.plate.h * 0.45, o.plate.z))) blocked = true;   // (… down to its lower edge)
       }
       const dMin = boom + 1.6;
       if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
@@ -320,6 +330,21 @@ export class ArenaRun extends PlayRun {
       this.strip?.verdict(v);
       this.next = { t: (this.reduced ? Math.min(LEARN.ui.verdictMs, 900) : LEARN.ui.verdictMs) / 1000, stage: 0 };
     }
+  }
+  // play-6 (versus2's time limit, LEARN §25): the question closed before she answered — nothing answers now, nothing is
+  // written; the right object is ringed, the strip says so (v), then the objects drain and the form's _askNext follows
+  // after ms, as after a miss. false when there is nothing live to close
+  expire(v, ms = LEARN.ui.verdictMs) {
+    const C = this.cur; if (!C || C.answered) return false;
+    C.answered = true; this.shot = null; this.tap = null;
+    this.reg.serial = ++this.serial;   // (nothing still in flight answers it)
+    const right = rightAnswerOf(C.item, C.p);
+    if (Number.isInteger(right) && right >= 0) this.T.state(right, 'right');
+    C.verdict = { k: -1, ok: false, first: false, again: false, head: v && v.head, why: v && v.why, expired: true };
+    this.strip?.verdict({ ok: false, head: (v && v.head) || '', why: (v && v.why) || '' });
+    this.next = { t: (this.reduced ? Math.min(ms, 900) : ms) / 1000, stage: 0 };
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'expire', item: C.item.id, right });
+    return true;
   }
   // (a stray round — hers at an enemy, a bot's — splats a little neutral ink on the object it meets: never a colour
   // that could read as a verdict, never an answer)
