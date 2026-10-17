@@ -182,6 +182,17 @@ for (const viewName of VIEWS_WANT) { try {
     const safe = { x: FORM === 'boss' ? 0 : 16, y: st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0, w: st.W - (FORM === 'boss' ? 0 : 32), h: st.H - (st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0) };
     const boxes = boxesOf(d);
     check(boxes.length === d.n && boxes.every((b) => inside(b, safe)), `${label}: every object's projected box inside the safe area`, { safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), place: (d.log || []).filter((e) => e.ev === 'place').pop(), framing: d.framing });
+    // play-7: the duel's objects up → the name tags over the bots step aside (hud.markerYield): every tag on the screen is
+    // see-through, and none of them sits on an object's label (LEARN §24 已知坑 3)
+    if (FORM !== 'boss') {
+      const tg = await ev((boxes) => {
+        const L = document.querySelector('.iw-mks'), out = [];
+        for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none') continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, off: el.classList.contains('is-off'), op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
+        return { yield: !!(L && L.classList.contains('is-yield')), tags: out };
+      }, boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })));
+      (report.tags = report.tags || []).push({ label, ...tg });
+      check(tg.yield && tg.tags.every((t) => t.op < 0.05), `${label}: the name tags over the bots step aside while the objects are up (${tg.tags.length} on the screen${tg.tags.some((t) => t.onLabel) ? ', ' + tg.tags.filter((t) => t.onLabel).length + ' would sit on a label' : ''})`, tg);
+    }
     await shot(d.banner ? 'm1-banners' : 'm1-balls');
     // a PLAIN round at the right object: her own weapon, aimed at it, no tap — it splats and answers nothing (PLAY §1.5)
     const before = st.answers.length, hitsBefore = ((d.log || []).filter((e) => e.ev === 'hit')).length;
@@ -206,6 +217,7 @@ for (const viewName of VIEWS_WANT) { try {
     check(!!v && v.ok === true, `${label}: the tapped round landed on it: 答对了`, v || lg);
     check(!!fire && !!hit && !!ans && hit.t === ans.t, `${label}: the answer is taken on the hit frame`, { fire, hit, ans });
     for (let i = 0; i < 6; i++) await step(100);
+    if (FORM !== 'boss') { const back = await ev(() => { const L = document.querySelector('.iw-mks'); return !(L && L.classList.contains('is-yield')); }); check(back, `${label}: answered — the name tags are back`); }
     await shot('m1-right');
     return v;
   }
@@ -251,8 +263,23 @@ for (const viewName of VIEWS_WANT) { try {
     check(fr.headBelowMid, `${label}: her head below the keyboard's middle row on the screen (head y ${fr.head[1]} > mid row y ${fr.mid[1]})`, fr);
     // (under the strip — or, on a wide screen, in the corner beside it: clear of the strip's sides)
     const clearOfStrip = fr.top >= fr.stripBottom - 2 || (fr.stripX && (fr.right <= fr.stripX[0] + 2 || fr.left >= fr.stripX[1] - 2));
-    check(clearOfStrip && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2 && fr.top >= -2, `${label}: the whole typewriter and its paper clear of the strip (${fr.stripBottom}${fr.stripX ? ', x ' + fr.stripX.join('–') : ''}) and over the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right} (${fr.region})`, fr);
+    if (V.w > V.h) {
+      // play-7 (landscape): the split keyboard — the typewriter in the column between its pads, measured with the live
+      // camera (tools/learn/land-measure.js): ≥ 240 px from the plate's front edge to the top of the sheet, a typed letter
+      // ≥ 17 px, off both pads, and nothing at the top over anything: the strip, the clock, the boss's bar and phase strip,
+      // the typewriter's box. (The real keycaps and the sheet as it stands: on the screen, off the pads.)
+      const lc = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); const T = __inkwave.match.learn.arena.type; return M.typeCheck({ root: T.shot.rig.root, camera: __G.camera, keys: T.keys }); });
+      report.land = report.land || []; report.land.push({ label, ...lc });
+      check(lc.split, `${label} landscape: the game keyboard is split (column ${lc.mid ? lc.mid.x0 + '–' + lc.mid.x1 : '—'})`, lc);
+      check(lc.h >= 240, `${label} landscape: the typewriter is ${lc.h} px tall (≥ 240; ${lc.rig.join('–')} × ${lc.xs.join('–')})`, lc);
+      check(lc.glyph >= 17, `${label} landscape: a typed letter is ${lc.glyph} px (≥ 17)`, lc);
+      const pads = lc.pads || [], onPad = (x, y) => pads.some((r) => x > r.x + 1 && x < r.x + r.w - 1 && y > r.y + 1 && y < r.y + r.h - 1);
+      const capsOff = fr.left >= -2 && fr.right <= fr.W + 2 && fr.top >= -2 && fr.bottom <= fr.H + 2;
+      check(lc.onScreen && lc.onPads.length === 0 && capsOff && !onPad(fr.keys[0], fr.keys[1]) && !onPad(fr.keys[2], fr.keys[3]) && !onPad(fr.keys[0], fr.keys[3]) && !onPad(fr.keys[2], fr.keys[1]), `${label} landscape: the typewriter (caps ${fr.keys.join(',')}, sheet ${fr.paper.join(',')}) on the screen, off both pads`, { lc, fr });
+      check(lc.overlaps.length === 0, `${label} landscape: strip / clock / boss bar / phase strip / typewriter clear of each other (${JSON.stringify(lc.rects)})`, lc.overlaps);
+    } else check(clearOfStrip && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2 && fr.top >= -2, `${label}: the whole typewriter and its paper clear of the strip (${fr.stripBottom}${fr.stripX ? ', x ' + fr.stripX.join('–') : ''}) and over the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right} (${fr.region})`, fr);
     check(fr.xh === 'hidden', `${label}: the crosshair hidden while she types`, fr.xh);
+    { const ty = await ev(() => { const L = document.querySelector('.iw-mks'); return !!(L && L.classList.contains('is-yield')); }); check(ty, `${label}: the name tags step aside while the 打字蟹 is up (play-7)`); }
     report.typeFrame = report.typeFrame || []; report.typeFrame.push(fr);
     if (FORM !== 'boss') check(s.shield > 0, `${label}: a shield on her while she types (${s.shield} s)`);
     check(!s.hold && s.paused === false, `${label}: still no hold, no pause while typing`);
@@ -294,6 +321,25 @@ for (const viewName of VIEWS_WANT) { try {
     for (let i = 0; i < 12; i++) await step(100);
     const inb = await ev(() => __inkwave.match.learn.arena.echo.debug());
     check(walked && (inb.state === 'in' || inb.state === 'done'), `${label}: stepping onto the pad: the sample plays (${inb.state})`, inb);
+    // play-7: the booth's board (its four corners with the live camera) clear of the top row — the clock, the boss's HP bar
+    // and its phase strip (LEARN §24 已知坑 1: on a landscape phone they covered the board's first line)
+    for (let i = 0; i < 10; i++) await step(100);
+    const bo = await ev(() => {
+      const Wk = __inkwave.match.learn.arena.echo.echo.walk; if (Wk.framed < 0) return { framed: -1 };
+      const b = Wk.list[Wk.framed].b, cam = __G.camera, W = innerWidth, H = innerHeight, V3 = cam.position.constructor;
+      b.group.updateMatrixWorld(); cam.updateMatrixWorld();
+      const c = [[-1, 0], [1, 0], [-1, 1], [1, 1]].map(([sx, sy]) => { const v = new V3(sx * b.w / 2, b.bottom + sy * b.h, 0.07).applyMatrix4(b.group.matrixWorld).project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; });
+      const board = { x: Math.min(...c.map((q) => q[0])), y: Math.min(...c.map((q) => q[1])), w: 0, h: 0 }; board.w = Math.max(...c.map((q) => q[0])) - board.x; board.h = Math.max(...c.map((q) => q[1])) - board.y;
+      const box = (sel) => { const el = document.querySelector(sel); if (!el) return null; const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null; };
+      const R = { clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: document.querySelector('.iw-lf:not(.is-off) .iw-lf__phase:not(:empty)') ? box('.iw-lf:not(.is-off) .iw-lf__phase') : null, strip: box('.iw-ps:not(.is-off) .iw-ps__box') };
+      const hit = (a, q) => a && q && a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
+      const r = (o) => o && [o.x, o.y, o.w, o.h].map(Math.round);
+      return { framed: Wk.framed, board: r(board), rects: Object.fromEntries(Object.entries(R).map(([k, v]) => [k, r(v)])), over: Object.keys(R).filter((k) => hit(board, R[k])) };
+    });
+    report.booth = bo;
+    const tagsOff = await ev(() => { const L = document.querySelector('.iw-mks'); return { yield: !!(L && L.classList.contains('is-yield')), shown: [...document.querySelectorAll('.iw-mk')].filter((el) => el.style.display !== 'none' && +getComputedStyle(el).opacity > 0.05).length }; });
+    check(tagsOff.yield && tagsOff.shown === 0, `${label}: the squad's name tags (and the arrows to them) step aside while the booth's board is framed`, tagsOff);
+    if (V.w > V.h || FORM === 'boss') check(bo.framed >= 0 && bo.over.length === 0, `${label}: the booth's board (${bo.board}) clear of the clock / the boss's bar / its phase strip (${JSON.stringify(bo.rects)})`, bo);
     await shot('m7-in');
     const hp0 = s.bossHp;
     await ev(() => { const H = __inkwave.match.learn.arena, a = __inkwave.match.local, at = H.echo.cur.at; const yaw = a.yaw; a.pos.set(at.x - Math.sin(yaw) * 2.6, at.y, at.z - Math.cos(yaw) * 2.6); });
@@ -326,6 +372,18 @@ for (const viewName of VIEWS_WANT) { try {
     check(s.touchLive !== false || !V.touch, `${label}: the touch layer stays live`);
     if (s.mechanic === 'echo') check(!s.strip, `${label}: no strip over the booth (its board carries the question)`, s.strip);
     else check(!!s.strip && s.strip.rect[3] > 0, `${label}: the strip: 「${s.strip && s.strip.text}」`);
+    // play-7: the top of the screen — the strip, the clock, the boss's HP bar and its phase strip — nothing over anything
+    {
+      const top = await ev(() => {
+        const box = (sel) => { const el = document.querySelector(sel); if (!el) return null; const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } : null; };
+        const R = { strip: box('.iw-ps:not(.is-off) .iw-ps__box'), clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: document.querySelector('.iw-lf:not(.is-off) .iw-lf__phase:not(:empty)') ? box('.iw-lf:not(.is-off) .iw-lf__phase') : null };
+        const hit = (a, q) => a && q && a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h, k = Object.keys(R), over = [];
+        for (let i = 0; i < k.length; i++) for (let j = i + 1; j < k.length; j++) if (hit(R[k[i]], R[k[j]])) over.push(k[i] + '×' + k[j]);
+        return { R, over };
+      });
+      (report.tops = report.tops || []).push({ label, ...top });
+      check(top.over.length === 0, `${label}: strip / clock / boss bar / phase strip clear of each other (${JSON.stringify(top.R)})`, top.over);
+    }
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
     let v = null;

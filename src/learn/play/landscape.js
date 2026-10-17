@@ -1,0 +1,72 @@
+// 题即玩法 play-7 — the landscape phone (docs/PLAY.md §8): what the top of the screen holds while a question is up, so
+// nothing covers anything — the one place for the rules three stations and the boss share (CSS from JS, as the strip's).
+//   · while she types (the strip carries `is-typing`: wire/type.js, runner/glide.js, arena/type.js) the strip moves off the
+//     top centre to the top-left corner, over the split keyboard's left pad (keys.js splitLayout; PlayKeys sets
+//     --iw-pk-side to the pad's inner edge), in as many lines as it needs: the clock keeps the top centre and the column
+//     between the pads, from under the clock to the bottom of the screen, is the typewriter's (type/split.js). Before
+//     play-7 the typing strip went up to the top edge in one line over the clock (play-fix, play-4: LEARN §22 / §23).
+//   · the boss's HP bar and its phase strip go up into the top row either side of the clock, smaller (on a landscape
+//     phone they stood under the clock, over the question strip and the 回声亭's board: LEARN §24 已知坑 1); while she
+//     types in the boss fight the strip's corner starts under that row
+//   · typingColumn(keys, H?) — the open column for type/split.js: the pads' inner edges, and its top under whatever stands
+//     there on the screen (the clock row, the strip, the boss's bar, the runner's standings, the touch layer's top keys)
+//   · hudBand(aspect, W, H) — a board's framing band (board/frame.js boardBand) whose top clears the same row: the boss's
+//     回声亭 board (arena/host.js EchoStation) is framed under the HP bar, not behind it
+// Desktop (no max-height: 460px) keeps every position as it was; the split keyboard still opens the column there.
+import { boardBand } from './board/frame.js';
+
+const CSS = `@media (max-height: 460px) and (orientation: landscape) {
+  .iw-ps.is-typing .iw-ps__box { left: calc(env(safe-area-inset-left) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
+    width: max-content !important; max-width: max(150px, calc(var(--iw-pk-side, 300px) - env(safe-area-inset-left) - 14px)) !important; padding: 6px 12px !important; gap: 8px !important; border-radius: 16px !important; }
+  .iw-ps.is-typing .iw-ps__box.is-enter { animation-name: iw-ps-in-l7; }
+  @keyframes iw-ps-in-l7 { from { opacity: 0; translate: 0 -8px; } }
+  .iw-ps.is-typing .iw-ps__play { display: none !important; }
+  .iw-ps.is-typing .iw-ps__text { display: block !important; white-space: normal !important; }
+  .iw-ps.is-typing.is-verdict .iw-ps__text { display: none !important; }
+  .iw-ps.is-typing .iw-ps__q, .iw-ps.is-typing .iw-ps__head { font-size: 17px !important; }
+  .iw-ps.is-typing .iw-ps__zh, .iw-ps.is-typing .iw-ps__why { font-size: 17px !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  .iw-ps.is-typing .iw-ps__acts { flex-wrap: wrap; }
+  :root:has(.iw-hud .iw-bb:not(.is-off)) .iw-ps.is-typing .iw-ps__box { top: 44px !important; }
+  .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + 52px); translate: none; top: 3px; }
+  .iw-hud.is-learn .iw-bb.is-intro { animation-name: iw-bb-in7; }
+  @keyframes iw-bb-in7 { from { opacity: 0; translate: 0 -12px; scale: .7; } }
+  .iw-hud.is-learn .iw-bb.is-gone { animation-name: iw-bb-gone7; }
+  @keyframes iw-bb-gone7 { to { opacity: 0; translate: 0 -10px; scale: .9; } }
+  .iw-lf__phase { left: calc(50% + 52px); translate: none; top: 7px; padding: 4px 6px; gap: 4px; font-size: 12px; }
+  .iw-lf__phase span { padding: 3px 7px; }
+}`;
+let cssDone = false;
+export function ensureLandscapeCss() {
+  if (cssDone || typeof document === 'undefined') return;
+  cssDone = true;
+  const el = document.createElement('style'); el.id = 'iw-play-landscape-css'; el.textContent = CSS; document.head.appendChild(el);
+}
+
+// what may stand at the top of the column (each only while it is on the screen)
+const TOP_SEL = ['.iw-ps:not(.is-off) .iw-ps__box', '.iw-hud__top', '.iw-bb:not(.is-off)', '.iw-lf:not(.is-off) .iw-lf__phase', '.iw-lf:not(.is-off) .iw-lf__rank', '.iw-touch__btn'];
+function topOver(x0, x1, H, floor = 0) {
+  let top = floor;
+  if (typeof document === 'undefined') return top;
+  for (const sel of TOP_SEL) for (const el of document.querySelectorAll(sel)) {
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0) || r.top > H * 0.45 || r.right <= x0 || r.left >= x1) continue;
+    if (getComputedStyle(el).visibility === 'hidden' || +getComputedStyle(el).opacity < 0.05) continue;
+    top = Math.max(top, r.bottom + 4);
+  }
+  return Math.round(top);
+}
+
+/** the split keyboard's open column, for type/split.js splitFrame: { W, H, top, bottom, x0, x1, shelf } — or null when the
+ *  keyboard is not split (portrait: the stations keep frame.js's band) */
+export function typingColumn(keys) {
+  const r = keys && keys.rect ? keys.rect() : null;
+  if (!r || !r.split || !r.mid || typeof innerWidth === 'undefined') return null;
+  const W = innerWidth, H = innerHeight, { x0, x1 } = r.mid;
+  return { W, H, top: topOver(x0, x1, H, 0), bottom: H, x0, x1, shelf: r.top };
+}
+
+/** a board's framing band under the top row (the middle 70 % of the screen: where a framed board stands) */
+export function hudBand(aspect, W, H) {
+  const b = boardBand(aspect, W, H);
+  return { ...b, top: Math.max(b.top, topOver(W * 0.15, W * 0.85, H, 0) + 2) };
+}

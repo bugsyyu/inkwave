@@ -114,7 +114,21 @@
         g.frame = await frameCheck();
         g.lensBlocked = (G.time || 0) < (Gl._blockUntil || 0);   // (the type pose was under a roof / past a wall: the chase camera has her — glide.js)
         if (g.lensBlocked) S.blockedTypes = (S.blockedTypes || 0) + 1;
-        else if (g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
+        // play-7 (landscape): the split keyboard — the rig in the column between its pads (tools/learn/land-measure.js):
+        // ≥ 240 px from the plate's front edge to the sheet's top, a typed letter ≥ 17 px, off the pads, her head under the
+        // middle row, the strip / the clock / the rig clear of each other
+        if (innerWidth > innerHeight) {
+          const LM = await import('/tools/learn/land-measure.js');
+          g.land = await LM.typeCheck({ root: Gl.shot.rig.root, camera: G.camera, keys: Gl.keys });
+          const L = g.land, bad = [];
+          if (!L.split) bad.push('the keyboard is not split');
+          if (L.h < 240) bad.push(`the typewriter is ${L.h} px tall`);
+          if (L.glyph < 17) bad.push(`a typed letter is ${L.glyph} px`);
+          if (!L.onScreen || L.onPads.length) bad.push('the typewriter is off the screen or on a pad');
+          if (!L.headBelowRow) bad.push('her head is not under the middle row');
+          if (L.overlaps.length) bad.push('overlaps ' + JSON.stringify(L.overlaps));
+          if (bad.length && !g.lensBlocked) S.errors.push('glide ' + g.item + ' (landscape): ' + bad.join('; ') + ' ' + JSON.stringify(L));
+        } else if (!g.lensBlocked && g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
         if (g.frame && !g.lensBlocked && !g.frame.headBelowRow) S.errors.push('glide ' + g.item + ': her head is not below the keys\' row ' + JSON.stringify(g.frame));
         if (g.inv.crosshair) S.errors.push('glide ' + g.item + ': the crosshair shows while she types');
         g.stage = 'fire';

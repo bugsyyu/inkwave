@@ -182,6 +182,21 @@ const wordFrame = () => ev(() => {
   const lens = C && C.pose ? C.pose.lens : null;
   return { seen, at: [x, y], stripBottom: Math.round(top), onScreen: v.z < 1 && x >= 0 && x <= innerWidth && y >= top - 10 && y <= innerHeight, lens };
 });
+// play-7 (landscape): the split keyboard and the typewriter in the column between its pads, measured with the live camera
+// (tools/learn/land-measure.js): ≥ 240 px from the plate's front edge to the top of the sheet, a typed letter ≥ 17 px
+// (one em of the line being typed), no point of the rig on a pad, her head under the MIDDLE row, and nothing at the top
+// of the screen over anything else — the strip, the clock, (the boss's bar and phase strip), the typewriter's box
+async function landCheck(what) {
+  const lc = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); const T = __inkwave.match.learn.play.type; return M.typeCheck({ root: T.shot.rig.root, camera: __G.camera, keys: T.keys }); });
+  report.land = report.land || []; report.land.push(lc);
+  check(lc.split, `${what} landscape: the game keyboard is split (column ${lc.mid ? lc.mid.x0 + '–' + lc.mid.x1 : '—'})`, lc);
+  check(lc.h >= 240, `${what} landscape: the typewriter is ${lc.h} px tall (≥ 240; ${lc.rig.join('–')} × ${lc.xs.join('–')})`, lc);
+  check(lc.glyph >= 17, `${what} landscape: a typed letter is ${lc.glyph} px (≥ 17)`, lc);
+  check(lc.onScreen && lc.onPads.length === 0, `${what} landscape: the typewriter on the screen, off both keyboard pads`, lc);
+  check(lc.headBelowRow, `${what} landscape: her head (${lc.head}) under the keys' middle row (${lc.row})`, lc);
+  check(lc.overlaps.length === 0, `${what} landscape: strip / clock / typewriter clear of each other (${JSON.stringify(lc.rects)})`, lc.overlaps);
+  return lc;
+}
 const tapAt = async (x, y) => { if (V.touch) await page.touchscreen.tap(Math.round(x), Math.round(y)); else await page.mouse.click(Math.round(x), Math.round(y)); };
 
 // walk (the auto-walk; a board stop is a frame check + 「自动走」 again) until a question is up or the level is done
@@ -276,7 +291,8 @@ async function answerType(s, right) {
   const steps = await settle();
   const fr = await typeFrame();
   report.typeFrames = report.typeFrames || []; report.typeFrames.push({ item: d.item, mode: d.mode, steps, ...fr });
-  check(!!fr && fr.inBand, `M4: the typewriter between the strip (${fr && fr.stripBottom}) and the keyboard (${fr && fr.kbTop}): ${fr && fr.rig.join('–')} px`, fr);
+  if (V.w > V.h) await landCheck('M4');   // (play-7: the split keyboard — the column, not the band over a full-width keyboard)
+  else check(!!fr && fr.inBand, `M4: the typewriter between the strip (${fr && fr.stripBottom}) and the keyboard (${fr && fr.kbTop}): ${fr && fr.rig.join('–')} px`, fr);
   check(!!fr && fr.headBelowRow, `M4: her head (${fr && fr.head[1]}) below the keys' row (${fr && fr.row[1]})`, fr);
   check(!(await xhShown()), 'M4: no crosshair while she types');
   await perfSample('type');
