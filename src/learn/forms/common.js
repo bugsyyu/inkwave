@@ -337,19 +337,20 @@ export function carryLeft(gates, round, left) {
 // the verdict (the first call says so: the caller announces it once), a knockout meanwhile replaces it (the zone has
 // frozen itself, that is final); tick() per frame releases the verdict once the question is done (asking null), or when
 // the grace is over (LEARN.duel.graceS, graceTypeS for a typed one) with withdrawn = true — the caller puts the question
-// back in front of the queue, so carryLeft asks it again next round. The winner is the one the clock / the count decided.
+// back in front of the queue, so carryLeft asks it again next round. The winner and the counts are the clock's / the
+// count's moment (what she answers meanwhile floods the zone for the eye and her special, not the result).
 export class RoundGrace {
   constructor(D) { this.D = D; this.on = null; }
-  hold(winner, reason, typed) {
-    if (!this.on) { this.on = { winner, reason, t: typed ? this.D.graceTypeS : this.D.graceS, typed: !!typed }; return true; }
-    if (reason === 'knockout') { this.on.winner = winner; this.on.reason = reason; }
+  hold(winner, reason, typed, counts) {
+    if (!this.on) { this.on = { winner, reason, counts, t: typed ? this.D.graceTypeS : this.D.graceS, typed: !!typed }; return true; }
+    if (reason === 'knockout') { this.on.winner = winner; this.on.reason = reason; this.on.counts = counts; }
     return false;
   }
   tick(dt, asking) {
     if (!this.on) return null;
     this.on.t -= dt;
     if (asking && this.on.t > 0) return null;
-    const v = { winner: this.on.winner, reason: this.on.reason, withdrawn: !!asking };
+    const v = { winner: this.on.winner, reason: this.on.reason, counts: this.on.counts, withdrawn: !!asking };
     this.on = null;
     return v;
   }

@@ -160,7 +160,7 @@ export class DuelFlow extends LearnFlow {
     // a question in flight is answered first (forms/common.js RoundGrace; update() releases the parked verdict): the clock
     // reads 最后一题, the other side's die stops — the winner is the one the clock / the count decided (a knockout meanwhile wins)
     if (this.asking && !released) {
-      if (this.grace.hold(winner, reason, this.arena?.kind !== 'm1')) {
+      if (this.grace.hold(winner, reason, this.arena?.kind !== 'm1', [Math.ceil(Z.count[0]), Math.ceil(Z.count[1])])) {
         this.ui.say(reason === 'knockout' ? '倒数数完了 · 先把这一题答完' : '时间到 · 先把这一题答完', { hold: 1 });
         this._emit('learn:round', { round: this.round + 1, gate: g.id, winner, reason, state: 'grace' });
       }
@@ -172,7 +172,8 @@ export class DuelFlow extends LearnFlow {
     this.arena?.gateOpened(g);   // (its objects go, the rig unmounts, the lens is hers)
     Z.winner = winner; Z.reason = reason;   // (freezes the rules; a knockout already set them)
     g.state = 'open';
-    const res = { round: this.round + 1, gate: g.id, winner, reason, counts: [Math.ceil(Z.count[0]), Math.ceil(Z.count[1])], left: g.queue.length };
+    const counts = released && released.counts ? released.counts : [Math.ceil(Z.count[0]), Math.ceil(Z.count[1])];   // (a grace: the moment it ran out)
+    const res = { round: this.round + 1, gate: g.id, winner, reason, counts, left: g.queue.length };
     this.rounds.push(res);
     if (winner === 0) this.wins++;
     this._emit('learn:gate', { id: g.id, index: g.index + 1, total: this.gates.length, locks: g.locks, opened: true });
@@ -215,7 +216,7 @@ export class DuelFlow extends LearnFlow {
     // the round: our own clock (the match's time is the display; it never reaches 0 on its own)
     if (this.grace.on) {   // (ran out mid-question: the clock holds at 最后一题 until the question is done or the grace is over)
       const v = this.grace.tick(dt, this.asking);
-      if (v) { this._roundEnd(v.winner, v.reason, true); return; }
+      if (v) { this._roundEnd(v.winner, v.reason, v); return; }
       m.time = Math.max(m.time, 1);
       const txt = `第 ${this.round + 1} 轮 · 最后一题`;
       if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }

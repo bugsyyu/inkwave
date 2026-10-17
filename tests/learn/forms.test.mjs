@@ -231,15 +231,15 @@ test('duel: a round the zone count ends early carries its unasked items to the n
 test('duel: a round that runs out mid-question waits for it (RoundGrace): the verdict parks once, a knockout meanwhile overrides it, done releases it, the grace running out withdraws the question; a typed question gets the longer grace', () => {
   const R = new RoundGrace({ graceS: 8, graceTypeS: 25 });
   assert.equal(R.tick(0.1, null), null, 'nothing parked: nothing to release');
-  assert.equal(R.hold(0, 'time', false), true, 'the first hold parks (the caller announces it)');
+  assert.equal(R.hold(0, 'time', false, [40, 55]), true, 'the first hold parks (the caller announces it)');
   assert.equal(R.hold(1, 'time', false), false, 'the clock running out again changes nothing');
   assert.equal(R.on.winner, 0); assert.equal(R.on.t, 8);
   assert.equal(R.tick(1, { item: 'a' }), null, 'still in flight: nothing');
-  assert.equal(R.hold(1, 'knockout', false), false); assert.deepEqual([R.on.winner, R.on.reason], [1, 'knockout'], 'a knockout meanwhile is final');
-  assert.deepEqual(R.tick(1, null), { winner: 1, reason: 'knockout', withdrawn: false }, 'the question done: released as it stood');
+  assert.equal(R.hold(1, 'knockout', false, [40, 0]), false); assert.deepEqual([R.on.winner, R.on.reason], [1, 'knockout'], 'a knockout meanwhile is final');
+  assert.deepEqual(R.tick(1, null), { winner: 1, reason: 'knockout', counts: [40, 0], withdrawn: false }, 'the question done: released as it stood, with the counts of that moment');
   assert.equal(R.on, null, 'nothing parked after a release');
   assert.equal(R.hold(0, 'time', true), true); assert.equal(R.on.t, 25, 'a typed question gets graceTypeS');
   for (let i = 0; i < 24; i++) assert.equal(R.tick(1, { item: 'b' }), null, 'still typing');
-  assert.deepEqual(R.tick(1.5, { item: 'b' }), { winner: 0, reason: 'time', withdrawn: true }, 'the grace over, still in flight: withdrawn');
+  assert.deepEqual(R.tick(1.5, { item: 'b' }), { winner: 0, reason: 'time', counts: undefined, withdrawn: true }, 'the grace over, still in flight: withdrawn');
   assert.equal(R.on, null);
 });
