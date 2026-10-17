@@ -85,7 +85,7 @@ process.on('unhandledRejection', (e) => { allFails.push('driver error ' + String
 for (const viewName of VIEWS_WANT) { try {
   VIEW = viewName;
   const V = VIEWS[viewName] || VIEWS.portrait;
-  const CO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch };
+  const CO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: +(process.argv.includes('--dpr') ? process.argv[process.argv.indexOf('--dpr') + 1] : 1),   /* (--dpr 3: a phone's real density, for the visual-parity shots) */ isMobile: V.touch, hasTouch: V.touch };
   const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
   const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();

@@ -70,7 +70,7 @@ const srv = http.createServer((q, r) => {
 await new Promise((ok) => srv.listen(+opt('port', 0) || 0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/game/`;
 const LAUNCH = { executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
-const CTXO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch };
+const CTXO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: +(process.argv.includes('--dpr') ? process.argv[process.argv.indexOf('--dpr') + 1] : 1),   /* (--dpr 3: a phone's real density, for the visual-parity shots) */ isMobile: V.touch, hasTouch: V.touch };
 // (--profile: a persistent profile — the segments of a whole day share her localStorage, so the store carries on)
 const browser = PROFILE ? null : await chromium.launch(LAUNCH);
 const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finish(2); }, BUDGET);
