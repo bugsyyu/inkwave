@@ -213,9 +213,19 @@ export const store = {
     if (live) return live.detach;
     const delay = (opt && opt.delay) || 800;
     let t = 0;
-    const run = () => { clearTimeout(t); t = 0; try { if (WBK.present(be()) && ieltsLoaded()) store.pushToWorkbench(); } catch (e) { /* her account is never worth a crash */ } };
+    // (游戏为主体: a push that changed her blob is mirrored into her App's folder too — workbench.js mirror; at once when the
+    // page hides or goes away)
+    const run = (now) => {
+      clearTimeout(t); t = 0;
+      try {
+        if (!WBK.present(be()) || !ieltsLoaded()) return;
+        const r = store.pushToWorkbench();
+        if (r && r.ok && r.changed && r.changed.length) WBK.mirror(be(), !!now);
+        else if (now) WBK.mirrorFlush();
+      } catch (e) { /* her account is never worth a crash */ }
+    };
     const soon = () => { clearTimeout(t); t = setTimeout(run, delay); };
-    const flush = () => { if (t) run(); };
+    const flush = () => { if (t) run(true); else WBK.mirrorFlush(); };
     const vis = () => { if (typeof document !== 'undefined' && document.hidden) flush(); };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', vis);
     if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);
