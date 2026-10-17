@@ -335,3 +335,46 @@ test('play-6 / play-8 the sources: versus2 / coop2 judge only through _judgeReco
   assert.ok(!/paused\s*=\s*true/.test(h) && !/\.hold\s*=\s*true/.test(h), 'coop.js: never a pause / a hold');
   assert.ok(!/recordFirst\(/.test(h) && !/\bjudge\(/.test(h) && !/judgeAnswer\(/.test(h), 'coop.js: no judging of its own');
 });
+
+test('play-9 versus2 host migration: the new host re-opens the question in flight under the same q (lq re:1, the referee open on it); a closed one is not; on a screen that saw it the re-ask changes nothing — an answered one re-sends what it sent, an open one gets the fresh clock', async () => {
+  const { Versus2Flow } = await import('../../src/learn/forms/versus2.js');
+  const w = WEEKS6[0], day = daySteps(w, 1).flatMap((s) => s.items);
+  const items = day.filter((x) => x.meta.input === 'choice' && x.meta.scored).slice(0, 3);
+  const byId = new Map(items.map((it) => [it.id, it]));
+  const stub = () => Object.assign(Object.create(Versus2Flow.prototype), { V: LEARN.versus2, model: null, byId, qs: new Map(), q: null, qi: 1, queue: items.map((it) => ({ id: it.id, alt: 0 })), ref: null, refNext: -1, sent: [], out: [],
+    match: { opts: { roster: [{ owner: 'a', team: 0 }, { owner: 'b', team: 1 }] }, state: 'playing' }, people() { return [{ pid: 'a', team: 0, name: 'A', self: true }, { pid: 'b', team: 1, name: 'B', self: false }]; },
+    _bcast(d) { this.out.push(d); }, _toHost(d) { this.sent.push(d); }, _progress() { this.progressed = (this.progressed || 0) + 1; }, _emit() {} });
+  // the new host: question 2 (q = qi + 1) was asked and not closed → re-opened as the same q
+  let F = stub();
+  F.qs.set(2, { q: 2, id: items[1].id, answered: false, t0: 0, sec: 20 });
+  Versus2Flow.prototype._becameHost.call(F);
+  assert.equal(F.out.length, 1); assert.deepEqual([F.out[0].k, F.out[0].q, F.out[0].i, F.out[0].id, F.out[0].re, F.out[0].n, F.out[0].total], ['lq', 2, 1, items[1].id, 1, 2, 3]);
+  assert.ok(F.ref && F.ref.open_, 'the new referee is open on it');
+  // … closed already → nothing re-opened, the next question comes after askGap
+  F = stub();
+  F.qs.set(2, { q: 2, id: items[1].id, answered: true, closed: true });
+  Versus2Flow.prototype._becameHost.call(F);
+  assert.equal(F.out.length, 0); assert.equal(F.ref, null); assert.equal(F.refNext, LEARN.versus2.askGap);
+  // … nothing asked yet (no record) → as before
+  F = stub(); F.qi = -1;
+  Versus2Flow.prototype._becameHost.call(F);
+  assert.equal(F.out.length, 0); assert.equal(F.refNext, LEARN.versus2.askGap);
+  // a screen that answered it: the re-ask re-sends the same 'la', asks nothing new
+  F = stub();
+  const done = { q: 2, id: items[1].id, answered: true, sent: { ok: 1, ms: 1234 } };
+  F.qs.set(2, done);
+  Versus2Flow.prototype._onAsk.call(F, { k: 'lq', q: 2, i: 1, id: items[1].id, alt: 0, n: 2, total: 3, sec: 20, re: 1 });
+  assert.deepEqual(F.sent, [{ k: 'la', q: 2, ok: 1, ms: 1234 }]); assert.equal(F.q, null, 'no new question on this screen');
+  // a screen still on it: the clock refreshed, nothing sent
+  F = stub();
+  const open = { q: 2, id: items[1].id, answered: false, t0: 1, sec: 20, play: true, shown: '' };
+  F.qs.set(2, open); F.q = open;
+  Versus2Flow.prototype._onAsk.call(F, { k: 'lq', q: 2, i: 1, id: items[1].id, alt: 0, n: 2, total: 3, sec: 18, re: 1 });
+  assert.equal(F.sent.length, 0); assert.ok(open.t0 > 1, 'the clock restarted'); assert.equal(open.sec, 18); assert.equal(F.progressed, 1); assert.equal(F.q, open);
+  // an expired question sends 'la none' once and remembers it for a re-ask
+  F = stub();
+  const late = { q: 2, id: items[1].id, item: items[1], p: prompt(items[1]), answered: false, t0: 0, sec: 20, play: false, g: {} };
+  F.qs.set(2, late); F.q = late; F.hud = null;
+  Versus2Flow.prototype._expire.call(F, 'time');
+  assert.equal(F.sent.length, 1); assert.equal(F.sent[0].none, 1); assert.deepEqual(late.sent, { ok: 0, ms: F.sent[0].ms, none: 1 });
+});

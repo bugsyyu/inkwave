@@ -223,11 +223,13 @@ for (const viewName of VIEWS_WANT) { try {
     // see-through, and none of them sits on an object's label (LEARN §24 已知坑 3)
     if (FORM !== 'boss') {
       if (FAST) await sleep(350);   // (the tags fade on a CSS transition — .2 s of wall time; stepping without drawing gets here sooner)
-      const tg = await ev((boxes) => {
+      const tagsNow = () => ev((boxes) => {
         const L = document.querySelector('.iw-mks'), out = [];
         for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none') continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, off: el.classList.contains('is-off'), op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
         return { yield: !!(L && L.classList.contains('is-yield')), tags: out };
       }, boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })));
+      let tg = await tagsNow();
+      if (tg.tags.some((t) => t.op >= 0.05)) { await sleep(400); tg = await tagsNow(); }   // (a tag still mid-fade under load: once more — play-9, one 0.054 in a whole-day run)
       (report.tags = report.tags || []).push({ label, ...tg });
       check(tg.yield && tg.tags.every((t) => t.op < 0.05), `${label}: the name tags over the bots step aside while the objects are up (${tg.tags.length} on the screen${tg.tags.some((t) => t.onLabel) ? ', ' + tg.tags.filter((t) => t.onLabel).length + ' would sit on a label' : ''})`, tg);
     }

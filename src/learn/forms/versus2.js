@@ -157,15 +157,18 @@ export class Versus2Flow extends LearnFlow {
     this._bcast({ k: 'ls', ids: this.queue.map((e) => [e.id, e.alt]) });
     this.refNext = 0;
   }
-  _openNext() {
+  _openNext() { this._openAt(this.qi + 1); }
+  // open the queue's i-th question for the room (re: a new host re-opening the one in flight — the same q, every screen
+  // answers it again from what it already did, _onAsk)
+  _openAt(i, re = false) {
     const people = this.people(), humanTeams = new Set(people.map((p) => p.team));
     const botTeams = [0, 1].filter((tm) => !humanTeams.has(tm) && (this.match.opts.roster || []).some((r) => r.bot && r.team === tm));
     if (!this.ref) this.ref = new Referee({ humans: people, botTeams, model: this.model });
     else { this.ref.humans = people; this.ref.botTeams = botTeams; }
-    const i = this.qi + 1, e = this.queue[i], item = this.byId.get(e.id);
+    const e = this.queue[i], item = this.byId.get(e.id);
     const sec = e.alt ? this.V.answerTime.type : answerTime(item ? prompt(item) : null);
     this.ref.open(i + 1, sec, now());
-    this._bcast({ k: 'lq', q: i + 1, i, id: e.id, alt: e.alt, n: i + 1, total: this.queue.length, sec });
+    this._bcast({ k: 'lq', q: i + 1, i, id: e.id, alt: e.alt, n: i + 1, total: this.queue.length, sec, ...(re ? { re: 1 } : {}) });
   }
   _refOut(e) {
     if (e.k === 'ink') {
@@ -202,14 +205,26 @@ export class Versus2Flow extends LearnFlow {
     const L = Z.losing();
     Z._end(L < 0 ? Z._tiebreak() : 1 - L, 'answered');
   }
-  // the room migrated to us: carry on from the queue everyone holds (the open question, if any, is dropped)
+  // the room migrated to us: carry on from the queue everyone holds. The question in flight (asked, not closed — the old
+  // host's referee went with it) is re-opened under the same q (play-9): each screen answers it again from what it
+  // already did (its 'la' re-sent, or its clock refreshed), so nobody's answer is lost and the day's first answer stays one.
   _becameHost() {
     this.ref = null;
+    const q = this.queue ? this.qs.get(this.qi + 1) : null;
+    if (q && !q.closed && this.queue[this.qi]) { this._openAt(this.qi, true); return; }
     this.refNext = this.queue ? this.V.askGap : this.V.firstAsk;
   }
 
   // ---------------------------------------------------------------------------------------------- everyone: a question
   _onAsk(d) {
+    // a new host re-opened the question in flight (the same q): nothing changes on this screen — what it answered goes
+    // again to the new referee, an open one gets the fresh clock; a screen that never saw it asks it as new below
+    const seen = d.re ? this.qs.get(d.q) : null;
+    if (seen) {
+      if (seen.answered) { if (seen.sent) this._toHost({ k: 'la', q: d.q, ...seen.sent }); }
+      else { seen.t0 = now(); seen.sec = +d.sec || seen.sec; this._progress(true); }
+      return;
+    }
     if (this.q && !this.q.answered) this._expire('next');
     if (this.arena && this.arena.cur) this.arena.gateOpened(this.arena.cur.g);   // (the last one's verdict was still up)
     this.qi = Math.max(this.qi, d.i | 0);
@@ -255,7 +270,7 @@ export class Versus2Flow extends LearnFlow {
     const { r, first, hinted } = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted }, store });   // (the one path; nothing is held in a timed question)
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) { this.right.add(item.id); this.rightN++; this.streak++; } else this.streak = 0;
-    if (q) this._toHost({ k: 'la', q: q.q, ok: r.ok ? 1 : 0, ms });
+    if (q) { q.sent = { ok: r.ok ? 1 : 0, ms }; this._toHost({ k: 'la', q: q.q, ...q.sent }); }   // (kept: re-sent to a new host, _onAsk)
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, q: q ? q.q : null, ms, ...(hinted ? { hinted: true } : {}) });
     const a = this.match.local;
     if (!r.ok && a) { a.ink = Math.max(0, a.ink - this.V.wrongInk * PLAYER.inkMax); G.hud?.feed?.({ text: '答错了 · 墨罐少了一截', color: '#f08a7a' }); }
@@ -276,7 +291,8 @@ export class Versus2Flow extends LearnFlow {
     const q = this.q;
     if (!q || q.answered) return;
     q.answered = true; q.none = true;
-    this._toHost({ k: 'la', q: q.q, ok: 0, ms: Math.round((now() - q.t0) * 1000), none: 1 });
+    q.sent = { ok: 0, ms: Math.round((now() - q.t0) * 1000), none: 1 };
+    this._toHost({ k: 'la', q: q.q, ...q.sent });
     if (q.play) {
       // 题即玩法: the station closes it — the right object ringed (or the keyboard gone), the strip says so; then _askNext
       const c = rightAnswerOf(q.item, q.p), text = typeof c === 'number' ? ((q.p.options || [])[c]?.text || '') : String(c || '');
@@ -345,6 +361,7 @@ export class Versus2Flow extends LearnFlow {
   }
   _onClose(d) {
     const q = this.qs.get(d.q);
+    if (q) q.closed = true;   // (a question closed by the host is never re-opened by the next one)
     if (q && !q.answered) this._expire('closed');
     this._prepAhead(d.q | 0);   // (the entry after this one: q is its index + 1)
     this.results.push({ q: d.q, id: q ? q.id : null, win: d.win, by: d.by, res: Array.isArray(d.res) ? d.res : [] });
