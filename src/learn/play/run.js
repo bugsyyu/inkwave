@@ -224,8 +224,28 @@ export class PlayRun {
     return Math.abs(rig.curDist - Math.min(probe.soft, probe.hard)) < 0.12;
   }
 
+  // the lens came to rest away from where the objects were laid out from (play-8, LEARN §22 更新 5: the follow camera's
+  // pivot and look-ahead springs settle a beat after _settled() let the objects up — on w1d1's second gate upright it
+  // rested 0.6 m nearer and ~4° round, and a label stood 31 px past the right edge): once it has been still for 0.3 s
+  // somewhere else, they are laid out again from where it rests — at most twice, and never once she has looked round,
+  // walked on or aimed (then they stay where she put them in her sights)
+  _drift(dt) {
+    const C = this.cur, cam = G.camera, a = this.match.local, A = C && C.camAt;
+    if (!A || !cam || C.answered || this.shot || this.tap || C.mine || (C.relaid || 0) >= 2) return;
+    if ((G.input && (G.input.mouse.dx || G.input.mouse.dy)) || (a && Math.hypot(a.vel?.x || 0, a.vel?.z || 0) > 0.35)) { C.mine = true; return; }
+    const L = C.lastCam || (C.lastCam = { p: cam.position.clone(), q: cam.quaternion.clone(), rest: 0 });
+    const still = cam.position.distanceTo(L.p) < 0.15 * dt + 1e-4 && cam.quaternion.angleTo(L.q) < 0.05 * dt + 1e-5;   // (under 15 cm/s, 3°/s)
+    L.p.copy(cam.position); L.q.copy(cam.quaternion); L.rest = still ? L.rest + dt : 0;
+    if (L.rest < 0.3) return;
+    const dp = cam.position.distanceTo(A.pos), dq = cam.quaternion.angleTo(A.quat);
+    if (dp < 0.06 && dq < 0.008) return;
+    C.relaid = (C.relaid || 0) + 1;
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'relaid', dp: +dp.toFixed(3), dq: +dq.toFixed(4), after: +(this.flow.t - A.t).toFixed(2) });
+    this._place({ keep: true });
+  }
+
   // lay the objects out on the screen, then put them in the world on a plane in front of the camera as it is now
-  _place() {
+  _place(o = {}) {
     const C = this.cur; if (!C) return;
     const W = innerWidth, H = innerHeight, a = this.match.local, cam = G.camera;
     cam.updateMatrixWorld();
@@ -288,7 +308,9 @@ export class PlayRun {
       break;
     }
     C.D = D; C.lift = lift; C.placed = true;
-    this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() });
+    C.camAt = { pos: cam.position.clone(), quat: cam.quaternion.clone(), t: this.flow.t };   // (the lens they were laid out from: _drift)
+    C.lastCam = null;
+    this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() }, { keep: !!o.keep });
     this.reg.set(this.T.spheres, C.serial);   // (the live array: a burst or draining object drops out of it)
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, rows: L.rows || null, d: L.d ? Math.round(L.d) : null, avoid: S.avoid.map((r) => [r.what, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]), safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
@@ -318,6 +340,7 @@ export class PlayRun {
     }
     if (!C.placed && !(Fr && Fr.on) && (this._settled() || (Fr && Fr.t > M.frameFor + 0.6))) this._place();
     if (!C.placed) return;
+    this._drift(dt);
     // desktop: fire pressed with the crosshair on an object is the same shot as a tap
     const fire = !!(a && a.intent.fire);
     if (fire && !this._fireWas && !C.answered && !G.input?.touch?.active) { const k = this._crosshair(); if (k >= 0) this.shoot(k, 'crosshair'); }
@@ -460,6 +483,7 @@ export class PlayRun {
       safe: C && C.screen && C.screen.safe, stripBottom: C && C.screen && C.screen.stripBottom, avoid: C && C.screen && C.screen.avoid, layout: C && C.layout && C.layout.items.map((it) => it.rect), fits: C && C.layout && C.layout.fits,
       projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, seen: this.frame.seen, blocked: this.frame.blocked, still: this.frame.still, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
       verdict: C && C.verdict, shot: this.shot && { k: this.shot.k, fired: this.shot.fired }, log: this.log.slice(-40),
+      relaid: C ? C.relaid || 0 : 0, camDrift: C && C.camAt && G.camera ? { dp: +G.camera.position.distanceTo(C.camAt.pos).toFixed(3), dq: +G.camera.quaternion.angleTo(C.camAt.quat).toFixed(4) } : null,
       her: this.match.local ? [this.match.local.pos.x, this.match.local.pos.y, this.match.local.pos.z].map((v) => +v.toFixed(2)) : null, cam: G.camera ? [G.camera.position.x, G.camera.position.y, G.camera.position.z].map((v) => +v.toFixed(2)) : null,
       atlases: [...this.T.atlases.values()].map((A) => ({ key: A.key, w: A.w, h: A.h, scale: A.scale, n: A.n })), calls: G.renderer?.info?.render?.calls,
     };

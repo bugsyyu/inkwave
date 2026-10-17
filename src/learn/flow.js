@@ -33,6 +33,7 @@ import { isBanner } from './play/layout.js';   // (a word's 回炉 choice: which
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+const WORD = /^[A-Za-z][A-Za-z']*$/;   // (a single word: a typed word's 回炉 choice offers only words — arena/alt.js the same)
 
 export class LearnFlow {
   constructor(match, opts = {}) {
@@ -388,13 +389,15 @@ export class LearnFlow {
     const perm = item.options.map((_, i) => i); shuffle(perm);
     return { ...base, text: `换个问法：${base.text}`, options: perm.map((i) => base.options[i]), _perm: perm };   // (the engine's own option texts, reshuffled: a word's options are its meanings)
   }
-  // single words of this level (other gates' items and option words) as distractors, sentences for a sentence
+  // single words of this level (other gates' items and option words) as distractors, sentences for a sentence (a word's
+  // distractors are words — WORD, as arena/alt.js has it: a 音标 item's options are symbols like /j/, never a word card's
+  // choice; play-8)
   _wordPool(item) {
     const sentence = /\s/.test(item.en);
     const out = [];
     for (const g of this.level.gates) for (const it of g.items) {
-      if (it.id !== item.id && /\s/.test(it.en) === sentence) out.push({ en: it.en, zh: it.zh });
-      if (!sentence) for (const o of it.options || []) if (!/-/.test(o.en)) out.push({ en: o.en, zh: o.zh });
+      if (it.id !== item.id && /\s/.test(it.en) === sentence && (sentence || WORD.test(it.en))) out.push({ en: it.en, zh: it.zh });
+      if (!sentence) for (const o of it.options || []) if (o.en && WORD.test(o.en)) out.push({ en: o.en, zh: o.zh });
     }
     if (sentence && out.length < 3) {
       // too few sentences to pick from: swap one word of this sentence for another single word of the level

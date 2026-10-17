@@ -53,7 +53,8 @@ export class BossFlow extends LearnFlow {
     this._prevSpecial = false; this._clockTxt = ''; this._wrapDamage(); this.clock = 0;
     this._pendingMove = false; this._echoClearT = -1; this.A = LEARN.arena; this._nearWait = 0; this._nearSaid = false;
     // 题即玩法 (play-5): the questions are on the boss — the host asks them, judges through _judgeRecord
-    this.arena = match.mode === 'learn' ? new ArenaHost(this, { mode: 'boss', boss: () => this.boss }) : null;
+    // (play-8: edges / settle on, as the duel and versus2: a label's lower edge in sight, nothing placed mid-blend)
+    this.arena = match.mode === 'learn' ? new ArenaHost(this, { mode: 'boss', boss: () => this.boss, edges: true, settle: true }) : null;
     this._startPhase(0);
     this._unsubs = [];
   }

@@ -68,9 +68,10 @@ export class CoopPlay {
       F.hud?.hide?.(); F.hud?.playMode?.(true);   // (in this order: hud-learn's hide() puts the walk bar back)
       this.cam.take(G.rig, G.camera);
       this.type.ask(g, item, view);
-      // (提示 would put the item's Chinese on this side — the clue's half: here it only says where the help is)
+      // (提示 would put the item's Chinese on this side — the clue's half: here it only says where the help is; and ▶ goes
+      // — this side hears nothing, the recording is the partner's: play-8, LEARN §25 交接)
       const K = this.type.keys;
-      if (K) { K.setHintUsed(true); K.onHint = () => F.ui?.say?.('提示在队友那边：听队友说'); }
+      if (K) { K.setHintUsed(true); K.onHint = () => F.ui?.say?.('提示在队友那边：听队友说'); K.onReplay = null; if (K.replay) { K.replay = false; K.layout(); } }
       G.playTargets = null; G.playTap = null;
     }
     if (F.asking) F.asking.play = kind === 'm1' ? 'ink-target' : 'type-shot';

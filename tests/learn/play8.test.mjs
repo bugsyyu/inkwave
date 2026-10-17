@@ -1,6 +1,7 @@
 // 题即玩法 play-8 (docs/PLAY.md §1 rule 1, §9 phase 8; LEARN §27): the cards are gone —
 //   · the sources: no question card (hud-learn.js has none), no LEARN.play switch, no learn.hold, no pause for a question
 //     (match.paused = true only where a level's results card comes up), the touch layer leaves the strip's buttons alone
+//   · a typed word's 回炉 choice (flow._wordPool / _altPrompt): its distractors are words, never a 音标 item's /j/ (play-8 ③ ②)
 //   · the duel's 备战 between rounds: M6 boards for every round of every duel day (the step's own boards, else a note;
 //     the 今日小考 and the 回炉 round a note), laid out like any board; the bots stand by their brains being switched off,
 //     not by a pause — and switched back on
@@ -14,6 +15,8 @@ import { loadWeek } from '../../src/learn/content.js';
 import { LEARN } from '../../src/config.js';
 import { planDay } from '../../src/learn/design.js';
 const { DuelFlow } = await import('../../src/learn/forms/duel.js');
+const { LearnFlow } = await import('../../src/learn/flow.js');
+import { prompt } from '../../src/learn/engine.js';
 const { layoutBoard } = await import('../../src/learn/play/board/paint.js');
 
 const ROOT = new URL('../../src/', import.meta.url);
@@ -73,4 +76,23 @@ test('the bots stand through the 备战 by their brains being switched off (inte
   F._idleBots(false);
   bot.bot.update(1 / 60);
   assert.equal(bot.bot.ran, 1, 'the brain runs again'); assert.equal(bot.intent.move.x, 1);
+});
+
+test('a typed word\'s 回炉 choice offers words only: no 音标 option (/j/, /iː/) as a distractor, in any form\'s level of the three weeks', async () => {
+  const W = [await loadWeek(1), await loadWeek(2), await loadWeek(3)], WORD = /^[A-Za-z][A-Za-z']*$/;
+  let n = 0, sym = 0;
+  for (const w of W) for (const d of w.days) for (const form of ['puzzle', 'race', 'duel']) {
+    const level = { ...planDay(w, d.n, form), week: w.n, day: d.n, weekRef: w };
+    const F = Object.assign(Object.create(LearnFlow.prototype), { level, gates: level.gates });
+    for (const g of level.gates) for (const it of g.items) {
+      for (const o of it.options || []) if (o.en && /\//.test(o.en)) sym++;
+      if (!it.en || /\s/.test(it.en) || (it.meta && it.meta.kind === 'dict') || prompt(it).type === 'choice') continue;
+      for (const x of F._wordPool(it)) assert.match(x.en, WORD, `${w.id} d${d.n} ${form} ${it.id}: pool ${x.en}`);
+      const p = F._altPrompt(it);
+      assert.equal(p._alt, 'choice-of-typed');
+      for (const o of p.options) if (o.text !== it.en) assert.match(o.text, WORD, `${w.id} d${d.n} ${form} ${it.id}: option ${o.text}`);   // (the right one is the word itself: part-time)
+      n++;
+    }
+  }
+  assert.ok(n > 500 && sym > 0, `${n} typed words checked (${sym} 音标 options in the levels)`);
 });

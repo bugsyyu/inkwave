@@ -199,7 +199,10 @@ export class PlayTargets {
     const stagger = this.reduced ? 0 : 0.07;
     for (let k = 0; k < MAXO; k++) {
       const S = this.slots[k], o = objs[k];
-      S.on = !!o && k < this.n; S.gone = false; S.outAt = -1; S.t = 0; S.delay = k * stagger + (opts.delay || 0);
+      // (opts.keep: the same objects laid out again — run.js, the lens came to rest elsewhere — their pop-in goes on)
+      const kept = !!(opts.keep && S.on && !S.gone && o && S.key === o.key);
+      S.on = !!o && k < this.n; S.gone = false; S.outAt = -1;
+      if (!kept) { S.t = 0; S.delay = k * stagger + (opts.delay || 0); }
       if (!S.on) continue;
       S.kind = o.kind; S.key = o.key; S.pos.set(o.x, o.y, o.z);
       S.r = o.r || 0.5; S.w = o.w || 1; S.h = o.h || 0.5; S.d = Math.max(0.12, (o.h || 0.5) * 0.22);

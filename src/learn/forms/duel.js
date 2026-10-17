@@ -68,7 +68,9 @@ export class DuelFlow extends LearnFlow {
     this._prevSpecial = false; this._clockTxt = ''; this._cells = null; this._askWait = 0;
     this.phase = 'prep';
     // 题即玩法 (play-5): the zone's questions are things over the zone — the host asks them, judges through _judgeRecord
-    this.arena = match.mode === 'learn' ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out) }) : null;
+    // (play-8: edges — the sight lines run to each label's lower edge, a label behind a low wall is moved; settle — the
+    // cluster comes up only once the rig's blend back from a typed question is over: play-6's two, as versus2 has them)
+    this.arena = match.mode === 'learn' ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out), edges: true, settle: true }) : null;
     this._startPrep();
   }
   _farFromZone(a) { this._zoneCentre(_v); return Math.hypot(_v.x - a.pos.x, _v.z - a.pos.z) > LEARN.arena.askNear; }
