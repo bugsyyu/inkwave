@@ -30,6 +30,7 @@ import { PlayCam } from '../cam.js';
 import { BoardWalk } from '../board/walk.js';
 import { layoutBoard } from '../board/paint.js';
 import { frameBoard } from '../board/frame.js';
+import { frameFor, FRAME } from '../type/frame.js';
 import { duoMechanic, clueSpec, splitPrompt } from '../../forms/duo.js';
 
 const BD = LEARN.board;
@@ -64,10 +65,9 @@ export class CoopPlay {
     this._clearClue();
     if (kind !== this.kind) this._clearStation();
     this.kind = kind; this.cur = { g, item, p: view };
-    F.hud?.playMode?.(true);
     if (kind === 'm1') { this.cam.release(G.rig, this.match.local); this.m1.ask(g, item, view); }
     else {
-      F.hud?.hide?.();
+      F.hud?.hide?.(); F.hud?.playMode?.(true);   // (in this order: hud-learn's hide() puts the walk bar back)
       this.cam.take(G.rig, G.camera);
       this.type.ask(g, item, view);
       // (提示 would put the item's Chinese on this side — the clue's half: here it only says where the help is)
@@ -238,10 +238,22 @@ export class CoopPlay {
     }
     return out.copy(g._coopAnchor);
   }
-  // which way she faces to answer (the 打字蟹's sheet, the clue board): towards the targets' anchor past the gate
+  // which way she faces to answer (the 打字蟹's sheet, the clue board): towards the targets' anchor past the gate — or,
+  // when the 打字蟹's camera would stand behind something there (a pad is 2.4 m off the route: a balustrade at her back
+  // put the lens on its far side, looking at the balusters), the nearest way round with the lens clear of her and the
+  // rig. (TypeStation's own search only looks ahead of her, for where the ink word lands.)
   facingYaw(g, a) {
     this._anchor(_c);
-    return Math.hypot(_c.x - a.pos.x, _c.z - a.pos.z) > 1.5 ? Math.atan2(_c.x - a.pos.x, _c.z - a.pos.z) : a.yaw;
+    const base = Math.hypot(_c.x - a.pos.x, _c.z - a.pos.z) > 1.5 ? Math.atan2(_c.x - a.pos.x, _c.z - a.pos.z) : a.yaw;
+    const P = G.physics; if (!P || !P.los) return base;
+    let f = null; try { f = frameFor({ phase: 'type', aspect: innerWidth / innerHeight, dist: FRAME.dist }); } catch (e) { f = null; }
+    const q = f && f.pos ? f.pos : [0, 4.4, -2.6];
+    for (const dy of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.4, -2.4, Math.PI]) {
+      const yaw = base + dy, sy = Math.sin(yaw), cy = Math.cos(yaw);
+      _w.set(a.pos.x + cy * q[0] + sy * q[2], a.pos.y + q[1], a.pos.z - sy * q[0] + cy * q[2]);   // (the rig frame: +Z ahead, +X her left)
+      if (P.los(_v.set(a.pos.x, a.pos.y + 1.9, a.pos.z), _w) && P.los(_w, _v.set(a.pos.x + sy * 1.2, a.pos.y + 1.3, a.pos.z + cy * 1.2))) return yaw;
+    }
+    return base;
   }
   // the voice: the course's recording or the device's (hud-learn's _speak), the strip's ▶ lit while it plays
   say(text, o = {}) {
