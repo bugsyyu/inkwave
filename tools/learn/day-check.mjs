@@ -37,7 +37,9 @@ const segs = files.map((f) => {
   if (j.runs) { const r = j.runs[0] || {}; return { file: f, gate: r.gate || 1, skip: r.skip || 0, answers: r.answers || [], evidence: r.evidence || {}, resume: r.resume, fails: r.errors || [], errors: j.errors || [], bad: j.bad || [], inv: r.invariants, results: !!r.resultsShown, results2: r.results }; }
   const r = j.view ? j : Object.values(j)[0];
   const end = r.end || {};
-  return { file: f, gate: r.gate || 1, skip: r.skip || 0, answers: end.answers || [], evidence: end.evidence || {}, resume: r.resume, fails: [...(r.end ? [] : ['no end report: the segment was cut off (its watchdog)']), ...(r.fails || [])], errors: r.errors || [], bad: r.badResponses || [], inv: r.invariants, results: !!end.results, results2: end.resultsText };
+  // (a segment its watchdog cut off has no end report: its answers come from the questions it logged, its store is unknown)
+  const qa = !r.end && r.questions ? r.questions.filter((q) => q.item && q.verdict && !q.verdict.unscored).map((q) => [q.item, q.verdict.ok ? 1 : 0, (q.first ?? q.verdict.first) ? 1 : 0]) : null;
+  return { file: f, gate: r.gate || 1, skip: r.skip || 0, answers: end.answers || qa || [], evidence: r.end ? end.evidence || {} : null, resume: r.resume, fails: [...(r.end ? [] : ['no end report: the segment was cut off (its watchdog)']), ...(r.fails || [])], errors: r.errors || [], bad: r.badResponses || [], inv: r.invariants, results: !!end.results, results2: end.resultsText };
 });
 const out = [], bad = (m) => out.push('FAIL ' + m), ok = (m) => out.push('ok   ' + m);
 const leaves = (ev) => { const L = []; for (const [doc, d] of Object.entries(ev || {})) for (const [id, days] of Object.entries(d.it || {})) for (const [day, at] of Object.entries(days)) for (const [t, leaf] of Object.entries(at)) L.push([doc, id, day, t, JSON.stringify(leaf)].join('\u0001')); return L; };
@@ -46,12 +48,13 @@ segs.forEach((s, k) => {
   const tag = `segment ${k + 1} (${s.file.split('/').pop()}: gate ${s.gate} skip ${s.skip})`;
   if (k > 0) {
     const r = segs[k - 1].resume;
-    if (!r) bad(`${tag}: the segment before has no resume point`);
+    if (!r) bad(`${tag}: the segment before has no resume point${segs[k - 1].evidence === null ? ' (it was cut off: the next start was worked out from its questions)' : ''}`);
     else if (r.gate !== s.gate || r.skip !== s.skip) bad(`${tag}: starts at gate ${s.gate} skip ${s.skip}, the one before stopped at gate ${r.gate} skip ${r.skip}`);
     else ok(`${tag}: starts where the one before stopped`);
     const before = new Set(leaves(segs[k - 1].evidence)), now = new Set(leaves(s.evidence));
     const lost = [...before].filter((l) => !now.has(l));
-    if (lost.length) bad(`${tag}: ${lost.length} evidence leaves of the segment before are gone (the profile did not carry the store): ${lost.slice(0, 3).map((l) => l.split('\u0001').join(' ')).join(', ')}`);
+    if (!segs[k - 1].evidence || !s.evidence) out.push(`--   ${tag}: the store's carry-over not checked (a segment without its end report)`);
+    else if (lost.length) bad(`${tag}: ${lost.length} evidence leaves of the segment before are gone (the profile did not carry the store): ${lost.slice(0, 3).map((l) => l.split('\u0001').join(' ')).join(', ')}`);
     else ok(`${tag}: her store carried on (${before.size} leaves before, ${now.size} after)`);
   }
   // the first answer of the segment: an item of its gate at or after its skip

@@ -60,7 +60,9 @@ const srv = http.createServer((q, r) => {
   r.writeHead(200, { 'content-type': MIME[path.extname(p).slice(1)] || 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(p).pipe(r);
 });
-await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+// (--port: a fixed one — localStorage is per origin, so the segments of a whole day must all be served on the same port
+// for her store to carry on; day-run.mjs picks one for the day)
+await new Promise((ok) => srv.listen(+opt('port', 0) || 0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/game/`;
 const LAUNCH = { executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
 // (--profile: a persistent context — the segments of a whole match share her localStorage, so the store carries on)
