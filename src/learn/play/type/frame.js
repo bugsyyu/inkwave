@@ -11,7 +11,7 @@
 // feet, +Z toward the target (`dist` m ahead), +X her left.
 //
 // frameFor({ phase, aspect, kbFrac, topFrac, vfov, dist, word: { w, h, y } }) → { pos, look, fov, fits, ndc }
-export const FRAME = { vfov: 52, dist: 6.5, topFrac: 0.1, side: -0.5, margin: 0.04, targetY: 1.45 };
+export const FRAME = { vfov: 52, dist: 6.5, topFrac: 0.1, side: -0.5, margin: 0.04, targetY: 1.45, headMargin: 0.05 };   // headMargin (NDC): her head this far under the keys' middle row when a caller asks for it (the station's and the split frame's margin — the hair sits higher than RIG_POINTS.head, and a lens that is a hair off the searched pose must not put her head over the row)
 export const RIG_POINTS = {
   plate: [[0.93, 0.98, 0.52], [-0.93, 0.98, 0.52], [0.93, 1.16, 1.18], [-0.93, 1.16, 1.18]],
   strike: [0, 1.5, 1.62],
@@ -100,7 +100,8 @@ export function frameFor(o = {}) {
   // her head below the plate's middle row (on a wide screen, below its far row: the band between strip and keyboard is
   // ~150 px tall there and a steeper view would shrink the rig further)
   const row = aspect > 1.4 ? [0, 1.16, 1.12] : R.midRow;
-  const head = (P) => P(R.head) < P(row);
+  const hm = o.headMargin || 0;   // (0: the bare rule; the runner's 滑行段 asks for FRAME.headMargin, LEARN §31)
+  const head = (P) => P(R.head) < P(row) - hm;
   const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4 });
   const rigOnly = search(pts, [head], { ...band, cz: 1.0 });
   return withTarget.fits && Math.hypot(withTarget.pos[1] - 1.2, withTarget.pos[2]) < Math.hypot(rigOnly.pos[1] - 1.2, rigOnly.pos[2]) * 1.35 ? withTarget : rigOnly;

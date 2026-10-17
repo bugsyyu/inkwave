@@ -287,7 +287,12 @@ export class GlideStation {
     if (this._fkey !== key || !this._f) {   // (the typing frame's own cache: the word's frame never lands in it)
       this._fkey = key;
       const sf = col ? splitFrame(col) : null;
-      this._f = sf ? { ...sf, top, kb, split: true } : frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); this._f.top = top; this._f.kb = kb;
+      // (LEARN §31: her head FRAME.headMargin under the keys' middle row, as the wire station's own frame — the bare rule left
+      // no room, and the real lens stood a hair off the searched pose: whole days showed her head 0–11 px over the row;
+      // a band too short for the margin falls back to the bare rule, as the station does)
+      let ff = null;
+      if (!sf) { ff = frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top, headMargin: FRAME.headMargin }); if (!ff.fits) ff = frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); }
+      this._f = sf ? { ...sf, top, kb, split: true } : ff; this._f.top = top; this._f.kb = kb;
     }
     const f = this._f, P = this._pose;
     P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);

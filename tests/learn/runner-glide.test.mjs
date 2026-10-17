@@ -286,3 +286,25 @@ test('the runner\'s _judgeRecord writes what the one judging path (play/judge.js
   setBackend(memory());
   const it = L.gates[0].items[0]; assert.equal(rowAnswer(it, prompt(it), -1).answered, false); assert.deepEqual(store.evidence(), {});
 });
+
+test('the 滑行段\'s typing frame (LEARN §31): her head FRAME.headMargin under the keys\' middle row on the bands whole days measured, the rig still in the band and barely smaller; glide.js asks for it and falls back to the bare rule', async () => {
+  const { frameFor, RIG_POINTS, projectRig, FRAME } = await import('../../src/learn/play/type/frame.js');
+  assert.ok(FRAME.headMargin >= 0.04 && FRAME.headMargin <= 0.06, 'the margin is the station\'s 0.05');
+  const pts = [...RIG_POINTS.plate, RIG_POINTS.strike, ...RIG_POINTS.textLines, RIG_POINTS.typed10];
+  // (upright 390 × 844: the bands lockgate / w2d2 ran on — strip bottom 0.2–0.34, keyboard 0.35–0.4; desktop 1280 × 720)
+  for (const [W, H, top, kb] of [[390, 844, 0.3, 0.35], [390, 844, 0.2, 0.4], [390, 844, 0.24, 0.4], [390, 844, 0.34, 0.4], [1280, 720, 0.14, 0.3], [1280, 720, 0.3, 0.3]]) {
+    const a = W / H, f = frameFor({ phase: 'type', aspect: a, kbFrac: kb, topFrac: top, headMargin: FRAME.headMargin }), g = frameFor({ phase: 'type', aspect: a, kbFrac: kb, topFrac: top });
+    assert.ok(f.fits, `${W}x${H} top ${top} kb ${kb}: the frame with the margin fits`);
+    const P = (p, f) => { const q = projectRig(p, f.pos, f.look, f.fov, a); return [((q[0] + 1) / 2) * W, ((1 - q[1]) / 2) * H]; };
+    const row = a > 1.4 ? [0, 1.16, 1.12] : RIG_POINTS.midRow;
+    const gap = P(RIG_POINTS.head, f)[1] - P(row, f)[1];
+    assert.ok(gap >= (H / 2) * FRAME.headMargin - 1, `${W}x${H}: her head ${gap.toFixed(1)} px under the row (≥ ${((H / 2) * FRAME.headMargin).toFixed(0)})`);
+    for (const p of pts) { const [x, y] = P(p, f); assert.ok(y >= H * top - 1 && y <= H * (1 - kb) + 1 && x >= 0 && x <= W, `${W}x${H}: ${p} in the band (${x.toFixed(0)}, ${y.toFixed(0)})`); }
+    // the price: the rig at most 5 % shorter on screen than the bare rule's frame
+    const h = (f) => { const ys = pts.map((p) => P(p, f)[1]); return Math.max(...ys) - Math.min(...ys); };
+    assert.ok(h(f) >= h(g) * 0.95, `${W}x${H}: the rig ${h(f).toFixed(0)} px tall vs ${h(g).toFixed(0)} bare`);
+  }
+  const src = readFileSync(new URL('../../src/learn/play/runner/glide.js', import.meta.url), 'utf8');
+  assert.ok(/frameFor\(\{ phase: 'type', aspect, kbFrac: kb, topFrac: top, headMargin: FRAME\.headMargin \}\)/.test(src), 'glide.js asks for the margin');
+  assert.ok(/if \(!ff\.fits\) ff = frameFor\(\{ phase: 'type', aspect, kbFrac: kb, topFrac: top \}\)/.test(src), 'and falls back to the bare rule');
+});
