@@ -22,6 +22,8 @@ const CSS = `
 .iw-run__rotate { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
 .iw-run__rotate.is-on { display: flex; }
+/* (both at the start upright: the controls hint stands above the rotate prompt, not on it) */
+.iw-run:has(.iw-run__rotate.is-on) .iw-run__hint { bottom: 76px; }
 .iw-run__rotate i { font-style: normal; font-size: 18px; }
 .iw-run__rotate button { width: 44px; height: 44px; border: 0; background: none; color: #cfc9dc; padding: 13px; cursor: pointer; }
 @media (max-height: 460px) and (orientation: landscape) { .iw-run__hint { bottom: 14px; } }

@@ -46,11 +46,12 @@ const CSS = `
 .iw-pk__k.is-back.is-down { background: #2c2f38; color: #fff; }
 .iw-pk__k.is-pop { animation: iw-pk-pop .32s cubic-bezier(.2,1.6,.4,1); }
 @keyframes iw-pk-pop { 0% { transform: translateY(3px) scale(.92); } 60% { transform: translateY(-2px) scale(1.04); } 100% { transform: none; } }
-.iw-pk__b { position: absolute; box-sizing: border-box; border-radius: 999px; border: 2px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff;
-  display: grid; place-items: center; cursor: pointer; font-size: 17px; line-height: 1; font-weight: 400; font-family: inherit; padding: 0; -webkit-tap-highlight-color: transparent; }
+.iw-pk__b { position: absolute; box-sizing: border-box; border-radius: 999px; border: 2px solid rgba(255,255,255,.22); background: #2c2540; color: #fff;
+  display: grid; place-items: center; cursor: pointer; font-size: 17px; line-height: 1; font-weight: 400; font-family: inherit; padding: 0; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 2px #15121c, 0 3px 0 2px #15121c; }
 .iw-pk__b.is-hint { color: #ffd76a; border-color: rgba(255,215,106,.55); }
 .iw-pk__b.is-hint.is-used { opacity: .45; }
-.iw-pk__b.is-down { transform: scale(.94); background: rgba(255,255,255,.18); }
+.iw-pk__b.is-down { transform: translateY(2px) scale(.96); background: #3a3152; box-shadow: 0 0 0 2px #15121c, 0 1px 0 2px #15121c; }
 .iw-pk__b svg { width: 20px; height: 20px; }
 .iw-pk__strip { position: absolute; box-sizing: border-box; border-radius: 14px; background: rgba(0,0,0,.32); box-shadow: inset 0 2px 4px rgba(0,0,0,.35);
   display: flex; align-items: center; justify-content: flex-end; padding: 0 14px; overflow: hidden; white-space: pre; color: #fff; font-size: 21px; line-height: 1; font-weight: 400; font-family: inherit; letter-spacing: .03em; }
