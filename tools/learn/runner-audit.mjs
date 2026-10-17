@@ -139,8 +139,8 @@ async function scenarioPerf() {
   const day = opt('day', 'w1d3');
   // (the runner: to the first row, into its right lane, on to 5 m before it — so the sampled seconds hold a right
   // curtain bursting: fx.explosion, paint.flood, the boost, and the next row being built)
-  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!F._shown() && k++ < 40) ff(0.5);
-    const row = F._shown(); if (!row) return { row: false };
+  const runner = await sample(`?learn=${day}&kind=runner`, 'runner', `(async () => { ${FF} await board(); const F = I.match.learn; let k = 0; while (!(F._shown() && F._shown().centers) && k++ < 120) ff(0.5);   // (a row of curtains: past a 看板段 / 滑行段 first — play-4)
+    const row = F._shown(); if (!row || !row.centers) return { row: false };
     const want = row.centers[F.rightAnswer()]; k = 0; while (Math.abs(F.latT - want) > 0.05 && k++ < 6) { F.swipe(want < F.latT ? 'left' : 'right'); ff(0.05); }
     k = 0; while (row.s - F.sNow > 5 && k++ < 80) ff(0.1);
     return { s: +F.sNow.toFixed(1), row: true, ahead: +(row.s - F.sNow).toFixed(1), lat: +F.latT.toFixed(2), want }; })()`);
