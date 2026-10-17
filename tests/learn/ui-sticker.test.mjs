@@ -133,7 +133,9 @@ test('motion: the press lands on the same frame, the verdict ribbon springs in, 
   for (let i = 1; i < delays.length; i++) { const d = delays[i] - delays[i - 1]; assert.ok(d >= 40 && d <= 80, `lines ${i} → ${i + 1}: ${d} ms apart`); }
   const J = src('src/ui/hud-learn.js');
   assert.match(J, /if \(!prefersReducedMotion\(\)\) \{ restartAnim\(this\.rFrame, 'is-enter'\); this\._countUp\(num, data\.done\); \}/, 'no count-up under reduced motion');
-  assert.match(J, /if \(v !== shown\) \{ shown = v; el\.textContent = String\(v\); \}/, 'the count writes only when the number changes');
+  assert.match(J, /if \(v !== shown\) \{ shown = v; el\.dataset\.c = String\(v\); \}/, 'the count writes only when the number changes');
+  assert.ok(!/el\.textContent = /.test(J.slice(J.indexOf('_countUp(el, to) {'))), 'the score\'s text stays the real number (the count is drawn over it)');
+  assert.match(rule(H, '.iw-learn__rscore b.is-counting::after'), /content: attr\(data-c\); position: absolute;/);
   assert.match(J, /dur = Math\.min\(700, /, '… and is over in 0.7 s at most');
 });
 

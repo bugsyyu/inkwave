@@ -1400,7 +1400,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 .iw-learn__rframe.is-enter .iw-learn__results > :nth-child(4) { animation-delay: .34s; }
 .iw-learn__rframe.is-enter .iw-learn__results > :nth-child(n+5) { animation-delay: .4s; }
 @keyframes iw-learn-rise { from { opacity: 0; translate: 0 14px; } }
-.iw-learn__rscore b { display: inline-block; }
+.iw-learn__rscore b { display: inline-block; position: relative; }
+.iw-learn__rscore b.is-counting { color: transparent; }
+.iw-learn__rscore b.is-counting::after { content: attr(data-c); position: absolute; right: 0; top: 0; color: var(--self); }
 .iw-learn__rscore b.is-land { animation: iw-learn-land .4s var(--spring2); }
 @keyframes iw-learn-land { 0% { scale: 1.35; } }
 /* (the splat at z -1 lands in the frame's own stack: over its fill, under the title and the card's lines) */

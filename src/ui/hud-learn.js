@@ -158,19 +158,21 @@ export class LearnHud {
     if (!prefersReducedMotion()) { restartAnim(this.rFrame, 'is-enter'); this._countUp(num, data.done); }
     setTimeout(() => this.rAgain.focus?.(), 50);
   }
-  // the score counts up as its line rises in (INKWAVE's results count their numbers too): a text write only when the
-  // shown integer changes, for at most 0.7 s, while the level is over (the match is parked) — then it lands with a pop
+  // the score counts up as its line rises in (INKWAVE's results count their numbers too). The element keeps the real
+  // number (what the page says — a screen reader, an audit — never reads a 0) at its final width; the count is drawn
+  // over it (::after, data-c), written only when the shown integer changes, for at most 0.7 s, while the level is over
+  // (the match is parked) — then it lands with a pop
   _countUp(el, to) {
     if (this._cu) { cancelAnimationFrame(this._cu); this._cu = 0; }
     if (!(to > 0) || typeof requestAnimationFrame === 'undefined') return;
     const t0 = performance.now() + 220, dur = Math.min(700, 260 + to * 40);
     let shown = 0;
-    el.textContent = '0';
+    el.dataset.c = '0'; el.classList.add('is-counting');
     const step = (now) => {
       const k = Math.max(0, Math.min(1, (now - t0) / dur)), v = Math.round(to * (1 - Math.pow(1 - k, 3)));
-      if (v !== shown) { shown = v; el.textContent = String(v); }
+      if (v !== shown) { shown = v; el.dataset.c = String(v); }
       if (k < 1) this._cu = requestAnimationFrame(step);
-      else { this._cu = 0; restartAnim(el, 'is-land'); }
+      else { this._cu = 0; el.classList.remove('is-counting'); restartAnim(el, 'is-land'); }
     };
     this._cu = requestAnimationFrame(step);
   }
