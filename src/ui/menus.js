@@ -28,9 +28,11 @@ import { WhatsNew } from './news.js';
 import { loadWeek, store as learnStore } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
 import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
 import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
+import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
+import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
 import { t, isZh, gameName, teamName, TIPS_ZH, TITLE_ZH, botNames, lookName, presetText } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
 
-const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
+const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'map', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
 const WIPES = new Set(['loading>title', 'title>main', 'results>main', 'pause>main', 'results>null', 'pause>title', 'online>lobby', 'lobby>online', 'lobby>main', 'results>lobby', 'pause>online']);
 // Pushes/pops between these get the light ink swipe (decorative — the swap itself is immediate).
@@ -45,6 +47,8 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
 // 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js)
 const APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
+// 游戏为主体 第二期: the review level is gf-review's kind 'review' (forms/index.js) — no 复习 button until the game has it
+const REVIEW_OK = LEARN_KINDS.includes('review');
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];
@@ -184,6 +188,7 @@ const LOCKER_TABS = [
 const MENU_DESC = {
   play: t('desc.play'), learn: t('desc.learn'), book: t('desc.book'), online: t('desc.online'), loadout: t('desc.loadout'),
   locker: t('desc.locker'), settings: t('desc.settings'), howto: t('desc.howto'), credits: t('desc.credits'),
+  today: t('desc.today'), map: t('desc.map'), review: t('desc.review'),
 };
 
 const pctFmt = (v) => Math.round(v * 100) + '%';
@@ -572,7 +577,7 @@ export class Menus {
     if (this._stack.length > 1) {
       this._sfx('ui_back');
       this.show(this._stack[this._stack.length - 2], { pop: true, back: true });
-    } else if (['mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'online'].includes(this.current)) {
+    } else if (['mode', 'learn', 'map', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'online'].includes(this.current)) {
       this._sfx('ui_back'); // opened directly by the engine: fall back to the main menu
       this.show('main', { back: true });
     }
@@ -928,6 +933,9 @@ export class Menus {
           cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn iw-btn--today', sound: 'ui_confirm',
           accept: () => this._startLearn({ week: T.week, day: T.day, kind: 'plan' }) };
         items.unshift(today, { ...learn, label: '选关', sub: '选周 · 选天 · 选形式', cls: 'iw-btn--menu' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
+        // (第二期: the course map right under today's level — her three weeks, each day's progress, a tap starts a day)
+        const mapBtn = { id: 'map', label: '课程地图', sub: '三周 · 每天的进度 · 点一天就开局', icon: GLYPHS.map, cls: 'iw-btn--menu iw-btn--map', accept: () => this._go('map'), sound: 'ui_confirm' };
+        items.splice(1, 0, mapBtn);
         this._appTodayDue(T, where);
       } else {
         items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
@@ -1066,14 +1074,29 @@ export class Menus {
     };
   }
 
-  // 游戏为主体: the today button's second line gains the week's due words (store.due: the memory model over her history and
-  // the game's) once the week has loaded — a DOM write on the button that is up, nothing when the menu has moved on
+  // 游戏为主体: once the week has loaded, the today button's second line gains today's progress (store.progress) and the
+  // week's due words (store.due: the memory model over her history and the game's); with kind 'review' (gf-review) and
+  // K > 0, a 复习 K 个 button under 课程地图 — DOM writes on the menu that is up, nothing when it has moved on. (Both take
+  // the loaded week object: a week number throws in content.js regOf.)
   _appTodayDue(T, where) {
-    loadWeek(T.week).then(() => {
-      let n = 0;
-      try { n = learnStore.due(T.week).length; } catch (e) { return; }
-      const b = this._scr && this._scr.el && this._scr.el.querySelector('.iw-btn--today .iw-btn__sub');
-      if (b && n > 0) b.textContent = `${where} · 要复习 ${n} 个`;
+    loadWeek(T.week).then((wk) => {
+      let n = 0, p = null;
+      try { n = learnStore.due(wk).length; } catch (e) { n = 0; }
+      try { p = learnStore.progress(wk, T.day); } catch (e) { p = null; }
+      const el = this.current === 'main' && this._scr && this._scr.el;
+      const b = el && el.querySelector('.iw-btn--today .iw-btn__sub');
+      if (!b) return;
+      const bits = [where];
+      if (p && p.total > 0) bits.push(`今天 ${p.done} / ${p.total}`);
+      if (n > 0) bits.push(`要复习 ${n} 个`);
+      b.textContent = bits.join(' · ');
+      if (REVIEW_OK && n > 0 && !el.querySelector('.iw-btn--review')) {
+        const rb = this._btn({ id: 'review', label: `复习 ${n} 个`, sub: '这一周该复习的词 · 一关清掉', icon: GLYPHS.reset, cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', tilt: 1.2,
+          accept: () => this._startLearn({ week: T.week, day: T.day, kind: 'review' }, rb) });
+        rb.classList.add('iw-in', 'iw-in--left');
+        const after = el.querySelector('.iw-btn[data-id="map"]') || b.closest('.iw-btn');
+        if (after) after.after(rb);
+      }
     }).catch(() => {});
   }
 
@@ -1139,18 +1162,158 @@ export class Menus {
     return { el, wrap: true, initial: start };
   }
 
-  _startLearn(st) {
+  // ================================================================ SCREEN: map (游戏为主体 第二期, LEARN §34: the course map)
+  // Her three weeks as INKWAVE's level map: a week is one winding road, its 7 days and the 周考 at the end (learn/course-map.js
+  // says what each node is and where it sits). Opening: the road draws itself, the nodes pop in one after another, the view
+  // goes to her today, which breathes in her team's ink. A day → its planned form; the 周考 → the boss; a locked node says
+  // why. Progress: store.progress on the loaded week, once per week per opening (cached on the menus), never per frame.
+  _scr_map() {
+    const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;
+    const portrait = typeof matchMedia === 'function' && matchMedia('(orientation: portrait)').matches;
+    const L = mapLayout(LEARN.days + 1, portrait);
+    const st = this._cmapPick || (this._cmapPick = { week: T ? T.week : clamp(+this._settings().learnWeek || 1, 1, LEARN.weeks) });
+    this._cmapProg = {};   // (fresh each opening: a level she just played shows)
+    const titles = {};
+    const ICON = { puzzle: GLYPHS.key, race: GLYPHS.bolt, duel: GLYPHS.swords, boss: BOSS_GLYPH };
+    const STATES = ['done', 'part', 'today', 'todo', 'locked'];
+    const model = () => courseMap({ weeks: LEARN.weeks, days: LEARN.days, today: T,
+      progress: (w, d) => (this._cmapProg[w] ? this._cmapProg[w][d - 1] : null),
+      plan: (w, d) => (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null });
+    const stage = h('div', { class: 'iw-cmap__stage' + (portrait ? ' is-portrait' : ''), style: { '--ar': `${L.w} / ${L.h}` } });
+    const scroll = h('div', { class: 'iw-cmap__scroll' }, stage);
+    const weekSub = h('div', { class: 'iw-cmap__weeksub' });
+    let nodes = [], cur = null, scr = null;
+    const ring = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle class="iw-cmap__ringbg" cx="32" cy="32" r="29"/><circle class="iw-cmap__ringfg" cx="32" cy="32" r="29" pathLength="1"/></svg>';
+    // the walked road: to her today in its week, the whole of a week before it; without a today, to the last day she touched
+    const walkTo = (wk) => {
+      if (T) return st.week < T.week ? LEARN.days : st.week === T.week ? T.day - 1 : 0;
+      let k = 0; wk.days.forEach((x, i) => { if (x.done > 0) k = i; }); return k;
+    };
+    const paint = () => {
+      const wk = model()[st.week - 1];
+      cur = [...wk.days, { ...wk.boss, boss: true, done: 0, total: 0, complete: false }];
+      cur.forEach((x, i) => {
+        const n = nodes[i]; if (!n) return;
+        for (const s of STATES) n.classList.toggle('is-' + s, s === x.state);
+        n.classList.toggle('is-complete', !!x.complete);
+        n.style.setProperty('--p', x.total > 0 ? (x.done / x.total).toFixed(3) : '0');
+        const c = n.querySelector('.iw-cmap__count');
+        c.textContent = x.boss ? (x.state === 'locked' ? '学完第 7 天开' : '听 读 写 说') : x.state === 'locked' ? '' : x.total > 0 ? `${x.done} / ${x.total}` : '';
+        n.setAttribute('aria-label', x.boss ? `第 ${st.week} 周 周考` : `第 ${st.week} 周 第 ${x.day} 天 · ${FORM_ZH[x.form] || ''}${x.total ? ` · ${x.done} / ${x.total}` : ''}`);
+      });
+      const share = weekShare(wk), tt = titles[st.week];
+      weekSub.textContent = `${tt ? tt + ' · ' : ''}这一周学了 ${Math.round(share * 100)}%` + (T && st.week === T.week ? ` · 今天第 ${T.day} 天` : '');
+    };
+    const loadProg = (W) => {
+      if (this._cmapProg[W]) return;
+      loadWeek(W).then((w) => {
+        const list = [];
+        for (let d = 1; d <= LEARN.days; d++) { try { list.push(learnStore.progress(w, d)); } catch (e) { list.push(null); } }
+        this._cmapProg[W] = list; titles[W] = String(w.title || '');
+        if (this._scr === scr && st.week === W) { paint(); stage.classList.add('is-loaded'); }
+      }).catch(() => { if (this._scr === scr && st.week === W) weekSub.textContent = '这一周的课还没接上'; });
+    };
+    const pick = (i, node, src) => {
+      const x = cur && cur[i];
+      if (!x || this._starting) return;
+      if (x.state === 'locked') {
+        this._sfx('ui_error', 0.15); restartAnim(node, 'is-nope');
+        this.toast('先学到这一天' + (T ? ` — 今天是第 ${T.week} 周第 ${T.day} 天` : ''), { icon: GLYPHS.lock });
+        return;
+      }
+      this._sfx('ui_confirm');
+      if (src === 'mouse') this._press(node);
+      restartAnim(stage, 'is-hit');   // (the hit: the node squashes, the map jolts, ink + splat in the same frame, then the wipe)
+      const W = st.week;
+      if (x.boss) this._startLearn({ week: W, day: LEARN.days, kind: 'boss' }, node);
+      else this._startLearn({ week: W, day: x.day, kind: 'plan' }, node);
+    };
+    const build = () => {
+      const wk = model()[st.week - 1];
+      const k = walkTo(wk);
+      stage.textContent = '';
+      stage.appendChild(h('div', { class: 'iw-cmap__road', html: `<svg viewBox="0 0 ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`
+        + `<path class="iw-cmap__rshade" d="${L.d}" pathLength="1"/><path class="iw-cmap__rout" d="${L.d}" pathLength="1"/><path class="iw-cmap__rbase" d="${L.d}" pathLength="1"/><path class="iw-cmap__rdots" d="${L.d}"/>`
+        + (k > 0 ? `<path class="iw-cmap__rwalk" d="${L.upTo(k)}" pathLength="1"/>` : '') + '</svg>' }));
+      nodes = L.pts.map((p, i) => {
+        const boss = i === LEARN.days, x = boss ? null : wk.days[i];
+        const node = h('button', { class: 'iw-cmap__node' + (boss ? ' is-boss' : ''), style: { left: (p.x / L.w * 100).toFixed(3) + '%', top: (p.y / L.h * 100).toFixed(3) + '%', '--d': `${160 + i * 55}ms` } },
+          h('span', { class: 'iw-cmap__halo' }),
+          h('span', { class: 'iw-cmap__ink', html: splatSVG({ seed: 70 + i * 11 + st.week * 3, cls: 'iw-fa', r: 60, arms: 8, drops: 3 }) }),
+          h('span', { class: 'iw-cmap__core' },
+            h('span', { class: 'iw-cmap__disc' },
+              boss ? h('span', { class: 'iw-cmap__bossicon', html: BOSS_GLYPH }) : h('b', { class: 'iw-cmap__num' }, String(x.day)),
+              h('span', { class: 'iw-cmap__gloss' })),
+            h('span', { class: 'iw-cmap__ring', html: ring }),
+            !boss && x.form && ICON[x.form] ? h('span', { class: 'iw-cmap__form', html: ICON[x.form] }) : null,
+            h('span', { class: 'iw-cmap__tick', html: GLYPHS.check }),
+            h('span', { class: 'iw-cmap__lock', html: GLYPHS.lock })),
+          h('span', { class: 'iw-cmap__label' },
+            h('span', { class: 'iw-cmap__day' }, boss ? '周考' : `第 ${x.day} 天`),
+            h('span', { class: 'iw-cmap__count' })));
+        this._fx(node);
+        this._bind(node, { id: 'cmap-' + i, accept: (src) => pick(i, node, src) });
+        stage.appendChild(node);
+        return node;
+      });
+      paint();
+      loadProg(st.week);
+    };
+    const weekSeg = this._seg(Array.from({ length: LEARN.weeks }, (_, i) => [i + 1, `第 ${i + 1} 周`]), st.week, (v) => {
+      st.week = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnWeek: v }));
+      build();
+      const f = first(); if (f) this._setFocus(f, { snap: true });
+    });
+    const weekRow = h('div', { class: 'iw-setrow iw-cmap__weeks iw-in iw-in--down' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), '换周'), weekSeg.el);
+    this._bind(weekRow, { id: 'cmap-week', type: 'row', adjust: weekSeg.adjust, accept: weekSeg.cycle });
+    build();
+    // the first focus: her today in this week, else the first open node
+    const first = () => nodes.find((n) => n.classList.contains('is-today')) || nodes.find((n) => !n.classList.contains('is-locked')) || nodes[0];
+    const el = h('div', { class: 'iw-screen iw-setup iw-cmap' + (portrait ? ' is-portrait' : '') },
+      h('div', { class: 'iw-ss__scrim' }),
+      this._header('课程地图', { sub: '三周的课 · 一天一关 · 点一天就开局' }),
+      h('div', { class: 'iw-cmap__body' }, h('div', { class: 'iw-cmap__top' }, weekRow, h('div', { class: 'iw-in iw-in--down' }, weekSub)), scroll),
+      this._prompts([[['Q', 'E'], 'LB', '换周'], ['Enter', 'A', '开局'], ['Esc', 'B', '返回']]));
+    // a turn of the phone: the other layout (the road runs down in portrait, across in landscape)
+    const mq = typeof matchMedia === 'function' ? matchMedia('(orientation: portrait)') : null;
+    const turn = () => { if (this._scr === scr) this.show('map', { force: true, under: this._stack.slice(0, -1), wipe: false }); };
+    if (mq && mq.addEventListener) mq.addEventListener('change', turn);
+    scr = {
+      el, initial: first,
+      onNav: (dir) => {
+        if (dir === 'tab_prev' || dir === 'tab_next') { weekSeg.adjust(dir === 'tab_prev' ? -1 : 1); return true; }
+        return false;
+      },
+      // the view goes to her today (portrait: the road scrolls; landscape fits as it is)
+      afterMount: () => {
+        const f = first();
+        if (!portrait || !f) return;
+        const to = () => { const y = f.offsetTop - scroll.clientHeight * 0.42; scroll.scrollTo({ top: Math.max(0, y), behavior: prefersReducedMotion() ? 'auto' : 'smooth' }); };
+        setTimeout(to, prefersReducedMotion() ? 0 : 380);
+      },
+      onFocus: (f) => {
+        if (!portrait || !this._navFocus) return;
+        const r = f.getBoundingClientRect(), s = scroll.getBoundingClientRect();
+        if (r.top < s.top + 20 || r.bottom > s.bottom - 20) scroll.scrollBy({ top: r.top - s.top - s.height * 0.42, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+      },
+      destroy: () => { if (mq && mq.removeEventListener) mq.removeEventListener('change', turn); },
+    };
+    return scr;
+  }
+
+  _startLearn(st, from = null) {
     if (this._starting) return;
     this._starting = true;
     if (this._scr) {
       this._scr.el.classList.add('is-launch');
-      this._burstAt(this._scr.el.querySelector('.iw-btn--start, .iw-btn--today'), { count: 18, dist: 11, size: 1.4, ring: true });
+      this._burstAt(from || this._scr.el.querySelector('.iw-btn--start, .iw-btn--today'), { count: 18, dist: 11, size: 1.4, ring: true });   // (from: the map's node, the 复习 button)
       this._sfx('splat_big');
     }
     this._runWipe(() => {
       this._starting = false;
       safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
       if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关)
+      else if (this.current === 'map') this.show(null, { instantLeave: true });   // (第二期: a node of the course map)
     });
   }
 
