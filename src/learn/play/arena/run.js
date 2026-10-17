@@ -183,8 +183,13 @@ export class ArenaRun extends PlayRun {
     const cam = G.camera, H = innerHeight;
     if (C.banner) {
       b.model.getSocket('shellTop', _c);
-      const dist = cam.position.distanceTo(_c), h = Math.max(0.5, Math.min(1.4, 0.62 * (dist / 9)));
-      const box = C.boxes[k], w = h * (box.w / box.h);
+      const dist = cam.position.distanceTo(_c), box = C.boxes[k];
+      // (a plank's height follows the distance; its width the label's — never wider than the screen less its gutters)
+      const wMax = 2 * dist * Math.tan(((cam.fov || 52) * Math.PI) / 360) * (cam.aspect || innerWidth / innerHeight) * (1 - 2 * 24 / Math.max(320, innerWidth));
+      let h = Math.max(0.5, Math.min(1.4, 0.62 * (dist / 9))), wide = 0;
+      for (const bx of C.boxes) wide = Math.max(wide, bx.w / bx.h);   // (one height for the stack: the widest label decides)
+      if (h * wide > wMax) h = wMax / wide;
+      const w = h * (box.w / box.h);
       _c.y += A.bossLift.shellTop + (C.labels.length - 1 - k) * h * A.bossRow;
       o.kind = 'banner'; o.x = _c.x; o.y = _c.y; o.z = _c.z; o.w = w; o.h = h; o.r = 0;
       o.plate.x = o.x; o.plate.y = o.y; o.plate.z = o.z; o.plate.w = w * 0.97; o.plate.h = h * 0.94;

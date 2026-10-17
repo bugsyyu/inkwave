@@ -161,7 +161,11 @@ export class BossFlow extends LearnFlow {
   }
 
   // ---------------------------------------------------------------------------------------------- questions (L / R / W)
+  // (题即玩法: the boss's brain runs after the learn layer in a frame — match.update — so a question asked this frame must
+  // hold its cool-down now, or the brain starts a move in the very frame she is asked)
+  _holdBoss() { const b = this.boss; if (this.arena && b && b.brain && !b.move) { b.brain.cool = Math.max(b.brain.cool, this.A.bossHold); b.brain.plan = null; } }
   _ask(g) {
+    this._holdBoss();
     const item = g.queue.shift(), a = this.match.local, m = this.match;
     const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
@@ -296,6 +300,7 @@ export class BossFlow extends LearnFlow {
 
   // ---------------------------------------------------------------------------------------------- the S cards
   _card(g) {
+    this._holdBoss();
     const item = g.queue.shift(), m = this.match, meta = item.meta || {};
     this.cards = true;
     const n = g.items.length - g.queue.length;

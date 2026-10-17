@@ -15,12 +15,14 @@ const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ')
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 const enOf = (it) => String((it && it.meta && it.meta.ref) || (it && it.en) || '');
 
+// (a word's distractors are words: a 音标 item's options are symbols like /j/ — never a word card's choice)
+const WORD = /^[A-Za-z][A-Za-z']*$/;
 export function wordPool(gates, item) {
   const en = enOf(item), sentence = /\s/.test(en), out = [];
   for (const g of gates || []) for (const it of g.items || []) {
     const e = enOf(it);
-    if (it.id !== item.id && e && /\s/.test(e) === sentence) out.push({ en: e, zh: it.zh });
-    if (!sentence) for (const o of it.options || []) if (o.en && !/-/.test(o.en) && !/\s/.test(o.en)) out.push({ en: o.en, zh: o.zh });
+    if (it.id !== item.id && e && /\s/.test(e) === sentence && (sentence || WORD.test(e))) out.push({ en: e, zh: it.zh });
+    if (!sentence) for (const o of it.options || []) if (o.en && WORD.test(o.en)) out.push({ en: o.en, zh: o.zh });
   }
   return shuffle(out);
 }
