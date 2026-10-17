@@ -1,13 +1,18 @@
 // 墨浪跑酷 — one row on the road (docs/PLAY.md §3 M2, §7): a Drip Curtain per lane (the `curtain` sub's sheet of falling
 // ink — src/game/subs.js CURTAIN_FS, the same streaks and ragged foot — in neutral grey ink: no team owns it yet), a label
-// board on each (label.js), and thin guide lines on the ink between the lanes for the run-in. States per curtain:
+// board on each (play-1's label painter, src/learn/play/atlas.js: one atlas per row, each board a quad over its rect —
+// play-4), and thin guide lines on the ink between the lanes for the run-in. States per curtain:
 //   idle · pulse (the beat, M3) · right (it bursts into her ink: the caller fires fx.explosion + paint.flood and the sheet
 //   drains away) · wrong (coral, soft: never the enemy's colour) · reveal (the right one glows when she missed it).
 // Unlit, no shadows: no new lighting variants. One geometry for every sheet / board; materials are warmed at start.
 import * as THREE from 'three';
 import { G } from '../../../core/ctx.js';
 import { at } from './track.js';
-import { labelTexture } from './label.js';
+import { drawLabelAtlas, fitLabel } from '../atlas.js';
+
+// a curtain's plate (atlas px): lane-wide on the sheet, the text fitted to it (fitLabel) — a word's meaning fills it in
+// big type, a 54-character banner wraps to four lines; the row's plates pack into one sheet (≤ 1024 px) at 1 texel / px
+export const PLATE = { w: 400, h: 250, bannerH: 350 };
 
 // subs.js's Drip Curtain shader + four uniforms: uPulse (a beat kick), uCoral (0 → 1: the wrong curtain's soft coral),
 // uGlow (the right one shown), uDrain (0 → 1: the sheet runs down into the ink after a burst)
@@ -66,16 +71,19 @@ export class RowView {
       const grp = new THREE.Group(); grp.position.set(x, y, z); grp.rotation.y = yaw;
       const mat = curtainMaterial(); this.mats.push(mat);
       const sheet = new THREE.Mesh(SHEET, mat); sheet.scale.set(w, h, 1); sheet.renderOrder = 2;
-      // the label is drawn later, one per frame (prepare): a placeholder map keeps the material's program the same
+      // the labels are drawn later (prepare: the row's atlas, two rows ahead): a placeholder map keeps the material's program the same
       const bm = new THREE.MeshBasicMaterial({ map: blankTex(), transparent: true, depthWrite: false, toneMapped: false }); this.mats.push(bm);
       const bw = laneW - (row.banner ? 0.06 : 0.14);   // (boards nearly as wide as the lane: the curtains below show the gaps)
-      const board = new THREE.Mesh(BOARD, bm); board.scale.set(bw, bw * (row.banner ? 448 / 512 : 320 / 512), 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;
+      const ph = row.banner ? PLATE.bannerH : PLATE.h;
+      const bg = BOARD.clone(); this.geos.push(bg);   // (its own uvs: the plate's rect in the row's atlas)
+      const board = new THREE.Mesh(bg, bm); board.scale.set(bw, bw * (ph / PLATE.w), 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;
       board.visible = false;
       grp.add(sheet, board);
       this.group.add(grp);
       this.curtains.push({ grp, sheet, board, mat, bm, state: 'idle', k: 0, glow: 0, drain: 0, x, y, z });
     });
-    this._todo = row.centers.map((_, i) => i);
+    this.labels = row.centers.map((_, i) => fitLabel({ text: (row.labels[i] || {}).en || '', zh: (row.labels[i] || {}).zh || '', tag: tags[i] || '' }, PLATE.w, row.banner ? PLATE.bannerH : PLATE.h, { big: row.banner ? 64 : 92, small: 26, lines: row.banner ? 4 : 2 }));
+    this._drawn = false;
     // guide lines on the ink between the lanes (and its two edges) over the run-in: where the gaps are
     this._lines(T, row, laneW);
     this.group.visible = false;
@@ -137,14 +145,22 @@ export class RowView {
     if (this.lineMat) this.lineMat.opacity = 0.42 * this.show * this.fade * (1 + pulse * 0.6);
   }
 
-  // draw (and upload) one curtain's label: called every frame while the row waits two rows ahead, so a row of four
-  // canvases never lands in a single frame (PLAY §7: drawn ahead, no work in the frame the row fades in)
+  // draw (and upload) the row's label atlas — one canvas for its 2–4 plates — while the row waits two rows ahead (PLAY
+  // §7: drawn ahead, nothing in the frame the row fades in); each board's quad takes its plate's rect as uvs
   prepare() {
-    if (!this._todo.length) return false;
-    const i = this._todo.shift(), c = this.curtains[i], row = this.row;
-    const L = labelTexture({ ...row.labels[i], banner: row.banner, tag: (row.tags || [])[i] || '' }); this.texs.push(L);
-    try { G.renderer?.initTexture?.(L.tex); } catch (e) { /* (uploaded on first draw instead) */ }
-    c.bm.map = L.tex; c.board.visible = true;
+    if (this._drawn) return false;
+    this._drawn = true;
+    const A = drawLabelAtlas(this.labels, { scale: 1 });
+    const tex = new THREE.CanvasTexture(A.canvas);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.generateMipmaps = true;
+    this.texs.push({ dispose: () => { tex.dispose(); A.canvas.width = A.canvas.height = 1; } });
+    try { G.renderer?.initTexture?.(tex); } catch (e) { /* (uploaded on first draw instead) */ }
+    this.curtains.forEach((c, i) => {
+      const [u0, v0, u1, v1] = A.uv[i] || [0, 0, 1, 1], uv = c.board.geometry.attributes.uv;
+      uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0); uv.needsUpdate = true;
+      c.bm.map = tex; c.board.visible = true;
+    });
+    this.atlas = { w: A.w, h: A.h, scale: A.scale, fits: A.fits };
     return true;
   }
   setVisible(v) { if (v) while (this.prepare()) { /* (anything not drawn yet: now) */ } this.group.visible = v; }

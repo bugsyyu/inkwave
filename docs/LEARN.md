@@ -853,6 +853,108 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
   4. `hud.playMode(true)` 在展板框住时也会调（藏走路条）；谁 `playMode(false)` 要看 `flow.phase`（`wire/boards.js` 的 `on.unframed`）。
   5. 字弹的 `TypeShot` 一题结束 `_next` 在 Promise 里回流程；流程若在同一帧里 `clear()`（换站 / 门开），`InkWord.clear()` 会让等着的 Promise 落地，不会卡。
 
+## 23. play-4 交付（2026-10-16，分支 `play-4`：道具赛换成墨浪跑酷 + 滑行段接字弹 + 看板段 + 跑酷收尾，PLAY §3 M2 / M3 / M4 / M6 · §4「道具赛」列 · §5.2 · §6.3 · §8 · §10）
+
+两个子代理做的：前一个做了「道具赛换成跑酷」（`5a09e64`）和滑行段 / 看板段的半成品（`b5ea0e8`、`e03b55b`，WIP，被额度掐断，没进过浏览器）；后一个从合并 dev 接着做完。
+
+**先读了什么**：前一个子代理三个提交的说明和代码（`runner/{runner,glide,boards,rows,cam,view,tips}.js`、`tests/learn/runner-glide.test.mjs`）；PLAY §1 的 12 条、§3 M2 / M3 / M4 / M6、§4 表、§5.2、§6.3、§8、§10；本文 §18（题条）、§19（字弹的接口、`frame.js` 的机位）、§20（跑酷，含「还缺」「已知的坑」）、§21（展板接口）、§22（`_judgeRecord(…, o)`、`wire/type.js` 的接法、`wire/boards.js`、`touch.js` 的跳过）；代码：`flow.js` 的 `_judgeRecord` / `_altPrompt`、`race.js` 的 `_answer`、`forms/common.js` 的 `canClaim / claimJudge / judgeAnswer`、`store.js modeOf`、`play/type/{shot,rig,frame}.js`、`ui/play-keys.js`、`ui/play-strip.js`、`board/{walk,frame,set}.js`、`core/touch.js`（滑动钩子在 `G.playTap` 前面）、`game/physics.js`（`cameraProbe` / `los`；道具的碰撞盒是 level 的 hidden block）、`main.js` 的看穿窗口（只在 rig 是 follow 时开）；play-5 的 `arena/type.js` 和 `boss.js _judgeRecord`（「扣住 → 我的写法也对 / 继续」）、`play-strip.js` 的 `actions`（只读）。
+
+**先定的**：
+1. **合并 dev 没有冲突**（`3178914`）：`cam.js / host.js / touch.js / play/cam.js` 只有 dev 改过；`config.js`、`play-strip.js`、文档两边各加各的。
+2. **跑酷的判分一条路：`RunnerFlow._judgeRecord`**。上一个子代理的滑行段借的是 `LearnFlow._judgeRecord`——它给门加锁、把条目推进门自己的队列、用 `item._tries` 决定再问；跑酷有自己的队列，车道行又走的是 `rows.js rowAnswer`，「判分只走 `_judgeRecord`」在车道行上不成立。现在车道行（`_settle`）和打字（`glide.js`）都调 `RunnerFlow._judgeRecord(g, item, p, ans, o)`：道具赛卡片的那几行（`judgeAnswer → store.recordFirst`，`o.hinted` / `p._hinted` → `H`，自认 → `S`）+ 首答 / 答对计数 + `learn:answer` 一次；再问不再问由各自的 `e.tries` 定（同 play-runner 的车道行）。测试拿 w1d3 每道选择题对 / 错两道、单词、听写，和 `race.js _answer` 写出的证据逐字比过。`flow.js` 一行没动。
+3. **「我的写法也对」照 play-5 的约定**（`boss.js _judgeRecord`、`arena/type.js`）：写句差一点、`canClaim` 说能自认 → `{ held: true }`，什么都不写、墨字保持中性灰；题条上「我的写法也对 / 继续」（play-5 的 `verdict({ actions })`，逐字照抄进 `play-strip.js`，两边合并是同一段）；她点了才 `_judgeRecord(…, { decided: true, claim })`：`claimJudge` 站得住记 `[1, S]`，「继续」记 `[0, W]` 并排「为什么」先给的再写。**不超时**（PLAY §1 第 6 条），这一句没点之前滑行段一直延伸。单词卡的 `S`：卡片和各玩法里都没有入口（`canClaim` 只收写句），跑酷里也只有 `T / H`。
+4. **打字机位按真实的带子算**（主会话看 play-wire 截图说的两处）：`frameFor` 的 `topFrac` 用题条在屏上的真实底边（跑酷竖屏的题条在战绩下面，`top: 122px`，底边约在屏高的四分之一，`frame.js` 默认的 0.1 会把打字机放到题条底下），`kbFrac` 用键盘的真实占比；机位按打字蟹船体的朝向换到世界里、每帧跟着她走；射后看墨字，她游到字跟前（2.5 m）就交回跟拍镜头。准星：跑酷整局都藏（`.iw-hud.is-runner .iw-xh`），审计每题核。
+5. **看板段**：PLAY §5.2。`withBoards` 在有展板的站（单词展板 5 词一块、音标 2 个一块、语法 / 发音讲解一块；和解谜的 `gateSpecs` 同样分块）前面插一段；板子在 `_build` 时立起（远处就看得见），沿路排在路外 ≥ 2.6 m、空的一侧（右手优先）、朝她来的方向；这一段墨潮 `LEARN.runner.boards.tide` 0.25、机器人同倍数慢（`fairK`）。**框哪块按路程**：BoardWalk 只在她站在观看点 2.4 m 内、慢下来时才框（`walk.js` 不归这一期改），跑酷里她从不站着——`RunnerBoards.update` 把「她这一段路对着的那块板」的观看点和「站着」交给它：从前一块板到这块板过去 0.5 m，约 2.7 s 一块；过了最后一块就放开（往前游就是翻页）。板上的热区：`touch.js` 的滑动钩子在 `G.playTap` 前面，跑酷里手指永远到不了 playTap，所以 `RunnerBoards` 自己在 window 捕获阶段收 pointerdown / up（不拦，拖动照样是滑动），`touch.js` 没动。有题 / 在打字时阅读条不开。起跑前的阅读课文照旧。
+6. **道具旁边的镜头遮挡**：看穿窗口（`levelMaterial` 的 see-through）只在 rig 是 follow 时开，跑酷的镜头是 path 模式、`main.js` 不归这一期动；道具的碰撞盒在物理里，`physics.los` 看得出来。镜头到她胸口、或到正在问的那一行中间的视线被挡 → 一个弹簧把镜头升起 ≤ 2.2 m、往前 ≤ 1.2 m（看点不变：视线越过矮道具往下看），线通 0.6 s 后慢慢放下；打字 / 框板时不升。
+7. **道具在打字题上**：墨雨（`hintNext`）先给提示、记 `H`（PLAY §5.2「`rain` 是提示（记 `H`）」，play-runner 时跑酷里用不上）；回声（`echoNext`）1.9 s 后再放一遍。
+8. **站位姿先核视线**（浏览器里才看得见的坑，terraces 的窄街和屋顶）：打字机位每帧核「她头顶 → 镜头、镜头 → 键盘」，墨字机位算一次核「镜头 → 字、镜头 → 构图里打字蟹的位置、她头顶 → 镜头」，每块展板立起来时核「镜头 → 板的中间 / 上两角 / 下沿、路上观看点 → 镜头」；不通就交给跟拍镜头（板子不框，她路过时在跟拍镜头里看）。跟拍镜头问着一行时把看点慢慢抬高，直到那一行的中间露出题条下沿（她还在屏上为限）——terraces 上一段台阶顶上的一行原来整个藏在题条后面。
+9. **「卡住」按沿路的进度判**：halyard 一圈的末尾（起跑台前 4 m）她在台阶边滑来滑去，按位置从来不算卡住，审计里在那里停了 10 分钟；现在 0.6 s 沿路前进不到 0.8 m 就算卡住（每秒跳一下、2 s 超级跳到前方 6 m 的路上、终点前 3 m 算到线）。浏览器里那一圈没有 'jump' 边（道具的栏杆碰撞盒让起跑台那条边不成立），所以 nav 的 'climb' 边也当跳边（行不放在它的助跑上、她贴路线走、到跟前跳）。
+10. **看板段等它前面的滑行段打完再立**：滑行段一直要到最后一题答完，常常比计划的 34 m 长；不等的话她边打字边游过了展板（横屏 w2d3 就这样，板子在打字机位后面被「框住」、记成看过）。
+
+**改了什么**（`src/learn/play/runner/` 是跑酷自己的目录）：
+- `runner.js`：`_judgeRecord`（上面第 2、3 条）；`_settle` 走它；看板段（`_place` 里 `withBoards`、`_build` 立板、`_appear` / `_cross` / `_reap` / `_unbuild`、`_tide` 的 boards 一支、`_prepBoards` 提前一站画板、镜头 pose = 打字机位 / 框住的板）；车道相关的地方（换道、读题区、路面宽、取景）改看 `row.centers`，不再假设「不是滑行段就是车道行」；看板段等它前面的滑行段打完再立；`_unstick` 按沿路的进度判、终点前 3 m 卡住 / 停 2 s 算到线；`_bounds` 读题区里路比道带窄时路说了算；`stripBottom()`（题条底边，0.4 s 读一次 DOM）；写字墙的句子算进 `total / scoredN`；`debug()` 多 `boards`、`cam`、`loopEdges`。
+- `track.js`：nav 'climb' 边也进 `T.jumps`（Node 的七张舞台一圈里都没有 climb 边，测试的数不变）。
+- `glide.js`：射 → `_judgeRecord`；扣住 → `_decide(claim)` → `_resolve`；墨雨 / 回声；打字机位按真实带子；墨字机位在世界里定一次（play-type 的 'word' 构图，打字蟹位在离字 6.5 m 处，她游进画面，到字跟前交回跟拍）；题条判词留到墨字演完（2.6 s / verdictMs + 1.8 s）；进出滑行段给题条加 / 去 `is-typing`。
+- `boards.js`：`withBoards`、`boardAt`（纯）、`RunnerBoards.update(dt, s, aspect)` 按路程框板、`unplace`、自己的 pointer 监听。
+- `cam.js`：站位姿换对象（或同一个一帧跳 > 0.6 m）时 0.8 s 缓过去（打字 → 墨字、一块板 → 下一块，原来是硬切）；被道具挡住时升起（上面第 6 条），`occl` 计数；问着一行时抬看点（`tilt`，上面第 8 条）；她的位置不再被镜杆支点的临时向量覆盖。
+- `rows.js planCourse`：boards 段占 `len` 米，检查点从板子开始。
+- `tips.js`（跑酷自己的 CSS）：横屏手机上滑行段的题条贴顶、一行、藏 ▶（键盘行首有 ▶ 和提示）——横屏的带子只有屏高的 25 %，按真实题条算打字机只有约 63 px 高，贴顶后约 140 px。
+- 审计：`tools/learn/runner-drive.js` 接上滑行段（手机上逐键给游戏键盘发 pointerdown、桌面发 keydown；计划 right / hint / wrong / near；镜头稳了以后把 `RIG_POINTS` 投到屏上量「打字机在题条和键盘之间、她的头低于中间那排键」；扣住时证据不能变、点题条按钮；记叶子）、看板段（框住的板 fits、点一行热区要真的念出来）、每行离跳边多远（§20 只在 Node 里验过的修正之一）；穿空隙写了证据、首答记两次、准星露出来都算错。`tools/learn/runner-audit.mjs`：默认 `?learn=w1d3&kind=race&short=1&gate=6`；`--glidePlan`、`--wallMs`；关掉键盘滑入的过渡；`forms` / `perf` 里的道具赛加 `&play=0`（开关下 `kind=race` 已经是跑酷）。
+
+**动了别人地盘的**（都只加不改）：
+- `src/ui/play-strip.js`：`verdict({ actions })`——照 play-5 逐字抄（CSS 六行、`_acts`、`show / question / hide` 里清掉；`verdict` 里一行）。play-5 合并时这一段两边一样，`hide()` 那一行两边各多一个调用，合成 `this._vT = 0; this._acts(null);`。
+- `src/config.js`：`LEARN.runner.boards = { lead 7, gap 8, tail 3, side 2.6, tide 0.25, past 0.5 }`。
+- `docs/PLAY.md`：三处「play-4 更正」（§4 表单词卡 / 写句、§5.2）。
+- `flow.js`、`touch.js`、`host.js`、`play/cam.js`、`race.js`、`walk.js`、`main.js`：**一行没动**。
+
+**测试**（`npm run test:learn` 182 → 189，`npm run check` 271 个文件）：
+- `runner-glide`（3 → 5 条）：单词提示后 `[1, H]`、墨雨同样；听写提示后照旧 `L` 带百分数；第二次错走回炉 + 走远路（再打的那一段带 `tries: 1`）；扣住时证据为空、没有 `learn:answer`、墨字没收到判定，点「我的写法也对」→ `[1, S]`、点「继续」→ `[0, W]` 并排回去；w1d3 每道选择题对 / 错两道、单词、听写：跑酷这条路和 `race.js _answer` 写出的证据逐字一样、`learn:answer` 一次。
+- `runner-boards`（新，5 条）：三周 25 站 120 块板，内容和解谜的 `gateSpecs` 一样、每站 ≤ 6；队列里每站一段、在它第一行之前；`planCourse` 不重叠、检查点从板子开始；板在路外 ≥ 2.6 m、朝她来的方向；按路程挑板、过了最后一块不框；每块约 2.7 s；`boards.js` 不判不写；镜头被挡时升起（每帧位移 < 0.12 m）、线通后放下、站位姿下不升。
+
+**实测**（`tools/learn/runner-audit.mjs --scenario runner`，一次一个浏览器 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10`；Chromium + SwiftShader、`quality=low`、冻时钟 1/30 s 步进；手机视口用触屏 PointerEvent——车道滑动进 `touch.js` 的滑动钩子、打字逐键点游戏键盘、题条按钮 `click()`、展板热区经 `RunnerBoards` 自己的监听；`?learn=…&kind=race&short=1&gate=N`——开关下 `kind=race` 就是跑酷；2026-10-16 / 17 UTC。每行 / 每题 / 每段核：没有显示出来的 `.iw-learn__panel`、`match.paused === false`、`learn.hold` 为假、准星藏着；打字机位把 `RIG_POINTS` 投到屏上量；穿空隙证据叶子数不变；首答只记一次；最后有结果卡。表里是最后一次跑的结果，前几次跑出来的问题见「先定的」8–10 和 DEVLOG）：
+
+| 关卡（短关） | 视口 | 走了什么 | 证据 / 结果 |
+|---|---|---|---|
+| `w1d3 gate=6`（halyard：听辨对子 + 单词卡，写字墙 2 句） | 390 × 844 | 拍子行 ×4（错 / 对 / 空隙 / 对，两次踩准）；滑行段：单词对、单词提示后对、写句错、写句差一点（扣住 → 我的写法也对）、写句再写对 | `[0,L]` `[1,L]`、空隙叶子不变；`family [1,T]`、`parents [1,H]`、写句 `[0,W]`、`my mother is` 扣住时叶子数不变 → `[1,S]`；结果卡「6 / 6 题做对 · 4 / 6 首答」、第 1 名 |
+| 同上 | 844 × 390 | 拍子行 ×4 + 单词错 → 「选义」车道行又错 → 回炉 + 走远路（支路，汇回）；写句 ×2、提示；回炉滑行段 | `[0,T]`、选义行不再写首答、走远路一次（找到支路）；结果卡 |
+| `w2d3 gate=1`（terraces：复习听写 + 发音小测，写字墙 2 句） | 390 × 844 | 滑行段听写 ×2（对 / 差一个词）；看板段 1 块讲解板；车道行 ×4（错 / 对 / 空隙 / 对）；写句错 → 「为什么」先给再写对 | `[100,L]`、`[80,L]`；讲解板的框板位姿被屋顶挡（`noFrame`），跟拍镜头里路过；结果卡「6 / 6 · 4 / 6 首答」 |
+| 同上 | 844 × 390 | 同上 | 同上；墨字机位 5 个里 2 个被挡 → 跟拍镜头 |
+| `w1d3 gate=1`（halyard：音标展板 + 单词展板，写字墙 2 句） | 390 × 844 | 看板段 ×2（音标板、单词板，各框住、记看过，点一行热区真的念了）；拍子行 ×4；单词选义车道行 ×5（错 / 对 / 空隙 / 再问）；写句对、差一点 → 扣住 → 我的写法也对 | 写句 `[1,W]`、`[1,S]`；结果卡「5 / 6 · 4 / 6 首答」、第 1 名；起跑台前两次 `unstick`（沿路不前进 → 救出来）——前一版在那里停了 10 分钟 |
+| 同上 | 844 × 390 | 同上，12 行（4 次空隙、一次第二次错 → 走远路，汇回） | 结果卡；见「拿不准的」11（起跑台前的行） |
+
+- 打字机位（每题量，镜头弹簧稳了以后）：竖屏打字机的点在题条底边（216–263 px）和键盘顶（548 px）之间，占 264–512 px；横屏贴顶的题条底边 41 px、键盘顶 238 px，打字机 67–225 px（约 160 px 高；按原来题条位置算只有约 63 px）；她的头一律低于键盘中间那排（横屏：最远那排）。准星每题核过，从没露出来。
+- 第一行到来前的镜头交接逐帧（1/60 s）：最大位移竖屏 0.42–0.83 m（那时她 12–14 m/s，一帧本来就走 0.2 m），没有切。
+- 被道具挡住：halyard 竖屏 3 118 帧里 230 帧她或那一行被挡（7 %），升起后仍被挡 6 帧；terraces 248 / 3 390，升起后 7 帧。
+- **§20 写明只在 Node 里过了的修正，浏览器复测**（brief 第 4 项）：① `RowView.prepare`「建行以后一帧画一张标签、淡入前画完」——每一行的截图里幕上的字都在（`row*-*.png`），帧时间的最大值见下；② 跳上台阶的边前后不放行——审计每行记离最近跳边多远：terraces 的行都离它那一条跳边 ≥ 39 m；halyard 在浏览器里一圈根本没有跳边（只有 walk / drop，见「已知的坑」2），所以这条规则在那里不起作用，起跑台前的卡住是靠 `_unstick` / `_bounds` 修的；③ 滑行段超长时重排——每一局的滑行段都比计划的 34 m 长（打两题要 40–70 m），`_glideDone` 每次都把压到她身后的行收回重排，所有局都跑到了结果卡；④ 吊臂被墙压短时往下看——**没有专门复测**（没找到稳定压短吊臂的地方，截图里看不出），留着；⑤ 采样时游进对的幕——帧时间采样里游进了对的那道（`answered: right`），见下。
+- **帧时间**（`--scenario perf`，390 × 844 竖屏触屏，`quality=low`，halyard，`w1d3`，真时间循环、不步进，各采 40 s 墙钟；跑酷先跑过开头的看板段、到第一行车道、游进对的那道幕时采——幕炸开、`paint.flood`、加速、下一行在建都在采样里；滑行段和看板段本身不在采样里。道具赛是 `&play=0` 的卡片版走向第一道门；涂地 4v4 是同一舞台。SwiftShader 上的数只能互相比，和 §20 那张表比相对值）：
+
+  | | rAF p50 / p95（ms） | `_frame` p50 / p95 / 最大（ms） | 绘制调用 |
+  |---|---|---|---|
+  | 跑酷（她 + 3，play-4） | 1 067 / 1 267 | 8.3 / 13.4 / 1 100 | 67 |
+  | 道具赛（卡片版，`&play=0`） | 1 050 / 3 216 | 14.7 / 3 059 / 3 143 | 158 |
+  | 涂地 4v4（8 人） | 1 100 / 2 550 | 13.4 / 19.3 / 1 457 | 103 |
+  | §20 的跑酷（play-runner） | 1 283 / 1 650 | 10.6 / 18.8 / 2 437 | 71 |
+
+  跑酷没有比 §20 差（每一项都更小；这台机器晚上一直有另一个子代理在跑浏览器，绝对值只作参考）；最大值 1.1 s 是采样开头那一帧（`RowView.prepare` 一帧一张标签之后，§20 那次是 2.4 s）。镜头每帧多的是两条视线（被挡升起）和打字时的两条（打字机位核查）。
+- 关掉开关 `&play=0`：现成的 `play-forms.json`（桌面）和 `play-forms-phone.json`（竖屏）照过——卡片版道具赛，`w1d2` 十字市场，4 / 4、第一题错换问法再对、第 1 名、结果卡、证据进 `ev-2026-10-12`，无错误。
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **跑酷有自己的 `_judgeRecord`**（不是 `LearnFlow` 那一条）：判和记的几行和 `race.js _answer` 一样，扣住的约定和 play-5 的 `boss.js _judgeRecord` 一样（`held / decided / claim / self`）。要是想全仓库只有一个 `_judgeRecord`，得让 `LearnFlow._judgeRecord` 能「不加锁、不排门队列」——那要动 `flow.js` 好几行，这一期没动。
+2. **扣住不超时**：写句差一点、能自认时，墨字一直灰着、滑行段一直往前延伸（墨潮 0.3 倍），直到她点「我的写法也对」或「继续」。PLAY §1 第 6 条说没有「时间到」，所以没加。
+3. **看板段每块板约 2.7 s**（墨潮 0.25 倍、板距 8 m）：一块 5 个词的单词展板读不完，可她停不下来（PLAY §1.1）；板上的词后面都会一行一行地考。嫌短就调 `LEARN.runner.boards.tide / gap`。框板时镜头离开路面；`noFrame` 的板（框板位姿被屋顶 / 墙挡）只在跟拍镜头里路过。
+4. **横屏滑行段的题条盖住了圈时钟**（贴到顶边）：换来打字机两倍的高度（约 63 → 140 px）。
+5. **墨字机位**：落点在她前方 速度 × 4.6 s + 2 m（约 18 m）、机位按「字长好时她在哪」定在世界里；看不见（屋顶 / 墙）就用跟拍镜头（terraces 上 5 个里有 2 个是这样）。路弯的时候她不在构图的正中，在一侧游进去。
+6. **到线的判定放宽**：终点前 3 m 内卡住 0.6 s、或在这 3 m 里待了 2 s，就算到线（halyard 的起跑台台阶边上，她停在离线 0.04 m 处，结果卡永远不出来）。
+7. **写字墙的句子算进结果卡的总数和首答**（`scoredN` / `total`）：卡片版道具赛从来不问写字墙，跑酷问了、记了 `W / S`，不算进去会出现「6 / 4 题做对」。星星因此可能比卡片版难一点。
+8. **镜头升起 / 抬看点**：被道具挡时升起 ≤ 2.2 m；问着一行时看点最多抬 4 m、以她还在屏上为限——极端的台阶（高 5 m 以上）还是可能让幕挨着题条。
+9. **单词卡的「我的写法也对」**：PLAY §4 表写了 `S`，可 `canClaim` 只收写句，卡片和各玩法都没有这个入口——照现状只有 `T / H`，PLAY 里标了更正。
+10. **换个问法时不给「我的写法也对」**：写句答错后「为什么先给、再写一次」那一题标 `_alt = 'again'`，`canClaim` 就不扣住——卡片版第二次问的是选择题，本来也没有；第二次答本来也不写首答。
+11. **halyard 起跑台前的行**：浏览器里那一圈没有跳边，行照样放在起跑台的坡道后面；读题区在窄坡道上时外道够不着（路说了算），横屏复跑里一次「游进对的道」成了穿空隙（没答，马上再来一次，不写证据），截图 `l-w1d3g1/runner-844x390-row2-beat.png`（幕在台子上、她在坡道下）。更好的办法是 `rowFit` 也看读题区里的高差（像跳边一样不放行），这一期没做——Node 的七张舞台测试会变，得在浏览器里再核。另外这一次复跑用的还是 `c00d8e7` 之前的代码：救她的「跳一下」把 latT 设 0，换了她的道（后来修了：问着一行时只跳不换道；超级跳越过一行的线先算没答），修后没再进浏览器。
+
+**没做的**：
+1. **整天的关卡**没在浏览器里从头跑到尾（一天 50–68 行 + 30–166 个打字题）：审计都是 `short=1` 两站各两题 + 写字墙两句；整天只在 Node 里规划过（`planCourse`）。
+2. **桌面 1280 × 720**：这一期只跑了竖 390 × 844、横 844 × 390（§10 要的两个方向）；桌面用实体键盘打字的路审计里有（发 keydown），没跑。
+3. **真机**：手感、帧时间、横竖切换；SwiftShader 的帧时间只能互相比。
+4. **terraces 横屏第一行**：一段台阶顶上的那一行，横屏里幕还是挨着题条（竖屏抬看点后露出来了）——她在台阶下面时镜头抬不起来（她会出屏）。截图见交接。
+5. **看板段读的时间**：一块板约 2.7 s，没按板上字数调；单词展板的「跟读」在跑酷里来不及跟完。
+6. **机器人用道具**、**墨雨 / 回声以外的道具在滑行段上的意思**（超级跳照旧跳一段路、不跳题）。
+7. **吊臂被墙压短时往下看**（§20 的修正之一）没有专门在浏览器里复测。
+
+**交接**（分支 `play-4`，没推；dev `3eefc21` 已合进来）：
+- **做到哪**：开关下道具赛就是墨浪跑酷，三种行（选择行、拍子行、滑行段）和看板段都在路上、都计分（看板段不计）；判分只有 `RunnerFlow._judgeRecord`；竖横两个方向 `w1d3`、`w2d3` 的短关跑到结果卡（上表），`&play=0` 照旧卡片版。
+- **给主会话 / play-5 合并时**：
+  - `src/ui/play-strip.js` 的 `actions` 和 play-5 逐字一样（CSS 六行、`_acts`、`show / question / verdict` 各一行）；`hide()` 两边各在末尾多一个调用——play-5 是 `this._acts(null)`，这边是 `this._vT = 0; this._acts(null)`，合成后者。
+  - `_judgeRecord` 的扣住约定和 play-5 的 `boss.js` 一样（`{ held: true }` → `o.decided / o.claim` → `self`）；跑酷这一份在 `runner.js`，`flow.js` 没动。要统一成一个，见「拿不准的」第 1 条。
+  - `config.js` 只加了 `LEARN.runner.boards / glideShow / glideReach`；play-5 加的是 `LEARN.arena`，不重叠。
+  - `src/learn/play/run.js`（play-5 的 `opts.Targets`）这边没碰。
+- **先看哪些文件**：`src/learn/play/runner/runner.js`（`_judgeRecord`、`_settle`、`_build` 里看板段和「等滑行段打完」、`_unstick`、`_bounds`、`stripBottom()`）→ `glide.js`（`_submit → _decide → _resolve`、`_framed` 的两个机位和视线核查）→ `boards.js`（`withBoards / boardAt / RunnerBoards.update / _clear`）→ `cam.js`（站位姿缓过去、被挡升起、抬看点）；审计 `tools/learn/runner-drive.js`（`onGlide` / `onBoards` / `frameCheck`）；测试 `tests/learn/runner-glide.test.mjs`、`runner-boards.test.mjs`。
+- **已知的坑**：
+  1. 站位姿（打字机位、墨字机位、框板）是纯函数在打字蟹 / 板子的坐标里算的，周围有什么只靠 `physics.los` 几条线核；装饰性的（不在物理里的）道具躲不开，路弯的地方墨字机位里她在一侧。截图要看。
+  2. 浏览器里一圈的导航边和 Node 里不一样（道具的碰撞盒）：halyard 在 Node 里起跑台是一条 'jump' 边，浏览器里只有 walk / drop；跳边、终点的 `lineBack` 都按浏览器的算。审计的 boot 里有 `loopEdges / jumps`。
+  3. 墨字落点按她的速度 × 4.6 s 算（约 18 m）：她加速（答对的加速、道具）时会落得更远，最远 24 m。
+  4. 审计里的「踩准」是碰运气的（冻时钟下音频时钟照真时间走，§20 的坑）。halyard 的短关跑一次约 1.5 分钟、terraces 约 1.7 分钟（软件 GL、不画、要截图时画一帧）。
+  5. 题条的底边每 0.4 s 才从 DOM 读一次（`stripBottom()`）；同一个站位姿一帧跳 > 0.6 m 时 cam.js 会缓 0.8 s。
+
 ## 24. play-5 交付（2026-10-16，分支 `play-5`：对抗赛 + 今日小考 → 区域里的靶场；Boss 周考 → 弱点 M5——PLAY §5.3、§5.4、§3 M5）
 
 **先读了什么**：PLAY §1（12 条逐条核）、§3 M1 / M4 / M5 / M7、§4 表的「对抗赛」「Boss」两列、§5.3、§5.4、§6、§10；本文 §18（题物 / 题条 / `_judgeRecord`）、§19（字弹的接口）、§21（回声亭）、§22（play-wire 的「接口」「交接」）；上一个子代理的 WIP 提交 `3b80c08` 的说明和它的全部代码（`src/learn/play/arena/*`、`forms/duel.js`、`forms/boss.js` 的改动、`play-strip.js` 的 `actions`、`tests/learn/play-arena.test.mjs`、`tools/learn/arena-audit.mjs`）；dev 的 `flow.js`（`_judgeRecord(g, item, p, ans, o)`）、`play/host.js`、`play/cam.js`、`wire/type.js`、`wire/exit.js`、`type/frame.js`、`type/rig.js`（托架、纸）、`core/touch.js`（`_down` 的跳过）、`game/cameraRig.js`（FOV、path 模式）、`game/weapons.js`（墨弹先过 `G.playTargets` 再过 Boss 的命中球）、`game/specials.js`（`giveShield`）、`boss/bossModel.js` / `bossModelGeo.js`（插口）；主会话看过 play-wire 截图后指出的两处（打字机位、打字时的准星）。
