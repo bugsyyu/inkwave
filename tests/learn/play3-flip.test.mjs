@@ -1,7 +1,7 @@
 // 翻牌靶 M8 (src/learn/play/flip/): the review day's 150 flip cards as ink cards and two rating targets —
-//   · equivalence with the card (hud-learn.js / LEARN §15): 认识 is the card's 记得 (true), 不熟 its 不记得 (false); fed
-//     to the flow's own answer path (LearnFlow.prototype._answer: flipJudge → recordFirst({ how: 'F' })) they write the
-//     very same leaf, and 不熟 re-queues the word typed (item._flipTyped) exactly as the card does
+//   · the one judging path (play-8: the card is gone — play/judge.js judgeRecord): 认识 is 记得 (true), 不熟 不记得 (false);
+//     fed to the flow's _judgeRecord (what wire/flip.js's station calls: flipJudge → recordFirst({ how: 'F' })) they write
+//     the very leaf judgeRecord writes, and 不熟 re-queues the word typed (item._flipTyped)
 //   · no rating before the flip; the targets come only with the back; a tap on the card flips it, a tap on a target rates
 //   · 不熟 is no mistake: no coral, and the typing weapon gets the word (on.typeIt)
 // 用法：node --test tests/learn/*.test.mjs
@@ -17,7 +17,8 @@ const THREE = await import('three');
 const { FlipDeck, RATE } = await import('../../src/learn/play/flip/deck.js');
 const { InkTargets, pickTarget } = await import('../../src/learn/play/flip/targets.js');
 const { LearnFlow } = await import('../../src/learn/flow.js');
-const { flipPrompt, isFlipGate } = await import('../../src/learn/forms/common.js');
+const { flipPrompt, isFlipGate, flipJudge } = await import('../../src/learn/forms/common.js');
+const { judgeRecord } = await import('../../src/learn/play/judge.js');
 const { planDay } = await import('../../src/learn/design.js');
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
@@ -25,26 +26,27 @@ const W1 = await loadWeek(1);
 const FLASH = daySteps(W1, 7).find((s) => s.meta.type === 'flash' && s.items.length > 60);
 const step = (o, s, dt = 1 / 60) => { for (let i = 0; i < Math.round(s / dt); i++) o.update(dt); };
 
-// the flow's own answer path, on a stub flow (the parts _answer touches)
+// the flow's path, on a stub flow (the parts _judgeRecord touches) — what the flip station's _rate calls
 function answerThroughFlow(item, ans) {
-  const verdicts = [];
-  const flow = { P: LEARN.puzzle, firsts: 0, right: new Set(), _emit() {}, _styleGates() {}, hud: { verdict: (v) => verdicts.push(v) }, _judgeRecord: LearnFlow.prototype._judgeRecord };   // (play-1 moved the judging into _judgeRecord)
+  const flow = { P: LEARN.puzzle, firsts: 0, right: new Set(), _emit() {}, _styleGates() {} };
   const g = { id: 'gate:w1d7:flash', locks: 0, queue: [] };
   const p = flipPrompt(item);
-  LearnFlow.prototype._answer.call(flow, g, item, p, ans);
-  return { flow, g, verdicts };
+  const out = LearnFlow.prototype._judgeRecord.call(flow, g, item, p, ans);
+  return { flow, g, out };
 }
 const leafOf = (id) => { const ev = store.evidence(); for (const doc of Object.values(ev)) { const d = doc.it[id]; if (d) { const day = Object.values(d)[0]; return Object.values(day)[0]; } } return null; };
 
-test('the card\'s buttons: 记得 submits true, 不记得 false (what the targets must reproduce)', () => {
-  const src = readFileSync(new URL('../../src/ui/hud-learn.js', import.meta.url), 'utf8');
-  assert.match(src, /know\.addEventListener\('click', \(\) => this\._submit\(true\)\)/);
-  assert.match(src, /forgot\.addEventListener\('click', \(\) => this\._submit\(false\)\)/);
+test('the rating targets: 认识 is 记得 (true), 不熟 is 不记得 (false) — flipJudge reads them so', () => {
   assert.deepEqual(RATE.map((r) => r.answer), [true, false]);
   assert.deepEqual(RATE.map((r) => r.zh), ['认识', '不熟']);
+  const it = FLASH.items[0];
+  assert.equal(flipJudge(it, true).ok, true); assert.equal(flipJudge(it, false).ok, false);
+  // (the card that had 记得 / 不记得 buttons is gone: hud-learn.js has no question card — play-8)
+  const src = readFileSync(new URL('../../src/ui/hud-learn.js', import.meta.url), 'utf8');
+  assert.ok(!/_submit|iw-learn__panel|ask\(p, opts\)/.test(src));
 });
 
-test('认识 / 不熟 through the flow\'s path write exactly what the card\'s 记得 / 不记得 write: [1, F] / [0, F]', () => {
+test('认识 / 不熟 through the flow\'s path write exactly what the one judging path writes: [1, F] / [0, F]', () => {
   assert.ok(FLASH && FLASH.items.length === 150, 'the review day\'s 150 words');
   const plan = planDay(W1, 7, 'race');
   assert.ok(plan.gates.some((g) => isFlipGate(g)), 'a flash-flip gate on day 7');
@@ -62,17 +64,17 @@ test('认识 / 不熟 through the flow\'s path write exactly what the card\'s �
     assert.equal(deck.phase, 'back');
     assert.equal(deck.hit(k), true);
     assert.equal(rated, cardAns, 'the target gives the card\'s answer');
-    // the same answer through the same path, the card's and the deck's: the same leaf
+    // the deck's rating through the flow's path, and the same rating straight through judgeRecord: the same leaf
     setBackend(memory()); store.load();
-    const A = answerThroughFlow(item, cardAns);
-    const cardLeaf = leafOf(item.id);
+    judgeRecord({ item, p: flipPrompt(item), ans: cardAns, store });
+    const oneLeaf = leafOf(item.id);
     setBackend(memory()); store.load();
     const B = answerThroughFlow({ ...item }, rated);
     const deckLeaf = leafOf(item.id);
-    assert.deepEqual(deckLeaf, cardLeaf);
+    assert.deepEqual(deckLeaf, oneLeaf);
     assert.deepEqual(deckLeaf, [cardAns ? 1 : 0, 'F']);
-    assert.equal(A.flow.firsts, 1); assert.equal(B.flow.firsts, 1);
-    assert.equal(B.verdicts[0].ok, cardAns);
+    assert.equal(B.flow.firsts, 1);
+    assert.equal(B.out.r.ok, cardAns);
     if (!cardAns) {
       assert.equal(B.g.queue[0].id, item.id, '不熟: the word comes straight back …');
       assert.equal(B.g.queue[0]._flipTyped, true, '… as the typed card (the typing weapon)');

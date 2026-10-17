@@ -3,19 +3,15 @@
 // (portrait-measure.js: targets under 44 pt, covered, off screen; clipped text; a short label wrapped; the way back) and
 // left again by its own back control. Prints one row per screen and a JSON report; screenshots only with --shots.
 //
-// usage: node tools/learn/portrait-audit.mjs --group menus|kit|online|versus2|level|boss [--shots <dir>] [--lang en]
+// usage: node tools/learn/portrait-audit.mjs --group menus|kit|online|room [--shots <dir>] [--lang en]
 //                                             [--w 390 --h 844] [--budget 170] [--motion] [--only screenA,screenB]
 //   menus    main · 学习 · 设置 · 怎么玩 · 制作人员 (and back to main from each)
 //   kit      装备 · 换装
 //   online   联机 hub · the code typed on the phone's keyboard (a wrong one) · create a room → the room · its weapon drawer ·
 //            the locker from the room and back                          (a Node relay of its own on a free port)
 //   room     create → the room · the emote wheel · MODE ▶ 双人合作赛 · leave (the modal) → the hub → main   (relay too)
-//   zone     a Zone Control match on the phone (the 对抗赛 level: Zone Control + the question layer, standing in for a 双人联机赛,
-//            which is the same HUD and the same card): the fire / sub / special / cheer keys shown as versus2 shows them, a
-//            question up, play, the room's pause (G.netm stood in: the battle pause), the results of a 双人联机赛 (its data
-//            injected: the Zone Control results with the questions strip)
-//   level    ?learn=w1d1&kind=puzzle&short=1 → the walk HUD (the clock vs the next-gate bar) → a question → the level's pause
-//   boss     ?learn=w1&kind=boss&short=1 → the W phase: a near miss claimed with 「我的写法也对」 (S), one gone on from (W)
+//   (play-8: the zone / level / versus2 / boss walks measured the question card — gone with the cards; a question on
+//   the phone is measured on the stage by wire-audit / arena-audit / runner-audit / net-duo-play)
 // Needs puppeteer-core and Chrome (CHROME_PATH); software GL is fine: ?quality=low, shadows / bloom off, the game clock frozen
 // (debug.freeze) and stepped by hand. Reduced motion is emulated (no wipes / pop-ins: stable boxes) unless --motion.
 import puppeteer from 'puppeteer-core';
@@ -110,7 +106,7 @@ try {
   const files = spawn('python3', [resolve(ROOT, 'tools/serve.py'), String(hport), '--dir', ROOT], { stdio: ['ignore', 'ignore', 'ignore'] });
   kids.push(files);
   let relayQ = '';
-  if (GROUP === 'online' || GROUP === 'room' || GROUP === 'versus2') {
+  if (GROUP === 'online' || GROUP === 'room') {
     const rport = await freePort();
     const relay = spawn(process.execPath, [resolve(ROOT, 'server/node/relay.mjs'), '--port', String(rport), '--host', '127.0.0.1', '--silent-match', '150000'], { stdio: ['ignore', 'pipe', 'inherit'] });
     relay.stdout.on('data', (d) => { for (const l of String(d).split('\n')) if (l.trim() && !/listening|opened/.test(l)) say('relay', l.trim()); });
@@ -119,7 +115,7 @@ try {
     relayQ = `&relay=ws://127.0.0.1:${rport}`;
   }
   await waitHttp(`http://127.0.0.1:${hport}/index.html`);
-  const q = GROUP === 'level' ? 'learn=w1d1&kind=puzzle&short=1' : GROUP === 'boss' ? 'learn=w1&kind=boss&short=1' : GROUP === 'zone' ? 'learn=w1d6&kind=duel&short=1' : 'skipTitle';
+  const q = 'skipTitle';
   const url = `http://127.0.0.1:${hport}/?${q}${WEB ? '' : '&from=app'}&quality=low${LANG ? '&lang=' + LANG : ''}${relayQ}`;
   browser = await puppeteer.launch({ executablePath: chromePath(), headless: 'new', defaultViewport: { width: W, height: H, deviceScaleFactor: 1, isMobile: !DESKTOP, hasTouch: !DESKTOP },
     args: gpuArgs([`--window-size=${W},${H}`, '--disable-background-timer-throttling', '--disable-renderer-backgrounding']) });

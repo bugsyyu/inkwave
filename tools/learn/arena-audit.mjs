@@ -7,7 +7,8 @@
 //       [--far] (boss: leave her where she is — the options then float towards it) [--skip-to S] (boss: clear the phases before)
 //       duel   ?learn=w1d6&kind=duel&short=1 (two rounds of two)      quiz   ?learn=w1d1&kind=quiz&short=1 (two questions)
 //       boss   ?learn=w1d7&kind=boss&short=1 (four phases of two)      --n: questions to answer per view (default 3)
-//   Per view: boot → the prep board's 开始 (duel / quiz) → step until the first question; for each question asserted:
+//   Per view: boot → the 备战 board (duel / quiz: an M6 board in front of her, the match NOT paused — play-8) and the
+//   strip's 「开始」 → step until the first question; for each question asserted:
 //     no question card shown (.iw-learn__panel), match.paused false, learn.hold falsy, the strip up, the touch layer live;
 //     M1 / M5: every object's projected box inside the safe area (the screen under the strip, 16 px each side; the
 //              boss: on the screen under the strip), a PLAIN round at the right object (her weapon fired with the aim
@@ -98,19 +99,22 @@ for (const viewName of VIEWS_WANT) { try {
   await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.learn, null, { timeout: 420000, polling: 250 });
   report.boot = await ev(() => { const F = __inkwave.match.learn, m = __inkwave.match; __inkwave.debug.freeze(); if (m.learnKind === 'boss' && __inkwave.debug.freezeBots) __inkwave.debug.freezeBots(); return { kind: m.learnKind, arena: !!F.arena, mode: F.arena && F.arena.mode, actors: m.actors.length, zones: !!m.zones, boss: !!m.boss, stage: __inkwave.mapDef && __inkwave.mapDef.id, gates: F.gates.map((g) => ({ id: g.id, n: g.items.length, kinds: [...new Set(g.items.map((it) => it.meta.kind + '.' + it.meta.input))] })), state: m.state, quiz: !!F.level.quiz }; });
   say('boot', JSON.stringify(report.boot));
-  check(report.boot.arena, 'LEARN.play is on: the form has its arena host');
+  check(report.boot.arena, 'the form has its arena host');
   // the intro / the prep board: step until the level plays and the board (duel / quiz) can be started
-  for (let i = 0; i < 120; i++) { const st = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), go: !!document.querySelector('.iw-lf__board.is-on') })); if (st.state === 'playing' && (st.prep || FORM === 'boss')) break; await step(250); }
-  const pre = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), board: !!document.querySelector('.iw-lf__board.is-on'), paused: __inkwave.match.paused }));
+  for (let i = 0; i < 120; i++) { const st = await ev(() => { const F = __inkwave.match.learn; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep') }; }); if (st.state === 'playing' && (st.up || FORM === 'boss')) break; await step(250); }
+  await step(30);   // (the board rises and the lens frames it)
+  const pre = await ev(() => { const F = __inkwave.match.learn, P = F.arena && F.arena.prepS; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep'), board: P ? P.debug() : null, go: !!document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'), paused: __inkwave.match.paused, hold: !!F.hold, panel: !!document.querySelector('.iw-learn__panel, .iw-lf__board.is-on'), bots: __inkwave.match.actors.filter((a) => a.bot).every((a) => a._learnIdle) }; });
   say('pre', JSON.stringify(pre));
   // --skip-to S (boss): the audit's hand clears the phases before it (BossFlow._phaseDone 'cleared': the boss falls to each
   // band's floor, nothing written) — to reach the 回声亭 without eight questions first
   const SKIP = opt('skip-to', null);
   if (FORM === 'boss' && SKIP) { const r = await ev((ph) => { const F = __inkwave.match.learn; let n = 0; while (F.gates[F.pi] && F.gates[F.pi].phase !== ph && n++ < 6) F._phaseDone(F.gates[F.pi], 'cleared'); return { phase: F.gates[F.pi] && F.gates[F.pi].phase, skipped: n }; }, SKIP); say('skipped to', JSON.stringify(r)); }
   if (FORM !== 'boss') {
-    check(pre.board && pre.prep, 'the prep board is up before the round (LEVELS §2.3 备战; the clock stops)');
+    check(pre.up && pre.prep && pre.go, 'the 备战 is up before the round: an M6 board in front of her and 「开始」 on the strip (PLAY §4)', pre);
+    check(pre.paused === false && !pre.hold && !pre.panel, 'the 备战 does not stop the match (no pause, no hold, no card panel — play-8)', pre);
+    check(pre.bots, 'the bots stand while she reads (their brains off, not the match)', pre);
     await shot('prep');
-    await ev(() => document.querySelector('.iw-lf__go').click());
+    await ev(() => document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary').click());
     await step(50);
   }
 
@@ -159,9 +163,9 @@ for (const viewName of VIEWS_WANT) { try {
   async function untilQuestion() {
     for (let i = 0; i < 240; i++) {
       if (FORM === 'boss' && !FAR && i % 4 === 0) { const at = await ev(() => { const F = __inkwave.match.learn; return F._nearSaid || (F.arena && F.arena.m1 && F.gates[F.pi] && F.gates[F.pi].phase !== 'S' && !F.arena.m1.bossNear()); }); if (at) { const p = await nearBoss(); if (i === 0) say('walked her to the boss', JSON.stringify(p)); } }
-      const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind), card: !!(__G.hud.learn && __G.hud.learn._ask), board: !!document.querySelector('.iw-lf__board.is-on'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
-      if (s.asking || s.card || s.done || s.echo) return s;
-      if (s.board) { await ev(() => document.querySelector('.iw-lf__go').click()); }
+      const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind && H.kind !== 'prep'), board: !!(H && H.kind === 'prep'), paused: __inkwave.match.paused, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
+      if (s.asking || s.done || s.echo) return s;
+      if (s.board) { if (s.paused) check(false, 'the 备战 between rounds does not pause the match', s); await step(20); await ev(() => { const b = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (b) b.click(); }); }
       await step(250);
     }
     return { timeout: true };

@@ -105,7 +105,12 @@ function firstPrompt(form, g, item, F) {
   return prompt(item);
 }
 function altPrompt(form, g, item, F) {
-  if (form === 'runner') return item.meta && item.meta.input === 'choice' ? rowPrompt(item, { alt: true }) : F._altPrompt(item);
+  if (form === 'runner') {
+    // (runner.js / glide.js: a row comes back reshuffled; a missed word as the 「选义」 lane row; a dictation is typed again
+    // slowly, a sentence with its why — the engine's prompt; the 回炉 types every typed item again with its help)
+    if (item.meta && item.meta.input === 'choice') return rowPrompt(item, { alt: true });
+    return item._relearn || !(item.meta && item.meta.kind === 'word') ? prompt(item) : F._altPrompt(item);
+  }
   if (form === 'versus2') return duoAltPrompt(F.level.gates, item, seedOf(7, item.id), (x) => F._altPrompt(x)) || F._altPrompt(item);
   if (form === 'coop2') { const p = duoAltPrompt(F.level.gates, item, seedOf(7, item.id), (x) => F._altPrompt(x)) || F._altPrompt(item); return p ? splitPrompt(p, 'hands') : null; }
   return F._altPrompt(item);

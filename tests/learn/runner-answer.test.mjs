@@ -1,6 +1,6 @@
 // src/learn/play/runner/rows.js — 墨浪跑酷's one answer path (docs/PLAY.md §1 rules 2–5): entering a curtain is the
-// option index, judged and recorded exactly as a card's answer is (race.js _answer: judgeAnswer → store.recordFirst) —
-// the same verdicts and the same evidence document, item by item, for every lane of every choice item of a race day; a
+// option index, judged and recorded on the one judging path (play/judge.js judgeRecord; play-8: the race card that did the
+// same is gone) — the same verdicts and the same evidence document, item by item, for every lane of every choice item of a race day; a
 // reshuffled second try and a narrowed row map their lanes back through `_perm`; the gap between curtains writes
 // nothing; the beat never reaches the judge. And the run's queue covers every item of all three weeks.
 // 用法：node --test tests/learn/runner-*.test.mjs
@@ -11,6 +11,7 @@ import { prompt } from '../../src/learn/engine.js';
 import { store, setBackend } from '../../src/learn/store.js';
 import { planDay } from '../../src/learn/design.js';
 import { judgeAnswer } from '../../src/learn/forms/common.js';
+import { judgeRecord } from '../../src/learn/play/judge.js';
 import { LEARN } from '../../src/config.js';
 import { entriesOf, rowPrompt, rowLabels, rowLanes, isBanner, rightLane, rowAnswer, ROW_KINDS } from '../../src/learn/play/runner/rows.js';
 
@@ -18,14 +19,13 @@ function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.
 const AT = Date.parse('2026-10-14T09:30:00');
 const choiceItems = (level) => level.gates.flatMap((g) => g.items).filter((it) => it.meta && it.meta.scored && it.meta.input === 'choice');
 
-// the card's path, as race.js _answer writes it (no flip card in a race row)
+// the one judging path, called directly with the option index (no flip card in a race row)
 function cardAnswer(item, p, ans, at) {
-  const r = judgeAnswer(item, p, ans);
-  const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: false, at });
-  return { r, first: !!rec.first };
+  const out = judgeRecord({ item, p, ans, o: { at }, store });
+  return { r: out.r, first: out.first };
 }
 
-test('a curtain = a card: every lane of every choice item of a race day judges and records exactly as the card does (same verdict, same evidence document)', async () => {
+test('a curtain = the one judging path: every lane of every choice item of a race day judges and records exactly as judgeRecord does (same verdict, same evidence document)', async () => {
   const w1 = await loadWeek(1);
   for (const day of [3, 7]) {
     const items = choiceItems(planDay(w1, day, 'race'));

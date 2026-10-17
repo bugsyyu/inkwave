@@ -209,7 +209,7 @@ export class Match {
   }
 
   update(dt) {
-    // the learning level runs while the match is held for a question (that hold IS `paused`), so it ticks first
+    // the learning level ticks first, even while she has paused (its stations wait themselves; nothing else pauses a level)
     this.learn?.update(dt);
     if (this.paused) return;
     this.stateT += dt;
@@ -271,8 +271,7 @@ export class Match {
 
   updateController(dt) {
     if (!this.controller) return;
-    // (learn.hold: a race / duel question holds her still while the round runs on — see src/learn/forms)
-    this.controller.enabled = this.state === 'playing' && !this.paused && this.local.alive && !(this.learn && this.learn.hold);
+    this.controller.enabled = this.state === 'playing' && !this.paused && this.local.alive;   // (题即玩法: a level never holds her — play-8)
     this.controller.update(dt);
   }
 

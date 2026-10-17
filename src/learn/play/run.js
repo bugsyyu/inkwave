@@ -1,12 +1,12 @@
 // 题即玩法 play-1 — M1 墨靶 in the puzzle (docs/PLAY.md §2, §3 M1, §5.1, §6): a choice item at a gate is ink balls (or
 // banner planks) floating past the gate; she shoots one and the round landing on it is her answer. The world never
-// stops: no match.paused, no learn.hold, no card. LearnFlow (flow.js) owns one of these when LEARN.play is on and the
-// level is a puzzle (never for a form that extends it: race / duel / boss / coop2 keep their cards for now).
+// stops: no match.paused, no learn.hold, no card. The puzzle's play host (host.js) owns one of these for M1; the arena
+// (arena/run.js) builds on it.
 //
-//   the flow calls:   canAsk(g, item, p) · ask(g, item, p) · toCard() (a card item under the flag holds the match for it,
-//                     as the flag-off arrival does) · update(dt) (every frame, paused or not) · gateOpened(g) · dispose()
-//   it calls back:    flow._judgeRecord(g, item, p, k) — the card's own judge → recordFirst → lock / retry (the one path,
-//                     PLAY §1 rule 2) — then flow._askNext(g) when the verdict has been shown
+//   the flow calls:   canAsk(g, item, p) · ask(g, item, p) · update(dt) (every frame, paused or not) · gateOpened(g) ·
+//                     dispose()
+//   it calls back:    flow._judgeRecord(g, item, p, k) — the one judging path (play/judge.js: judge → recordFirst) and the
+//                     flow's lock / retry — then flow._askNext(g) when the verdict has been shown
 //   a question:       the strip (src/ui/play-strip.js) shows engine.prompt's line + ▶; the objects are laid out on the screen
 //                     (layout.js: the safe area under the strip, clear of her, the touch buttons and the minimap), turned
 //                     into the world on a plane in front of the camera's framing pose (yaw towards the route past the gate,
@@ -21,10 +21,10 @@
 //                     the objects (2.5 m, +0.5 m per right answer at this gate, ≤ 4.5), a hop (trigger 'jump'), the strip
 //                     flashes her ink with 答对了; the next item comes up after LEARN.m1.nextMs
 //   wrong:            EFFECTS.puzzle.wrong (ui_back; the second miss wrong2 ui_toggle): the object turns coral, the right one
-//                     is ringed in her ink, the gate's lock marker (coral under the flag) pops, the strip says 差一点：是 ___
+//                     is ringed in her ink, the gate's lock marker (coral) pops, the strip says 差一点：是 ___
 //                     and the first sentence of 为什么 for LEARN.ui.verdictMs; the retry (the same choice reshuffled) is the
-//                     flow's, as for the card
-//   debug():          what the audits read (tools/learn/play-audit.mjs)
+//                     flow's
+//   debug():          what the audits read (tools/learn/wire-audit.mjs: F.play.m1.debug())
 import * as THREE from 'three';
 import { G, damp, dampAngle, angleDiff } from '../../core/ctx.js';
 import { LEARN, WEAPONS, PLAYER } from '../../config.js';
@@ -95,8 +95,7 @@ export class PlayRun {
 
   // ---------------------------------------------------------------------------------------------- a question
   ask(g, item, p) {
-    const m = this.match, F = this.flow;
-    if (m.paused && m.state === 'playing') { m.paused = false; G.input?.requestLock?.(); }   // (after a card, under the flag)
+    const F = this.flow;
     F.hud?.hide?.();
     F.hud?.playMode?.(true);
     const labels = targetLabels(p);
@@ -110,14 +109,6 @@ export class PlayRun {
     if (p.tts) this._say(p.tts);
     if (F.asking) F.asking.play = 'ink-target';
     this.log.push({ t: +F.t.toFixed(2), ev: 'ask', item: item.id, n: labels.length, banner: this.cur.banner });
-  }
-
-  // a card item under the flag (not yet a play kind): the match holds for the card as it always did
-  toCard() {
-    this._clear();
-    const m = this.match;
-    this.flow.hud?.playMode?.(false);
-    if (!m.paused) { m.paused = true; G.input?.exitLock?.(); }
   }
 
   _clear() {
@@ -305,7 +296,7 @@ export class PlayRun {
   // ---------------------------------------------------------------------------------------------- per frame
   update(dt) {
     const m = this.match;
-    if (m.paused) return;   // her own pause / a card: the play waits
+    if (m.paused) return;   // her own pause: the play waits
     this.T.update(dt);
     const C = this.cur; if (!C) return;
     C.t += dt;

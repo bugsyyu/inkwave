@@ -22,7 +22,7 @@ import { planDay, bossPlan, quizPlan } from '../../src/learn/design.js';
 import { canPlayArena, arenaKind, weakSockets, WEAK_SOCKETS, clusterLocals, cameraPositions, orbitBasis, bossBallRadius, arenaTypeFrame, TYPE_PTS } from '../../src/learn/play/arena/m1.js';
 import { RIG_POINTS, projectRig } from '../../src/learn/play/type/frame.js';
 import { arenaAltPrompt, wordPool } from '../../src/learn/play/arena/alt.js';
-import { canClaim } from '../../src/learn/forms/common.js';
+import { canClaim, cardFor, isFlipGate } from '../../src/learn/forms/common.js';
 const { LearnFlow } = await import('../../src/learn/flow.js');
 const { DuelFlow } = await import('../../src/learn/forms/duel.js');
 const { BossFlow } = await import('../../src/learn/forms/boss.js');
@@ -37,7 +37,7 @@ const stubBoss = () => ({ P: LEARN.puzzle, B: LEARN.boss, firsts: 0, firstRight:
 const stubPuzzle = () => ({ P: LEARN.puzzle, firsts: 0, right: new Set(), play: true, _emit() {}, _styleGates() {} });
 const gate = (item) => ({ id: 'g', queue: [], locks: 0, items: [item] });
 
-test('canPlayArena / arenaKind: every item a duel day, the quiz and the boss plan ask has a play — choices are ink targets (音标 / 听辨 too), typed items the rig; only a flip card is a card', () => {
+test('canPlayArena / arenaKind: every item a duel day, the quiz and the boss plan ask has a play — choices are ink targets (音标 / 听辨 too), typed items the rig, a review day\'s flip card the flip station (play-8); none is a card', () => {
   const n = { m1: 0, type: 0, banner: 0 }, kinds = new Set();
   for (const w of WEEKS) for (const d of w.days) {
     for (const it of items(planDay(w, d.n, 'duel'))) {
@@ -46,7 +46,8 @@ test('canPlayArena / arenaKind: every item a duel day, the quiz and the boss pla
       assert.ok(k === 'm1' || k === 'type', `${w.id} d${d.n} ${it.id} ${it.meta.kind}: ${k}`);
       if (k === 'm1') { n.m1++; assert.ok(p.options.length >= 2 && p.options.length <= 4); } else n.type++;
     }
-    // the review day's words as flip cards: the card (M8 is the puzzle's; no duel day plans them)
+    // the review day's words as flip cards (a duel on day 7): M8, play-wire's flip station in the arena (play-8)
+    for (const g of planDay(w, d.n, 'duel').gates) if (isFlipGate(g)) for (const it of g.items) { const item = { ...it, _tries: 0, _form: null }; assert.equal(arenaKind(item, cardFor(g, item, () => prompt(item), () => null)), 'flip', it.id); assert.equal(arenaKind({ ...item, _flipTyped: true }, cardFor(g, { ...item, _flipTyped: true }, () => prompt(item), () => null)), 'type'); }
     const B = bossPlan(w);
     for (const ph of B.phases) if (ph.id !== 'S') for (const ref of ph.items) { const it = items(planDay(w, 1, 'duel')).find((x) => x.id === ref.id) || null; if (it) assert.ok(arenaKind(it, prompt(it)) !== null, `boss ${ref.id}`); }
   }
@@ -55,7 +56,7 @@ test('canPlayArena / arenaKind: every item a duel day, the quiz and the boss pla
   const q = quizPlan(WEEKS[0], 1, []);
   assert.equal(q.items.length, LEARN.quiz.n);
   // a flip card and a typed rewording of a choice are not arena plays; a 4-plank choice neither
-  assert.equal(arenaKind({}, { type: 'flip', _flip: true }), null);
+  assert.equal(arenaKind({}, { type: 'flip', _flip: true }), 'flip');
   assert.equal(arenaKind({}, { type: 'typed', _alt: 'typed-of-choice' }), 'type');
   assert.equal(canPlayArena({}, { type: 'choice', options: [1, 2, 3, 4].map((i) => ({ text: 'She goes to an English class after work on Monday ' + i, zh: '' })) }), false);
   assert.equal(canPlayArena({}, { type: 'choice', options: [{ text: 'a', zh: '' }, { text: '', zh: '' }] }), false);

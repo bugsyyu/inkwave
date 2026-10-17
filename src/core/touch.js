@@ -188,7 +188,7 @@ export class TouchControls {
     // still fires is how a tap lands on a button nobody can see (and, for the map latch, one that then gets wiped).
     if (!this.enabled) return;
     // 题即玩法 (play-wire, LEARN §19 / §21): a finger on the game keyboard or on the reading strip is theirs — never a stick, a look or a tap-shot
-    if (PlayKeys.owns(e) || ReadStrip.owns(e) || (G.match?.learn?.play && e.target && e.target.closest && e.target.closest('.iw-ps__play, .iw-learn__btn'))) return;   // (nor the strip's ▶ or the level's own buttons)
+    if (PlayKeys.owns(e) || ReadStrip.owns(e) || (G.match?.learn && e.target && e.target.closest && e.target.closest('.iw-ps__play, .iw-ps__act, .iw-learn__btn'))) return;   // (nor the strip's ▶ / its buttons or the level's own buttons)
     // ---- 墨浪跑酷 swipe hook (src/learn/play/runner, docs/LEARN.md §20): a level that steers by swipes exposes
     // match.learn.swipe(dir). Then a finger is a swipe wherever it lands — no stick, no look — except on ⏸ and on the
     // level's own DOM buttons (▶ 再听, the prop bag), which keep their click.
@@ -333,13 +333,10 @@ export class TouchControls {
   // Gate: a live match with no menu open. Deliberately NOT match.controller.enabled — that clears when the local
   // player is splatted, which is exactly when the map (and super-jump planning) must still work.
   update() {
-    // 关卡学习 (docs/LEARN.md): a level holds the match (`paused`, no menu) while a question is up, and then the controls
-    // must be off — a thumb on the card is not a stick. A level also plays in portrait (the card is made for it, and
-    // auto-walk stands in for the stick), so the gate stays down there.
+    // 关卡学习 (docs/LEARN.md): a level plays in portrait too (auto-walk stands in for the stick), so the gate stays down
+    // there. (题即玩法, play-8: a level never holds the match or her for a question — only her own pause stops the controls)
     const learn = !!G.match?.learn;
-    // I (LEARN §17): and while a question holds her (learn.hold — a 双人联机赛 / 道具赛 / 对抗赛 question, the match running on
-    // underneath: the controller is off then, match.js), a tap on the card must not also be a stick, a look or the fire button
-    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !(this.portrait && !learn && !FROM_APP) && !G.match.paused && !G.match.learn?.hold;
+    const live = G.mode === 'match' && !!G.match && !G.menus?.current && !(this.portrait && !learn && !FROM_APP) && !G.match.paused;
     // Arm the portrait gate only when there is something unusable underneath it — a real menu screen or a match.
     // NOT the loading screen: that is where a player looks to see whether the game is coming up at all, and covering
     // it turns "still loading" into "broken" (which is exactly what an earlier version of this gate did). The title

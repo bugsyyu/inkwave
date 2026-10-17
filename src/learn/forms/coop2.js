@@ -14,7 +14,7 @@
 //     earn first answers across a gate, each in their own store (LEARN §8 recordFirst, with the item).
 // The last gate shows B's results card for both, with who answered what; the host takes the room back to the lobby.
 //
-// 题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): under LEARN.play nobody is held and no card comes — the clue side gets a
+// 题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): nobody is held and no card comes — the clue side gets a
 // board in front of her pad (the stem, its Chinese, ▶; nothing to answer with), the answering side the question's
 // objects (ink targets for any choice) or the 打字蟹 (anything typed), with no recording, no stem, no Chinese
 // (src/learn/play/duo/coop.js CoopPlay). The answering side judges through the one path, _judgeRecord, and the verdict
@@ -46,13 +46,13 @@ export class Coop2Flow extends LearnFlow {
     this.ui = new FormsUi(G.hud); this.ui.start();
     this.qn = 0;               // questions asked so far (the roles swap on it)
     this.q = null;             // the live question on this screen { q, g, item, p, role, view, answered }
-    this.hold = false; this.asking = null;
+    this.asking = null;
     this.mine = { asked: 0, right: 0, firsts: 0, firstRight: 0, clues: 0 };
     this.pairRight = 0; this.pairAsked = 0;
     this.heldT = 0; this.nextT = -1; this.left = false; this.lastQ = 0;
     this._padsBuilt();
     // 题即玩法 (play-6): the questions are things on the stage — the clue side's board, the answering side's objects
-    this.play = LEARN.play && match.mode === 'learn' ? new CoopPlay(this) : null;
+    this.play = match.mode === 'learn' ? new CoopPlay(this) : null;
     this.play?.prep(this.gates[this.cur]);
     this._unsub = G.net?.on?.('leave', (e) => { if (e && e.player && this.duo.includes(e.player.id) && this.phase !== 'done') this._partnerLeft(e.player); });
   }
@@ -116,6 +116,9 @@ export class Coop2Flow extends LearnFlow {
     this._pourInk();   // (only the host's queue fills: its splats replicate to the other screen)
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
     const m = this.match;
+    // (the day is done — the results card is up: she stands, as a station keeps her still — her intents after the
+    // controller wrote them; the room's match runs on, nothing is held or paused)
+    if (this.phase === 'done' && m.local) { const it = m.local.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
     if (m.state !== 'playing' || this.phase === 'done') return;
     const g = this.gates[this.cur];
     if (!g) return;
@@ -154,18 +157,11 @@ export class Coop2Flow extends LearnFlow {
     if (!g) return;
     if (d.s === 'ask') {
       if (this.phase !== 'walk' || d.g !== this.cur) return;
-      this.phase = 'ask';
-      if (!this.play) {   // (the cards hold her for the gate's questions; 题即玩法 never does)
-        this.hold = true;
-        const a = this.match.local;
-        if (a) { a.intent.move.set(0, 0, 0); a.intent.jump = a.intent.fire = false; }
-        G.input?.exitLock?.();
-      } else {
-        this.hud?.playMode?.(true);
-        // (the first question's clue board, painted now on the screen that will hold it — the host asks 0.6 s later)
-        const it = g.queue[0] || g.items[0];
-        if (it && rolesFor(this.duo, this.lastQ, null).clue === this.myId) this.play.prepClue(it, this.names.get(this._partner()) || '队友');
-      }
+      this.phase = 'ask';   // (nothing holds her: 题即玩法)
+      this.hud?.playMode?.(true);
+      // (the first question's clue board, painted now on the screen that will hold it — the host asks 0.6 s later)
+      const it = g.queue[0] || g.items[0];
+      if (it && this.play && rolesFor(this.duo, this.lastQ, null).clue === this.myId) this.play.prepClue(it, this.names.get(this._partner()) || '队友');
       if (this.auto) this.autoWalk(false);
       G.audio?.play?.('ui_confirm', { volume: 0.7 });
       for (const p of g.pads) { _v.set(p.x, p.y + 0.2, p.z); G.fx?.ring?.(_v, _up, G.teamColors[0], { radius: this.C.padRadius * 1.6, life: 0.5 }); }
@@ -196,7 +192,7 @@ export class Coop2Flow extends LearnFlow {
     this.lastQ = Math.max(this.lastQ, d.q | 0);
     const item = { ...base, _tries: d.alt ? 1 : 0, _form: d.alt ? 'alt' : null };
     // (题即玩法: a reworded question is the same on both screens — duo.js duoAltPrompt, seeded by its number and id)
-    const p = d.alt ? (this.play ? duoAltPrompt(this.level.gates, item, seedOf(d.q, d.id), (x) => this._altPrompt(x)) || this._altPrompt(item) : this._altPrompt(item)) : prompt(item);
+    const p = d.alt ? duoAltPrompt(this.level.gates, item, seedOf(d.q, d.id), (x) => this._altPrompt(x)) || this._altPrompt(item) : prompt(item);
     const role = d.hands === this.myId ? 'hands' : d.clue === this.myId ? 'clue' : 'watch';
     const view = splitPrompt(p, role === 'hands' ? 'hands' : 'clue');
     this.q = { q: d.q, g: d.g, gate: g, item, p, role, view, answered: false, hands: d.hands, clue: d.clue, play: false };
@@ -206,29 +202,16 @@ export class Coop2Flow extends LearnFlow {
     const partner = this.names.get(this._partner()) || '队友';
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: d.alt ? 'alt' : 'normal', role, q: d.q });
     // 题即玩法: the answering side's objects / 打字蟹 (its view: no recording, no stem, no Chinese); the clue side's board
-    if (this.play && ((role === 'hands' && this.play.canAsk(g, item, view)) || role === 'clue')) {
-      this.q.play = true;
-      this.ui.say('');   // (the note line sits where the strip does on a landscape phone: the strip / the board say it now)
-      if (role === 'hands') { this.asking = { gate: g, item, p: view }; this.play.ask(g, item, view); this.play.strip?.chip(`${d.n}/${d.total} · 你答 · ${partner}说`, 'type'); }
-      else this.play.clue(g, item, view, { partner, alt: !!d.alt });
-      return;
-    }
-    this.hud?.ask(view, {
-      gate: { index: g.index + 1, total: this.gates.length, locks: g.locks, title: g.title },
-      item: { n: d.n, total: d.total, retry: !!d.alt },
-      onAnswer: (ans) => this._answer(ans),
-    });
-    if (this.hud?.prog) this.hud.prog.textContent = `第 ${d.n} / ${d.total} 题 · 门 ${g.index + 1} / ${this.gates.length} · ${role === 'hands' ? `你答 · ${partner}说` : `你说 · ${partner}答`}`;
-    this.ui.say(role === 'hands' ? `${partner}那边有题目 · 听${partner}说` : `把题目讲给${partner} · ${partner}来答`);
+    // (anyone not answering this one holds the clue view)
+    if (!this.play) return;
+    this.q.play = true;
+    this.ui.say('');   // (the note line sits where the strip does on a landscape phone: the strip / the board say it now)
+    if (role === 'hands' && this.play.canAsk(g, item, view)) { this.asking = { gate: g, item, p: view }; this.play.ask(g, item, view); this.play.strip?.chip(`${d.n}/${d.total} · 你答 · ${partner}说`, 'type'); return; }
+    if (role === 'hands') console.warn('[coop2] no station for', item.id, view.type);   // (none in the three weeks: tests/learn/duo.test.mjs)
+    this.play.clue(g, item, view, { partner, alt: !!d.alt });
   }
-  // the hands side answers (the card's button, flag off): the one judging path
-  _answer(ans) {
-    const q = this.q;
-    if (!q || q.answered || q.role !== 'hands') return;
-    this._judgeRecord(q.gate, q.item, q.p, ans);
-  }
-  // The one judging path (PLAY §1 rule 2), on the answering side, whatever answered — the card, a round on an ink
-  // target, the typed sheet: judge (her view keeps the prompt's mapping: _perm / _alt) → her own store (the 打字蟹's
+  // The one judging path (PLAY §1 rule 2), on the answering side, whatever answered — a round on an ink target, the
+  // typed sheet: judge (her view keeps the prompt's mapping: _perm / _alt) → her own store (the 打字蟹's
   // 提示 → H) → the verdict to both screens ('la'; _onAnswer, run here at once, puts the lock on and re-queues). Shaped
   // as the other forms' ({ r, first, again }) for the station that plays it.
   _judgeRecord(g, item, p, ans, o = {}) {
@@ -262,8 +245,6 @@ export class Coop2Flow extends LearnFlow {
     // INKWAVE's own "YEAH!" over both squidkids when the pair gets one
     if (ok) for (const a of this.match.actors) if (!a.isBot && a.alive && this.duo.includes(a.owner)) G.specials?.cheer?.(a);
     G.audio?.play?.(ok ? 'hit_marker' : 'ui_error', { volume: 0.8 });
-    const A = this.hud?._ask;
-    if (A) A.answered = true;
     const by = from === this.myId ? '你' : (this.names.get(from) || '队友');
     if (q.play) {
       // 题即玩法: the answering side's objects play it themselves (its station, then _askNext); the clue side's strip says
@@ -272,7 +253,7 @@ export class Coop2Flow extends LearnFlow {
         : again ? { ok: false, head: '差一点 — 换个问法，这次你来答', why: `${by}答的；门上多了一把锁` } : { ok: false, head: d.canonical ? `差一点：是 ${String(d.canonical).slice(0, 60)}` : '差一点', why: firstSentence(d.why || '') });
       // (the next clue board, painted in this pause on the screen that will hold it)
       { const nx = this._nextItem(g, q.item); if (nx && rolesFor(this.duo, this.lastQ, null).clue === this.myId) this.play.prepClue(nx, this.names.get(this._partner()) || '队友'); }
-    } else this.hud?.verdict({ ok, why: [d.why || '', q.role !== 'hands' ? `（${by}答的）` : ''].filter(Boolean).join(' '), canonical: d.canonical, locks: g.locks, again }, () => this._after(q));
+    } else this._after(q);
     if (this.isHost) this.nextT = this.C.askGap + (ok ? 0 : 1.2);
   }
   // the gate's item after this one, in the order the host asks them (its queue is the gate's items in order, re-asks last)
@@ -304,7 +285,7 @@ export class Coop2Flow extends LearnFlow {
     if (next) { next.state = 'next'; if (this.isHost) this._trail(g, next); }
     this.play?.gateOpened(g);   // (its objects / board go, its atlas is freed; the next gate's labels are drawn)
     this._styleGates(); this._stylePads();
-    this.hold = false; this.autoPath = null; this.heldT = 0; this.nextT = -1;
+    this.autoPath = null; this.heldT = 0; this.nextT = -1;
     if (!next) { this.phase = 'done'; this.finishT = 0.9; return; }
     this.phase = 'walk';
     this.hud?.el.classList.add('is-walk');
@@ -315,14 +296,13 @@ export class Coop2Flow extends LearnFlow {
   _partnerLeft(p) {
     this.left = true;
     this.ui.say(`${p.name || '队友'}离开了房间 · 双人合作要两个人`, { coral: true, hold: 1 });
-    this.phase = 'done'; this.hold = false; this.q = null; this.asking = null;
+    this.phase = 'done'; this.q = null; this.asking = null;
     this.play?.clear();
     this.hud?.hide();
     this.finishT = 1.2;
   }
   _results() {
     this.finishT = -1;
-    this.hold = true;
     G.input?.exitLock?.();
     this.ui.say('');
     const total = this.level.gates.reduce((n, g) => n + g.items.length, 0);
@@ -357,7 +337,7 @@ export class Coop2Flow extends LearnFlow {
   debug() {
     const g = this.gates[this.cur];
     return { form: 'coop2', host: this.isHost, phase: this.phase, cur: this.cur, gates: this.gates.length, q: this.q ? { q: this.q.q, role: this.q.role, id: this.q.item.id, type: this.q.view.type, play: !!this.q.play, answered: !!this.q.answered } : null,
-      hold: !!this.hold, paused: !!this.match.paused, play: this.play ? this.play.debug() : null,
+      paused: !!this.match.paused, play: this.play ? this.play.debug() : null,
       pads: g && g.pads ? g.pads.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1), p.fallback ? 'route' : 'side']) : null, on: g && g.pads ? padsHeld(g.pads, this._people(), this.C.padRadius).on : null,
       mine: { ...this.mine }, pair: [this.pairRight, this.pairAsked], locks: this.gates.map((x) => x.locks),
       me: this.match.local ? [+this.match.local.pos.x.toFixed(1), +this.match.local.pos.y.toFixed(1), +this.match.local.pos.z.toFixed(1)] : null,

@@ -1,6 +1,6 @@
 // 题即玩法 play-wire — the puzzle's play host (docs/PLAY.md §2, §4, §5.1; LEARN §22): LearnFlow (flow.js) owns one of
-// these under LEARN.play instead of PlayRun alone, with the same contract (canAsk / ask / toCard / update / gateOpened /
-// dispose) — it routes every item of a gate to its mechanic and keeps the pieces they share:
+// these (the puzzle itself), with PlayRun's contract (canAsk / ask / update / gateOpened / dispose) — it routes every
+// item of a gate to its mechanic and keeps the pieces they share:
 //   M1 墨靶      choice items (单词选义 / 语法 · 发音小测 / 阅读题, the typed card's 回炉 choice)   → PlayRun (run.js, play-1)
 //   M3 节拍台    听辨对子 (2 pads) · 音标 (4 pads)                                            → wire/beat.js
 //   M4 字弹      单词卡 · 听写句 · 写句 (and a 「不熟」 flip card typed next)                   → wire/type.js
@@ -34,7 +34,7 @@ function ensureXhCss() { if (xhCss || typeof document === 'undefined') return; x
 
 // which mechanic an item's prompt plays as (pure; Node-tested over the three weeks): a flip card → M8, a choice of the
 // ink-target kinds (or the typed card's 回炉 choice) → M1, a pair / symbol choice of 2 or 4 → M3, anything typed → M4;
-// null = nothing here (the card, for a form that keeps it)
+// null = nothing here (none in the three weeks' puzzles: every prompt has a mechanic — tests/learn/play-wire.test.mjs)
 export function kindOfItem(item, p) {
   if (!p) return null;
   if (p._flip) return 'flip';
@@ -71,7 +71,6 @@ export class PlayHost {
   ask(g, item, p) {
     const kind = this.kindOf(item, p); if (!kind) return false;
     const m = this.match, F = this.flow;
-    if (m.paused && m.state === 'playing') { m.paused = false; G.input?.requestLock?.(); }   // (after a card, under the flag)
     // the gate's boards go as its questions start (she read them on the way): M1's framing looks for open ground past the
     // gate and a board 5 m before it stood among the planks when the lens turned back
     if (g._boards && g._boards.placed) this.boards.free(g);
@@ -89,8 +88,6 @@ export class PlayHost {
     this.log.push({ t: +F.t.toFixed(2), ev: 'ask', kind, item: item.id });
     return true;
   }
-  // a card item (none in the three weeks' puzzles now: every kind has a mechanic — the flag-off path and the forms keep it)
-  toCard() { this._clearStation(); this.kind = null; this.cur = null; this.cam.release(G.rig, this.match.local); this.m1.toCard(); }
   _clearStation() {
     if (this.kind === 'm1') this.m1._clear();
     else if (this.kind && this.stations[this.kind]) this.stations[this.kind].clear();

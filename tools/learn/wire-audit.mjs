@@ -1,6 +1,6 @@
 // 题即玩法 play-wire audit (docs/PLAY.md §10, docs/LEARN.md §22): a puzzle with every mechanic wired, in a real page.
 // A static server over this checkout at /game/, Chromium on software GL (SwiftShader), ?quality=low, shadows / bloom off,
-// the game clock frozen (debug.freeze) and stepped by hand — as tools/learn/play-audit.mjs does.
+// the game clock frozen (debug.freeze) and stepped by hand (as play-1's audit did).
 //
 //   node tools/learn/wire-audit.mjs --view portrait|landscape|desktop [--learn w1d1 --gate 1] [--shots <dir>] [--budget 1500]
 //       a short level (?short=1: two gates of two items from gate N) walked gate by gate with the auto-walk; at every
@@ -97,7 +97,7 @@ await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwav
 await page.addStyleTag({ content: '.iw-pk__panel { transition: none !important; }' });
 report.boot = await ev(() => { const F = __inkwave.match.learn; __inkwave.debug.freeze(); return { play: !!F.play, host: !!(F.play && F.play.m1), gates: F.gates.map((g) => ({ id: g.id, mech: g.design && g.design.mechanic, n: g.items.length, kinds: [...new Set(g.items.map((it) => it.meta.kind + '.' + it.meta.input))] })), stage: __inkwave.mapDef && __inkwave.mapDef.id }; });
 say('boot', JSON.stringify(report.boot));
-check(report.boot.play && report.boot.host, 'LEARN.play is on: the puzzle has its play host');
+check(report.boot.play && report.boot.host, 'the puzzle has its play host');
 for (let i = 0; i < 6; i++) await step(100);   // (the host's stations build on the first frames)
 if (EXIT_ONLY) { const ph = await ev(() => { const F = __inkwave.match.learn; let k = 0; while (F.phase !== 'exit' && F.phase !== 'done' && F.cur < F.gates.length && k++ < 20) F._open(F.gates[F.cur]); F.autoWalk(true); return F.phase; }); say('exit-only: every gate opened, phase', ph); }
 

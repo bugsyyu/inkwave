@@ -1,14 +1,12 @@
 // 墨浪跑酷 browser audit (docs/LEARN.md §20). Serves this checkout, opens the game in Chromium (software GL works:
 // SwiftShader args), and runs one of:
-//   --scenario runner  ?learn=<day>&kind=race (play-4: the race IS the runner under LEARN.play): tools/learn/runner-drive.js
+//   --scenario runner  ?learn=<day>&kind=race (the race IS the runner): tools/learn/runner-drive.js
 //                      rows (wrong, right, none, right … by default) through the real inputs; the 滑行段's typed items
 //                      (--glidePlan right,hint,wrong,near) on the game keyboard; the 看板段's boards; screenshots of rows
 //                      (--shots <dir>, --shotRows 1,3) and of the first type frame / ink word / held strip / board;
 //                      the PLAY §1 invariants per row / item / stretch, evidence leaves, coral / slow, no-answer = nothing
 //                      written, the crosshair hidden while she types, the type frame measured, first answers once
-//   --scenario forms   the existing race audit: tools/learn/drive-forms.js on ?kind=race&short=1&fast=1&play=0 (the card
-//                      race: LEARN.play off — race.js unchanged)
-//   --scenario perf    frame-time sampler: the runner vs the race vs a plain turf match on the same stage, real-time loop (not stepped), the
+//   --scenario perf    frame-time sampler: the runner vs a plain turf match on the same stage, real-time loop (not stepped), the
 //                      cost of each _frame call (sim + render) → p50 / p95 / max, after `state === 'playing'` for 3 s
 // Every run fails on a console error, a page error or a 4xx / failed request (the dev error beacon /__inkwave_error/… is
 // answered 204 and its message reported).
@@ -97,15 +95,6 @@ async function scenarioRunner() {
   await ctx.close();
 }
 
-async function scenarioForms() {
-  const q = opt('query', '?learn=w1d2&kind=race&short=1&fast=1&play=0') + '&quality=low&nofullscreen';
-  const { ctx, page, bootS } = await open(q);
-  const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/drive-forms.js'), 'utf8');
-  const res = JSON.parse(await page.evaluate(drive));
-  out.runs.push({ query: q, bootS, ...res });
-  await ctx.close();
-}
-
 // Frame time in real time (the loop not stepped), after the level is under way: the start board pressed, the sim run
 // on (frozen, without the renderer) to a busy moment — for the runner the first row up on the road — then sampled for
 // `perfSeconds` of wall clock. Two numbers: the interval between frames (requestAnimationFrame: the whole frame, the
@@ -134,7 +123,7 @@ async function sample(query, label, prepSrc, learn = true) {
 // (each prep: press 出发 / 走 while a board is up, then run the sim on — frozen, no renderer — to the busy moment)
 const FF = `const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const ff = (sec) => { I.debug.freeze(); I._skipRender = true; try { for (let i = 0; i < Math.round(sec * 30); i++) I._frame(1 / 30); } finally { I._skipRender = false; I.debug.unfreeze(); } };
-  const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) go.click(); else if (i > 2) break; await sleep(400); } };`;
+  const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go && I.match.learn.boards) go.click(); else if (i > 2) break; await sleep(400); } };`;
 async function scenarioPerf() {
   const day = opt('day', 'w1d3');
   // (the runner: to the first row, into its right lane, on to 5 m before it — so the sampled seconds hold a right
@@ -144,16 +133,13 @@ async function scenarioPerf() {
     const want = row.centers[F.rightAnswer()]; k = 0; while (Math.abs(F.latT - want) > 0.05 && k++ < 6) { F.swipe(want < F.latT ? 'left' : 'right'); ff(0.05); }
     k = 0; while (row.s - F.sNow > 5 && k++ < 80) ff(0.1);
     return { s: +F.sNow.toFixed(1), row: true, ahead: +(row.s - F.sNow).toFixed(1), lat: +F.latT.toFixed(2), want }; })()`);
-  // (the race walking to its first gate: at the gate its card holds the match, which is not a frame to compare)
-  const race = await sample(`?learn=${day}&kind=race&play=0`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
   // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight
   const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', `(async () => { ${FF} ff(6); return { t: +I.match.time.toFixed(1) }; })()`, false);
-  out.runs.push(runner, race, turf);
+  out.runs.push(runner, turf);
 }
 
 try {
   if (SCEN === 'runner') await scenarioRunner();
-  else if (SCEN === 'forms') await scenarioForms();
   else if (SCEN === 'perf') await scenarioPerf();
 } catch (e) { errs.push('[harness] ' + (e && e.stack || e).toString().slice(0, 400)); }
 out.bad = bad; out.errors = errs; out.beacons = beacons.slice(0, 10);

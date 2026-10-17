@@ -316,7 +316,7 @@ test('play-6 the one judging path: versus2\'s _judgeRecord writes the day\'s fir
   assert.equal(leafOf(choice.id), null); assert.equal(C.sent.length, 0);
 });
 
-test('play-6 the sources: versus2 / coop2 judge only through _judgeRecord (the card too) and never hold or pause on the play path; the coop2 host judges nothing, never pauses, never holds', () => {
+test('play-6 / play-8 the sources: versus2 / coop2 judge only through _judgeRecord (play/judge.js), never hold, never pause, never ask a card; the coop2 host judges nothing, never pauses, never holds', () => {
   const root = new URL('../../src/learn/', import.meta.url);
   for (const f of ['forms/versus2.js', 'forms/coop2.js']) {
     const src = readFileSync(new URL(f, root), 'utf8');
@@ -325,15 +325,11 @@ test('play-6 the sources: versus2 / coop2 judge only through _judgeRecord (the c
     assert.ok(/_judgeRecord\(g, item, p, ans, o = \{\}\)/.test(src), `${f}: the one path's signature`);
     assert.ok(/_askNext\(/.test(src), `${f}: _askNext is the form's (B's would ask its own queue)`);
   }
-  const v = readFileSync(new URL('forms/versus2.js', root), 'utf8');
-  const i = v.indexOf('this.arena && this.arena.canAsk(g, it, p)'), j = v.indexOf('this.hold = true', i);
-  assert.ok(i > 0 && j > i);
-  const block = v.slice(i, j);
-  assert.ok(/return;/.test(block) && !/paused|exitLock|hold\s*=|intent\.move/.test(block), 'versus2: the play branch returns before the card\'s hold');
-  const c = readFileSync(new URL('forms/coop2.js', root), 'utf8');
-  for (const m of c.matchAll(/this\.hold = true/g)) {
-    const before = c.slice(Math.max(0, m.index - 400), m.index);
-    assert.ok(/if \(!this\.play\) \{/.test(before) || /_results\(\) \{/.test(before), 'coop2: a hold only without the play host (or on the results card)');
+  for (const f of ['forms/versus2.js', 'forms/coop2.js']) {
+    const src = readFileSync(new URL(f, root), 'utf8').replace(/\/\/.*$/gm, '');
+    assert.ok(!/\.hold\s*=/.test(src), `${f}: no hold`);
+    assert.ok(!/paused\s*=\s*true/.test(src), `${f}: never a pause`);
+    assert.ok(!/hud\??\.(ask|verdict)\(/.test(src) && !/_answer\(/.test(src), `${f}: no card`);
   }
   const h = readFileSync(new URL('play/duo/coop.js', root), 'utf8');
   assert.ok(!/paused\s*=\s*true/.test(h) && !/\.hold\s*=\s*true/.test(h), 'coop.js: never a pause / a hold');

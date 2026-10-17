@@ -14,12 +14,12 @@
 // A checkpoint's word boards / sounds / grammar lesson: the 看板段 in front of its rows — play-3's boards along the road,
 // each framed as she comes up to it, the tide and the bots slow (boards.js; PLAY §5.2).
 //
-// Never a pause, never a hold: match.paused stays false and match.learn.hold is never set while she runs (the results
-// card at the very end holds the finished match, like every form's). No card: hud-learn's question layer is never asked.
+// Never a pause, never a hold: match.paused stays false while she runs (the results card at the very end holds the
+// finished match, like every form's). No card: hud-learn only shows the results card at the end.
 //
-// Built on RaceFlow (forms/race.js, unchanged): its lap, its three racer bots (_bot: the same route, BOT_ANSWER dice at
-// the checkpoints, the rubber band — reused, not forked), the standings, the prop bag and its effects (_onRight, _onWrong2,
-// useProp, _laneFlood), the stars. The runner replaces only what the race did with cards and holds.
+// Built on RaceFlow (forms/race.js — the race's base, no cards since play-8): its lap, its three racer bots (_bot: the
+// same route, BOT_ANSWER dice at the checkpoints, the rubber band), the standings, the prop bag and its effects
+// (_onRight, _onWrong2, useProp, _laneFlood).
 //
 // Controls: swipe (src/core/touch.js swipe hook → swipe(dir)) · A / D or ← / → a lane · W / ↑ / Space jump · S / ↓ /
 // Shift dive · a pad's stick / d-pad for lanes, A jump, B dive.
@@ -27,7 +27,8 @@ import * as THREE from 'three';
 import { G, on, clamp, damp } from '../../../core/ctx.js';
 import { LEARN, PLAYER } from '../../../config.js';
 import { RaceFlow } from '../../forms/race.js';
-import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf } from '../../forms/common.js';
+import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, useProp as propOf, rightAnswerOf } from '../../forms/common.js';
+import { prefersReducedMotion } from '../../../ui/ui-util.js';
 import { judgeRecord } from '../judge.js';   // the one judging path (play-8)
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
@@ -39,6 +40,8 @@ import { RowView, HerMark } from './view.js';
 import { RunnerCam } from './cam.js';
 import { GlideStation, glideMove } from './glide.js';
 import { RunnerBoards, boardSpecsOf, withBoards } from './boards.js';
+import { PrepStation } from '../arena/prep.js';   // (the reading passages at the start line: M6 boards in front of her, play-8)
+import { gateSpecs } from '../wire/boards.js';
 import { RunnerTips } from './tips.js';
 import { PlayStrip } from '../../../ui/play-strip.js';   // play-1's question strip: the one strip of every play kind (play-4)
 import { say, stop as stopVoice } from '../../audio.js';
@@ -53,7 +56,7 @@ const FAR = new THREE.Vector3(1e6, 0, 1e6);
 // until it resolves.
 
 export class RunnerFlow extends RaceFlow {
-  // hud-learn's question card is never used (LearnFlow's ctor assigns it and calls start(): both land here and do
+  // hud-learn's walk bar is not the runner's (LearnFlow's ctor assigns it and calls start(): both land here and do
   // nothing); its results card is, at the very end (_results turns this on)
   get hud() { return this._hudOn ? (G.hud && G.hud.learn) || null : null; }
   set hud(v) { /* (see the getter) */ }
@@ -61,7 +64,6 @@ export class RunnerFlow extends RaceFlow {
   constructor(match, opts = {}) {
     super(match, opts);   // LearnFlow: the level, _place() (ours), _buildMeshes() (ours); RaceFlow: bots, bag, ranks
     this.form = 'race'; this.runner = true;
-    this.hold = false;    // (RaceFlow's ctor sets it for its first board; the runner never holds)
     this.RR = LEARN.runner;
     this.sNow = 0; this.dNow = 0; this.latT = 0; this.sPrev = 0; this.lastGoodS = 0;
     this.tideK = 1; this.swimK = 1; this.boostT = 0; this.boostK = 1; this.slowT = 0; this.popT = 0;
@@ -145,7 +147,6 @@ export class RunnerFlow extends RaceFlow {
   // no gate markers (the rows are the gates); the ring geometry stays for the finish ring and the signs
   _buildMeshes() { this._geos = [new THREE.RingGeometry(0.85, 1.35, 40)]; this._mats = []; }
   _styleGates() { /* (no gate meshes) */ }
-  _legStart() { /* no 看板 hold: the run starts on its own (_start) */ }
   prep() { return !!this.boards; }   // (the audits: a reading board is up before the start)
 
   // ---------------------------------------------------------------------------------------------- her body
@@ -224,7 +225,7 @@ export class RunnerFlow extends RaceFlow {
     this._reap(dt);
     if (this.finishT >= 0) { this.finishT -= dt; this._steer(a, dt); if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
-    if (!this.started) { this._start(); this._steer(a, dt); return; }
+    if (!this.started) { this._start(); this.prepS?.update(dt); this._steer(a, dt); return; }
     this.clock += dt;
     const txt = `圈 ${fmtClock(this.clock)}`;
     if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
@@ -281,23 +282,20 @@ export class RunnerFlow extends RaceFlow {
     }
   }
 
-  // the start: the reading passages first (PLAY §4: 阅读题 — M6 before the start), then GO
+  // the start: the reading passages first (PLAY §4: 阅读题 — M6 before the start, play-8: a board in front of her at the
+  // start line, framed, the strip's 「下一块」 / 「出发！」 — no card), then GO
   _start() {
-    if (this.boards === null) {
-      const seen = new Set();
-      this.boards = this.level.gates.filter((g) => g.design && g.design.mechanic === 'reading-room').map((g) => boardOf(g, this.level)).filter((b) => b && !seen.has(b.head) && seen.add(b.head));
-      if (!this.boards.length) this.boards = false;
-      this._boardNext();
+    if (this.boards !== null) return;
+    const seen = new Set(), specs = [];
+    for (const g of this.level.gates) {
+      if (!(g.design && g.design.mechanic === 'reading-room')) continue;
+      let s = []; try { s = gateSpecs(g, this.level); } catch (e) { s = []; }
+      for (const sp of s) if (!seen.has(sp.title)) { seen.add(sp.title); specs.push(sp); }
     }
-  }
-  _boardNext() {
-    if (this.boards && this.boards.length) {
-      const b = this.boards.shift();
-      this.ui.showBoard({ ...b, title: `${b.title} · 起跑前读一读`, go: this.boards.length ? '下一块' : '出发！' }, () => this._boardNext());
-      return;
-    }
-    this.boards = false; this.ui.hideBoard();
-    this._go();
+    if (!specs.length) { this.boards = false; this._go(); return; }
+    this.boards = true;
+    this.prepS = this.prepS || new PrepStation({ flow: this, match: this.match, strip: this.strip, reduced: prefersReducedMotion(), say: (t, o) => this._speak(t, o), facingYaw: (g, a) => a.yaw, m1: { _topKeys: () => this._topKeys() } });
+    this.prepS.show(specs, { head: '起跑前读一读', go: '出发！', onGo: () => { this.boards = false; this._go(); } });
   }
   _go() {
     if (this.started) return;
@@ -499,7 +497,7 @@ export class RunnerFlow extends RaceFlow {
       focus.top = this.stripBottom();   // (the band under the strip: cam.js keeps the row out from under it)
     }
     // a station's pose: the typing rig's frame on a 滑行段, the framed board on a 看板段 (springs in and out: cam.js)
-    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : this.bw.framing);
+    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
     this.mark.update(this.glide.active ? null : a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);
   }
@@ -901,7 +899,7 @@ export class RunnerFlow extends RaceFlow {
     const H = this.hud;
     H?.start?.(this);
     H?.results(data, {
-      again: () => G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: this.match.learnKind === 'runner' ? 'runner' : 'race' }),
+      again: () => G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: 'race' }),
       menu: () => G.game?.api?.quitMatch?.(),
     });
     this.ui.resultsExtra([
@@ -934,7 +932,7 @@ export class RunnerFlow extends RaceFlow {
   debug() {
     const a = this.match.local, row = this._shown();
     return {
-      form: 'runner', phase: this.phase, started: this.started, hold: this.hold, paused: this.match.paused, cur: this.cur, gates: this.gates.length,
+      form: 'runner', phase: this.phase, started: this.started, paused: this.match.paused, cur: this.cur, gates: this.gates.length,
       s: +this.sNow.toFixed(2), d: +this.dNow.toFixed(2), lat: +this.latT.toFixed(2), swimK: +this.swimK.toFixed(3), tide: +this.tideK.toFixed(3),
       speed: a ? +Math.hypot(a.vel.x, a.vel.z).toFixed(2) : 0, submerged: !!(a && a.submerged), form_: a ? a.form : null, grounded: !!(a && a.grounded),
       lap: +this.T.len.toFixed(1), laps: this.laps, lapsPlan: this.lapsPlan, finishS: this.finish ? +this.finish.s.toFixed(1) : null,
@@ -955,7 +953,7 @@ export class RunnerFlow extends RaceFlow {
     this.rows = [];
     this.cam.release(G.rig, this.match.local);
     this.glide.dispose();
-    this.bw.dispose();
+    this.bw.dispose(); this.prepS?.dispose();
     this.mark.dispose();
     stopVoice(); this.strip.dispose(); this.tips.end();
     G.hud?.el?.classList.remove('is-learn', 'is-runner');

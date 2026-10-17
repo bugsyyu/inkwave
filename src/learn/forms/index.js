@@ -1,6 +1,6 @@
 // 关卡学习 — the forms registry (docs/LEVELS.md §2): a day of the course (or the week's 周考) as a level of one of the
 // four forms, built from D's design (planDay / bossPlan) on A's content, played by one flow class each:
-//   puzzle → src/learn/flow.js (B)        race → forms/race.js       duel → forms/duel.js       boss → forms/boss.js
+//   puzzle → src/learn/flow.js (B)   race → play/runner/runner.js (墨浪跑酷)   duel → forms/duel.js   boss → forms/boss.js
 //
 //   await buildLearn({ week, day, kind, short }) → { kind, level, Flow, time, duration, world, short, weekRef }
 //     level     the planned level (A's gates with their items + D's design per gate; the boss: bossPlan's phases)
@@ -9,6 +9,9 @@
 //     duration  the match clock to start with (a duel's first round, the boss's phases), undefined for solo forms
 //     world     the stage variant to build: 'zones' for a duel (its ramps), 'turf' otherwise
 //     short     the audits' shortened level (?short=1): two gates, two items each, a 60 s clock
+//     gate      the audits' start (?gate=N): a short level from its N-th gate; a whole one (play-8: a whole day run in
+//               segments, each picking up after the last gate the one before finished — the store keeps her answers)
+//               from its N-th gate / round / phase on, every item of them
 // main.js calls this and nothing else of the forms; match.js only reads .kind and .Flow.
 import { G, on } from '../../core/ctx.js';
 import { h } from '../../ui/ui-util.js';
@@ -17,38 +20,38 @@ import { LEARN } from '../../config.js';
 import { loadWeek, daySteps } from '../api.js';
 import { planDay, bossPlan, quizPlan, FORMS } from '../design.js';
 import { LearnFlow } from '../flow.js';
-import { RaceFlow } from './race.js';
 import { DuelFlow } from './duel.js';
 import { BossFlow } from './boss.js';
 import { Versus2Flow } from './versus2.js';
 import { Coop2Flow } from './coop2.js';
 import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
-import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN §20): the race as a lane runner, while race.js stays
+import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN §20, §23): the race as a lane runner
 
-// ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (?kind=runner: the race's plan
-// played by RunnerFlow; match.js sees a 'race' — her + 3 brainless racer bots — so nothing else changes)
+// ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (play-4's ?kind=runner: the
+// same as 'race' now — the race IS the runner)
 export const LEARN_KINDS = [...FORMS, 'quiz', 'runner'];
-// 题即玩法 (docs/PLAY.md §5.2, play-4): under LEARN.play the race IS the runner (墨浪跑酷 — the form id stays 'race');
-// flag off, the card race of race.js, word for word. flowFor(kind, play) is the pure pick (Node-tested).
-export function flowFor(kind, play = LEARN.play) {
-  if (kind === 'race') return play ? RunnerFlow : RaceFlow;
-  return { puzzle: LearnFlow, duel: DuelFlow, boss: BossFlow }[kind] || LearnFlow;
+// 题即玩法 (docs/PLAY.md §5.2, play-4): the race is the runner (墨浪跑酷 — the form id stays 'race'). flowFor(kind) is the
+// pure pick (Node-tested).
+export function flowFor(kind) {
+  return { puzzle: LearnFlow, race: RunnerFlow, duel: DuelFlow, boss: BossFlow }[kind] || LearnFlow;
 }
-const FLOWS = { puzzle: LearnFlow, race: flowFor('race'), duel: DuelFlow, boss: BossFlow };
+const FLOWS = { puzzle: LearnFlow, race: RunnerFlow, duel: DuelFlow, boss: BossFlow };
 
 export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);
   if (kind === 'quiz') return buildQuiz(w, week, day, short);
-  if (kind === 'runner') { const b = await buildLearn({ week, day, kind: 'race', short, gate }); return { ...b, Flow: RunnerFlow, runner: true }; }
+  if (kind === 'runner') kind = 'race';
   if (kind === 'boss') {
     let plan = bossPlan(w);
     if (short) plan = shortenBoss(plan);
+    else if (gate > 1) plan = { ...plan, phases: plan.phases.slice(gate - 1) };   // (a whole 周考 in segments: from its N-th phase)
     const level = { ...plan, week, day: 0, weekRef: w, gates: [], title: String(w.title || '') };
     return { kind, level, Flow: FLOWS.boss, time: plan.time || 'dusk', duration: short ? 60 * plan.phases.length : phaseTimeTotal(plan), world: 'turf', short, weekRef: w };
   }
   let level = planDay(w, day, kind);   // (a kind outside the four forms — 'plan', none given — is the day's planned form)
   if (!FORMS.includes(kind)) kind = level.kind || 'puzzle';
   if (short) level = shortenLevel(level, 2, 2, gate > 0 ? gate - 1 : 0);
+  else if (gate > 1) level = { ...level, gates: level.gates.slice(gate - 1) };   // (a whole day in segments: from its N-th gate)
   // the numeric week / day the flows and the HUD read (A's head() writes week: 'w1'); the week object for store.due
   Object.assign(level, { week, day, weekRef: w });
   return { kind, level, Flow: FLOWS[kind] || LearnFlow, time: level.time || 'day', duration: kind === 'duel' ? (short ? 60 : undefined) : undefined, world: kind === 'duel' ? 'zones' : 'turf', short, weekRef: w };

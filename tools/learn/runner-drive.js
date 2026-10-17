@@ -54,7 +54,9 @@
   const leaves = (id) => { const ev = (evDoc().ev) || {}; let n = 0; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) for (const d in it) n += Object.keys(it[d]).length; } return n; };
   const leafOf = (id) => { const ev = (evDoc().ev) || {}; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) { const d = Object.keys(it).sort().pop(); const day = it[d]; const t = Object.keys(day).sort().pop(); return day[t]; } } return null; };
   const rect = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null; };
-  const xhShown = () => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+  // (the crosshair as drawn: .iw-ret inside the .iw-xh anchor — the anchor is a 0 × 0 point at the screen's centre, its
+  // own box never shows, so measuring it proved nothing; play-8, as wire-audit.mjs xhShown does)
+  const xhShown = () => { const e = document.querySelector('.iw-xh'), r = e && e.querySelector('.iw-ret'); if (!r) return false; const cs = getComputedStyle(e), cr = getComputedStyle(r), b = r.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && cr.display !== 'none' && cr.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
   const invariants = (what) => { const c = cardShown(); const chk = { what, paused: M().paused, hold: !!F().hold, cardAsk: c.ask, panelVisible: c.panelVisible, crosshair: xhShown(), camMode: G.rig && G.rig.mode }; S.checks.push(chk); if (chk.paused || chk.hold || chk.cardAsk || chk.panelVisible) S.errors.push('invariant broken (' + what + '): ' + JSON.stringify(chk)); return chk; };
   // a press on the game keyboard: the key's own pointerdown on a phone (play-keys acts on it), keydown on a desktop
   const press = (k) => {
@@ -209,7 +211,8 @@
       console.log('[run] playing after', ((Date.now() - S.t0) / 1000).toFixed(1), 's wall');
       S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode, loopEdges: Fl.loopEdges, jumps: (Fl.T.jumps || []).map((j) => +j.toFixed(1)) };
       // a reading board before the start (PLAY §4: M6 before the run): 出发
-      let k = 0; while (Fl.prep && Fl.prep() && k++ < 6) { const go = document.querySelector('.iw-lf__go'); if (go) go.click(); await step(200); }
+      // (play-8: an M6 board in front of her at the start line and the strip's 「下一块」 / 「出发！」 — no card)
+      let k = 0; while (Fl.prep && Fl.prep() && k++ < 12) { await step(200); S.startBoards = Object.assign(S.startBoards || {}, { framed: (S.startBoards && S.startBoards.framed) || !!(Fl.prepS && Fl.prepS.board && Fl.prepS.board.framed >= 0), paused: M().paused }); const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go) go.click(); }
       await step(300);
     }
     const Fl = F();
@@ -217,7 +220,7 @@
     while (Date.now() < until) {
       if (Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) break;
       await step(100);
-      if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
+      if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
       if ((S.tick = (S.tick || 0) + 1) % 20 === 0) console.log('[run] t', ((Date.now() - S.t0) / 1000).toFixed(0), 's · s', Fl.sNow.toFixed(1), 'phase', Fl.phase, 'rows', S.rows.length, 'speed', Math.hypot(M().local.vel.x, M().local.vel.z).toFixed(1));
       const row = Fl._shown && Fl._shown();
       if (!row) continue;

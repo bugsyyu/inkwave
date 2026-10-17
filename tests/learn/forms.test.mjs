@@ -11,10 +11,11 @@ import { loadWeek } from '../../src/learn/content.js';
 import { store, setBackend } from '../../src/learn/store.js';
 import { planDay, bossPlan, PROP_DROP, BOT_ANSWER, PROPS } from '../../src/learn/design.js';
 import { LEARN, OFFLINE_MAPS } from '../../src/config.js';
+const { gateSpecs } = await import('../../src/learn/play/wire/boards.js');   // (three.js under it: after the hook)
 import {
   astar, loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, drawProp, propOnRight, useProp, duelFlood, streakKind,
   phaseOfHp, bossDamage, phaseBudget, phaseTimeTotal, relearnPlan, starsOf, readStars, writeStars, shortenLevel, shortenBoss, fmtClock,
-  judgeAnswer, rightAnswerOf, boardOf, relearnTip,
+  judgeAnswer, rightAnswerOf, relearnTip,
 } from '../../src/learn/forms/common.js';
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
@@ -186,17 +187,19 @@ test('judgeAnswer maps B\'s reworded forms onto A\'s judge; rightAnswerOf names 
   assert.equal(rightAnswerOf(card, { type: 'type' }), card.en);
   const alt = { type: 'choice', _alt: 'choice-of-typed', options: [{ text: 'zzz' }, { text: card.en }] };
   assert.equal(rightAnswerOf(card, alt), 1); assert.equal(judgeAnswer(card, alt, 1).ok, true);
-  // boards: words with IPA + meaning, sounds with tip + examples, the grammar lesson's lines, the passage; none for dictation / pairs / cards
-  const by = (s) => L.gates.find((g) => g.stepId === s);
-  const wb = boardOf(by('w1d1:a2'), L);
-  assert.equal(wb.rows.length, 25); assert.ok(wb.rows.every((r) => r.en && r.zh && r.tts)); assert.ok(wb.rows.some((r) => r.ipa), 'IPA on the word board');
-  const sb = boardOf(by('w1d1:a1'), L);
-  assert.equal(sb.rows.length, 8); assert.ok(sb.rows.every((r) => r.en.startsWith('/') && r.zh));
-  const gb = boardOf(by('w1d1:a3'), L);
-  assert.ok(gb.rows.length >= 1 && gb.rows.every((r) => r.text), 'the lesson lines');
-  const rb = boardOf(by('w1d1:b2'), L);
-  assert.ok(rb.rows[0].en && rb.rows[0].tts.length > 50, 'the passage is spoken');
-  assert.equal(boardOf(by('w1d1:b1'), L), null); assert.equal(boardOf(by('w1d1:b3'), L), null); assert.equal(boardOf(by('w1d1:b4'), L), null);
+  // boards (play-8: the duel's 备战 and the runner's start show the puzzle's M6 boards — wire/boards.js gateSpecs): words
+  // with IPA + meaning 5 a board, sounds with tip + examples 2 a board, the grammar lesson's lines, the passage; none for
+  // dictation / pairs / cards
+  const by = (s) => L.gates.find((g) => g.stepId === s), LB = { ...L, week: 1, day: 1, weekRef: w1 };   // (the boards read the step: the level carries its week)
+  const wb = gateSpecs(by('w1d1:a2'), LB), wrows = wb.flatMap((b) => b.rows);
+  assert.equal(wb.length, 5); assert.equal(wrows.length, 25); assert.ok(wrows.every((r) => r.en && r.zh && r.tts)); assert.ok(wrows.some((r) => r.ipa), 'IPA on the word boards');
+  const sb = gateSpecs(by('w1d1:a1'), LB), srows = sb.flatMap((b) => b.rows);
+  assert.equal(srows.length, 8); assert.ok(srows.every((r) => r.en.startsWith('/') && r.zh));
+  const gb = gateSpecs(by('w1d1:a3'), LB);
+  assert.ok(gb.length === 1 && gb[0].blocks.length >= 1, 'the lesson lines');
+  const rb = gateSpecs(by('w1d1:b2'), LB);
+  assert.ok(rb[0].kind === 'passage' && rb[0].tts.length > 50, 'the passage is spoken');
+  assert.deepEqual(gateSpecs(by('w1d1:b1'), LB), []); assert.deepEqual(gateSpecs(by('w1d1:b3'), LB), []); assert.deepEqual(gateSpecs(by('w1d1:b4'), LB), []);
   // tips
   assert.equal(relearnTip(by('w1d1:a1').items[0]).variant, 'tip');
   assert.equal(relearnTip(word).variant, 'flash-type');
