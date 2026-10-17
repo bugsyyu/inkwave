@@ -40,7 +40,7 @@ export class CoopPlay {
   constructor(flow) {
     this.flow = flow; this.match = flow.match; this.hud = flow.hud;
     // (the ink targets float a few metres past the gate, over the route — the cluster faces whoever answers)
-    this.m1 = new ArenaRun(flow, { mode: 'zone', anchor: (out) => this._anchor(out) });
+    this.m1 = new ArenaRun(flow, { mode: 'zone', anchor: (out) => this._anchor(out), edges: true });
     this.strip = this.m1.strip; this.reduced = this.m1.reduced;
     this.cam = new PlayCam({ reduced: this.reduced });
     this.type = new TypeStation(this);

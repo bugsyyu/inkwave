@@ -29,13 +29,15 @@ const _pts = Array.from({ length: 4 }, () => ({ x: 0, y: 0, z: 0, plate: { x: 0,
 
 export class ArenaRun extends PlayRun {
   // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre on its floor), boss() → the Boss,
-  //         team (play-6: her side — versus2's guest plays on team 1; her ink, the halo, the strip's colour; default 0) }
+  //         team (play-6: her side — versus2's guest plays on team 1; her ink, the halo, the strip's colour; default 0),
+  //         edges (play-6: the sight lines go to each label's lower edge too, not only its middle — a landscape phone saw
+  //         the labels hang just behind a deck's balustrade whose top the middles cleared; default off: the duel as it was) }
   constructor(flow, opts = {}) {
     super(flow, { Targets: ArenaTargets });
     this.mode = opts.mode || 'zone';
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
-    this.team = opts.team | 0;
+    this.team = opts.team | 0; this.edges = !!opts.edges;
     if (this.team && G.teamColors[this.team]) { this.ink.copy(G.teamColors[this.team]); this.T.setInk(this.ink); this.strip?.setInk(G.teamHex?.[this.team]); }
     // her tap-shot flies to the object she tapped: on the crowded weak points (and in a cluster seen from her muzzle, lower
     // than the lens) another option's ball can stand on its way — it never eats that round (only its own target may)
@@ -167,6 +169,7 @@ export class ArenaRun extends PlayRun {
         if (gy > -Infinity) need = Math.max(need, gy + M.clear - bottom);
         if (P && (!P.los(_e, _c.set(o.x, o.y, o.z)) || !P.los(_o, _c) || !P.los(_m, _c))) blocked = true;
         if (P && o.kind === 'ball' && !P.los(_o, _c.set(o.plate.x, o.plate.y, o.plate.z))) blocked = true;   // (its label too)
+        if (P && this.edges && !P.los(_o, _c.set(o.plate.x, o.plate.y - o.plate.h * 0.45, o.plate.z))) blocked = true;   // (… down to its lower edge)
       }
       const dMin = boom + 1.6;
       if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }

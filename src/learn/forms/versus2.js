@@ -66,7 +66,7 @@ export class Versus2Flow extends LearnFlow {
     // 题即玩法 (play-6): the questions are things over the live zone, on her side's ink (the guest plays team 1). It is
     // also this.play: the flow's dispose takes it, and the touch layer leaves the strip's ▶ to the strip
     this.vg = new Map();   // queue entry index → that question's gate (an arena round of one: its own label atlas)
-    this.arena = LEARN.play ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out), team: this._team() }) : null;
+    this.arena = LEARN.play ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out), team: this._team(), edges: true }) : null;
     this.play = this.arena;
   }
   _team() { const me = (this.match.opts.roster || []).find((r) => !r.bot && r.owner === this.myId); return me ? me.team | 0 : (this.match.local ? this.match.local.team | 0 : 0); }
