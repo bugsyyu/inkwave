@@ -894,7 +894,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 | 今日小考 `w1d1`（音标、单词选义 M1） | r6 两题全过 | r6 两题全过；截图里四块标签在观景台的石栏杆后面 → 挡住时题带从下往上收、再抬高（`f0f923b`）；r7 复跑一题全过，四块标签都在栏杆前 |
 | Boss `w1` L / R / W | r4：出题时她在 47.7 m 外、球看不见也打不到 → 等她走近 / 远就题簇 / 镜头跟球 / 墨弹穿过 Boss；r5：L 两题 M5、R 单词卡 M4 全过，R 横幅题时她被 Boss 打倒；r6：**L 两题 M5、R 单词卡 M4、R 横幅（她倒下两次、复活后重放后答对）、W 两句 M4 全过，HP 1 → 0.83 → 0.66 → 0.495 → 0.33 → 0.215 → 0.1**；红：两次「出题时 Boss 在出招」（→ `_holdBoss`）、横幅比屏宽 4 px（→ 封宽）、她被打倒时的几条 | r5：L 第一题全过，第二题出在她被打倒时（→ 只在她活着时出题）；r6：L 第一题全过；第二题两只眼睛上的球从她枪口看一前一后，点后面那个墨弹撞上前面那个（→ 墨弹只认目标），之后跑到批次的时限 |
 | Boss `w1` L（改完以后：出题那一帧顶住大脑、墨弹只认目标、`bossNear` 10.5 m、球 44 px） | r7 三题：L 第一题 M5 全过（HP 1 → 0.83）；第二题（两只眼睛）第一发点射发出后没有命中记录、题还在，审计的下一轮再点就中了（HP 0.83 → 0.66）——见拿不准的 11 | — |
-| Boss S（回声亭，`--skip-to S`：审计的手把 L / R / W 清掉） | r7：亭子升起、站上去放范例、走出来 = 说完了、Boss 掉血（0.1 → 0.05）、不记证据，全过；但她被 Boss 打倒在亭子前（审计把她送到了 Boss 跟前）、截图是倒下的画面；r8 复跑 | r7 两张卡全过（同上一条红）；截图里题条压住了亭子板的头两行 → 亭子上不出题条（和解谜出口的亭子一样）；r8 复跑 |
+| Boss S（回声亭，`--skip-to S`：审计的手把 L / R / W 清掉） | r7：亭子升起、站上去放范例、走出来 = 说完了、Boss 掉血（0.1 → 0.05）、不记证据，全过；但她被 Boss 打倒在亭子前（审计把她送到了 Boss 跟前）、截图是倒下的画面；**r8 一张卡全过**（她留在原地，亭子板整块在屏上） | r7 两张卡全过（同上一条红）；截图里题条压住了亭子板的头两行 → 亭子上不出题条（和解谜出口的亭子一样）；**r8 一张卡全过**；板的第一行还被 Boss 的 HP 条 / 阶段牌压着（见已知坑 1） |
 | 开关关掉 `&play=0`（`play-audit.mjs --script play-forms.json`） | 对抗赛 `w1d6`、Boss `w1` 卡片全过（第一题故意错、其余对；卡片停住比赛照旧；4xx 0、控制台错误 0） | — |
 
 截图在主会话的草稿目录 `play5-shots/` 下按轮次分（`r2`–`r7`；早几轮的截图正是上面那些毛病的样子）。
@@ -926,7 +926,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - **和 play-4 会撞的**：`src/ui/play-strip.js`——这边（WIP）加了 `this.acts` 一行、改了 `this.verd = h(…, this.head, this.why, this.acts)`、`show()` / `question()` / `hide()` 各多一句 `this._acts(null)`、`verdict(v)` 读 `v.actions`；play-4 在同一处加了 `this.tag / this.lanes / this.note`、改了 `this.text / this.box / this.el` 三行、`show(p, { replay, tag, lanes, lite })`、`verdict(v, { ms })`、`hide()` 多一句 `this._vT = 0`。语义不冲突（`actions` 和 `ms` 可以同时有），`this.verd` 一带、`verdict` 的签名行、`hide()` 这一行文本一定冲突，合并时两边都要。`src/config.js` 各加各的键，`src/learn/play/run.js` 这边只加了构造函数的 `opts.Targets`。
 - **给主会话的**：flow.js 的判分映射五行可以换成 `judgeAnswer(item, p, ans)`（`forms/common.js`，同一套），这样全库只剩一份；解谜的字弹（`wire/type.js`）换用 `arenaTypeFrame` 能修掉主会话看到的那两处取景；准星同理（`G.hud.xh.style.visibility`）。
 - **已知坑**：
-  1. Boss 的 HP 条 / 阶段牌（`.iw-lf__phase`，顶上 92 px）在横屏里被题条压住了一截（题条只躲 `touch.js` 顶排的两个键）。
+  1. 横屏里 Boss 的 HP 条 / 阶段牌（`.iw-lf__phase`，顶上 92 px）和题条叠在一起（题条只躲 `touch.js` 顶排的两个键），回声亭板的第一行也被它们压着（亭子的取景是 play-3 `booth.js` 的，不知道 Boss 的 HUD）。
   2. 对抗赛的题簇钉在锚点上：她跑远了它就在身后，转回来才看得见（不跟着她）。
   3. 对抗赛的标签牌偶尔和机器人头上的名牌（DOM）叠在一起。
   4. 审计每一步都是冻时钟步进，SwiftShader 下一题约 1.5–2 分钟；Boss 八题两个方向要 `--budget 3000`。
