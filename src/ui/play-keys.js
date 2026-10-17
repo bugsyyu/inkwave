@@ -13,6 +13,9 @@
 //   keys.onReplay = () => {}      ▶
 //   keys.show() · keys.hide() · keys.setMode(mode) · keys.setColor(hex) · keys.setText(text) · keys.clear()
 //   keys.setHintUsed(bool) · keys.layout() · keys.destroy() · keys.text · keys.frac (share of the screen it covers)
+//   keys.rect() — play-7: where it is on the screen (CSS px): { top, h, split, mid: { x0, x1 } | null, halves } — on a
+//                 landscape screen the keyboard is two pads docked to the sides and the column mid.x0…mid.x1 is open
+//                 from the top of the screen to the bottom (the typing frame goes there: src/learn/play/type/split.js)
 //   PlayKeys.owns(event) — true for a pointer event on the keyboard (the touch layer must skip those, see §19)
 // Nothing here knows an answer: no key, no text, no colour depends on whether anything is right (PLAY §1.3).
 import { h, prefersReducedMotion } from './ui-util.js';
@@ -56,6 +59,16 @@ const CSS = `
 .iw-pk__strip.is-empty b { color: rgba(255,255,255,.35); font-family: 'Rubik', 'PingFang SC', system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0; }
 @keyframes iw-pk-caret { 50% { opacity: 0; } }
 .iw-pk.is-landscape .iw-pk__k { font-size: 21px; border-radius: 10px; }
+/* play-7: the landscape split — the panel is only a frame for two pads docked to the sides; the column between them is
+   the world's (no background, no touches: they go on to the game) */
+.iw-pk__half { position: absolute; display: none; pointer-events: auto; background: linear-gradient(180deg, rgba(31,27,42,.9), rgba(17,15,24,.94));
+  box-shadow: 0 -8px 26px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.12); }
+.iw-pk__half.is-l { border-radius: 0 22px 0 0; } .iw-pk__half.is-r { border-radius: 22px 0 0 0; }
+.iw-pk.is-split .iw-pk__panel { background: none; box-shadow: none; border-radius: 0; pointer-events: none; }
+.iw-pk.is-split .iw-pk__panel::before { display: none; }
+.iw-pk.is-split .iw-pk__half { display: block; }
+.iw-pk.is-split .iw-pk__k, .iw-pk.is-split .iw-pk__b { pointer-events: auto; }
+.iw-pk.is-split.is-off .iw-pk__half, .iw-pk.is-split.is-off .iw-pk__k, .iw-pk.is-split.is-off .iw-pk__b { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .iw-pk__panel { transition: opacity .2s; } .iw-pk.is-off .iw-pk__panel { transform: none; opacity: 0; }
   .iw-pk__k, .iw-pk__k.is-pop { transition: none; animation: none; } .iw-pk__strip i { animation: none; } }
@@ -95,6 +108,9 @@ export class PlayKeys {
     this.el = h('div', { class: 'iw-pk', role: 'group', 'aria-label': '键盘' });
     this.panel = h('div', { class: 'iw-pk__panel' });
     this.el.appendChild(this.panel);
+    // (play-7: the split's two pads, behind the keys; shown only in landscape)
+    this.halfEls = [h('div', { class: 'iw-pk__half is-l' }), h('div', { class: 'iw-pk__half is-r' })];
+    for (const el of this.halfEls) this.panel.appendChild(el);
     this.strip = h('div', { class: 'iw-pk__strip is-empty', 'aria-live': 'polite' }, h('b', null, '打字，按「射」发射'), h('i'));
     this.panel.appendChild(this.strip);
     this.keyEls = new Map(); this.btnEls = new Map();
@@ -146,14 +162,21 @@ export class PlayKeys {
   static owns(e) { return !!(e && e.target && e.target.closest && e.target.closest('.iw-pk__panel')); }
 
   get frac() { return this._layout && typeof innerHeight !== 'undefined' ? this._layout.h / innerHeight : 0.4; }
+  /** play-7: where the keyboard is (CSS px) — { top, h, split, mid: { x0, x1 } | null, halves } (null before a layout) */
+  rect() {
+    const L = this._layout; if (!L) return null;
+    return { top: L.top, h: L.h, split: !!L.split, mid: L.mid ? { x0: L.mid.x0, x1: L.mid.x1 } : null, halves: L.halves ? L.halves.map((r) => ({ ...r })) : null };
+  }
 
   layout() {
     if (typeof innerWidth === 'undefined') return null;
     const L = keyboardLayout({ w: innerWidth, h: innerHeight }, safeInsets(), this.mode, { replay: this.replay });
     this._layout = L;
     this.el.classList.toggle('is-landscape', L.orient === 'landscape');
+    this.el.classList.toggle('is-split', !!L.split);
     this.panel.style.height = L.h + 'px';
     const top = L.top, place = (el, r) => { el.style.left = r.x + 'px'; el.style.top = (r.y - top) + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px'; el.style.display = ''; };
+    if (L.halves) L.halves.forEach((r, i) => place(this.halfEls[i], r));
     const used = new Set();
     for (const r of L.keys) { const el = this.keyEls.get(r.key); if (el) { place(el, r); used.add(r.key); } }
     for (const [k, el] of this.keyEls) if (!used.has(k)) el.style.display = 'none';
