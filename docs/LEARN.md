@@ -1489,3 +1489,31 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：房主迁移时 coop2（不是 versus2）正问着的题——coop2 的题由房主出、答案两边都收，房主走了合作赛本来就结束（`_partnerLeft`），不用接；三人以上房间的迁移只在 relay.test 里测过。
 
 **交接**：分支 `play-9b`（从 dev `741bfee` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。LEARN §14「没做的」第 1 条两样都做了（本节）。
+
+## 30. bag-aside 交付（2026-10-17，主会话，分支 `bag-aside`：竖屏手机上道具袋压在展板的中文释义和打字机的纸上——站点在前时道具袋滑出右边）
+
+**先读了什么**：lockgate w2d5 / w2d2 整天跑完后逐张看的竖屏截图（道具袋 `.iw-lf__bag` 贴在右边中间，展板取景时压住最右一列的中文释义，滑行段打字机取景时压住纸的右沿）；`forms/ui.js` 的 `FormsUi`（袋子是 `.iw-lf__bag`，挂在 `.iw-lf` 上）、名字牌让位的写法（`arena/host.js` 的 `markerYield`，站点在前时名字牌退到一边——这次照它做）、`runner/runner.js` 的取景状态（`glide.active`、`prepS.pose`、`bw.framing`）、`arena/host.js` 的 `tags` 标志。
+
+**先定的**：
+1. **道具袋让位，不是挪位**：平时还在右边中间（她的手够得着），只在「站点在前」时滑出右边 24 px 以外并淡掉（`.iw-lf.is-aside .iw-lf__bag`，`translate .28s` 弹簧 + `opacity .2s`，减少动态时不过渡）、`pointer-events: none`。站点在前 = 跑酷的滑行段打字（`glide.active`）、备战板（`prepS.pose`）、展板取景（`bw.framing`）；对抗赛 / Boss 的任一站点在前（`host.js` 新的 `stationUp`，就是名字牌让位用的那个 `tags` 标志：展板、打字机、回声亭、翻牌、题簇）。
+2. **道具键不让**：站点在前时她还可能要用道具（备战板上就是选道具的时候），所以只让袋子（显示手里有什么的那一条），道具键和墨罐不动。
+3. **`FormsUi.aside(on)`** 是唯一入口，`start()` 时归位；每种玩法在自己的 `update` 末尾按状态调一次（幂等，状态不变不碰 DOM）。
+
+**改了什么**：`forms/ui.js`（CSS + `aside()`）、`play/runner/runner.js`（取景后 / 没开跑时各一句）、`play/arena/host.js`（`stationUp`）、`forms/duel.js` / `forms/boss.js`（arena 更新后一句）；审计：`tools/learn/runner-drive.js`（`bagRect()`，滑行段打字和展板取景的帧检查多了「道具袋不压打字机 / 不压框好的展板」，板的留白按 `rect.w*54/1024+2`）、`tools/learn/arena-audit.mjs`（展板站的 R 图多 `bag`，打字时「道具袋离开打字机」一条）。
+
+**动了别人地盘的**：没有（`host.js` 只多存一个标志）。
+
+**测试**：`npm run test:learn` 250 / 250、`npm run check` 287 个文件。判分没动。
+
+**实测**（浏览器，锁下一次一个，竖屏 390×844 触屏，短关）：
+- 跑酷 w1d3（`runner-audit --touch`）：新加的两条帧检查全过，`bad` 0、0 报错 0 4xx；截图里滑行段打字时右边没有袋子，展板取景时板右沿到屏幕边都是空的（看完删了）。
+- 对抗赛 w1d6 短关（`arena-audit`）：全过，含新加的「打字时道具袋离开打字机」。
+- Boss 短关：见 DEVLOG 这一条（审计排在锁后面）。
+
+**拿不准的（自己定了）**：
+1. 让位时袋子整个淡掉而不是缩成一个角标——她在打字 / 读板，那几秒不需要知道手里有什么；想看就等板收起来。
+2. 横屏没动：横屏里袋子在右下，和板 / 打字机不交叠（§26 的横屏截图），不加状态。
+
+**没做的**：滑行段打字的取景本身（头顶离键盘中排 0–7 px，别处留白只有 3–5 px；一处 rig 点离左沿 14 px）——另一期；真机。
+
+**交接**：分支 `bag-aside`（从 dev `3b2e57e` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。
