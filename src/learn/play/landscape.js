@@ -17,7 +17,7 @@
 //     ResizeObserver on the clock keeps --iw-clock-half (half its width) on the page's root; the two sit that far plus
 //     8 px from the middle, never nearer than the 52 px they had
 // Desktop (no max-height: 460px) keeps every position as it was; the split keyboard still opens the column there.
-import { boardBand } from './board/frame.js';
+import { boardBand, frameBoard } from './board/frame.js';
 
 const CSS = `@media (max-height: 460px) and (orientation: landscape) {
   .iw-ps.is-typing .iw-ps__box { left: calc(env(safe-area-inset-left) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
@@ -65,11 +65,12 @@ export function watchClock() {
 }
 
 // what may stand at the top of the column (each only while it is on the screen)
-const TOP_SEL = ['.iw-ps:not(.is-off) .iw-ps__box', '.iw-hud__top', '.iw-bb:not(.is-off)', '.iw-lf:not(.is-off) .iw-lf__phase', '.iw-lf:not(.is-off) .iw-lf__rank', '.iw-touch__btn'];
-function topOver(x0, x1, H, floor = 0) {
+const ROW_SEL = ['.iw-ps:not(.is-off) .iw-ps__box', '.iw-hud__top', '.iw-bb:not(.is-off)', '.iw-lf:not(.is-off) .iw-lf__phase', '.iw-lf:not(.is-off) .iw-lf__rank'];
+const KEY_SEL = ['.iw-touch__btn'], TOP_SEL = [...ROW_SEL, ...KEY_SEL];
+function topOver(x0, x1, H, floor = 0, sels = TOP_SEL) {
   let top = floor;
   if (typeof document === 'undefined') return top;
-  for (const sel of TOP_SEL) for (const el of document.querySelectorAll(sel)) {
+  for (const sel of sels) for (const el of document.querySelectorAll(sel)) {
     const r = el.getBoundingClientRect();
     if (!(r.width > 0 && r.height > 0) || r.top > H * 0.45 || r.right <= x0 || r.left >= x1) continue;
     if (getComputedStyle(el).visibility === 'hidden' || +getComputedStyle(el).opacity < 0.05) continue;
@@ -87,8 +88,22 @@ export function typingColumn(keys) {
   return { W, H, top: topOver(x0, x1, H, 0), bottom: H, x0, x1, shelf: r.top };
 }
 
-/** a board's framing band under the top row (the middle 70 % of the screen: where a framed board stands) */
-export function hudBand(aspect, W, H) {
+/** a board's framing band under the top row (the middle 70 % of the screen: where a framed board stands); with the board
+ *  ({ w, h, bottom }: what walk.js frames — play-9) the touch layer's top-row keys count only where they would stand over
+ *  the board's text: on a landscape phone ⏸ and 加油 hang in the top right (844 × 390: x 672–760, y 39–82) — inside that
+ *  70 % — and pushed the boss's 回声亭 board down under them, its text under 17 px (LEARN §28). Framed under the clock row
+ *  the board stands clear of them (844: x 222–621); on a 667 × 375 phone ⏸ reaches 5 px past the board's margin at its
+ *  top-right corner — over its rim, not its text: let be (pushed under it, the text would be 16.8 px) */
+const BOARD_PAD = 54 / 1024;   // (board/paint.js BOARD.pad / BOARD.W: the margin round a board's text, of its width)
+export function hudBand(aspect, W, H, board = null) {
   const b = boardBand(aspect, W, H);
-  return { ...b, top: Math.max(b.top, topOver(W * 0.15, W * 0.85, H, 0) + 2) };
+  if (!board) return { ...b, top: Math.max(b.top, topOver(W * 0.15, W * 0.85, H, 0) + 2) };
+  let band = { ...b, top: Math.max(b.top, topOver(W * 0.15, W * 0.85, H, 0, ROW_SEL) + 2) };
+  for (let k = 0; k < 3; k++) {
+    const r = frameBoard(board, aspect, { W, H, band }).rect, pad = r.w * BOARD_PAD + 8;
+    const t = topOver(r.x + pad, r.x + r.w - pad, H, 0, KEY_SEL) + 2;
+    if (t <= band.top || t <= r.y + pad) break;
+    band = { ...band, top: t };
+  }
+  return band;
 }

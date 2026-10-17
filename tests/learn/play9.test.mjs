@@ -157,3 +157,28 @@ test('the runner never steers off a ramp for an outer lane: halyard\'s way down 
   fallRoom({ n: 4, step: 1, y: [0, 1, 0, 0] }, { left: [3, 0.5, 3, 3], right: [3, 1, 3, 3] }, 0, 3, 0, 0.3, 0.45, out);
   assert.ok(Math.abs(out.left - 0.05) < 1e-9 && Math.abs(out.right - 0.55) < 1e-9, JSON.stringify(out));
 });
+
+// ---------------------------------------------------------------------------------------------- the 回声亭's board on a landscape phone
+test('every 回声亭 board of the three weeks reads at ≥ 17 px framed under the boss\'s top row on a landscape phone (landscape.js hudBand: the clock row, not the touch keys)', async () => {
+  const { LEARN } = await import('../../src/config.js');
+  const { loadWeek, daySteps } = await import('../../src/learn/content.js');
+  const { echoSpec, layoutBoard } = await import('../../src/learn/play/board/paint.js');
+  const { frameBoard, boardBand } = await import('../../src/learn/play/board/frame.js');
+  const W0 = LEARN.board.w;
+  let n = 0;
+  for (const wk of [1, 2, 3]) {
+    const w = await loadWeek(wk);
+    for (const d of w.days || []) for (const s of daySteps(w, d.n)) if (s.meta.type === 'speak') for (const it of s.items) {
+      const L = layoutBoard(echoSpec(it)), h = (W0 * L.H) / L.W;
+      // (the boss's top row on a landscape phone: the HP bar, the clock and the phase strip at 3–41 px — hudBand's top 47)
+      for (const [Wd, Hd] of [[844, 390], [852, 393], [667, 375]]) {
+        const band = { ...boardBand(Wd / Hd, Wd, Hd), top: 47 };
+        const f = frameBoard({ w: W0 + 0.14, h: h + 0.14, bottom: LEARN.board.bottom - 0.07 }, Wd / Hd, { W: Wd, H: Hd, band });
+        const font = L.minFont * (f.rect.w * (W0 / (W0 + 0.14))) / L.W;
+        assert.ok(f.fits && font >= LEARN.board.font, `${it.id} ${Wd}×${Hd}: ${font.toFixed(1)} px`);
+        n++;
+      }
+    }
+  }
+  assert.ok(n >= 60, `${n} boards × screens`);
+});
