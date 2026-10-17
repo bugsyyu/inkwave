@@ -53,17 +53,29 @@ export class ExitStation {
     // a station's spot: a walkable node she can reach from the route's end (the far spawn's zone lies just past it and is
     // closed to her team; the first version put the booth in it and the auto-walk ran at the barrier until the audit's
     // budget ran out) — the asked offset first, then nearer the route, then further back along it
-    const spot = (lat, ahead) => {
-      for (const [l, h] of [[lat, ahead], [lat * 0.6, ahead], [lat, ahead - 2.5], [lat * 0.6, ahead - 2.5], [0, ahead - 1.5], [0, ahead - 4]]) {
-        _v.set(end.x + sx * l + fx * h, end.y + 1, end.z + sz * l + fz * h);
+    // play-fix: first a spot near the route end's own level that she walks to and back on foot — no drop, jump or climb
+    // either way, nor from the booth to it (crossmarket: the route ends up a ramp, the booth's offset found the market
+    // terrace 1 m above, the check-in pad the ground below it, and the way from the booth to the pad was a drop off the
+    // terrace's end that the auto-walk never made — the pad was passed over by the 40 s timer); then anywhere she can
+    // reach, as before
+    const flatWay = (a, b) => { if (a < 0 || b < 0 || a === b) return true; const P = nav.path(a, b, 0, 4000, true); if (!P) return false; for (let i = 1; i < P.length; i++) { const e = nav.edge(P[i - 1], P[i]); if (e && e.type && e.type !== 'walk') return false; } return true; };
+    // (and apart: on crossmarket the walk-only spots both came to the ramp at the route's end, the check-in pad 1.9 m from
+    // the booth — she stepped onto the pad still inside the booth's ring, the day ended before 说完了; a board's spot and
+    // its viewing spot, `back` m behind it along the route, keep SEP m from the booth)
+    const SEP = 3.2, apart = (n, away, back) => away.every((q) => Math.hypot(n.x - q.x, n.z - q.z) >= SEP && Math.hypot(n.x - fx * back - q.x, n.z - fz * back - q.z) >= SEP);
+    const spot = (lat, ahead, from = -1, away = [], back = 0) => {
+      for (const strict of [true, false]) for (const [l, h] of [[lat, ahead], [lat * 0.6, ahead], [lat, ahead - 2.5], [lat * 0.6, ahead - 2.5], [0, ahead - 1.5], [0, ahead - 4], [lat, ahead - 5], [lat * 0.6, ahead - 5], [0, ahead - 6.5]]) {
+        _v.set(end.x + sx * l + fx * h, end.y + (strict ? 0.2 : 1), end.z + sz * l + fz * h);
         const k = nav ? nav.nearest(_v, 2.5, false) : -1;
         if (k < 0) continue;
         const n = nav.nodes[k];
         if (n.zone >= 0 && n.zone !== 0) continue;
         if (endNode >= 0 && !nav.path(endNode, k, 0, 4000, true)) continue;
-        return { x: n.x, y: n.y, z: n.z, node: k };
+        if (!apart(n, away, back)) continue;   // (both passes: a pad inside the booth's ring ends the day before 说完了)
+        if (strict && (Math.abs(n.y - end.y) > 1.0 || !flatWay(endNode, k) || !flatWay(k, endNode) || !flatWay(from, k))) continue;
+        return { x: n.x, y: n.y, z: n.z, node: k, strict };
       }
-      return { x: end.x, y: end.y, z: end.z, node: endNode };
+      return { x: end.x, y: end.y, z: end.z, node: endNode, strict: false };
     };
     const hex = G.teamHex?.[0] || '#ff8a14', root = (G.hud && G.hud.root) || document.body;
     this.spots = [];
@@ -90,7 +102,8 @@ export class ExitStation {
       list.sort((x, y) => (x.kind === 'checkin') - (y.kind === 'checkin'));   // (the check-in pad last: stepping on it ends the day)
       this.signs.prepare('exit', list);
       const yaw = Math.atan2(-fx, -fz);   // the boards face back along the route, towards her
-      const places = list.map((s, i) => { const lat = (item ? 1.6 : 0) + (i - (list.length - 1) / 2) * 2.6; const b = spot(lat, -1.2); return { x: b.x + fx * 1.0, y: b.y, z: b.z + fz * 1.0, yaw, view: { x: b.x - fx * (LEARN.board.view - 1.0), y: b.y, z: b.z - fz * (LEARN.board.view - 1.0) } }; });
+      const away = this.echoAt ? [this.echoAt] : [];
+      const places = list.map((s, i) => { const lat = (item ? 1.6 : 0) + (i - (list.length - 1) / 2) * 2.6; const b = spot(lat, -1.2, this.echoAt ? this.echoAt.node : -1, away, LEARN.board.view - 1.0); return { x: b.x + fx * 1.0, y: b.y, z: b.z + fz * 1.0, yaw, view: { x: b.x - fx * (LEARN.board.view - 1.0), y: b.y, z: b.z - fz * (LEARN.board.view - 1.0) } }; });
       this.signs.place('exit', places);
       list.forEach((s, i) => { const v = places[i].view; const k = nav ? nav.nearest(_v.set(v.x, v.y + 1, v.z), 2.5, true) : -1; this.spots.push({ x: v.x, y: v.y, z: v.z, node: k, kind: s.kind, sign: i, title: s.kind === 'checkin' ? '打卡垫' : s.kind === 'weekly' ? '周报牌' : '入门小测牌' }); if (s.kind === 'checkin') this.padAt = { x: v.x, y: v.y, z: v.z }; });
     }
@@ -145,7 +158,7 @@ export class ExitStation {
     this.signs?.update(dt, t, a ? a.pos : null, o);
     this._reach(dt);
   }
-  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), z: +s.z.toFixed(1), node: s.node, skipped: !!(this.skipped && this.skipped.has(s)), visited: !!(this.visited && this.visited.has(s)), read: s.sign >= 0 && this.signs ? this.signs.walk.read(s.sign) : null })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
+  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), y: +s.y.toFixed(1), z: +s.z.toFixed(1), node: s.node, strict: s.strict, skipped: !!(this.skipped && this.skipped.has(s)), visited: !!(this.visited && this.visited.has(s)), read: s.sign >= 0 && this.signs ? this.signs.walk.read(s.sign) : null })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
   clear() { this.echo?.close(); this.signs?.clear(); this.on = false; }
   dispose() { this.clear(); this.echo?.dispose(); this.signs?.dispose(); this.echo = null; this.signs = null; }
 }

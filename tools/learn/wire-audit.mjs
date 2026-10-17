@@ -426,6 +426,7 @@ if (report.exit) { const x = await ev(() => __inkwave.match.learn.play.exit.debu
   // (play-fix) every stop of the exit area reached — the booth spoken, the weekly / placement boards read or stood at, the
   // pad stepped on — none given up on by the walk's timer
   check(x.spots.every((s) => !s.skipped), 'exit: no stop passed over by the walk\'s timer', x.spots);
+  check(!x.spots.some((s) => s.kind === 'echo') || x.spoke, 'exit: the booth spoken (说完了) before the day ended', x);
   const ends = await ev(() => ({ results: !!document.querySelector('.iw-learn.is-done'), phase: __inkwave.match.learn.phase }));
   check(ends.phase === 'done', `exit: the day ended (phase ${ends.phase}, results ${ends.results})`, ends); }
 await finish();
