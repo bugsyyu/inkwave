@@ -29,6 +29,10 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 // --near: the first written sentence (写字墙) is typed a word short — claimable — and must come back HELD (nothing written,
 // the strip's 「我的写法也对 / 继续」), then 「我的写法也对」 is tapped → S (play-fix)
 const NEAR = args.includes('--near');
+// --perf (PLAY §7, play-fix): main.js _frame's cost (debug.frameTimes, play-1's sampler) over PERF_N stepped frames each —
+// walking (the auto-walk under way), typing (the rig and the keyboard up, the lens settled), the beat stage (the word
+// played, the round listening), a framed board — the first time each comes up
+const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
 const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', 12);
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const V = VIEWS[VIEW] || VIEWS.portrait;
@@ -105,7 +109,7 @@ const state = () => ev(() => {
     phase: F.phase, cur: F.cur, auto: F.auto, paused: m.paused, hold: !!F.hold, panelShown: !!(pr && pr.width > 0 && pr.height > 0 && getComputedStyle(panel).display !== 'none'), cardUp: !!(__G.hud.learn && __G.hud.learn._ask),
     strip: stripOn ? { text: strip.innerText.replace(/\s+/g, ' ').trim(), rect: [sr.left, sr.top, sr.width, sr.height].map(Math.round), ok: !!document.querySelector('.iw-ps.is-ok'), bad: !!document.querySelector('.iw-ps.is-bad') } : null,
     kb: kbOn ? [kr.left, kr.top, kr.width, kr.height].map(Math.round) : null,
-    xh: (() => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; })(),
+    xh: (() => { const e = document.querySelector('.iw-xh'), r = e && e.querySelector('.iw-ret'); if (!r) return false; const b = r.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && b.height > 0 && cs.visibility !== 'hidden' && +cs.opacity > 0.05; })(),
     W: innerWidth, H: innerHeight, mechanic: H.kind, asking, item: F.asking && F.asking.item.id, dbg: d, touchLive: __inkwave.touch ? __inkwave.touch.enabled : null,
     answers: F.log.filter((e) => e.name === 'learn:answer'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'),
     rigMode: __inkwave.rig.mode, cam: [__G.camera.position.x, __G.camera.position.y, __G.camera.position.z].map((v) => +v.toFixed(2)), fov: +__G.camera.fov.toFixed(1),
@@ -122,9 +126,19 @@ const rightAnswer = () => ev(() => {
   return (item.meta && item.meta.ref) || item.en;
 });
 const inside = (b, s) => b.x >= s.x - 1 && b.y >= s.y - 1 && b.x + b.w <= s.x + s.w + 1 && b.y + b.h <= s.y + s.h + 1;
+async function perfSample(label) {
+  if (!PERF || (report.perf && report.perf[label])) return;
+  await ev(() => __inkwave.debug.frameTimes.start());
+  for (let i = 0; i < PERF_N; i++) await step(16.7);
+  const st = await ev(() => Object.assign(__inkwave.debug.frameTimes.stop(), { calls: __inkwave.perf && __inkwave.perf.calls }));
+  (report.perf || (report.perf = {}))[label] = st;
+  say('perf', label, JSON.stringify(st));
+}
 // the crosshair (play-fix: hidden while a station holds her — typing, a stage, a flip card, a framed board — as the runner
 // hides it; M1 keeps it: she aims there)
-const xhShown = () => ev(() => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; });
+// (.iw-xh itself is a 0 × 0 anchor at the centre — its reticle .iw-ret is what shows: a rect test on the anchor is always
+// "hidden", play-4's runner-drive check included)
+const xhShown = () => ev(() => { const e = document.querySelector('.iw-xh'), r = e && e.querySelector('.iw-ret'); if (!r) return false; const b = r.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && b.height > 0 && cs.visibility !== 'hidden' && +cs.opacity > 0.05; });
 // the lens has come to rest (the station's spring): the camera moves < 1 cm a step, or the steps run out
 async function settle(max = 30, ms = 100) {
   let last = null;
@@ -159,6 +173,10 @@ async function walkOn() {
   for (let i = 0; i < 400; i++) {
     const s = await ev(() => { const F = __inkwave.match.learn, H = F.play; const X = H.exit.debug(); return { phase: F.phase, auto: F.auto, asking: !!(H.cur && F.asking), framed: H.boards.framed, exit: X.idle ? null : X, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') }; });
     if (s.asking || s.done) return s;
+    if (PERF && !(report.perf && report.perf.walk) && s.phase === 'walk' && s.auto && s.framed < 0 && i >= 2) {
+      const sp = await ev(() => { const a = __inkwave.match.local; return Math.hypot(a.vel.x, a.vel.z); });
+      if (sp > 1.5) await perfSample('walk');
+    }
     if (i % 40 === 39) say('walking', JSON.stringify(await ev(() => { const F = __inkwave.match.learn, a = F.match.local; return { phase: F.phase, auto: F.auto, her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(1)), stall: +F.autoStall.toFixed(1), exit: F.play.exit.debug() }; })).slice(0, 400));
     if (s.phase === 'exit' && !s.auto) {
       // a stop in the exit area: the booth (the sample plays; walking on = 说完了) or the check-in pad (踩上去 = 走完了)
@@ -182,6 +200,7 @@ async function walkOn() {
         check(!st.paused && !st.panelShown, `board ${b.framed}: the world runs on, no card`);
         check(!st.xh, `board ${b.framed}: no crosshair while it is framed`);
         report.boards.push({ i: b.framed, framing: b.framing, hotspots: b.hotspots, read: b.boards[b.framed] && b.boards[b.framed].read });
+        await perfSample('board');
         await shot('m6-board');
         if (b.hotspots.length && !report.hotTapped) { report.hotTapped = true; const h = b.hotspots[0]; await tapAt(h.x + h.w / 2, h.y + h.h / 2); await step(100); say('tapped board hotspot', h.id); }
       }
@@ -240,6 +259,7 @@ async function answerType(s, right) {
   check(!!fr && fr.inBand, `M4: the typewriter between the strip (${fr && fr.stripBottom}) and the keyboard (${fr && fr.kbTop}): ${fr && fr.rig.join('–')} px`, fr);
   check(!!fr && fr.headBelowRow, `M4: her head (${fr && fr.head[1]}) below the keys' row (${fr && fr.row[1]})`, fr);
   check(!(await xhShown()), 'M4: no crosshair while she types');
+  await perfSample('type');
   await shot('m4-type-' + d.mode);
   // a hint on the first word (the keyboard's 提示 → H), then the text key by key on the game keyboard through the touch layer
   let text = String(right).toLowerCase();
@@ -299,6 +319,7 @@ async function answerBeat(s, right) {
   // the word plays on a bar line: wait for the round to listen
   const lis = await waitFor(() => { const d = __inkwave.match.learn.play.beat.debug(); return d.state && d.state.round === 'listen' ? d : null; }, 80, 100);
   check(!!lis, 'M3: the word played (round listening)', lis && lis.state);
+  if (PERF && !(report.perf && report.perf.beat)) { await perfSample('beat'); await waitFor(() => { const d = __inkwave.match.learn.play.beat.debug(); return d.state && d.state.round === 'listen' ? d : null; }, 80, 100); }
   await step(200);
   await shot('m3-pads-' + d0.n);
   const d = await ev(() => __inkwave.match.learn.play.beat.debug());
