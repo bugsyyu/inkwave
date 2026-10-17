@@ -214,7 +214,7 @@ function VIEW_FN() {
       depth: (() => { const T = Hst.m1.T, c = __G.camera.position, out = []; for (let k = 0; k < (T.n || 0); k++) { const S = T.slots[k]; if (S && S.on) out.push(+Math.hypot(S.pos.x - c.x, S.pos.y - c.y, S.pos.z - c.z).toFixed(2)); } return out; })(),
       place: (m1.log || []).filter((e) => e.ev === 'place').pop() || null } : null,
     type: Hst && Hst.kind === 'type' ? Hst.type.debug() : null,
-    clue: d.play && d.play.clue ? d.play.clue : null,
+    clue: d.play && d.play.clue ? d.play.clue : null, playLog: d.play && d.play.log ? d.play.log : null,
     playTargets: !!__G.playTargets, playTap: !!__G.playTap,
     log: logs.join(' '),
     zone: m.zones ? { share: m.zones.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))), winner: m.zones.winner, reason: m.zones.reason } : null,
@@ -299,6 +299,7 @@ async function answerOn(H, i, right) {
     return { how: took ? 'tap' : 'shoot', k, verdict: v.m1 ? v.m1.verdict : null, at: [Math.round(x), Math.round(y)] };
   }
   if (v.mech === 'type') {
+    await sleep(700);   // (the game keyboard slides in on a CSS transition — the wall clock's: let it settle before a tap)
     const text = right ? String(v.right || '').toLowerCase() : 'zzq';
     const keyAt = (k) => ev(i, (k) => { const Hs = __inkwave.match.learn.arena || __inkwave.match.learn.play, el = Hs.type.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, k);
     for (const ch of text) { if (!/[a-z ' .,?-]/.test(ch)) continue; const at = await keyAt(ch); if (at) await pages[i].touchscreen.tap(Math.round(at[0]), Math.round(at[1])); }
@@ -421,7 +422,7 @@ async function driveCoopPlay(H) {
     for (const [i, v] of Y.entries()) check(`${tag} c${i}: still no card, no pause, no hold`, noCard(v), { panel: v.panelShown, paused: v.paused, hold: v.hold });
   }
   const V = await Promise.all([H.view(0), H.view(1)]), ST = await Promise.all([H.store(0), H.store(1)]);
-  R.final = V.map((v, i) => ({ log: v.log, card: v.learnCard, mine: v.mine, store: ST[i] }));
+  R.final = V.map((v, i) => ({ log: v.log, card: v.learnCard, mine: v.mine, store: ST[i], playLog: v.playLog }));
   for (const [i, v] of V.entries()) say(`c${i} log: ${v.log}`);
   check('gates opened on both screens, in step', V[0].cur === V[1].cur && V[0].cur === V[0].gates, `${V[0].cur}/${V[0].gates} vs ${V[1].cur}/${V[1].gates}`);
   check('roles swapped: both players answered and both gave clues', V.every((v) => v.mine && v.mine.asked >= 1 && v.mine.clues >= 1), JSON.stringify(V.map((v) => v.mine)));

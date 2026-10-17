@@ -28,9 +28,12 @@ import { ArenaRun } from '../arena/run.js';
 import { TypeStation } from '../wire/type.js';
 import { PlayCam } from '../cam.js';
 import { BoardWalk } from '../board/walk.js';
+import { layoutBoard } from '../board/paint.js';
+import { frameBoard } from '../board/frame.js';
 import { duoMechanic, clueSpec, splitPrompt } from '../../forms/duo.js';
 
 const BD = LEARN.board;
+const CLUE_W_UPRIGHT = 1.3;   // m: the clue board's width on a phone held upright (BD.w otherwise)
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _c = new THREE.Vector3();
 
 export class CoopPlay {
@@ -84,12 +87,15 @@ export class CoopPlay {
     this.kind = 'clue'; this.cur = { g, item, p: view };
     F.hud?.hide?.(); F.hud?.playMode?.(true);
     G.playTargets = null; G.playTap = null;
-    const key = this._clueKey(item, o.alt), spot = this._clueSpot(g);
+    // (upright, a narrower board: the framing camera stands where the board's width fills the screen's — 2.3 m wide
+    // puts it ~4 m behind her, into the gazebo / the wall behind the pad; the text on the screen is the same size)
+    const bw = innerWidth < innerHeight ? CLUE_W_UPRIGHT : BD.w;
+    const key = this._clueKey(item, o.alt), spec = clueSpec(view, o.partner), spot = this._clueSpot(g, spec, bw);
     const B = this._board();
     if (spot && B) {
-      if (!B.entries.has(key)) B.prepare(key, [clueSpec(view, o.partner)]);
+      if (!B.entries.has(key)) B.prepare(key, [spec]);
       this.painted.add(key);
-      B.place(key, [spot]);
+      B.place(key, [spot], { w: bw });
       this.strip?.hide();
       this.clueOn = { key, item, spot, strip: false };
     } else {
@@ -124,10 +130,18 @@ export class CoopPlay {
     return true;
   }
   // where the board stands: BD.view m in front of her, towards the gate's targets (else the nearest way with ground at
-  // her level, a clear line from her head to the face and room behind her for the framing camera), facing her
-  _clueSpot(g) {
+  // her level, a clear line from her head to the face, from the face to where the framing camera will stand — frameBoard's
+  // distance for this board on this screen: ~4 m behind her upright, between her and it on a landscape phone — and
+  // nothing where the slab goes), facing her
+  _clueSpot(g, spec, bw = BD.w) {
     const a = this.match.local, L = G.level, P = G.physics; if (!a) return null;
     const base = this.facingYaw(g, a), why = [];
+    let fd = 1.4, fy = 2.1;
+    try {
+      const Lb = layoutBoard(spec), h = Math.min(2.6, (bw * Lb.H) / Lb.W), W = innerWidth, H = innerHeight;
+      const f = frameBoard({ w: bw + 0.14, h: h + 0.14, bottom: BD.bottom - 0.07 }, W / H, { W, H });
+      fd = f.d; fy = f.pos[1];
+    } catch (e) { /* the defaults */ }
     for (const dy of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, Math.PI]) {
       const yaw = base + dy, sx = Math.sin(yaw), cz = Math.cos(yaw);
       const x = a.pos.x + sx * BD.view, z = a.pos.z + cz * BD.view;
@@ -136,10 +150,11 @@ export class CoopPlay {
       if (P && P.los) {
         _c.set(x, gy + BD.bottom + 0.55, z);
         if (!P.los(_v.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _c)) { why.push('face'); continue; }
-        // (the framing camera stands behind her, a little up: it must see the face from there)
-        if (!P.los(_c, _w.set(a.pos.x - sx * 1.4, a.pos.y + 2.1, a.pos.z - cz * 1.4))) { why.push('lens'); continue; }
+        // (the framing camera: fd m in front of the face, at fy over the ground — it must see the face from there)
+        if (!P.los(_c, _w.set(x - sx * fd, gy + fy, z - cz * fd))) { why.push('lens'); continue; }
         // (and nothing stands where the slab goes, either side of its middle)
-        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x + cz * 1.0, gy + 1.0, z - sx * 1.0)) || !P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x - cz * 1.0, gy + 1.0, z + sx * 1.0))) { why.push('slab'); continue; }
+        const hw = bw / 2 - 0.15;
+        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x + cz * hw, gy + 1.0, z - sx * hw)) || !P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x - cz * hw, gy + 1.0, z + sx * hw))) { why.push('slab'); continue; }
       }
       return { x, y: gy, z, yaw: yaw + Math.PI, view: { x: a.pos.x, y: a.pos.y, z: a.pos.z }, tries: why.length };
     }
