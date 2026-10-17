@@ -215,8 +215,9 @@ export class CoopPlay {
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
     if (this.kind === 'clue') G.playTap = B && B.framed >= 0 ? B.tapApi : null;
     const pose = S ? S.pose : (this.kind === 'clue' && B ? B.framing : null);
-    // (the HUD's crosshair over a framed board is noise: hidden while it is framed, back after — as the 打字蟹 does)
-    const xh = G.hud && G.hud.xh, hideXh = this.kind === 'clue' && !!(B && B.framed >= 0);
+    // (the HUD's crosshair over a framed board or over the 打字蟹 is noise: hidden while either is up, back after — as
+    // play-5's arena/type.js does; wire/type.js leaves it on)
+    const xh = G.hud && G.hud.xh, hideXh = (this.kind === 'clue' && !!(B && B.framed >= 0)) || (this.kind === 'type' && !!this.type.cur);
     if (xh && xh.style && hideXh !== !!this.xhHidden) { xh.style.visibility = hideXh ? 'hidden' : ''; this.xhHidden = hideXh; }
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && this.kind !== 'm1') this.cam.release(G.rig, a);
