@@ -5,11 +5,14 @@
 // M6 boards on the stage, src/learn/play/arena/prep.js.)
 // One layer in #ui-root (z 17: under the question layer, over the HUD).
 import { h, colorVars } from '../../ui/ui-util.js';
-import { GLYPHS } from '../../ui/ui-icons.js';
+import { GLYPHS, SUB_ICONS, SPECIAL_ICONS } from '../../ui/ui-icons.js';
 import { G } from '../../core/ctx.js';
 import { PROPS } from '../design.js';
 
 const PROP_GLYPH = { leap: 'beacon', rain: 'storm', echo: 'sonar', shield: 'bubbler', curtain: 'curtain', bomb: 'bomb', lane: 'slam' };
+// the game's own two-tone sub / special icons (ink = currentColor, as the HUD draws them); these names are not in GLYPHS,
+// so every slot used to fall back to the same drop
+const propIcon = (id) => { const n = PROP_GLYPH[id]; return SUB_ICONS[n] || SPECIAL_ICONS[n] || GLYPHS[n] || GLYPHS.drop; };
 const CSS = `
 .iw-lf { position: absolute; inset: 0; pointer-events: none; z-index: 17; font-family: 'Rubik', system-ui, sans-serif; color: #fff;
   --self: #ff8a14; --self-ink: #15121c; --k: #15121c; --k3: #2c2540; --lk: linear-gradient(170deg, rgba(40, 33, 60, .94), rgba(22, 18, 32, .94)); }
@@ -21,6 +24,7 @@ const CSS = `
 /* a slot is a little sticker (styles/hud.css): ink outline, a solid ink shadow under it, a light rim; a press sinks it */
 .iw-lf__slot { width: 56px; height: 56px; border-radius: 16px; border: 2px solid rgba(255,255,255,.22); background: var(--lk); color: #fff; display: grid; place-items: center; padding: 10px; cursor: pointer; position: relative;
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); transition: translate .08s, box-shadow .08s; -webkit-tap-highlight-color: transparent; }
+.iw-lf__slot i { display: block; width: 100%; height: 100%; color: var(--self); }
 .iw-lf__slot i svg { filter: drop-shadow(0 2px 0 rgba(0,0,0,.35)); }
 .iw-lf__slot:active { translate: 0 2px; box-shadow: 0 0 0 2px var(--k), 0 1px 0 2px var(--k); }
 .iw-lf__slot:disabled { opacity: .35; cursor: default; }
@@ -37,6 +41,8 @@ const CSS = `
 .iw-lf__rank i { width: 18px; text-align: center; font-family: 'Titan One', 'Rubik', sans-serif; font-weight: 400; font-style: normal; }
 .iw-lf__phase { position: absolute; left: 50%; top: 92px; translate: -50% 0; display: flex; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--lk); font-size: 13px; font-weight: 800;
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); }
+/* (empty outside the boss: it drew a small dark pill under the clock in every other form) */
+.iw-lf__phase:empty { display: none; }
 .iw-lf__phase span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.1); color: #c3bdd6; white-space: nowrap; }
 .iw-lf__phase span.is-on { background: var(--self); color: var(--self-ink); box-shadow: 0 0 0 2px var(--k); rotate: -3deg; }
 .iw-lf__phase span.is-done { background: rgba(255,255,255,.28); color: #fff; }
@@ -84,7 +90,7 @@ export class FormsUi {
     this.bag.innerHTML = '';
     ids.forEach((id, i) => {
       const P = PROPS[id]; if (!P) return;
-      const b = h('button', { class: 'iw-lf__slot' + (i === fresh ? ' is-new' : ''), type: 'button', title: P.desc, 'aria-label': P.zh }, h('i', { html: GLYPHS[PROP_GLYPH[id]] || GLYPHS.drop }), h('b', null, P.zh));
+      const b = h('button', { class: 'iw-lf__slot' + (i === fresh ? ' is-new' : ''), type: 'button', title: P.desc, 'aria-label': P.zh }, h('i', { html: propIcon(id) }), h('b', null, P.zh));
       b.addEventListener('click', () => this.onUse?.(i));
       this.bag.appendChild(b);
     });

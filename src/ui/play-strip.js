@@ -37,15 +37,15 @@ const CSS = `
 /* INKWAVE's sticker look (styles/hud.css): a hard ink outline, a solid ink shadow dropped under it, a light rim inside */
 .iw-ps__box { position: absolute; left: 50%; top: calc(min(1vw, 1.7778vh) * 7.4); translate: -50% 0; width: max-content; max-width: min(680px, calc(100vw - 32px));
   display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 8px; border-radius: 20px; background: var(--lk); isolation: isolate;
-  border: 1.5px solid rgba(255, 255, 255, .2); box-shadow: var(--ol), 0 8px 18px rgba(0, 0, 0, .22); transition: border-color .2s; }
+  border: 1.5px solid rgba(255, 255, 255, .2); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .07), inset 0 -3px 0 rgba(0, 0, 0, .18), var(--ol), 0 8px 18px rgba(0, 0, 0, .22); transition: border-color .2s; }
 .iw-ps__box.is-noplay { padding-left: 18px; }
 .iw-ps__box.is-enter { animation: iw-ps-in .4s var(--spring) backwards; }
 @keyframes iw-ps-in { from { opacity: 0; translate: -50% -10px; } }
 .iw-ps__play { pointer-events: auto; flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 11px; cursor: pointer;
   background: var(--k3); color: #fff; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22), 0 0 0 2px var(--k), 0 3px 0 2px var(--k);
-  -webkit-tap-highlight-color: transparent; transition: translate .08s, box-shadow .08s, background .15s; }
+  -webkit-tap-highlight-color: transparent; transition: translate .22s var(--spring), box-shadow .12s, background .15s; }
 .iw-ps__play svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .3)); }
-.iw-ps__play:active { translate: 0 2px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22), 0 0 0 2px var(--k), 0 1px 0 2px var(--k); }
+.iw-ps__play:active { translate: 0 2px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22), 0 0 0 2px var(--k), 0 1px 0 2px var(--k); transition-duration: 0s; }
 .iw-ps__play.is-playing { background: var(--self); color: var(--self-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .35), 0 0 0 2px var(--k), 0 3px 0 2px var(--k); }
 .iw-ps__play.is-playing svg { filter: none; }
 .iw-ps__play:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
@@ -59,12 +59,16 @@ const CSS = `
 .iw-ps__head { position: relative; display: block; width: fit-content; max-width: 100%; margin-left: -4px; padding: 0 10px 0 8px;
   font-size: 19px; font-weight: 800; color: var(--k); overflow-wrap: anywhere; }
 .iw-ps__head::before { content: ''; position: absolute; z-index: -1; inset: -2px -2px -1px -3px; background: var(--self);
-  clip-path: polygon(1.5% 9%, 100% 0, 98.5% 91%, 0 100%); rotate: -1.2deg; box-shadow: inset 0 -.22em 0 rgba(0, 0, 0, .14); }
+  clip-path: polygon(1.5% 9%, 100% 0, 98.5% 91%, 0 100%); rotate: -1.2deg; transform-origin: 0 50%;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 46%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, .16)); }
 .iw-ps.is-bad .iw-ps__head::before { background: var(--coral); }
-.iw-ps.is-verdict .iw-ps__head::before { animation: iw-ps-rib .38s var(--out) backwards; }
-@keyframes iw-ps-rib { from { scale: .15 1; opacity: 0; } }
+.iw-ps.is-verdict .iw-ps__head::before { animation: iw-ps-rib .42s var(--spring) backwards; }
+@keyframes iw-ps-rib { 0% { scale: .08 .7; opacity: 0; } 30% { opacity: 1; } }
+.iw-ps.is-verdict .iw-ps__head { animation: iw-ps-word .36s var(--out) .06s backwards; }
+@keyframes iw-ps-word { from { opacity: 0; translate: -10px 0; } }
+.iw-ps.is-verdict .iw-ps__why { animation: iw-ps-word .36s var(--out) .12s backwards; }
 .iw-ps__box.is-flash .iw-ps__head { animation: iw-ps-pop .5s var(--spring); }
-@keyframes iw-ps-pop { 0% { scale: 1.16; } }
+@keyframes iw-ps-pop { 0% { scale: 1.18; } }
 .iw-ps__why { display: block; margin-top: 2px; font-size: 17px; font-weight: 600; color: #e9e5f4; overflow-wrap: anywhere; }
 .iw-ps__why:empty { display: none; }
 .iw-ps.is-verdict .iw-ps__text { display: none; }
@@ -75,8 +79,8 @@ const CSS = `
 .iw-ps.is-acts .iw-ps__acts { display: flex; flex-wrap: wrap; }
 .iw-ps__act { pointer-events: auto; min-height: 44px; padding: 8px 16px; border-radius: 14px; border: 1.5px solid rgba(255, 255, 255, .22); background: var(--k3); color: #fff;
   font: 700 16px 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); transition: translate .08s, box-shadow .08s; }
-.iw-ps__act:active { translate: 0 2px; box-shadow: 0 0 0 2px var(--k), 0 1px 0 2px var(--k); }
+  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); transition: translate .22s var(--spring), box-shadow .12s; }
+.iw-ps__act:active { translate: 0 2px; box-shadow: 0 0 0 2px var(--k), 0 1px 0 2px var(--k); transition-duration: 0s; }
 .iw-ps__act.is-primary { background: var(--self); color: var(--self-ink); border-color: rgba(255, 255, 255, .4); rotate: -1.5deg; }
 .iw-ps__act:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 @media (orientation: portrait) and (max-width: 640px) {
@@ -90,23 +94,36 @@ const CSS = `
 .iw-ps__tag.is-on { display: block; }
 .iw-ps__tag.is-beat { background: #ffd21a; color: #15121c; }
 .iw-ps__tag.is-type { background: #e9e5f4; color: #15121c; }
-.iw-ps__lanes { display: none; gap: 7px; align-items: stretch; margin-top: 6px; }
+.iw-ps__lanes { display: none; flex-wrap: wrap; gap: 7px; align-items: stretch; margin-top: 6px; }
 .iw-ps__lanes.is-on { display: flex; }
 .iw-ps__lanes span { flex: 1; min-width: 0; padding: 5px 8px; border-radius: 10px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .1);
-  font-size: 14px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; transition: background .15s, box-shadow .15s; }
-.iw-ps__lanes span b { display: inline-block; min-width: 18px; margin-right: 5px; padding: 0 3px; border-radius: 6px; background: var(--self); color: #15121c; text-align: center;
-  font: 400 13px/18px 'Titan One', 'Rubik', sans-serif; box-shadow: 0 0 0 1.5px var(--k); rotate: -5deg; }
-.iw-ps__lanes span small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+  font-size: 14px; line-height: 1.3; font-weight: 700; overflow-wrap: normal; word-break: keep-all; min-width: min-content; transition: background .15s, box-shadow .15s; }
+/* (the lane's letter stays inline — a badge box round it would push the word to its own line and the strip down) */
+.iw-ps__lanes span b { color: var(--self); margin-right: 4px; font-family: 'Titan One', 'Rubik', sans-serif; font-weight: 400; -webkit-text-stroke: 3px var(--k); paint-order: stroke fill; }
+.iw-ps__lanes span small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; word-break: normal; overflow-wrap: anywhere; }
 .iw-ps__lanes span.is-here { background: rgba(var(--self-rgb), .26); box-shadow: inset 0 0 0 2px var(--self); }
 @media (orientation: landscape) { .iw-ps__lanes.is-lite { display: none !important; } }
+/* upright, the lanes' row runs under ▶ and the chip too — the whole width of the strip, not the column beside the chip
+   (there the cells were ~43 px and 「here」 broke into 「her / e」): a grid while a question with lanes is up; the
+   question and its Chinese keep their place beside ▶ / the chip, so the strip is never taller than before */
+@media (orientation: portrait) and (max-width: 640px) {
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) { display: grid; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 0;
+    grid-template-areas: "play tag q" "play tag zh" "lanes lanes lanes"; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__text { display: contents; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__play { grid-area: play; align-self: center; margin-right: 12px; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__tag { grid-area: tag; margin-right: 12px; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__q { grid-area: q; align-self: end; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__zh { grid-area: zh; align-self: start; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__lanes { grid-area: lanes; }
+}
 .iw-ps.is-verdict .iw-ps__lanes { display: none; }
-.iw-ps__note { position: absolute; left: 50%; top: 0; translate: -50% 0; max-width: calc(100vw - 32px); padding: 8px 16px; border-radius: 999px; background: var(--lk);
+.iw-ps__note { position: absolute; left: 50%; top: 0; translate: -50% 0; max-width: calc(100vw - 32px); padding: 8px 16px; border-radius: 20px; background: var(--lk);
   border: 1.5px solid rgba(255, 255, 255, .2); box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 17px; font-weight: 800; opacity: 0; transition: opacity .2s; text-align: center; }
 .iw-ps__note.is-on { opacity: 1; }
 .iw-ps__note.is-ok { color: var(--self); border-color: var(--self); }
 .iw-ps__note.is-bad { color: var(--coral); border-color: var(--coral); }
 .iw-ps__note small { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .iw-ps__box.is-enter, .iw-ps__box.is-flash .iw-ps__head, .iw-ps.is-verdict .iw-ps__head::before { animation: none; } .iw-ps * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .iw-ps__box.is-enter, .iw-ps__box.is-flash .iw-ps__head, .iw-ps.is-verdict .iw-ps__head::before, .iw-ps.is-verdict .iw-ps__head, .iw-ps.is-verdict .iw-ps__why { animation: none; } .iw-ps * { transition: none !important; } }
 `;
 
 let cssDone = false;

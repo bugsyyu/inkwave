@@ -73,9 +73,11 @@ test('the level layer (hud.css): sticker walk bar and buttons, the results card 
   assert.match(fr, /0 [1-9]\d*px 0 7px rgba\(0, 0, 0, \.\d+\)/, '… and the modal\'s dropped shadow');
   assert.match(rule(C, '.iw-learn__rsplat svg'), /animation: iw-spin /, 'the splat turns slowly (ui.css .iw-res__splat)');
   const H = src('src/ui/hud-learn.js');
-  assert.match(H, /class: 'iw-learn__rsplat', html: splatSVG\(/, 'hud-learn.js puts splatSVG behind the title');
-  assert.match(H, /this\.rFrame = h\('div', \{ class: 'iw-learn__rframe' \}, .*this\.results_\)/, 'the card (results_) is inside the frame: the forms still add their lines to it');
-  assert.match(rule(C, '.iw-learn__results .iw-learn__rtitle'), /font-synthesis: none/, 'no synthesised bold Titan One on the title');
+  assert.match(H, /this\.rHead = h\('div', \{ class: 'iw-learn__rhead' \}, h\('div', \{ class: 'iw-learn__rsplat', html: splatSVG\(.*\), this\.rTitle\);/, 'hud-learn.js puts splatSVG behind the title, in a head that does not scroll');
+  assert.match(H, /this\.rFrame = h\('div', \{ class: 'iw-learn__rframe'[^}]*\}, this\.rHead, this\.results_\)/, 'the card (results_) is inside the frame: the forms still add their lines to it');
+  assert.match(rule(C, '.iw-learn__rsplat'), /z-index: -1/, 'the splat is under the title and the card\'s lines');
+  assert.ok(!/z-index|isolation/.test(rule(C, '.iw-learn__rhead')), 'the head is no stack of its own (the splat would paint over the score)');
+  assert.match(rule(C, '.iw-learn__rhead .iw-learn__rtitle'), /font-synthesis: none/, 'no synthesised bold Titan One on the title');
   assert.match(C, /@media \(prefers-reduced-motion: reduce\) \{\s*\.iw-learn \*, \.iw-learn \*::before, \.iw-learn \*::after \{ animation: none !important; transition: none !important; \}/, 'reduced motion: nothing moves');
 });
 
@@ -99,3 +101,38 @@ test('no learning-layer CSS goes back to the dark glass, and none adds a backdro
   // every file that draws a box of its own has the ink edge (wire/type.js and landscape.js only move the strip)
   for (const f of FILES.slice(0, 4)) assert.match(jsCss(f), /var\(--k\)/, `${f} uses the ink token`);
 });
+
+test('the lanes never break inside an English word; upright their row spans the whole strip (not the column beside the chip)', () => {
+  const C = jsCss('src/ui/play-strip.js');
+  const cell = rule(C, '.iw-ps__lanes span');
+  assert.match(cell, /overflow-wrap: normal; word-break: keep-all; min-width: min-content;/, 'a cell is as wide as its longest word');
+  assert.ok(!/overflow-wrap: anywhere/.test(cell), 'not 「her / e」 any more');
+  assert.match(rule(C, '.iw-ps__lanes span small'), /word-break: normal; overflow-wrap: anywhere;/, 'the Chinese line wraps as before');
+  assert.match(rule(C, '.iw-ps__lanes'), /flex-wrap: wrap;/, 'cells that do not fit go to a second row rather than out of the strip');
+  const grid = /@media \(orientation: portrait\) and \(max-width: 640px\) \{\s*\.iw-ps:not\(\.is-verdict\) \.iw-ps__box:has\(\.iw-ps__lanes\.is-on\) \{ display: grid;[^}]*grid-template-areas: "play tag q" "play tag zh" "lanes lanes lanes"; \}/;
+  assert.match(C, grid, 'upright: ▶ and the chip beside the question, the lanes under all of it');
+  assert.match(C, /\.iw-ps:not\(\.is-verdict\) \.iw-ps__box:has\(\.iw-ps__lanes\.is-on\) \.iw-ps__text \{ display: contents; \}/);
+});
+
+test('motion: the press lands on the same frame, the verdict ribbon springs in, the results card comes in layers; reduced motion stills it', () => {
+  const C = jsCss('src/ui/play-strip.js'), H = hudCss();
+  for (const [css, sel] of [[C, '.iw-ps__play:active'], [C, '.iw-ps__act:active'], [H, '.iw-learn__btn:active']]) {
+    const d = rule(css, sel);
+    assert.match(d, /translate: 0 [23]px;/, `${sel} sinks into its shadow`);
+    assert.match(d, /transition-duration: 0s;/, `${sel}: on the same frame`);
+  }
+  assert.match(rule(C, '.iw-ps.is-verdict .iw-ps__head::before'), /animation: iw-ps-rib \.4\ds var\(--spring\) backwards;/, 'the ribbon on a spring (overshoot)');
+  assert.match(C, /@keyframes iw-ps-rib \{ 0% \{ scale: \.08 \.7;/);
+  const rm = /@media \(prefers-reduced-motion: reduce\) \{([^\n]*)\}/.exec(C)[1];
+  for (const sel of ['.iw-ps__box.is-enter', '.iw-ps.is-verdict .iw-ps__head::before', '.iw-ps.is-verdict .iw-ps__head', '.iw-ps.is-verdict .iw-ps__why']) assert.ok(rm.includes(sel), `reduced motion stills ${sel}`);
+  // the results: splat, title, then each line 60 ms apart; the score counts up (a text write only when it changes)
+  assert.match(rule(H, '.iw-learn__rframe.is-enter .iw-learn__rsplat'), /animation: iw-learn-splat /);
+  assert.match(rule(H, '.iw-learn__rframe.is-enter .iw-learn__rtitle'), /animation: iw-learn-pop /);
+  const delays = [1, 2, 3, 4].map((n) => n === 1 ? +/\.(\d+)s backwards/.exec(rule(H, '.iw-learn__rframe.is-enter .iw-learn__results > *'))[1] * 10 : +/animation-delay: \.(\d+)s/.exec(rule(H, `.iw-learn__rframe.is-enter .iw-learn__results > :nth-child(${n})`))[1] * 10);
+  for (let i = 1; i < delays.length; i++) { const d = delays[i] - delays[i - 1]; assert.ok(d >= 40 && d <= 80, `lines ${i} → ${i + 1}: ${d} ms apart`); }
+  const J = src('src/ui/hud-learn.js');
+  assert.match(J, /if \(!prefersReducedMotion\(\)\) \{ restartAnim\(this\.rFrame, 'is-enter'\); this\._countUp\(num, data\.done\); \}/, 'no count-up under reduced motion');
+  assert.match(J, /if \(v !== shown\) \{ shown = v; el\.textContent = String\(v\); \}/, 'the count writes only when the number changes');
+  assert.match(J, /dur = Math\.min\(700, /, '… and is over in 0.7 s at most');
+});
+
