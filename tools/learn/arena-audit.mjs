@@ -144,12 +144,12 @@ for (const viewName of VIEWS_WANT) { try {
   });
   const inside = (b, s) => b.x >= s.x - 1 && b.y >= s.y - 1 && b.x + b.w <= s.x + s.w + 1 && b.y + b.h <= s.y + s.h + 1;
   async function waitFor(fn, max = 200, ms = 50) { for (let i = 0; i < max; i++) { const r = await ev(fn); if (r) return r; await step(ms); } return null; }
-  // the boss: her hand walks her to ~11 m in front of HULLBREAKER (on the nearest walkable node) while it waits for her to
+  // the boss: her hand walks her to ~9 m in front of HULLBREAKER (on the nearest walkable node) while it waits for her to
   // come close (LEARN.arena.bossNear) — as a player would; --far keeps her where she is (the options then come towards it)
   const FAR = args.includes('--far');
   const nearBoss = () => ev(() => {
     const m = __inkwave.match, b = m.boss, a = m.local, nav = __G.nav; if (!b || !a || !nav) return null;
-    const V = a.pos.constructor, want = new V(b.pos.x + Math.sin(b.yaw) * 11, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 11);
+    const V = a.pos.constructor, want = new V(b.pos.x + Math.sin(b.yaw) * 9, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 9);
     const k = nav.nearest(want, 6, true); if (k < 0) return null;
     const n = nav.nodes[k]; a.pos.set(n.x, n.y, n.z); a.vel.set(0, 0, 0);
     return [n.x, n.y, n.z].map((v) => +v.toFixed(1));

@@ -789,8 +789,9 @@ export const LEARN = {
     echoAhead: 2.6,           // m in front of her the boss's echo booth (S phase) rises
     askNear: 14,              // m: the duel waits (up to askWait s) for her to come this close to the zone before a question
     askWait: 6,
-    bossNear: 13,             // m (flat) from her to the boss's eyes within which a choice hangs on its weak points (her
-                              // shooter's round reaches ~12.5 m); the boss waits up to bossWait s for her to come that close —
+    bossNear: 10.5,           // m (flat) from her to the boss's eyes within which a choice hangs on its weak points (her
+                              // shooter's round reaches ~12.5 m, the balls hang ~4.5 m up: 10.5 flat ≈ 11.5 to them; at 11 m
+                              // flat the browser audit's round fell short); the boss waits up to bossWait s for her to come that close —
     bossWait: 8,              // then the options float towards it within her shot instead (the answer is still the hit)
   },
 };

@@ -33,6 +33,15 @@ export class ArenaRun extends PlayRun {
     this.mode = opts.mode || 'zone';
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
+    // her tap-shot flies to the object she tapped: on the crowded weak points (and in a cluster seen from her muzzle, lower
+    // than the lens) another option's ball can stand on its way — it never eats that round (only its own target may)
+    const shotHit = this.reg.shotHit.bind(this.reg), R = this.reg;
+    R.shotHit = (p) => {
+      if (!(p && p.playTag && R.through(p))) return shotHit(p);
+      const tgt = (p.playTag - 1) % 16;
+      for (const s of R.spheres) if (s.target !== tgt) { s._was = s.active; s.active = false; }
+      try { return shotHit(p); } finally { for (const s of R.spheres) if (s.target !== tgt) s.active = s._was; }
+    };
     // (the labels are drawn in the HUD's Rubik, as play-1's are: a round's atlas waits for the font — the first round's
     // prep comes from the form's constructor, before the page has it)
     const U = LEARN.playUi;
