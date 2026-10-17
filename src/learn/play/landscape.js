@@ -27,12 +27,12 @@ const CSS = `@media (max-height: 460px) and (orientation: landscape) {
   .iw-ps.is-typing .iw-ps__zh, .iw-ps.is-typing .iw-ps__why { font-size: 17px !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
   .iw-ps.is-typing .iw-ps__acts { flex-wrap: wrap; }
   :root:has(.iw-hud .iw-bb:not(.is-off)) .iw-ps.is-typing .iw-ps__box { top: 44px !important; }
-  .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + 42px); translate: none; top: 3px; }
+  .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + 52px); translate: none; top: 3px; }
   .iw-hud.is-learn .iw-bb.is-intro { animation-name: iw-bb-in7; }
   @keyframes iw-bb-in7 { from { opacity: 0; translate: 0 -12px; scale: .7; } }
   .iw-hud.is-learn .iw-bb.is-gone { animation-name: iw-bb-gone7; }
   @keyframes iw-bb-gone7 { to { opacity: 0; translate: 0 -10px; scale: .9; } }
-  .iw-lf__phase { left: calc(50% + 42px); translate: none; top: 7px; padding: 4px 6px; gap: 4px; font-size: 12px; }
+  .iw-lf__phase { left: calc(50% + 52px); translate: none; top: 7px; padding: 4px 6px; gap: 4px; font-size: 12px; }
   .iw-lf__phase span { padding: 3px 7px; }
 }`;
 let cssDone = false;

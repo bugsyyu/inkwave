@@ -24,9 +24,11 @@ export async function typeCheck({ root, camera, keys }) {
   const kr = keys && keys.rect ? keys.rect() : null, split = !!(kr && kr.split);
   const inside = (q, r) => q[0] > r.x + 1 && q[0] < r.x + r.w - 1 && q[1] > r.y + 1 && q[1] < r.y + r.h - 1;
   const onPads = split ? pts.filter((q) => kr.halves.some((r) => inside(q, r))).map((q) => q.map(Math.round)) : [];
+  // (opacity is not a test here: the strip's slide-in is a CSS animation on wall time and the audits freeze the game's
+  // clock — a strip caught at the start of it reads as see-through though it is about to stand there)
   const box = (sel) => {
     const el = document.querySelector(sel); if (!el) return null;
-    const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null;
+    const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden') return null;
     const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) } : null;
   };
   const rects = {
