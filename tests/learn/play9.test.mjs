@@ -93,3 +93,62 @@ test('steerRound: never steers a round already past its ball or standing still; 
   assert.ok(Math.abs(q.vel.z - 30) < 1e-9 && Math.abs(q.vel.x) < 1e-9 && Math.abs(q.vel.y) < 1e-9, JSON.stringify(q.vel));
 });
 
+// ---------------------------------------------------------------------------------------------- halyard's ramp
+test('the runner never steers off a ramp for an outer lane: halyard\'s way down from the middle deck to a three-lane row (LEARN §27 拿不准的 17)', async () => {
+  const { LEARN, OFFLINE_MAPS } = await import('../../src/config.js');
+  const { loadWeek } = await import('../../src/learn/content.js');
+  const { planDay } = await import('../../src/learn/design.js');
+  const { loopRoute } = await import('../../src/learn/forms/common.js');
+  const { buildTrack, straighten, clearWidths, roomAt, at, fallRoom } = await import('../../src/learn/play/runner/track.js');
+  const { entriesOf, planCourse } = await import('../../src/learn/play/runner/rows.js');
+  const { laneCenters } = await import('../../src/learn/play/runner/lanes.js');
+  const { RunnerFlow } = await import('../../src/learn/play/runner/runner.js');
+  const { MAP_LAYOUTS } = await import('../../src/world/maps.js');
+  const { Level } = await import('../../src/world/level.js');
+  const { Physics } = await import('../../src/game/physics.js');
+  const { NavGraph } = await import('../../src/game/nav.js');
+  const { layoutFor } = await import('../../src/world/variants.js');
+  const R = LEARN.runner, m = OFFLINE_MAPS.find((x) => x.id === 'halyard');
+  const L = new Level(layoutFor(MAP_LAYOUTS[m.layout || m.id], 'turf'), []), P = new Physics(L), nav = new NavGraph(L, P);
+  const pad0 = L.spawnPads[0], pad1 = L.spawnPads[1];
+  const start = nav.nearest({ x: pad0.x, y: pad0.y, z: pad0.z }, 2, true);
+  const dx = -pad1.x, dz = -pad1.z, dl = Math.hypot(dx, dz) || 1, pull = (L.spawnBarrier || 4) + 3;
+  const goal = nav.nearest({ x: pad1.x + (dx / dl) * pull, y: pad1.y, z: pad1.z + (dz / dl) * pull }, 3, false);
+  const route = loopRoute(nav, start, goal, { avoid: LEARN.race.laneAvoid });
+  const et = (a, b) => nav.edgeType(a, b);
+  const T = buildTrack(nav.nodes, route.loop, { keep: straighten(nav, route.loop, { edgeType: et }), edgeType: et }), W = clearWidths(nav, T);
+  const C = planCourse(entriesOf(planDay(await loadWeek(1), 3, 'race').gates), T, W, R);
+  // every row whose last metres before the run-in come down a ramp (the road there more than 0.3 m off the run-in's floor
+  // and narrower than the lanes) — halyard's middle deck has one each lap
+  const ramps = C.rows.filter((r) => r.lanes != null && (() => { const sr = r.s - R.runIn, y0 = at(T, sr, {}).y; for (let u = sr - 6; u < sr; u += T.step) { const q = roomAt(T, W, u, 0.45); if (Math.abs(at(T, u, {}).y - y0) > 0.3 && q.left + q.right < r.lanes * R.laneW - R.gap) return true; } return false; })());
+  assert.ok(ramps.length >= 1, 'halyard has a row down a ramp (the middle deck)');
+  let checked = 0;
+  for (const row of ramps) {
+    const centers = laneCenters(row.lanes, R.laneW, row.c), sr = row.s - R.runIn, y0 = at(T, sr, {}).y;
+    const F = Object.create(RunnerFlow.prototype);
+    Object.assign(F, { T, W, RR: R, phase: 'race', finish: null, latT: 0, _shown: () => ({ s: row.s, centers, sAppear: row.s - 30, kind: 'lanes' }) });
+    let reachOuter = false;
+    for (let sNow = sr - 6; sNow < sr; sNow += 0.25) for (const La of [1.5, 2.25, 3]) {
+      F.sNow = sNow;
+      const s = sNow + La, [lo, hi] = F._bounds(s), yAim = at(T, s < sr ? sr : s, {}).y;   // (the floor she aims by)
+      // her aim (lo − 0.3 … hi + 0.3, _steer) stays on the ramp wherever past its edge is the sea (no floor) or a floor
+      // more than 0.5 m under the row's — she may drop onto the row's own floor beside it, never into the water
+      for (let i = Math.round(sNow / T.step); i <= Math.round(s / T.step); i++) {   // (the road's own samples)
+        const u = i * T.step, qi = ((i % T.n) + T.n) % T.n;
+        if (Math.abs(at(T, u, {}).y - yAim) <= 0.3) continue;
+        const q = roomAt(T, W, u, 0.45), fallL = !(W.edgeL[qi] >= yAim - 0.5), fallR = !(W.edgeR[qi] >= yAim - 0.5);
+        assert.ok((!fallR || hi <= q.right + 1e-9) && (!fallL || -lo <= q.left + 1e-9), `row ${row.s.toFixed(1)}: at ${sNow.toFixed(2)} (+${La}) the aim ${lo.toFixed(2)}…${hi.toFixed(2)} goes over the ramp's edge into the sea at ${u.toFixed(1)} (${(-q.left).toFixed(2)}…${q.right.toFixed(2)}, falls ${fallL}/${fallR})`);
+        if (fallL || fallR) checked++;
+      }
+      if (s >= sr - 1 && hi >= centers[centers.length - 1] && lo <= centers[0]) reachOuter = true;
+    }
+    assert.ok(reachOuter, `row ${row.s.toFixed(1)}: off the ramp she still aims for either outer lane before the run-in (${centers.join(', ')})`);
+  }
+  assert.ok(checked > 20, 'the ramp was walked');
+  // fallRoom: a level road leaves the room alone; a ramp narrows it, never widens it
+  const out = { left: 9, right: 9 };
+  fallRoom({ n: 4, step: 1, y: [0, 0, 0, 0] }, { left: [3, 3, 3, 3], right: [3, 3, 3, 3] }, 0, 3, 0, 0.3, 0.45, out);
+  assert.deepEqual(out, { left: 9, right: 9 });
+  fallRoom({ n: 4, step: 1, y: [0, 1, 0, 0] }, { left: [3, 0.5, 3, 3], right: [3, 1, 3, 3] }, 0, 3, 0, 0.3, 0.45, out);
+  assert.ok(Math.abs(out.left - 0.05) < 1e-9 && Math.abs(out.right - 0.55) < 1e-9, JSON.stringify(out));
+});

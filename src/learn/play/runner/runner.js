@@ -33,7 +33,7 @@ import { judgeRecord } from '../judge.js';   // the one judging path (play-8)
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { laneCenters, dividerStart, laneOf, nextLane, readLead, leadDistance, beatGrid, onBeat, beatPulse, syncTide } from './lanes.js';
-import { buildTrack, straighten, clearWidths, placeRow, roomAt, project, at, rawAt } from './track.js';
+import { buildTrack, straighten, clearWidths, placeRow, roomAt, fallRoom, project, at, rawAt } from './track.js';
 import { detourBranch, branchLine, branchAt } from './detour.js';
 import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, planCourse } from './rows.js';
 import { RowView, HerMark } from './view.js';
@@ -47,7 +47,7 @@ import { PlayStrip } from '../../../ui/play-strip.js';   // play-1's question st
 import { say, stop as stopVoice } from '../../audio.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
-const _p = {}, _q = {}, _pr = {};
+const _p = {}, _q = {}, _pr = {}, _room = { left: 0, right: 0 }, _ry = {};
 const TAGS = ['A', 'B', 'C', 'D'];
 const FAR = new THREE.Vector3(1e6, 0, 1e6);
 
@@ -802,6 +802,12 @@ export class RunnerFlow extends RaceFlow {
     if (row && row.centers && this.sNow >= row.s - this.RR.runIn - 6 && s < row.s - this.RR.runIn) sr = row.s - this.RR.runIn;
     const r = roomAt(this.T, this.W, sr, 0.45);
     let lo = -r.left, hi = r.right;
+    // (play-9: … but never over an edge she would fall off on the way there: from where she is to where she aims, wherever
+    // past the road's edge is no floor or one more than 0.5 m under the floor she aims by, the road's own room holds on
+    // that side — halyard's way down from the middle deck into a three-lane row put her in the sea once a lap, LEARN §27
+    // 拿不准的 17)
+    _room.left = r.left; _room.right = r.right;
+    fallRoom(this.T, this.W, Math.min(this.sNow, s), s, at(this.T, sr, _ry).y, 0.5, 0.45, _room); lo = -_room.left; hi = _room.right;
     if (row && row.centers && s >= row.sAppear - 2 && s <= row.s + 1.5) {
       // inside the row's lane band — unless the road is narrower than the band here (a ramp up a deck in the row's
       // reading zone, halyard): then the road wins. (It used to put her on the first lane's line, off the ramp against
