@@ -81,6 +81,12 @@
   };
   const tapBtn = (sel) => { const K = F().glide.keys, el = K.btnEls.get(sel); if (!el) return false; const r = el.getBoundingClientRect(), id = ++pid; el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: r.left + 4, clientY: r.top + 4, bubbles: true, cancelable: true, isPrimary: true })); window.dispatchEvent(new PointerEvent('pointerup', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', bubbles: true })); return true; };
   // the type frame on the screen: the rig's points (frame.js RIG_POINTS, in the rig's own frame) projected with the live camera
+  // the prop bag on the screen (forms/ui.js): shown = it has slots, is visible and stands on the screen (aside = off the right edge)
+  const bagRect = () => {
+    const e = document.querySelector('.iw-lf:not(.is-off) .iw-lf__bag'); if (!e) return { shown: false };
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    return { shown: e.children.length > 0 && r.width > 0 && r.height > 0 && +cs.opacity >= 0.05 && r.left < innerWidth - 2, n: e.children.length, left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), aside: !!e.parentElement.classList.contains('is-aside') };
+  };
   let FR = null;
   const frameCheck = async () => {
     FR = FR || await import('/src/learn/play/type/frame.js');
@@ -92,7 +98,10 @@
     const top = st ? st.bottom : 0;
     const rigPts = [...R.plate, R.strike, ...R.textLines].map(P), head = P(R.head), row = P(innerWidth / innerHeight > 1.4 ? [0, 1.16, 1.12] : R.midRow), paper = R.paperTop.map(P);
     const inBand = rigPts.every(([x, y]) => y >= top - 2 && y <= kbTop + 2 && x >= -2 && x <= innerWidth + 2);
-    return { stripBottom: top, kbTop, ys: rigPts.map((q) => q[1]), xs: rigPts.map((q) => q[0]), head, row, paper, inBand, headBelowRow: head[1] > row[1], band: Gl._f ? { top: Gl._f.top, kb: Gl._f.kb, fits: Gl._f.fits } : null };
+    // (LEARN §30) the bag must not stand over the rig: aside, or wholly right of / above / below every rig point
+    const bg = bagRect(), rx = Math.max(...rigPts.map((q) => q[0]), ...paper.map((q) => q[0])), ry0 = Math.min(...rigPts.map((q) => q[1]), ...paper.map((q) => q[1])), ry1 = Math.max(...rigPts.map((q) => q[1]));
+    const bagClear = !bg.shown || bg.left >= rx + 2 || bg.bottom <= ry0 - 2 || bg.top >= ry1 + 2;
+    return { bag: bg, bagClear, stripBottom: top, kbTop, ys: rigPts.map((q) => q[1]), xs: rigPts.map((q) => q[0]), head, row, paper, inBand, headBelowRow: head[1] > row[1], band: Gl._f ? { top: Gl._f.top, kb: Gl._f.kb, fits: Gl._f.fits } : null };
   };
   const textFor = (mode, right, kind) => {
     const clean = (t) => String(t || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z ' .,?-]/g, '').replace(/\s+/g, ' ').trim();
@@ -145,6 +154,7 @@
           if (bad.length && !g.lensBlocked) S.errors.push('glide ' + g.item + ' (landscape): ' + bad.join('; ') + ' ' + JSON.stringify(L));
         } else if (!g.lensBlocked && g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
         if (g.frame && !g.lensBlocked && !g.frame.headBelowRow) S.errors.push('glide ' + g.item + ': her head is not below the keys\' row ' + JSON.stringify(g.frame));
+        if (g.frame && !g.lensBlocked && g.frame.bagClear === false) S.errors.push('glide ' + g.item + ': the prop bag stands over the typing rig ' + JSON.stringify(g.frame.bag));
         if (g.inv.crosshair) S.errors.push('glide ' + g.item + ': the crosshair shows while she types');
         g.stage = 'fire';
         if (gShot('type-' + g.typeMode)) { render(); return 'type-' + g.typeMode; }
@@ -221,6 +231,12 @@
     }
     b.framed.push(f);
     if (f.fits === false) S.errors.push('boards: a framed board does not fit ' + JSON.stringify(f));
+    // (LEARN §30) the prop bag off a framed board's text (its margin: board/paint.js BOARD.pad / BOARD.W of its width)
+    f.bag = bagRect();
+    if (f.rect && f.bag.shown) {
+      const pad = Math.round(f.rect.w * 54 / 1024) + 2, R = f.rect;
+      if (f.bag.left < R.x + R.w - pad && f.bag.right > R.x + pad && f.bag.top < R.y + R.h - pad && f.bag.bottom > R.y + pad) S.errors.push('boards: the prop bag stands over a framed board ' + JSON.stringify({ bag: f.bag, rect: R }));
+    }
     if (gShot('board')) { render(); return 'board'; }
     return null;
   };

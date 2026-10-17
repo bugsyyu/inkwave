@@ -234,7 +234,7 @@ export class RunnerFlow extends RaceFlow {
     this._reap(dt);
     if (this.finishT >= 0) { this.finishT -= dt; this._steer(a, dt); if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
-    if (!this.started) { this._start(); this.prepS?.update(dt); this._steer(a, dt); return; }
+    if (!this.started) { this._start(); this.prepS?.update(dt); this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
     this.clock += dt;
     const txt = `圈 ${fmtClock(this.clock)}`;
     if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
@@ -508,6 +508,7 @@ export class RunnerFlow extends RaceFlow {
     }
     // a station's pose: the typing rig's frame on a 滑行段, the framed board on a 看板段 (springs in and out: cam.js)
     this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
+    this.ui.aside(this.glide.active || !!(this.prepS && this.prepS.pose) || !!this.bw.framing);   // (the prop bag off the right edge while a station frames: LEARN §30)
     this.mark.update(this.glide.active ? null : a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);
   }

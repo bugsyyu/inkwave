@@ -326,6 +326,9 @@ for (const viewName of VIEWS_WANT) { try {
     check(fr.xh === 'hidden', `${label}: the crosshair hidden while she types`, fr.xh);
     { const ty = await ev(() => { const L = document.querySelector('.iw-mks'); return !!(L && L.classList.contains('is-yield')); }); check(ty, `${label}: the name tags step aside while the 打字蟹 is up (play-7)`); }
     report.typeFrame = report.typeFrame || []; report.typeFrame.push(fr);
+    // (LEARN §30) the prop bag off the typewriter and its paper: aside while she types, or wholly clear of the rig's points
+    { const bg = await ev(() => { const e = document.querySelector('.iw-lf:not(.is-off) .iw-lf__bag'); if (!e) return { shown: false }; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { shown: e.children.length > 0 && r.width > 0 && r.height > 0 && +cs.opacity >= 0.05 && r.left < innerWidth - 2, n: e.children.length, left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), aside: e.parentElement.classList.contains('is-aside') }; });
+      check(!bg.shown || bg.left >= fr.right + 2 || bg.bottom <= fr.top - 2 || bg.top >= fr.bottom + 2, `${label}: the prop bag off the typewriter while she types (bag ${bg.shown ? bg.left + '–' + bg.right + ' × ' + bg.top + '–' + bg.bottom : 'away'}, rig x ${fr.left}–${fr.right} y ${fr.top}–${fr.bottom})`, bg); }
     if (FORM !== 'boss') check(s.shield > 0, `${label}: a shield on her while she types (${s.shield} s)`);
     check(!s.hold && s.paused === false, `${label}: still no hold, no pause while typing`);
     await shot('m4-type-' + d.mode);
@@ -376,7 +379,7 @@ for (const viewName of VIEWS_WANT) { try {
       const c = [[-1, 0], [1, 0], [-1, 1], [1, 1]].map(([sx, sy]) => { const v = new V3(sx * b.w / 2, b.bottom + sy * b.h, 0.07).applyMatrix4(b.group.matrixWorld).project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; });
       const board = { x: Math.min(...c.map((q) => q[0])), y: Math.min(...c.map((q) => q[1])), w: 0, h: 0 }; board.w = Math.max(...c.map((q) => q[0])) - board.x; board.h = Math.max(...c.map((q) => q[1])) - board.y;
       const box = (sel) => { const el = document.querySelector(sel); if (!el) return null; const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null; };
-      const R = { clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: document.querySelector('.iw-lf:not(.is-off) .iw-lf__phase:not(:empty)') ? box('.iw-lf:not(.is-off) .iw-lf__phase') : null, strip: box('.iw-ps:not(.is-off) .iw-ps__box') };
+      const R = { bag: box('.iw-lf:not(.is-off) .iw-lf__bag:not(:empty)'), clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: document.querySelector('.iw-lf:not(.is-off) .iw-lf__phase:not(:empty)') ? box('.iw-lf:not(.is-off) .iw-lf__phase') : null, strip: box('.iw-ps:not(.is-off) .iw-ps__box') };
       const hit = (a, q) => a && q && a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
       const r = (o) => o && [o.x, o.y, o.w, o.h].map(Math.round);
       return { framed: Wk.framed, board: r(board), rects: Object.fromEntries(Object.entries(R).map(([k, v]) => [k, r(v)])), over: Object.keys(R).filter((k) => hit(board, R[k])) };

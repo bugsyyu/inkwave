@@ -14,7 +14,8 @@ const CSS = `
 .iw-lf.is-off { display: none; }
 .iw-lf * { box-sizing: border-box; }
 .iw-lf svg { display: block; width: 100%; height: 100%; }
-.iw-lf__bag { position: absolute; right: 16px; top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+.iw-lf__bag { position: absolute; right: 16px; top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; transition: translate .28s var(--spring, cubic-bezier(.2,1.4,.4,1)), opacity .2s; }
+.iw-lf.is-aside .iw-lf__bag { translate: calc(100% + 24px) -50%; opacity: 0; pointer-events: none; }
 .iw-lf__slot { width: 56px; height: 56px; border-radius: 16px; border: 2px solid rgba(255,255,255,.18); background: rgba(21,18,28,.72); color: #fff; display: grid; place-items: center; padding: 10px; cursor: pointer; position: relative; }
 .iw-lf__slot:disabled { opacity: .35; cursor: default; }
 .iw-lf__slot.is-new { animation: iw-lf-pop .5s var(--spring, cubic-bezier(.2,1.4,.4,1)); border-color: var(--self); }
@@ -35,7 +36,7 @@ const CSS = `
 .iw-lf__extra b { color: var(--self); }
 .iw-lf__stars { font-size: 26px; letter-spacing: 4px; color: #ffd21a; text-align: center; }
 @media (max-width: 640px) { .iw-lf__bag { right: 10px; top: 36%; } .iw-lf__slot { width: 52px; height: 52px; } .iw-lf__rank { top: 84px; font-size: 13px; } }
-@media (prefers-reduced-motion: reduce) { .iw-lf__slot.is-new { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .iw-lf__slot.is-new { animation: none; } .iw-lf__bag { transition: none; } }
 `;
 
 let cssDone = false;
@@ -61,8 +62,13 @@ export class FormsUi {
   start() {
     this.el.classList.remove('is-off'); this.el.setAttribute('aria-hidden', 'false');
     colorVars(this.el, 'self', (G.teamHex || [])[0] || '#ff8a14');
-    this.setBag([]); this.setRank(null); this.setPhases(null);
+    this.setBag([]); this.setRank(null); this.setPhases(null); this.aside(false);
   }
+  // the bag steps aside (slides off the right edge) while a station frames the screen — a framed board, the typing rig, the
+  // 备战 / start board, the booth, a flip card, the duel's objects: on a portrait phone it stood at 36 % height on the right,
+  // over a board's right column (the Chinese glosses) and the end of a long paper (LEARN §30). Props arm for the NEXT
+  // question (墨雨 / 回声 / 超级跳 …), so nothing is lost while it is away; it comes back when the station lets go.
+  aside(on) { on = !!on; if (on === this._aside) return; this._aside = on; this.el.classList.toggle('is-aside', on); }
   end() { this.el.classList.add('is-off'); this.el.setAttribute('aria-hidden', 'true'); clearTimeout(this._noteT); }
 
   // ---- the prop bag: one slot per prop she holds; tap = use (the flow's onUse(index))
