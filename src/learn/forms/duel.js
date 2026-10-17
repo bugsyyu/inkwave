@@ -22,7 +22,7 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, relearnTip, cardFor, carryLeft } from './common.js';
+import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, relearnTip, cardFor, carryLeft, RoundGrace } from './common.js';
 import { gateSpecs } from '../play/wire/boards.js';   // the step's M6 boards (the 备战 between rounds, play-8)
 import { noteSpec } from '../play/board/paint.js';
 import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
@@ -52,6 +52,7 @@ export class DuelFlow extends LearnFlow {
     super(match, opts);   // B: the level and hud.start; _place() below makes the gates rounds (no route)
     this.form = 'duel';
     this.D = LEARN.duel;
+    this.grace = new RoundGrace(this.D);   // (play-9: a round never ends in the middle of a question)
     this.model = BOT_ANSWER[match.opts.difficulty] || BOT_ANSWER.normal;
     this.rnd = Math.random;
     this.group.visible = false;   // the zone marks are the "gate"
@@ -153,9 +154,20 @@ export class DuelFlow extends LearnFlow {
     G.input?.requestLock?.(); if (G.game) G.game._relock = true;
     this._emit('learn:round', { round: this.round + 1, total: this.gates.length, gate: g.id, state: 'start', seconds: this.roundT });
   }
-  _roundEnd(winner, reason) {
+  _roundEnd(winner, reason, released = false) {
     if (this.phase !== 'round') return;
     const g = this.gates[this.round], Z = this.Z;
+    // a question in flight is answered first (forms/common.js RoundGrace; update() releases the parked verdict): the clock
+    // reads 最后一题, the other side's die stops — the winner is the one the clock / the count decided (a knockout meanwhile wins)
+    if (this.asking && !released) {
+      if (this.grace.hold(winner, reason, this.arena?.kind !== 'm1')) {
+        this.ui.say(reason === 'knockout' ? '倒数数完了 · 先把这一题答完' : '时间到 · 先把这一题答完', { hold: 1 });
+        this._emit('learn:round', { round: this.round + 1, gate: g.id, winner, reason, state: 'grace' });
+      }
+      return;
+    }
+    // (the grace ran out on it: back in front — carryLeft asks it next round; no verdict, no evidence)
+    if (this.asking) { g.queue.unshift(this.asking.item); this.arena?.log?.push?.({ t: +this.t.toFixed(2), ev: 'withdraw', item: this.asking.item.id }); }
     this.phase = 'between'; this.asking = null;
     this.arena?.gateOpened(g);   // (its objects go, the rig unmounts, the lens is hers)
     Z.winner = winner; Z.reason = reason;   // (freezes the rules; a knockout already set them)
@@ -201,6 +213,15 @@ export class DuelFlow extends LearnFlow {
     }
     if (this.phase === 'between') { this.nextT -= dt; if (this.nextT <= 0) { this.nextT = -1; this.ui.say(''); this._startPrep(); } return; }
     // the round: our own clock (the match's time is the display; it never reaches 0 on its own)
+    if (this.grace.on) {   // (ran out mid-question: the clock holds at 最后一题 until the question is done or the grace is over)
+      const v = this.grace.tick(dt, this.asking);
+      if (v) { this._roundEnd(v.winner, v.reason, true); return; }
+      m.time = Math.max(m.time, 1);
+      const txt = `第 ${this.round + 1} 轮 · 最后一题`;
+      if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
+      this._propKey(m.local);
+      return;
+    }
     if (m.time - dt <= 0.05) { m.time = 0.06; const L = this.Z.losing(); this._roundEnd(L < 0 ? -1 : 1 - L, 'time'); return; }
     this.Z.nextSwap = Infinity;
     const txt = `第 ${this.round + 1} 轮 · ${fmtClock(m.time)}`;

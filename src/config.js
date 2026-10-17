@@ -609,6 +609,8 @@ export const LEARN = {
     roundMin: 60, roundMax: 300,   // s a round (= a gate) lasts: the gate's course minutes, clamped
     prep: true,               // between rounds the boards show the next step (play-8: M6 boards, the match runs on)
     prepWalk: 6,              // m she walks on from where the 备战 board came up: the round starts (as 「开始这一轮」 does)
+    graceS: 8, graceTypeS: 25,   // s a round that ran out (clock / knockout) waits for the question in flight (a typed one longer); then it is
+                              // withdrawn and asked again next round (play-9: forms/common.js RoundGrace; the clock reads 最后一题 meanwhile)
   },
   boss: {
     phaseTime: { L: 840, R: 840, W: 600, S: 360 },   // s per phase (EXAM: 14 / 14 / 10 / 6 min)

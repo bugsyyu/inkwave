@@ -13,7 +13,7 @@ import { planDay, bossPlan, PROP_DROP, BOT_ANSWER, PROPS } from '../../src/learn
 import { LEARN, OFFLINE_MAPS } from '../../src/config.js';
 const { gateSpecs } = await import('../../src/learn/play/wire/boards.js');   // (three.js under it: after the hook)
 import {
-  astar, loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, drawProp, propOnRight, useProp, duelFlood, streakKind, carryLeft,
+  astar, loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, drawProp, propOnRight, useProp, duelFlood, streakKind, carryLeft, RoundGrace,
   phaseOfHp, bossDamage, phaseBudget, phaseTimeTotal, relearnPlan, starsOf, readStars, writeStars, shortenLevel, shortenBoss, fmtClock,
   judgeAnswer, rightAnswerOf, relearnTip,
 } from '../../src/learn/forms/common.js';
@@ -226,4 +226,20 @@ test('duel: a round the zone count ends early carries its unasked items to the n
   assert.deepEqual(rest.queue.map((i) => i.id), ['c', 'd']);
   assert.equal(carryLeft(gates, 2, rest.queue.splice(0)), null, 'the rest round\'s own leftovers are let go');
   assert.equal(gates.length, 3);
+});
+
+test('duel: a round that runs out mid-question waits for it (RoundGrace): the verdict parks once, a knockout meanwhile overrides it, done releases it, the grace running out withdraws the question; a typed question gets the longer grace', () => {
+  const R = new RoundGrace({ graceS: 8, graceTypeS: 25 });
+  assert.equal(R.tick(0.1, null), null, 'nothing parked: nothing to release');
+  assert.equal(R.hold(0, 'time', false), true, 'the first hold parks (the caller announces it)');
+  assert.equal(R.hold(1, 'time', false), false, 'the clock running out again changes nothing');
+  assert.equal(R.on.winner, 0); assert.equal(R.on.t, 8);
+  assert.equal(R.tick(1, { item: 'a' }), null, 'still in flight: nothing');
+  assert.equal(R.hold(1, 'knockout', false), false); assert.deepEqual([R.on.winner, R.on.reason], [1, 'knockout'], 'a knockout meanwhile is final');
+  assert.deepEqual(R.tick(1, null), { winner: 1, reason: 'knockout', withdrawn: false }, 'the question done: released as it stood');
+  assert.equal(R.on, null, 'nothing parked after a release');
+  assert.equal(R.hold(0, 'time', true), true); assert.equal(R.on.t, 25, 'a typed question gets graceTypeS');
+  for (let i = 0; i < 24; i++) assert.equal(R.tick(1, { item: 'b' }), null, 'still typing');
+  assert.deepEqual(R.tick(1.5, { item: 'b' }), { winner: 0, reason: 'time', withdrawn: true }, 'the grace over, still in flight: withdrawn');
+  assert.equal(R.on, null);
 });
