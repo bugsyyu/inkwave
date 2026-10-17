@@ -23,6 +23,8 @@ import { verdictLines } from '../m1.js';
 import { arenaTypeFrame } from './m1.js';
 import { VERDICT_H } from '../../../ui/play-strip.js';
 import { ieltsNow } from '../../ielts.js';
+import { splitFrame } from '../type/split.js';
+import { typingColumn, ensureLandscapeCss } from '../landscape.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -60,7 +62,8 @@ export class ArenaType {
     keys.onReplay = () => { if (this.cur) this.host.say(this.cur.p.tts, { slow: !!(this.cur.p._tip && this.cur.p._tip.slow) }); };
     keys.onSubmit = () => this._submit();
   }
-  warm() { this._ensure(); }
+  // (play-7: the CSS for the strip over the split keyboard's left pad, and the split frame for this screen — a search — now)
+  warm() { this._ensure(); ensureLandscapeCss(); const col = typingColumn(this.keys); if (col) splitFrame(col); }
 
   // where the sheet goes: the zone's floor LEARN.arena.typeAhead m ahead of her towards the zone (her way when she is
   // in it), on ground near her level; the boss's armour plate (its socket, where it stands now)
@@ -114,11 +117,16 @@ export class ArenaType {
   //   'type'  arenaTypeFrame (arena/m1.js): the band between the strip as it is and the keyboard's top, or on a wide
   //           screen the corner beside the strip when the rig is bigger there — her head below the middle row, the whole
   //           typewriter and its sheet inside (PLAY §3 M4); 'word': frame.js's, under the strip with its verdict
+  //   play-7: on a landscape screen the keyboard is split and the rig goes in the open column between its pads
+  //           (type/split.js; the strip moves over the left pad while she types — `is-typing`, landscape.js)
   _pose(phase, text) {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
+    if (phase === 'type') { ensureLandscapeCss(); this.host.strip?.el?.classList?.add('is-typing'); }
     const W = innerWidth, H = innerHeight, aspect = W / H, s = this.host.strip?.rect();
     let f;
-    if (phase === 'type') {
+    const col = phase === 'type' ? typingColumn(this.keys) : null, sf = col ? splitFrame(col) : null;
+    if (sf) f = { ...sf, region: { what: 'column' } };
+    else if (phase === 'type') {
       const top = s ? s.bottom : H * 0.1, bottom = H - this.keys.frac * H;
       f = arenaTypeFrame({ W, H, top, bottom, strip: s ? { x0: s.x, x1: s.x + s.w } : null, avoid: this._avoid() });
     } else {
@@ -234,6 +242,7 @@ export class ArenaType {
   _crosshair(on) { const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = on ? '' : 'hidden'; this.xhHidden = !on; }
   clear() {
     this.cur = null;
+    this.host.strip?.el?.classList?.remove('is-typing');   // (play-7: the strip back to the top centre)
     if (this.xhHidden) this._crosshair(true);
     if (this.keys) this.keys.hide();
     if (this.shot) { this.shot.clear(); if (this.mounted) { this.shot.unmount(); this.mounted = false; } }

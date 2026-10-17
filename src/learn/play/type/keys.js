@@ -93,7 +93,7 @@ export const KB = {
   landscape: { side: 8, gap: 6, rowGap: 5, keyH: [44, 0, 44], strip: 0, pad: 5, bottom: 5, maxW: 1000 },
   // the split: letter width between unit[0] and unit[1] px, the action column ≥ act px (1.25 letters when wider); the
   // middle column wants mid × the screen's width — the letters shrink to their minimum before the column does
-  split: { side: 8, gap: 4, rowGap: 6, keyH: 44, pad: 6, bottom: 6, hpad: 4, unit: [30, 44], act: 44, actU: 1.25, mid: 0.36 },
+  split: { side: 5, gap: 4, rowGap: 6, keyH: 44, pad: 6, bottom: 6, hpad: 4, unit: [30, 44], act: 44, actU: 1.25, mid: 0.36 },
   minW: 30, minH: 44,
 };
 

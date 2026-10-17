@@ -177,6 +177,8 @@ export class PlayKeys {
     this.panel.style.height = L.h + 'px';
     const top = L.top, place = (el, r) => { el.style.left = r.x + 'px'; el.style.top = (r.y - top) + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px'; el.style.display = ''; };
     if (L.halves) L.halves.forEach((r, i) => place(this.halfEls[i], r));
+    // (play-7: the left pad's inner edge, for the typing strip that sits over it — src/learn/play/landscape.js)
+    if (typeof document !== 'undefined') document.documentElement.style.setProperty('--iw-pk-side', L.mid ? L.mid.x0 + 'px' : '0px');
     const used = new Set();
     for (const r of L.keys) { const el = this.keyEls.get(r.key); if (el) { place(el, r); used.add(r.key); } }
     for (const [k, el] of this.keyEls) if (!used.has(k)) el.style.display = 'none';

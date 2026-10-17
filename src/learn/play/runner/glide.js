@@ -34,6 +34,8 @@ import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
 import { ieltsNow } from '../../ielts.js';
 import { at, roomAt } from './track.js';
+import { splitFrame } from '../type/split.js';
+import { typingColumn, ensureLandscapeCss } from '../landscape.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _p = {};
 
@@ -51,6 +53,7 @@ export class GlideStation {
 
   _ensure() {
     if (this.shot) return;
+    ensureLandscapeCss();
     const color = G.teamColors[0] || new THREE.Color('#ff8a14');
     this.shot = new TypeShot({ scene: G.scene, team: 0, color, quality: G.settings?.quality || 'high' });
     try { this.shot.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* warmed on first use */ }
@@ -63,7 +66,14 @@ export class GlideStation {
     keys.onReplay = () => { const C = this.cur; if (C && C.p.tts) this.flow._speak(C.p.tts, { slow: !!(C.p._tip && C.p._tip.slow) }); };
     keys.onSubmit = () => this._submit();
   }
-  warm() { try { this._ensure(); } catch (e) { console.warn('[runner] glide warm', e); } }
+  // (play-7: and the split frame for this screen — a search — now, not on the first frame of the 滑行段)
+  warm() { try { this._ensure(); const col = typingColumn(this.keys); if (col) splitFrame(col); } catch (e) { console.warn('[runner] glide warm', e); } }
+  // play-7: the split keyboard's open column (landscape.js), read off the DOM at most every 0.4 s (as the strip's bottom)
+  _column() {
+    const now = G.time || 0;
+    if (this._colT == null || now - this._colT > 0.4 || now < this._colT) { this._colT = now; this._col = typingColumn(this.keys); }
+    return this._col;
+  }
 
   // ---------------------------------------------------------------------------------------------- the stretch
   run({ items, gate, row }) {
@@ -269,10 +279,13 @@ export class GlideStation {
       return C.wpose || null;
     }
     const kb = this.keys ? +this.keys.frac.toFixed(2) : 0;
-    const key = `${aspect.toFixed(2)}|${kb}|${top}`;
+    // play-7: on a landscape screen the keyboard is split — the rig goes in the open column between its pads (type/split.js)
+    const col = this._column();
+    const key = col ? `split|${col.W}x${col.H}|${col.top}|${col.x0}-${col.x1}|${col.shelf}` : `${aspect.toFixed(2)}|${kb}|${top}`;
     if (this._fkey !== key || !this._f) {   // (the typing frame's own cache: the word's frame never lands in it)
       this._fkey = key;
-      this._f = frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); this._f.top = top; this._f.kb = kb;
+      const sf = col ? splitFrame(col) : null;
+      this._f = sf ? { ...sf, top, kb, split: true } : frameFor({ phase: 'type', aspect, kbFrac: kb, topFrac: top }); this._f.top = top; this._f.kb = kb;
     }
     const f = this._f, P = this._pose;
     P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);
