@@ -139,6 +139,7 @@ export class GlideStation {
     // the hint on the strip: a word's meaning and IPA, a sentence's Chinese (this answer records H)
     const line = h.zh || h.ipa ? [h.zh, h.ipa ? `/${h.ipa}/` : ''].filter(Boolean).join('  ') : (C.item.zh || '');
     this.flow.strip.show({ text: p.text, zh: line ? `提示：${line}` : '', tts: p.tts }, { replay: p.tts ? () => this.flow._speak(p.tts) : null, tag: { text: '滑行段 · 打字', kind: 'type' } });
+    this.flow.stripBottom?.(true);   // (play-9: the hint's line makes the strip taller — the typing frame takes it now, not 0.4 s on)
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'hint' });
   }
 
@@ -254,7 +255,8 @@ export class GlideStation {
     const phase = C.answered ? 'word' : 'type';
     const yaw = this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : this.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
     const sb = this.flow.stripBottom ? this.flow.stripBottom() : null;   // (RunnerFlow: read off the DOM at most every 0.4 s)
-    const top = sb != null ? +clamp(Math.round((sb + 6 / H) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
+    // (play-9: rounded up — rounded to the nearest 0.02 the band's top could stand up to 8 px over the strip's bottom edge)
+    const top = sb != null ? +clamp(Math.ceil((sb + 6 / H) * 50 - 1e-6) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
     if (phase === 'word') {
       if (!C.word) return null;
       const sp = Math.hypot(a.vel.x, a.vel.z), vx = sp > 0.5 ? a.vel.x : sy, vz = sp > 0.5 ? a.vel.z : cy, vl = Math.hypot(vx, vz) || 1;

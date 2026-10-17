@@ -447,10 +447,11 @@ export class RunnerFlow extends RaceFlow {
     say(text, { slow: !!o.slow, onEnd: () => this.strip.playing(false) });
   }
   // the strip's bottom edge as a share of the screen height, or null when it is hidden — read off the DOM at most every
-  // 0.4 s of game time (a layout read every frame after the lane cells' class changes would force a reflow a frame)
-  stripBottom() {
+  // 0.4 s of game time (a layout read every frame after the lane cells' class changes would force a reflow a frame);
+  // fresh: read it now (play-9: the strip has just changed height — the 滑行段's hint line)
+  stripBottom(fresh = false) {
     const now = G.time || 0;
-    if (this._sbT == null || now - this._sbT > 0.4 || now < this._sbT) {
+    if (fresh || this._sbT == null || now - this._sbT > 0.4 || now < this._sbT) {
       this._sbT = now;
       const r = this.strip.rect(), Hh = typeof innerHeight !== 'undefined' ? innerHeight : 0;
       this._sb = r && Hh ? r.bottom / Hh : null;
