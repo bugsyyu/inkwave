@@ -109,8 +109,9 @@ test('the lanes never break inside an English word; upright their row spans the 
   assert.ok(!/overflow-wrap: anywhere/.test(cell), 'not 「her / e」 any more');
   assert.match(rule(C, '.iw-ps__lanes span small'), /word-break: normal; overflow-wrap: anywhere;/, 'the Chinese line wraps as before');
   assert.match(rule(C, '.iw-ps__lanes'), /flex-wrap: wrap;/, 'cells that do not fit go to a second row rather than out of the strip');
-  const grid = /@media \(orientation: portrait\) and \(max-width: 640px\) \{\s*\.iw-ps:not\(\.is-verdict\) \.iw-ps__box:has\(\.iw-ps__lanes\.is-on\) \{ display: grid;[^}]*grid-template-areas: "play tag q" "play tag zh" "lanes lanes lanes"; \}/;
-  assert.match(C, grid, 'upright: ▶ and the chip beside the question, the lanes under all of it');
+  const grid = /@media \(orientation: portrait\) and \(max-width: 640px\) \{\s*\.iw-ps:not\(\.is-verdict\) \.iw-ps__box:has\(\.iw-ps__lanes\.is-on\) \{ display: grid;[^}]*gap: 0;\s*grid-template-areas: "play tag q" "play tag zh" "lanes lanes lanes"; \}/;
+  assert.match(C, grid, 'upright: ▶ and the chip beside the question and its Chinese, the lanes under all of it (no row gap: never taller)');
+  assert.match(C, /\.iw-ps__box:has\(\.iw-ps__lanes\.is-on\):has\(\.iw-ps__zh:empty\) \{ grid-template-areas: "play tag q" "play lanes lanes"; \}/, 'one line of question: ▶ keeps its column (the lanes are not pushed under it)');
   assert.match(C, /\.iw-ps:not\(\.is-verdict\) \.iw-ps__box:has\(\.iw-ps__lanes\.is-on\) \.iw-ps__text \{ display: contents; \}/);
 });
 

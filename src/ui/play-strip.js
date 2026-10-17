@@ -103,12 +103,14 @@ const CSS = `
 .iw-ps__lanes span small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; word-break: normal; overflow-wrap: anywhere; }
 .iw-ps__lanes span.is-here { background: rgba(var(--self-rgb), .26); box-shadow: inset 0 0 0 2px var(--self); }
 @media (orientation: landscape) { .iw-ps__lanes.is-lite { display: none !important; } }
-/* upright, the lanes' row runs under ▶ and the chip too — the whole width of the strip, not the column beside the chip
-   (there the cells were ~43 px and 「here」 broke into 「her / e」): a grid while a question with lanes is up; the
-   question and its Chinese keep their place beside ▶ / the chip, so the strip is never taller than before */
+/* upright, the lanes' row runs under ▶ and the chip too — the strip's whole width, not the column beside the chip (there
+   the cells were ~43 px and 「here」 broke into 「her / e」): a grid while a question with lanes is up; the question and its
+   Chinese keep their place beside ▶ / the chip (two lines: as tall as ▶), so the strip is never taller. Without the
+   Chinese line ▶ keeps its column down the side (one line is shorter than ▶: the lanes would be pushed down) */
 @media (orientation: portrait) and (max-width: 640px) {
-  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) { display: grid; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 0;
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0;
     grid-template-areas: "play tag q" "play tag zh" "lanes lanes lanes"; }
+  .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on):has(.iw-ps__zh:empty) { grid-template-areas: "play tag q" "play lanes lanes"; }
   .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__text { display: contents; }
   .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__play { grid-area: play; align-self: center; margin-right: 12px; }
   .iw-ps:not(.is-verdict) .iw-ps__box:has(.iw-ps__lanes.is-on) .iw-ps__tag { grid-area: tag; margin-right: 12px; }
