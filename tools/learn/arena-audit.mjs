@@ -157,7 +157,7 @@ for (const viewName of VIEWS_WANT) { try {
   // the round runs on: step until a question is up (or the level is done / a card came)
   async function untilQuestion() {
     for (let i = 0; i < 240; i++) {
-      if (FORM === 'boss' && !FAR && i % 4 === 0) { const at = await ev(() => { const F = __inkwave.match.learn; return F._nearSaid || (F.arena && F.arena.m1 && !F.arena.m1.bossNear()); }); if (at) { const p = await nearBoss(); if (i === 0) say('walked her to the boss', JSON.stringify(p)); } }
+      if (FORM === 'boss' && !FAR && i % 4 === 0) { const at = await ev(() => { const F = __inkwave.match.learn; return F._nearSaid || (F.arena && F.arena.m1 && F.gates[F.pi] && F.gates[F.pi].phase !== 'S' && !F.arena.m1.bossNear()); }); if (at) { const p = await nearBoss(); if (i === 0) say('walked her to the boss', JSON.stringify(p)); } }
       const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind), card: !!(__G.hud.learn && __G.hud.learn._ask), board: !!document.querySelector('.iw-lf__board.is-on'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
       if (s.asking || s.card || s.done || s.echo) return s;
       if (s.board) { await ev(() => document.querySelector('.iw-lf__go').click()); }
@@ -323,7 +323,8 @@ for (const viewName of VIEWS_WANT) { try {
     check(!s.hold, `${label}: learn.hold falsy`);
     check(s.controller, `${label}: her controller is live (she can run)`);
     check(s.touchLive !== false || !V.touch, `${label}: the touch layer stays live`);
-    check(!!s.strip && s.strip.rect[3] > 0, `${label}: the strip: 「${s.strip && s.strip.text}」`);
+    if (s.mechanic === 'echo') check(!s.strip, `${label}: no strip over the booth (its board carries the question)`, s.strip);
+    else check(!!s.strip && s.strip.rect[3] > 0, `${label}: the strip: 「${s.strip && s.strip.text}」`);
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
     let v = null;

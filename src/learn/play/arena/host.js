@@ -47,8 +47,9 @@ class EchoStation {
     const at = new THREE.Vector3(n.x, n.y, n.z);
     this.echo.open({ key: g.id + ':' + item.id, item, at, yaw: Math.atan2(at.x - a.pos.x, at.z - a.pos.z) });
     this.cur = { g, item, at };
-    this.host.strip?.show({ text: item.en, zh: '走进亭子，听范例，跟着说；走出来 = 说完了', tts: null }, {});
-    this.host.strip?.fit(this.host.m1._topKeys());
+    // (no strip while the booth is up — its board carries the question and the 范例, as the puzzle's exit booth does: a
+    // strip over it covered the board's first lines on a landscape phone)
+    this.host.strip?.hide();
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, at: at.toArray().map((v) => +v.toFixed(1)) });
     return true;
   }
