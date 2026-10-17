@@ -872,6 +872,8 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **动了别人地盘的**：`flow.js` 7 行（一个 import、`_judgeRecord` 里两行 + 注释，只加）。`touch.js`、`weapons.js`、`main.js`、`actor.js`、`cameraRig.js`、`play-strip.js`、`run.js`、`config.js`、`duel.js`、`boss.js`、`arena/`、`runner/`：**一行没动**。`docs/PLAY.md` 三处「play-fix 更正」（§3 M4 机位、§4 表写句、路标）。
 
+**PLAY §1 逐条核**：① 不暂停 / 不定身 / 不弹面板——审计每题核 `paused` / `hold` / 面板；扣住时世界照跑、她站着（意图清零，同打字）。② 判分只走 `_judgeRecord`——扣住和决定都走它（`o.hold / o.decided / o.claim`），站点源码里没有判分（测试核）。③ 证据如实——扣住时什么都不写；`S` 只在 `claimJudge` 站得住时记；`T / H / L / W` 的路没变。④ 节奏不等于对错、⑤ 没有误答——节拍台和墨靶的判法没动。⑥ 不惩罚——扣住不超时，错还是珊瑚色。⑦ 每句英文配中文——题条没动（横屏打字时一行，中文行太长末尾省略）。⑧ 不加素材——没加任何素材文件，CSS 在 JS 里注入。⑨ 画风流畅——镜头还是弹簧、不硬切，`PlayCam.to` 每帧不再分配，帧时间见下。⑩ 竖横都能玩——两个方向都量过、跑过。⑪ 内容一条不少——`playOf` / `kindOfItem` 没动，测试照过。⑫ 开关可退——只有开关下的站点给 `o.hold`，卡片的调用一字不差（测试核）。
+
 **测试**：`npm run test:learn` 189 → 193（新 `tests/learn/play-fix.test.mjs` 4 条：七张舞台竖横两向、每张 5 个门位 × 2 / 4 台的选址——合格的位置独立再核台上没有块、镜头看得见，至少六成门位有合格的位置；扣住 → 我的写法也对 `[1, S]` 一次 / 继续 `[0, W]` + 锁 + 再问 / 答对和差得远不扣 / 不给 `o.hold` 照旧，站点源码里没有判分；打字机位按真实带子在竖横桌面都框得住、站点自己的机位里头比那排低 ≥ 0.05 NDC；出口区的停点——回声亭边 0.8 m 不换停点、停下才算到、复习日的牌子是停点、没有打卡垫时讲完 + 牌子都看过才结算）；`npm run check` 271 个文件。和旧选址比（同一批门位，Node）：台上有道具竖屏 6 → 0、横屏 19 → 0，台从舞台镜头看不见 7 → 0、24 → 0。
 
 **实测**（`tools/learn/wire-audit.mjs`，静态服务 `/game/`、Chromium + SwiftShader、`?quality=low`、冻时钟步进，一次一个浏览器 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10`；舞台 tidewater；2026-10-17 UTC。基线是 dev `7fae9fe` 的一份拷贝、配同一个新审计；截图在 scratchpad 的 `fix-shots/before|after/`，不进仓库）：
