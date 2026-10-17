@@ -98,6 +98,9 @@ export class GlideStation {
     if (e.slow) { p._tip = { zh: '换个问法：慢一点再听一遍，把听到的写下来', slow: true }; p.zh = [p._tip.zh, p.zh].filter(Boolean).join('　'); }
     if (e.why) { p.zh = ['换个问法：' + e.why, p.zh].filter(Boolean).join('　'); }
     if (e.retype) p.zh = ['选过了，再把它打出来', p.zh].filter(Boolean).join('　');
+    // (the other try is marked as one: no 「我的写法也对」 on it — forms/common.js canClaim, as the card never offered it on
+    // a retry; judgeAnswer reads only the two choice _alt kinds, so the text is judged as ever)
+    if (e.slow || e.why || e.retype) p._alt = p._alt || 'again';
     if (e.relearn) { p.zh = ['回炉：' + (item.meta && (item.meta.hint || item.meta.zhFull) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._tip = { ...(p._tip || {}), relearn: true }; }
     const ref = String((item.meta && item.meta.ref) || item.en || '');
     const mode = p.type === 'write' || /\s/.test(ref) ? 'sentence' : 'word';

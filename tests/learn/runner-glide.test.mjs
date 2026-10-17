@@ -248,7 +248,14 @@ test('「我的写法也对」 on the 滑行段: a near-miss sentence is held �
     assert.deepEqual(leafOf(it.id).slice(0, 2), claim ? [1, 'S'] : [0, 'W']);
     assert.equal(F.log.filter((e) => e.name === 'learn:answer').length, 1, 'learn:answer once, after her tap');
     const res = S.shot.calls.find((c) => c[0] === 'resolve'); assert.equal(res[1].ok, claim);
-    if (claim) assert.equal(F.queue.length, 0); else assert.ok(F.queue.length === 1 && F.queue[0].kind === 'glide' && F.queue[0].items[0] === it, '继续: the miss, its other try (with the why)');
+    if (claim) assert.equal(F.queue.length, 0); else {
+      assert.ok(F.queue.length === 1 && F.queue[0].kind === 'glide' && F.queue[0].items[0] === it, '继续: the miss, its other try (with the why)');
+      // the other try (why first) offers no claim: the same near miss is judged straight away, nothing held
+      const done2 = S.run({ items: [it], gate: G3, row: { e: F.queue[0], gate: 9, kind: 'glide', s: 40 } });
+      await typeAndFire(S, near);
+      assert.ok(!S.held, 'no 「我的写法也对」 on the other try');
+      await done2;
+    }
   }
 });
 
