@@ -125,7 +125,7 @@ export class ArenaRun extends PlayRun {
     let lift = 0;
     const objs = this.objs, safe = { ...S.safe };
     let L = C.layout;
-    for (let pass = 0; pass < 8; pass++) {
+    for (let pass = 0; pass < 20; pass++) {
       const wpp = (2 * D * tanV) / H;
       const px = (x, y, out) => out.copy(_o).addScaledVector(_f, D).addScaledVector(_r, ((x / W) * 2 - 1) * D * tanV * aspect).addScaledVector(_u, (1 - (y / H) * 2) * D * tanV).addScaledVector(UP, lift);
       objs.length = 0;
@@ -157,9 +157,11 @@ export class ArenaRun extends PlayRun {
       }
       const dMin = boom + 1.6;
       if ((blocked || need > 0.01) && D > dMin + 0.05) { D = Math.max(dMin, D * 0.85); continue; }
-      if (need > 0.01 && safe.h > 151) { safe.h = Math.max(150, safe.h - (need / wpp + 8)); L = layoutTargets(C.labels.length, C.labels, W / H, safe, { avoid: S.avoid }); C.layout = L; continue; }
+      // (still blocked as close as she can shoot — a balustrade or a low wall right in front of her, most of it below the
+      // eye line: the band shrinks from the bottom, the objects come up over it; then a lift)
+      if ((need > 0.01 || blocked) && safe.h > 151) { safe.h = Math.max(150, safe.h - (need > 0.01 ? need / wpp + 8 : 48)); L = layoutTargets(C.labels.length, C.labels, W / H, safe, { avoid: S.avoid }); C.layout = L; continue; }
       const room = Math.max(0, Math.min(...L.items.map((it) => (it.kind === 'ball' ? it.y - it.r : it.y))) - S.safe.y) * wpp;
-      if (need > 0.01 && lift < room - 0.01) { lift = Math.min(room, lift + need); continue; }
+      if ((need > 0.01 || blocked) && lift < room - 0.01) { lift = Math.min(room, lift + (need > 0.01 ? need : 0.3)); continue; }
       C.sunk = need > 0.01 ? +need.toFixed(2) : 0; C.blocked = blocked;
       break;
     }
