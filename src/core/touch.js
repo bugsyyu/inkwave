@@ -23,7 +23,7 @@ import { ReadStrip } from '../learn/play/board/strip.js';   // … and the readi
 // Left share of the screen that owns the movement stick. The rest is look / fire / buttons.
 const MOVE_ZONE = 0.44;
 
-// 关卡学习 (docs/LEARN.md §16): opened from the IELTS-Base App (?from=app), a portrait-only WKWebView. The App can never be
+// 关卡学习 (docs/LEARN.md §16): opened from the IELTS-Base App (?from=app), a WKWebView that only the game page may turn (play-7, PLAY §8). The App can never be
 // turned, so the portrait gate there would be a dead end — over the pause menu when the App comes back from the background,
 // over the menus after a level — and the controls stay live in portrait for whatever she starts from the menu.
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';
