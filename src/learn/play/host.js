@@ -23,7 +23,7 @@ import { FlipStation } from './wire/flip.js';
 import { BoardStation } from './wire/boards.js';
 import { ExitStation } from './wire/exit.js';
 
-const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _c = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
 // play-fix: no crosshair while a station holds the lens — she types, hops the stage, flips a card, reads a framed board
 // (or the booth / a sign) — nothing is aimed there and it sat on the typewriter mid-screen; M1 keeps it (she aims there).
@@ -198,32 +198,52 @@ export class PlayHost {
     if (nav && path.length > g.pathIndex + 1) { const p = nav.nodes[path[g.pathIndex]], q = nav.nodes[path[Math.min(path.length - 1, g.pathIndex + 2)]]; if (Math.hypot(q.x - p.x, q.z - p.z) > 0.3) return Math.atan2(q.x - p.x, q.z - p.z); }
     return a.yaw;
   }
-  // a near-flat, walkable spot for the beat stage past gate g: the route point (2–14 m on) whose footprint sits best
+  // a near-flat, walkable spot for the beat stage past gate g: the route point (2–14 m on) whose footprint sits best.
+  // play-fix: and no prop on it — a fountain, a bench, a crane leg (their colliders are in the physics: the level's blocks,
+  // hidden ones included) inside a pad, its rim or its sign — and every pad and sign seen from the stage camera, the
+  // camera of this orientation and of the other one (the phone may turn; the first gate's plaza stood a pad half behind
+  // its fountain in portrait); no spot like that 2–14 m on → further along the route (to 22 m), then back before the gate
   stageSpot(g, n = 2) {
     const nav = G.nav, L = G.level, path = this.flow.path || [];
     const fallback = { origin: (g._play && g._play.anchor ? g._play.anchor : g.pos).clone(), yaw: this.facingYaw(g, this.match.local) };
     if (!nav || !L || path.length < 2) return fallback;
     // the stage camera's spot (stage frame) at this aspect: it must see the home pad — a roof, a bridge, a gazebo over
-    // the spot hides the whole stage (the first version stood the pads under the harbour pavilion)
-    const camL = stageLayout(n, innerWidth / innerHeight).cam.pos;
-    let best = null, acc = 0;
+    // the spot hides the whole stage (the first version stood the pads under the harbour pavilion) — and (play-fix) the rest
+    const aspect = innerWidth / innerHeight, lays = [stageLayout(n, aspect), stageLayout(n, aspect < 1 ? 844 / 390 : 390 / 844)];
+    const a = this.match.local;
+    let best = null;
     const P = G.physics;
     // every route point 2–14 m past the gate, and beside it (±1.6 / ±3.2 m, a little dearer): the first gate's plaza has
     // its fountain right on the route, the open ground is beside it
-    const cands = [];
-    for (let i = g.pathIndex + 1; i < path.length && acc < 14; i++) {
-      const p = nav.nodes[path[i - 1]], q0 = nav.nodes[path[i]];
-      acc += Math.hypot(q0.x - p.x, q0.z - p.z);
-      if (acc < 2) continue;
-      const yaw = Math.atan2(q0.x - p.x, q0.z - p.z), sy = Math.sin(yaw), cy = Math.cos(yaw);
-      for (const side of [0, 1.6, -1.6, 3.2, -3.2]) {
-        const x = q0.x + cy * side, z = q0.z - sy * side;
-        if (side !== 0) { const k = nav.nearest(_v.set(x, q0.y, z), 0.8, true); if (k < 0 || Math.hypot(nav.nodes[k].x - x, nav.nodes[k].z - z) > 0.75) continue; }
-        cands.push({ q: side === 0 ? q0 : { x, y: nav.nodes[nav.nearest(_v.set(x, q0.y, z), 0.8, true)].y, z }, yaw, sy, cy, acc, side: Math.abs(side) });
+    const along = (from, to, dir) => {
+      const out = [];
+      let s = 0;
+      for (let i = g.pathIndex + dir; i >= 1 && i < path.length && s < to; i += dir) {
+        const p = nav.nodes[path[i - dir]], q0 = nav.nodes[path[i]];
+        s += Math.hypot(q0.x - p.x, q0.z - p.z);
+        if (s < from) continue;
+        // (the stage faces on along the route: back before the gate it still faces the way she goes)
+        const yaw = dir > 0 ? Math.atan2(q0.x - p.x, q0.z - p.z) : Math.atan2(p.x - q0.x, p.z - q0.z), sy = Math.sin(yaw), cy = Math.cos(yaw);
+        for (const side of [0, 1.6, -1.6, 3.2, -3.2]) {
+          const x = q0.x + cy * side, z = q0.z - sy * side;
+          if (side !== 0) { const k = nav.nearest(_v.set(x, q0.y, z), 0.8, true); if (k < 0 || Math.hypot(nav.nodes[k].x - x, nav.nodes[k].z - z) > 0.75) continue; }
+          out.push({ q: side === 0 ? q0 : { x, y: nav.nodes[nav.nearest(_v.set(x, q0.y, z), 0.8, true)].y, z }, yaw, sy, cy, acc: dir > 0 ? s : -s, side: Math.abs(side) });
+        }
       }
-    }
-    for (const c of cands) {
-      const { q, yaw, sy, cy, acc } = c;
+      return out;
+    };
+    const ids = this._ids || (this._ids = []);
+    // a solid block standing on the stage (above its floor, below head height) inside the disc (x, z, r)
+    const propIn = (blocks, x, y, z, r) => {
+      for (const b of blocks) for (const h of [0.4, 1.2]) for (let k = 0; k <= 8; k++) {
+        const ang = (k / 8) * Math.PI * 2, rr = k === 8 ? 0 : r;
+        if (L.pointInBlock(b, _w.set(x + Math.cos(ang) * rr, y + h, z + Math.sin(ang) * rr), 0.05)) return true;
+      }
+      return false;
+    };
+    const rate = (c) => {
+      const { q, sy, cy } = c;
+      const W = (lx, lz, out) => out.set(q.x + cy * lx + sy * lz, q.y, q.z - sy * lx + cy * lz);
       let ok = 0, dev = c.side * 0.3;
       for (const [lx, lz] of STAGE_PTS) {
         const x = q.x + cy * lx + sy * lz, z = q.z - sy * lx + cy * lz;
@@ -238,14 +258,45 @@ export class PlayHost {
         const sky = !P || !P.los || P.los(_w.set(x, q.y + 0.5, z), _v.set(x, q.y + 5.5, z));
         if (flat && walk && clear && sky) ok++; else dev += flat && clear && sky ? 0.5 : 1;
       }
-      const camSees = !P || !P.los || P.los(_w.set(q.x + cy * camL[0] + sy * camL[2], q.y + camL[1], q.z - sy * camL[0] + cy * camL[2]), _v.set(q.x, q.y + 0.6, q.z));
+      // the props on the stage: this orientation's pads (and the home pad) and their signs
+      const lay = lays[0], discs = [[0, 0, 1.0], ...lay.pads.map((p) => [p.x, p.z, p.r + 0.2]), ...lay.labels.map((l) => [l.x, l.z, Math.max(0.5, l.w * 0.45)])];
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const [lx, lz, r] of discs) { W(lx, lz, _v); x0 = Math.min(x0, _v.x - r); x1 = Math.max(x1, _v.x + r); z0 = Math.min(z0, _v.z - r); z1 = Math.max(z1, _v.z + r); }
+      const near = [];
+      for (const id of L.queryBlocks(x0, z0, x1, z1, ids)) { const b = L.blocks[id]; if (b && b.solid && b.aabbMax.y > q.y + 0.25 && b.aabbMin.y < q.y + 2.6) near.push(b); }
+      let props = 0;
+      if (near.length) for (const [lx, lz, r] of discs) { W(lx, lz, _c); if (propIn(near, _c.x, q.y, _c.z, r)) props++; }
+      // every pad (and the home pad) and every sign seen from the stage camera — both orientations' cameras
+      let unseen = 0, camSees = true;
+      if (P && P.los) for (let li = 0; li < lays.length; li++) {
+        const Ly = lays[li], cp = Ly.cam.pos;
+        _c.set(q.x + cy * cp[0] + sy * cp[2], q.y + cp[1], q.z - sy * cp[0] + cy * cp[2]);
+        const pts = [[0, 0.15, 0], ...Ly.pads.map((p) => [p.x, 0.15, p.z]), ...Ly.labels.map((l) => [l.x, l.y, l.z])];
+        for (let k = 0; k < pts.length; k++) {
+          const [lx, ly, lz] = pts[k];
+          W(lx, lz, _v); _v.y = q.y + ly;
+          if (!P.los(_c, _v)) { unseen++; if (k === 0 && li === 0) camSees = false; }
+        }
+      }
+      // she hops onto the home pad from where she stands: no wall in between
+      const hop = !P || !P.los || !a || P.los(_w.set(a.pos.x, a.pos.y + 1.2, a.pos.z), _v.set(q.x, q.y + 1.2, q.z));
       if (!camSees) dev += 4;
-      const score = ok * 2 - dev - acc * 0.04;
-      if (!best || score > best.score) best = { score, origin: new THREE.Vector3(q.x, q.y, q.z), yaw, ok, acc: +acc.toFixed(1), side: c.side };
-      if (ok === STAGE_PTS.length && camSees && c.side === 0) break;
-    }
+      const score = ok * 2 - dev - Math.abs(c.acc) * 0.04 - props * 3 - unseen * 1.2 - (hop ? 0 : 3);
+      const good = ok === STAGE_PTS.length && props === 0 && unseen === 0 && hop;
+      return { score, good, ok, props, unseen, camSees, hop };
+    };
+    const scan = (cands) => {
+      for (const c of cands) {
+        const R = rate(c);
+        if (!best || (R.good && !best.good) || (R.good === best.good && R.score > best.score)) best = { score: R.score, good: R.good, origin: new THREE.Vector3(c.q.x, c.q.y, c.q.z), yaw: c.yaw, ok: R.ok, props: R.props, unseen: R.unseen, acc: +c.acc.toFixed(1), side: c.side };
+        if (R.good && c.side === 0) return true;
+      }
+      return !!(best && best.good);
+    };
+    // (the ranges in turn: the first one with a good spot wins — the near stretch past the gate, further on, back before it)
+    if (!scan(along(2, 14, 1)) && !scan(along(14, 22, 1))) scan(along(2, 10, -1));
     if (!best) return fallback;
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'stage', ok: best.ok, at: best.acc, side: best.side, n });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'stage', ok: best.ok, good: best.good, props: best.props, unseen: best.unseen, at: best.acc, side: best.side, n });
     return best;
   }
   // the voice: the course's recording or the device's (hud-learn's _speak), the strip's ▶ lit while it plays
