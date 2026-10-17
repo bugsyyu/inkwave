@@ -80,7 +80,7 @@ test('a game that cannot start in her App hands her back to the lesson page: mod
   assert.ok(/setTimeout\(\(\) => window\.__gfBack\('slow'\), 60000\)/.test(H), 'a boot that never finishes');
   assert.ok(/location\.replace\('\.\.\/index\.html\?classic=1&why=' \+ encodeURIComponent/.test(H));
   assert.ok(/if \(q\.get\('from'\) !== 'app'\) return;/.test(H), 'only opened from her App');
-  assert.ok(/e\.type === 'notify\.open' && e\.kind === 'review'\) \{ location\.href = '\.\.\/index\.html\?classic=1#review'/.test(H));
+  assert.ok(/e\.type === 'notify\.open' && e\.kind === 'review'\) \{ location\.href = '\.\.\/index\.html\?classic=1&open=review'/.test(H), 'the lesson page opens its review (app/native.js reads ?open=review)');
   const Mn = src('src/main.js');
   assert.ok(/window\.__gfBack\?\.\('boot: ' \+ \(\(e && e\.message\) \|\| e\)\);/.test(Mn), 'a fatal boot error');
 });

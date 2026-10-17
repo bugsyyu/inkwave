@@ -95,7 +95,7 @@
         try {
           const e = typeof evt === 'string' ? JSON.parse(evt) : evt;
           if (!e || typeof e !== 'object') return;
-          if (e.type === 'notify.open' && e.kind === 'review') { location.href = '../index.html?classic=1#review'; return; }
+          if (e.type === 'notify.open' && e.kind === 'review') { location.href = '../index.html?classic=1&open=review'; return; }
           if (e.type === 'power') N.power = { lowPower: !!e.lowPower, thermal: String(e.thermal || '') };
           N.events.push(e); if (N.events.length > 20) N.events.shift();
           if (typeof N.on === 'function') N.on(e);
