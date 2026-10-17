@@ -105,4 +105,15 @@ test('the typing frame (play-fix): fitted to the real band — every rig point b
     const row = W / H > 1.4 ? [0, 1.16, 1.12] : RIG_POINTS.midRow;
     assert.ok(P(RIG_POINTS.head)[1] > P(row)[1], `${W}x${H}: her head below the row`);
   }
+  // the station's own frame (wire/type.js _typeFrame): her head clearly under the row, the rig still in the band
+  const { TypeStation } = await import('../../src/learn/play/wire/type.js');
+  const S = Object.create(TypeStation.prototype); S._fc = new Map();
+  for (const [W, H, top, kb] of [[390, 844, 0.3, 0.36], [390, 844, 0.28, 0.36], [844, 390, 0.12, 0.4]]) {
+    const f = S._typeFrame({ aspect: W / H, top, kb, key: `${W}|${top}` });
+    assert.ok(f.fits);
+    const P = (p) => { const q = projectRig(p, f.pos, f.look, f.fov, W / H); return [((q[0] + 1) / 2) * W, ((1 - q[1]) / 2) * H]; };
+    for (const p of [...RIG_POINTS.plate, RIG_POINTS.strike, ...RIG_POINTS.textLines, RIG_POINTS.typed10]) { const [x, y] = P(p); assert.ok(y >= H * top - 1 && y <= H * (1 - kb) + 1 && x >= 0 && x <= W); }
+    const row = W / H > 1.4 ? [0, 1.16, 1.12] : RIG_POINTS.midRow;
+    assert.ok(P(RIG_POINTS.head)[1] - P(row)[1] >= (H / 2) * 0.05 - 1, `${W}x${H}: her head ${P(RIG_POINTS.head)[1].toFixed(0)} well under the row ${P(row)[1].toFixed(0)}`);
+  }
 });

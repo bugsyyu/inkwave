@@ -28,7 +28,7 @@ import { G, clamp } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { EFFECTS } from '../../design.js';
 import { TypeShot } from '../type/shot.js';
-import { frameFor, FRAME } from '../type/frame.js';
+import { frameFor, FRAME, RIG_POINTS, searchFrame } from '../type/frame.js';
 import { wordBox } from '../type/inkword.js';
 import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
@@ -36,6 +36,7 @@ import { ieltsNow } from '../../ielts.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _c = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
+const HEAD_MARGIN = 0.05;   // NDC: her head this far under the keys' middle row in the typing frame (≈ 20 px upright, 10 px landscape)
 // the strip while she types on a landscape phone (play-4's runner rule, tips.js, for the puzzle): up to the top edge, one
 // line, no ▶ — the band between it and the keyboard (44 % of the height) is what the typewriter gets
 const CSS = `@media (max-height: 460px) and (orientation: landscape) {
@@ -141,10 +142,18 @@ export class TypeStation {
     const kb = this.keys ? +clamp(Math.ceil(this.keys.frac * 50) / 50, 0, 0.6).toFixed(2) : (aspect < 1 ? 0.4 : 0.45);
     return { aspect, top, kb, key: `${aspect.toFixed(2)}|${kb}|${top}` };
   }
-  // frame.js's typing frame (the rig's own frame: origin at her feet, +Z the hull, +X her left), kept per band
+  // the typing frame (the rig's own frame: origin at her feet, +Z the hull, +X her left), kept per band: frame.js's search
+  // with her head HEAD_MARGIN (NDC) below the keys' middle row (a wide screen: the far row) rather than just below it —
+  // the audit's first after-run had her head 1–2 px under the row (the frame stops at the first pose that passes; the
+  // hair and the seat sit higher than RIG_POINTS.head); no frame like that fits the band → frame.js's own
   _typeFrame(band) {
     let f = this._fc.get(band.key);
-    if (!f) { f = frameFor({ phase: 'type', aspect: band.aspect, kbFrac: band.kb, topFrac: band.top }); this._fc.set(band.key, f); if (this._fc.size > 12) this._fc.delete(this._fc.keys().next().value); }
+    if (!f) {
+      const m = FRAME.margin * 2, R = RIG_POINTS, row = band.aspect > 1.4 ? [0, 1.16, 1.12] : R.midRow;
+      f = searchFrame([...R.plate, R.strike, ...R.textLines, R.typed10], [(P) => P(R.head) < P(row) - HEAD_MARGIN], { aspect: band.aspect, vfov: FRAME.vfov, yLo: -1 + 2 * band.kb + m, yHi: 1 - 2 * band.top - m, xLim: 1 - m, cz: 1.0 });
+      if (!f.fits) f = frameFor({ phase: 'type', aspect: band.aspect, kbFrac: band.kb, topFrac: band.top });
+      this._fc.set(band.key, f); if (this._fc.size > 12) this._fc.delete(this._fc.keys().next().value);
+    }
     return f;
   }
   // is the typing lens in the open for this facing? her head → the lens, the lens → the keys' middle
