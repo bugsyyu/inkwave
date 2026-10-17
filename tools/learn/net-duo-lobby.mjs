@@ -87,6 +87,9 @@ export async function driveJoinUi({ step, ev, check, mark, say, shot }, code) {
     return { ready: vis(rb), readyOn: !!rb && rb.classList.contains('is-on'), readyLabel: (q('.iw-btn--ready .iw-btn__label') || {}).textContent, start: vis(sb), startBlocked: !!sb && sb.classList.contains('is-blocked'),
       startSub: (q('.iw-btn--lobstart .iw-btn__sub') || {}).textContent, canStart: __G.net.canStart(), readyCount: __G.net.lobby.players.filter((p) => p.ready).length };
   })));
+  // (the room screen comes in behind the menus' wipe: the second run measured the guest's bar while the wipe still covered
+  // it — wait until her 准备 is really on screen, as she would)
+  await until(1, () => { const e = document.querySelector('.iw-btn--ready'), W = __inkwave.menus.wipe; if (!e) return false; const b = e.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.5 && !(W && W.busy); });
   r = await bar();
   check('before ready: the guest has 准备 (off) and no 开始; the host has 开始, blocked, waiting for her', r[1].ready && !r[1].readyOn && !r[1].start && r[0].start && r[0].startBlocked && !r[0].canStart, JSON.stringify(r));
   await shot(1, 'lobby-guest-unready');
