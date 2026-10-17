@@ -1,8 +1,10 @@
 // 题即玩法 — the question objects themselves (docs/PLAY.md §3 M1, §7): ink balls with a label plate, or wide ink banner
 // planks with the label on their face. Everything procedural (an icosahedron sphere, a rounded box, a quad) with
 // INKWAVE's own ink look — the glossy clearcoat of the ink rounds (weapons.js makeBlobMaterial: roughness .12,
-// clearcoat 1, a rim lit in the ink's own colour), a slow wobble so it reads as liquid. Neutral grey ink until it is hit:
-// a right hit bursts it in her team ink, a wrong one turns it coral (#f08a7a — never the other team's colour, PLAY §1.6).
+// clearcoat 1, a rim lit in the ink's own colour), a slow wobble so it reads as liquid. Neutral pearl ink until it is hit
+// (LEARN §35: a pearly lilac, a sheen that shifts with the view, a slow marbling turning inside): a right hit puffs it up
+// and bursts it in her team ink, a wrong one turns it coral (#f08a7a — never the other team's colour, PLAY §1.6) with a
+// jelly shake. The plates are stickers (atlas.js: the battle's name tags) whose face takes her ink on the right one.
 //
 // Draw calls: balls (InstancedMesh, ≤ 4) · plates (InstancedMesh, ≤ 4: a ball's label, or a banner's face) · planks
 // (InstancedMesh, ≤ 3) · the halo round the right ball after a miss (InstancedMesh, 1) — at most 4 with the gate's atlas.
@@ -19,47 +21,60 @@
 //   T.dispose()
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { drawLabelAtlas } from './atlas.js';
+import { drawLabelAtlas, labelFonts } from './atlas.js';
+import { FRAME } from './layout.js';
 import { plankSpheres } from './hit.js';
 
 const MAXO = 4, MAXB = 3, NOUV = [0, 0, 0, 0];
-export const COLORS = { idle: '#a39db8', coral: '#f08a7a', ink: '#ff8a14' };
+export const COLORS = { idle: '#d3cae8', coral: '#f08a7a', ink: '#ff8a14' };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3();
 const _rot = new THREE.Matrix4(), _c = new THREE.Color();
 const ease = (k) => 1 - Math.pow(1 - k, 3);
-// a spring-ish pop: 0 → 1.08 → 1 over the stagger (no overshoot when reduced)
-const pop = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 + Math.sin(k * Math.PI) * 0.12 * (1 - k) - Math.pow(1 - k, 3));
+// a spring-ish pop: 0 → 1.08 → 1 (an ease-out-back; reduced motion has none)
+const pop = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 + 2.5 * Math.pow(k - 1, 3) + 1.5 * Math.pow(k - 1, 2));
 
 function inkMaterial() {
   const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.05, emissive: 0x000000, envMapIntensity: 1.15 });
-  const U = { uTime: { value: 0 }, uInk: { value: new THREE.Color(COLORS.ink) } };
+  const U = { uTime: { value: 0 }, uInk: { value: new THREE.Color(COLORS.ink) }, uIdle: { value: new THREE.Color(COLORS.idle) } };
   mat.userData.u = U;
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = U.uTime; sh.uniforms.uInk = U.uInk;
+    sh.uniforms.uTime = U.uTime; sh.uniforms.uInk = U.uInk; sh.uniforms.uIdle = U.uIdle;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         uniform float uTime;
-        attribute vec4 aPlay;   // x wobble, y phase, z glow (the right one's rim in its colour), w unused
-        varying vec4 vPlay;`)
+        attribute vec4 aPlay;   // x wobble, y phase, z glow (the right one's rim in its colour), w flash (the hit: the rim flares)
+        varying vec4 vPlay; varying vec3 vObj;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vPlay = aPlay;
+        vPlay = aPlay; vObj = position;
         {
           float w = aPlay.x * (0.05 * sin(uTime * 2.1 + aPlay.y + 3.1 * position.x + 2.3 * position.y) + 0.035 * sin(uTime * 3.3 + 1.7 * aPlay.y - 2.9 * position.z + 1.9 * position.y));
           transformed += normal * w;
         }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform vec3 uInk;
-        varying vec4 vPlay;`)
+        uniform vec3 uInk; uniform vec3 uIdle; uniform float uTime;
+        varying vec4 vPlay; varying vec3 vObj;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        // the neutral ink's body: a slow marbling turning round the ball (liquid, not plastic) — her ink / coral stay flat
+        float iwN = 1.0 - smoothstep(0.04, 0.2, distance(vColor.rgb, uIdle));
+        float iwA = uTime * 0.32 + vPlay.y, iwC = cos(iwA), iwS = sin(iwA);
+        vec2 iwXZ = mat2(iwC, -iwS, iwS, iwC) * vObj.xz;
+        float iwM = smoothstep(0.2, 0.95, 0.5 + 0.5 * sin(3.6 * iwXZ.x + 2.2 * sin(2.7 * vObj.y + 1.3 * iwXZ.y + uTime * 0.55)));
+        diffuseColor.rgb *= mix(1.0, mix(0.9, 1.07, iwM), iwN);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
-          // the ink's own rim light (the rounds' look); the right one after a miss rims in her ink
-          float iwRim = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0);
+          // the ink's own rim light (the rounds' look); the right one after a miss rims in her ink; the neutral ink a
+          // pearl sheen that shifts hue with the angle (lilac → mint → peach); the hit's frame a white flare
+          float iwF = 1.0 - saturate(dot(normal, normalize(vViewPosition)));
+          float iwRim = pow(iwF, 3.0);
           vec3 iwCol = mix(vColor.rgb, uInk, saturate(vPlay.z));
           totalEmissiveRadiance += iwCol * (0.14 + 0.5 * iwRim) * (1.0 + 1.6 * vPlay.z);
+          vec3 iwPearl = 0.5 + 0.5 * cos(6.2832 * (iwF * 0.9 + 0.08 * iwM + vec3(0.0, 0.33, 0.67)) + uTime * 0.25);
+          totalEmissiveRadiance += mix(vec3(1.0), iwPearl, 0.55) * iwN * (0.06 * iwM + 0.32 * pow(iwF, 2.2)) * (1.0 - saturate(vPlay.z));
+          totalEmissiveRadiance += vec3(1.0) * vPlay.w * (0.35 + 2.4 * iwRim);
         }`);
   };
-  mat.customProgramCacheKey = () => 'iw-play-ink-2';
+  mat.customProgramCacheKey = () => 'iw-play-ink-3';
   return mat;
 }
 
@@ -67,39 +82,45 @@ function plateMaterial() {
   const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
   const U = { uOutline: { value: new THREE.Color(COLORS.ink) }, uCoral: { value: new THREE.Color(COLORS.coral) } };
   mat.userData.u = U;
+  const F = FRAME, f = (v) => Number(v).toFixed(2);
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uOutline = U.uOutline; sh.uniforms.uCoral = U.uCoral;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec4 aUv;      // the label's rect in the atlas: u0 v0 u1 v1
-        attribute vec4 aState;   // x opacity, y outline (her ink), z coral, w the plate's aspect (w / h)
-        varying vec4 vState; varying vec2 vLocal;`)
+        attribute vec4 aState;   // x opacity, y her ink (the right one), z coral, w flash (the outline lights up, then falls)
+        attribute vec4 aBox;     // the plate in CSS px: x w, y h, z its tail (0: a banner's face)
+        varying vec4 vState; varying vec4 vBox; varying vec2 vLocal;`)
       .replace('#include <uv_vertex>', `#include <uv_vertex>
-        vLocal = uv; vState = aState;
+        vLocal = uv; vState = aState; vBox = aBox;
         #ifdef USE_MAP
           vMapUv = mix(aUv.xy, aUv.zw, uv);
         #endif`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform vec3 uOutline; uniform vec3 uCoral;
-        varying vec4 vState; varying vec2 vLocal;`)
+        varying vec4 vState; varying vec4 vBox; varying vec2 vLocal;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         {
-          // coral wash over a wrong one's dark ground (its letters stay light: still readable); a ring in her ink round
-          // the right one (the plate's rounded rectangle)
-          float lum = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b));
-          float ground = 1.0 - smoothstep(0.3, 0.65, lum);
-          diffuseColor.rgb = mix(diffuseColor.rgb, uCoral, 0.5 * ground * vState.z * step(0.02, diffuseColor.a));
-          vec2 hs = vec2(vState.w * 0.5, 0.5), p = (vLocal - 0.5) * vec2(vState.w, 1.0);
-          float r = 0.3; vec2 q = abs(p) - hs + r;
+          // the sticker's pearl face (its light pixels) takes coral on a wrong one, her ink on the right one — a multiply:
+          // the outline, the shadow and the letters stay ink-dark, the face's shading stays
+          float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          float face = smoothstep(0.42, 0.82, lum);
+          vec3 tint = mix(mix(vec3(1.0), uCoral, 0.8 * vState.z), uOutline, vState.y);
+          diffuseColor.rgb *= mix(vec3(1.0), tint, face);
+          // the outline's band (atlas.js stickerBody: the same box, px) flares in a bright her-ink, then falls back to ink
+          vec2 px = vLocal * vBox.xy;
+          float y0 = ${f(F.air + F.line / 2 + F.shadow)}, y1 = vBox.y - ${f(F.air + F.line / 2)} - vBox.z;
+          vec2 c = vec2(vBox.x * 0.5, 0.5 * (y0 + y1)), hs = vec2(vBox.x * 0.5 - ${f(F.air + F.line / 2)}, 0.5 * (y1 - y0));
+          float r = min(${f(F.rad)}, (y1 - y0) * 0.42); vec2 q = abs(px - c) - hs + r;
           float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-          float ring = smoothstep(-0.13, -0.09, d) * (1.0 - smoothstep(-0.02, 0.0, d));
-          diffuseColor.rgb = mix(diffuseColor.rgb, uOutline, ring * vState.y);
-          diffuseColor.a = max(diffuseColor.a, ring * vState.y);
+          float band = 1.0 - smoothstep(${f(F.line * 0.4)}, ${f(F.line * 0.75)}, abs(d));
+          diffuseColor.rgb = mix(diffuseColor.rgb, uOutline * 1.15 + 0.22, band * vState.w);
+          diffuseColor.a = max(diffuseColor.a, band * vState.w);
           diffuseColor.a *= vState.x;
         }`);
   };
-  mat.customProgramCacheKey = () => 'iw-play-plate-2';
+  mat.customProgramCacheKey = () => 'iw-play-plate-3';
   return mat;
 }
 
@@ -123,7 +144,7 @@ export class PlayTargets {
     // (balls and planks share the ink material: their own geometries carry their own instance attributes)
     this.balls = inst(this.ballGeo, this.inkMat, MAXO, [['aPlay', 4]]);
     this.planks = inst(this.plankGeo, this.inkMat, MAXB, [['aPlay', 4]]);
-    this.plates = inst(this.plateGeo, this.plateMat, MAXO, [['aUv', 4], ['aState', 4]]);
+    this.plates = inst(this.plateGeo, this.plateMat, MAXO, [['aUv', 4], ['aState', 4], ['aBox', 4]]);
     this.halo = new THREE.InstancedMesh(this.ballGeo, this.haloMat, 1); this.halo.count = 0; this.halo.frustumCulled = false; this.halo.renderOrder = 2;
     this.group.add(this.halo);
     for (const m of [this.balls, this.planks]) { for (let i = 0; i < m.instanceMatrix.count; i++) m.setColorAt(i, _c.set(COLORS.idle)); m.instanceColor.setUsage(THREE.DynamicDrawUsage); }
@@ -132,6 +153,7 @@ export class PlayTargets {
     this.slots = Array.from({ length: MAXO }, () => ({
       on: false, kind: 'ball', key: '', pos: new THREE.Vector3(), r: 0.5, w: 1, h: 0.5, d: 0.14,
       plate: { pos: new THREE.Vector3(), w: 1, h: 0.3 }, uv: NOUV, state: 'idle', t: 0, delay: 0, outAt: -1, gone: false, col: new THREE.Color(COLORS.idle), want: new THREE.Color(COLORS.idle), coral: 0, outline: 0, glow: 0,
+      bw: 100, bh: 40, tail: 0, flash: 0, jt: 9, bt: 9,   // the plate's box (CSS px) · the flash · the jelly / burst clocks (s)
     }));
     this.n = 0; this.kind = 'ball'; this.time = 0; this.anim = false;
     this.basis = { right: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 1, 0), back: new THREE.Vector3(0, 0, 1) };
@@ -142,6 +164,7 @@ export class PlayTargets {
     this.inkColor = new THREE.Color(COLORS.ink);
     this.group.visible = false;
     scene.add(this.group);
+    labelFonts();
     this.warm();
   }
 
@@ -196,7 +219,7 @@ export class PlayTargets {
     this.basis.right.copy(basis.right); this.basis.up.copy(basis.up); this.basis.back.copy(basis.back);
     _rot.makeBasis(this.basis.right, this.basis.up, this.basis.back); _q.setFromRotationMatrix(_rot);
     this.quat = (this.quat || new THREE.Quaternion()).copy(_q);
-    const stagger = this.reduced ? 0 : 0.07;
+    const stagger = this.reduced ? 0 : 0.05;   // (40–60 ms apart: the plates come up one after another)
     for (let k = 0; k < MAXO; k++) {
       const S = this.slots[k], o = objs[k];
       // (opts.keep: the same objects laid out again — run.js, the lens came to rest elsewhere — their pop-in goes on)
@@ -208,7 +231,9 @@ export class PlayTargets {
       S.r = o.r || 0.5; S.w = o.w || 1; S.h = o.h || 0.5; S.d = Math.max(0.12, (o.h || 0.5) * 0.22);
       S.plate.pos.set(o.plate.x, o.plate.y, o.plate.z); S.plate.w = o.plate.w; S.plate.h = o.plate.h;
       S.state = 'idle'; S.col.set(COLORS.idle); S.want.set(COLORS.idle); S.coral = 0; S.outline = 0; S.glow = 0;
+      if (!kept) { S.flash = 0; S.jt = 9; S.bt = 9; }
       S.uv = (A && A.uv.get(o.key)) || NOUV;
+      const bx = A && A.box.get(o.key); S.bw = bx ? bx.w : 100; S.bh = bx ? bx.h : 40; S.tail = o.kind === 'ball' ? FRAME.tail : 0;
     }
     this.halo.count = 0;
     this.group.visible = true;
@@ -223,10 +248,14 @@ export class PlayTargets {
     // (the right one keeps its grey ink and gets her ink round it — the halo, the plate's ring, its rim — so it never
     // reads like the coral one when her team colour is an orange)
     S.want.set(s === 'coral' ? COLORS.coral : COLORS.idle);
+    // a wrong one shakes like jelly (a damped spring, ~0.4 s); the right one's plate pushes out and its outline flares
+    if (s === 'coral' && !this.reduced) S.jt = 0;
+    if (s === 'right') S.flash = 1;
     this.anim = true;
   }
   // the hit one goes at once (the caller's explosion takes its place); the others drain away
-  burst(i) { const S = this.slots[i]; if (S && S.on) { S.gone = true; this.anim = true; this._spheres(); this._write(); } }
+  // (it is nothing to hit from now; drawn, it puffs 1 → 0.9 → 1.12 with its rim flared over 80 ms inside the explosion)
+  burst(i) { const S = this.slots[i]; if (S && S.on) { S.gone = true; S.bt = this.reduced ? 9 : 0; S.flash = 1; this.anim = true; this._spheres(); this._write(); } }
   // (draining objects are no longer anything to hit)
   out(delay = 0) { for (const S of this.slots) if (S.on && S.outAt < 0) S.outAt = this.time + delay; for (const o of this.spheres) o.active = false; this.nSpheres = 0; this.anim = true; }
   hide() {
@@ -267,7 +296,10 @@ export class PlayTargets {
       S.col.lerp(S.want, k);
       const wantCoral = S.state === 'coral' ? 1 : 0, wantOut = S.state === 'right' ? 1 : 0;
       S.coral += (wantCoral - S.coral) * k; S.outline += (wantOut - S.outline) * k; S.glow += (wantOut - S.glow) * k;
-      if (S.t < S.delay + 0.5 || S.outAt >= 0 || Math.abs(S.coral - wantCoral) > 0.01 || Math.abs(S.outline - wantOut) > 0.01 || Math.abs(S.col.r - S.want.r) + Math.abs(S.col.g - S.want.g) + Math.abs(S.col.b - S.want.b) > 0.003) busy = true;
+      S.jt += dt; S.bt += dt; S.flash *= Math.exp(-dt * 6);
+      if (S.flash < 0.01) S.flash = 0;
+      if (S.jt < 0.45 || S.bt < 0.1 || S.flash > 0 ||
+          S.t < S.delay + 0.5 || S.outAt >= 0 || Math.abs(S.coral - wantCoral) > 0.01 || Math.abs(S.outline - wantOut) > 0.01 || Math.abs(S.col.r - S.want.r) + Math.abs(S.col.g - S.want.g) + Math.abs(S.col.b - S.want.b) > 0.003) busy = true;
       if (ok >= 0.4) S.on = false;
     }
     let any = false; for (let i = 0; i < MAXO; i++) if (this.slots[i].on) any = true;
@@ -277,7 +309,11 @@ export class PlayTargets {
   }
 
   _scaleOf(S) {
-    if (S.gone) return 0;
+    if (S.gone) {
+      if (S.bt >= 0.08) return 0;
+      const k = S.bt / 0.08;
+      return k < 0.35 ? 1 - 0.1 * (k / 0.35) : 0.9 + 0.22 * ((k - 0.35) / 0.65);
+    }
     let s = this.reduced ? (S.t >= S.delay ? 1 : 0) : pop((S.t - S.delay) / 0.38);
     const ok = this._outK(S);
     if (ok > 0) s *= 1 - ease(Math.min(1, ok / 0.35));
@@ -292,10 +328,12 @@ export class PlayTargets {
       if (!S.on) continue;
       const s = this._scaleOf(S);
       if (S.kind === 'ball') {
-        _s.setScalar(S.r * s);
+        // the jelly: wider and flatter, then the other way, dying out (volume kept: x, z up when y is down)
+        const j = S.jt < 0.45 ? Math.sin(S.jt * 47) * Math.exp(-S.jt * 9) * 0.13 : 0;
+        _s.set(S.r * s * (1 + j), S.r * s * (1 - j), S.r * s * (1 + j));
         _m.compose(S.pos, q, _s); this.balls.setMatrixAt(nb, _m);
         this.balls.setColorAt(nb, S.col);
-        this.balls.aPlay.setXYZW(nb, this.reduced ? 0.35 : 1, i * 1.7, S.glow, 0);
+        this.balls.aPlay.setXYZW(nb, (this.reduced ? 0.35 : 1) + (j ? 2.5 * Math.exp(-S.jt * 6) : 0), i * 1.7, S.glow, S.gone ? S.flash : 0);
         S.slot = nb++;
         if (S.outline > 0.02 && !S.gone) { _s.setScalar(S.r * s * (1.08 + 0.05 * S.outline)); _m.compose(S.pos, q, _s); this.halo.setMatrixAt(0, _m); this.haloMat.opacity = 0.85 * S.outline; this.halo.count = 1; this.halo.instanceMatrix.needsUpdate = true; }
       } else {
@@ -305,13 +343,18 @@ export class PlayTargets {
         this.planks.aPlay.setXYZW(np, 0, i * 1.7, S.glow, 0);
         S.slot = np++;
       }
-      // the plate: a ball's below it, a banner's on the plank's face (a hair in front of it)
-      const sp = s;
-      _p.copy(S.kind === 'ball' ? S.plate.pos : S.pos);
-      if (S.kind !== 'ball') _p.addScaledVector(this.basis.back, S.d * 0.5 * s + 0.012);
+      // the plate: a ball's below it (it comes out from under the ball as it pops: the spring carries it a touch past its
+      // place and back), a banner's on the plank's face (a hair in front of it); the right one's pushes out at its flash
+      const sp = S.gone ? 0 : s * (1 + 0.08 * S.flash);
+      if (S.kind === 'ball') _p.lerpVectors(S.pos, S.plate.pos, this.reduced ? 1 : Math.min(1.06, s));
+      else _p.copy(S.pos).addScaledVector(this.basis.back, S.d * 0.5 * s + 0.012);
+      _p.addScaledVector(this.basis.back, 0.06 * S.flash);
       _s.set(S.plate.w * sp, S.plate.h * sp, 1);
       _m.compose(_p, q, _s); this.plates.setMatrixAt(nl, _m);
-      this.plates.aState.setXYZW(nl, S.gone ? 0 : Math.min(1, s * 1.4), S.outline, S.coral, S.plate.w / Math.max(1e-3, S.plate.h));
+      // (reduced motion: no pop — the plates fade in instead)
+      const op = S.gone ? 0 : this.reduced ? Math.max(0, Math.min(1, (S.t - S.delay) / 0.25)) * (S.outAt < 0 ? 1 : 1 - Math.min(1, this._outK(S) / 0.3)) : Math.min(1, s * 1.4);
+      this.plates.aState.setXYZW(nl, op, S.outline, S.coral, S.flash);
+      this.plates.aBox.setXYZW(nl, S.bw, S.bh, S.tail, 0);
       this.plates.aUv.setXYZW(nl, S.uv[0], S.uv[1], S.uv[2], S.uv[3]);
       nl++;
     }
@@ -321,7 +364,7 @@ export class PlayTargets {
     this.balls.instanceMatrix.needsUpdate = true; this.planks.instanceMatrix.needsUpdate = true; this.plates.instanceMatrix.needsUpdate = true;
     if (this.balls.instanceColor) this.balls.instanceColor.needsUpdate = true;
     if (this.planks.instanceColor) this.planks.instanceColor.needsUpdate = true;
-    this.balls.aPlay.needsUpdate = true; this.planks.aPlay.needsUpdate = true; this.plates.aState.needsUpdate = true; this.plates.aUv.needsUpdate = true;
+    this.balls.aPlay.needsUpdate = true; this.planks.aPlay.needsUpdate = true; this.plates.aState.needsUpdate = true; this.plates.aUv.needsUpdate = true; this.plates.aBox.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------------------------------------- on screen

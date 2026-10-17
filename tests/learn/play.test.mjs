@@ -301,7 +301,7 @@ test('one label atlas per gate: a gate\'s distinct labels, shelf-packed into at 
   assert.ok(wordMax > 0 && wordMax <= 512, 'a word gate (25 meanings) packs into 1024 × ' + wordMax);
   assert.ok(minScale >= 1.5, 'never under 1.5 texels per px: ' + minScale + ' ' + JSON.stringify(worst));
   // the measures the layout and the atlas share
-  assert.equal(textWidth('星期一', 17), 51); assert.equal(labelBox({ text: '星期一', zh: '' }).w, 75);
+  assert.equal(textWidth('星期一', 17), 51); assert.equal(labelBox({ text: '星期一', zh: '' }).w, 78, 'the text + the sticker frame (LEARN §35: 1.5 air + 3 outline + 9 inside, each side)');
   assert.equal(packLabels([{ w: 2000, h: 10 }]).fits, false, 'a box wider than the sheet does not fit');
 });
 
