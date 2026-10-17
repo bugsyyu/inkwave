@@ -3,7 +3,8 @@
 // App's bundle lays it out), Chromium on software GL, ?quality=low, shadows / bloom off, the game clock frozen
 // (debug.freeze) and stepped by hand; both phone views in ONE browser (one lock for both).
 //
-//   node tools/learn/arena-audit.mjs --form duel|quiz|boss [--views portrait,landscape] [--learn w1d6] [--shots <dir>] [--n 3]
+//   node tools/learn/arena-audit.mjs --form duel|quiz|boss [--views portrait,landscape] [--learn w1d6] [--gate N] [--shots <dir>] [--n 3]
+//       [--far] (boss: leave her where she is — the options then float towards it) [--skip-to S] (boss: clear the phases before)
 //       duel   ?learn=w1d6&kind=duel&short=1 (two rounds of two)      quiz   ?learn=w1d1&kind=quiz&short=1 (two questions)
 //       boss   ?learn=w1d7&kind=boss&short=1 (four phases of two)      --n: questions to answer per view (default 3)
 //   Per view: boot → the prep board's 开始 (duel / quiz) → step until the first question; for each question asserted:

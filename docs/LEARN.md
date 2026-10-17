@@ -899,6 +899,8 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 截图在主会话的草稿目录 `play5-shots/` 下按轮次分（`r2`–`r7`；早几轮的截图正是上面那些毛病的样子）。
 
+**PLAY §1 的 12 条**（逐条核，开关开着）：1 不暂停 / 不定身 / 不弹面板——出题和答题时 ✓（审计每题核 `paused`、`hold`、`.iw-learn__panel`），备战板例外见拿不准的 1；2 判分一条路 ✓（两个形式各一个 `_judgeRecord`、`recordFirst(` 各一次，源码测试）；3 证据如实 ✓（叶子测试：`L / T / H / W / S`，扣住时不写；打字提交前不给对错——打字蟹、键盘、墨字是 play-type 的，没改）；4 节奏——arena 里没有节拍玩法（音标 / 听辨在对抗赛 / Boss 是 M1，PLAY §4 表）；5 没有误答 ✓（她自己的平射打到题物只溅灰，审计每题核；带标记的墨弹只认它的目标）；6 不惩罚 ✓（错是 play-1 的珊瑚色 + 锁 + 「差一点」，Boss 的「答错出一招」是 LEVELS §2.5 原有的、不掉她的血）；7 每句英文配中文 ✓（题条、标签牌照 `engine.prompt`）；8 不加素材 ✓（没有素材文件：题物全是程序生成的几何 + 现成材质）；9 画风流畅 ✓（镜头只经 `PlayCam` 弹簧和 rig 的 `dampAngle`；Boss 上的题物关深度测试是唯一的渲染状态改动；帧时间没量，见没做的）；10 竖横 ✓（实测表）；11 内容不少 ✓（`design.test` 没动、照过；arena 测试核三周对抗赛日 / 小考 / Boss 计划的每个条目都有玩法）；12 开关可退 ✓（`&play=0` 两个审计）。
+
 **拿不准的（自己定了，请主会话过目）**：
 1. **备战板停住比赛**：轮与轮之间（还有小考开始前）的备战板是 `FormsUi` 的板子、`match.paused = true`——PLAY §1 第 1 条说「学习局里任何时候」都不暂停；但它不在一轮里（区域不计时、机器人在摆姿势），§4 表把课文在对抗赛里写成「M6（备战时）」。留着；要改就是把备战板换成 M6 展板、比赛不停。
 2. **题簇不一定在区域正上方**：她离区域中心 > 14 m 时等 6 s，再远就放在朝区域、她射得到的地方（≤ 镜头 + 8.5 m）。Boss 同理：> 10.5 m 等 8 s，再远就是题簇不是弱点。
@@ -918,13 +920,15 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 2. 帧时间对比（PLAY §7）没量；真机没跑。
 3. 横屏打字机跟着托架平移（见拿不准的 6）；`wire/type.js`（解谜的字弹，dev 的文件）同样的取景问题没改——`arenaTypeFrame` 可以直接换进去（它要题条和键盘的真实边）。
 4. 备战板换成 M6 展板（见拿不准的 1）。
+5. **Boss 横屏的 L / R / W 没在最后的代码上从头跑过**（横屏只有 L 段的球、r9 的复跑和 S 段；横屏 Boss 的字弹没有截图）：`NODE_PATH=… flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/arena-audit.mjs --form boss --views landscape --n 6 --shots <dir> --budget 2400`。
 
 **交接**（分支 `play-5`，没推；dev `3eefc21` 已合进来）：
 - **做到哪**：对抗赛 / 小考 / Boss 在开关下没有暂停、没有扣住、没有卡片（备战板除外，见拿不准的 1）；选择题是区域上空的题簇 / Boss 弱点上的球，打字是打字蟹（对抗赛带盾），Boss 的 S 段是回声亭。浏览器里竖横两个方向走过的见实测表。
 - **先看哪些文件**：`src/learn/play/arena/host.js`（分站、镜头、站着、回声亭站）→ `arena/run.js`（`_place` 的三种放法：区域题簇 / Boss 弱点 / Boss 远时的题簇；`_orbit` / `_ride` / `_track`；`spreadBalls`；`passes`）→ `arena/type.js`（`ask` 的落点和盾、`_pose` 的两种机位、`_submit / _decide` 的扣住）→ `arena/m1.js`（`arenaKind`、`weakSockets`、`arenaTypeFrame`）→ `forms/duel.js` / `forms/boss.js` 的 `_judgeRecord`、`_ask`、`update` 里的等待；审计 `tools/learn/arena-audit.mjs`（`--form duel|quiz|boss`、`--gate`、`--far`、`--n`）。
 - **接口**（play-4 要看的「扣住」）：`_judgeRecord(g, item, p, ans, o)` 在 Boss 里多认三个 `o`：`o.decided` + `o.claim`（她点了「我的写法也对」/「继续」之后再调一次；第一次调用对 `canClaim` 的句子返回 `{ held: true }`，什么都不写、不上锁、不出招）、`o.judged`（已经判好的结果）、`o.socket / o.hit`（命中的插口和点，火花放那儿）；对抗赛认 `o.judged`。字弹的扣住在 `arena/type.js _submit`：`out.held` → `strip.verdict({ ok: false, head: '差一点 — 意思到了', why, actions: [{ text: '我的写法也对', primary: true, onTap }, { text: '继续', onTap }] })`，墨字保持灰色，`_decide(claim)` 再调 `_judgeRecord(…, { decided: true, claim })`，然后 `_resolve` 演判定。
 - **和 play-4 会撞的**：`src/ui/play-strip.js`——这边（WIP）加了 `this.acts` 一行、改了 `this.verd = h(…, this.head, this.why, this.acts)`、`show()` / `question()` / `hide()` 各多一句 `this._acts(null)`、`verdict(v)` 读 `v.actions`；play-4 在同一处加了 `this.tag / this.lanes / this.note`、改了 `this.text / this.box / this.el` 三行、`show(p, { replay, tag, lanes, lite })`、`verdict(v, { ms })`、`hide()` 多一句 `this._vT = 0`。语义不冲突（`actions` 和 `ms` 可以同时有），`this.verd` 一带、`verdict` 的签名行、`hide()` 这一行文本一定冲突，合并时两边都要。`src/config.js` 各加各的键，`src/learn/play/run.js` 这边只加了构造函数的 `opts.Targets`。
-- **给主会话的**：flow.js 的判分映射五行可以换成 `judgeAnswer(item, p, ans)`（`forms/common.js`，同一套），这样全库只剩一份；解谜的字弹（`wire/type.js`）换用 `arenaTypeFrame` 能修掉主会话看到的那两处取景；准星同理（`G.hud.xh.style.visibility`）。
+- **给主会话的**：flow.js 的判分映射五行可以换成 `judgeAnswer(item, p, ans)`（`forms/common.js`，同一套），这样全库只剩一份；解谜的字弹（`wire/type.js`）换用 `arenaTypeFrame` 能修掉主会话看到的那两处取景；准星同理（`G.hud.xh.style.visibility`）；`flow._wordPool` 也会把音标题的选项（`/j/`）收成单词卡回炉的干扰项（`_altPrompt` 只用 `/[a-z]/i` 过滤）——`arena/alt.js` 的 `WORD` 那一行可以照搬。
+- **审计**：`tools/learn/arena-audit.mjs --form duel|quiz|boss [--views portrait,landscape] [--learn w1d6] [--gate N] [--n 3] [--far] [--skip-to S] [--shots dir] [--budget s]`；Boss 题前把她放到 Boss 正前方 9 m（`--far` 不放），`--skip-to S` 用审计的手清掉前面的段。
 - **已知坑**：
   1. 横屏里 Boss 的 HP 条 / 阶段牌（`.iw-lf__phase`，顶上 92 px）和题条叠在一起（题条只躲 `touch.js` 顶排的两个键），回声亭板的第一行也被它们压着（亭子的取景是 play-3 `booth.js` 的，不知道 Boss 的 HUD）。
   2. 对抗赛的题簇钉在锚点上：她跑远了它就在身后，转回来才看得见（不跟着她）。
