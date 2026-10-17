@@ -405,6 +405,7 @@ async function driveCoopPlay(H) {
   // within 0.6 s; c1 refills 20 in steps a swim's size (a jump bigger than LEARN.coop2.inkReset would read as a respawn), c0's follows
   {
     for (let n = 0; n < 40; n++) { const pl = await both(() => __inkwave.match.state === 'playing'); if (pl.every(Boolean)) break; await step(0.5); }
+    await step(0.5);   // (each tank's first playing frames: the shared level is taken from the engine's before anything is sprayed)
     const before = await both(() => __inkwave.match.state === 'playing' && __inkwave.match.local ? +__inkwave.match.local.ink.toFixed(1) : null);
     await ev(0, () => { const a = __inkwave.match.local; a.ink = Math.max(0, a.ink - 40); });
     await step(0.6);
