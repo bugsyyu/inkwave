@@ -13,6 +13,14 @@ import { PlayTargets } from '../targets.js';
 const _rot = new THREE.Matrix4(), _q = new THREE.Quaternion();
 
 export class ArenaTargets extends PlayTargets {
+  // the balls / planks in the transparent pass (opacity 1: the same pixels): HULLBREAKER's own see-through parts (its
+  // eyes, its claws' ink) draw after every opaque thing, so a ball on top of it (onTop) must come after them too — the
+  // program is compiled for it here, at the level load, never mid-question
+  constructor(o) {
+    super(o);
+    this.inkMat.transparent = true; this.inkMat.opacity = 1; this.inkMat.depthWrite = true; this.inkMat.needsUpdate = true;
+    this.warm();
+  }
   setBasis(right, up, back) {
     this.basis.right.copy(right); this.basis.up.copy(up); this.basis.back.copy(back);
     _rot.makeBasis(this.basis.right, this.basis.up, this.basis.back); _q.setFromRotationMatrix(_rot);
