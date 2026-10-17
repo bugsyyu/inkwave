@@ -60,6 +60,39 @@ test('stageSpot (play-fix): on every offline stage the beat stage stands where n
   console.log('# stage spots good: ' + report.join(' · '));
 });
 
+test('「我的写法也对」 on the puzzle\'s typed sentence (play-fix): a near miss is held — nothing written, no lock — until she decides: S when it stands, the miss W on 继续; without o.hold the call is as it was', async () => {
+  const { loadWeek, daySteps } = await import('../../src/learn/content.js');
+  const { prompt } = await import('../../src/learn/engine.js');
+  const { store, setBackend } = await import('../../src/learn/store.js');
+  const { LEARN } = await import('../../src/config.js');
+  const { LearnFlow } = await import('../../src/learn/flow.js');
+  const memory = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; };
+  const leafOf = (id) => { const ev = store.evidence(); for (const doc of Object.values(ev)) { const d = doc.it[id]; if (d) { const day = Object.values(d)[0]; return Object.values(day)[0]; } } return null; };
+  const w1 = await loadWeek(1), write = daySteps(w1, 1).find((s) => s.meta.type === 'write').items.find((it) => /^Today is Friday/.test(it.en));
+  assert.ok(write, 'the write wall\'s 「Today is Friday.」');
+  const near = 'today is';   // (claimable: the meaning there, no key form wrong — forms/common.js canClaim)
+  const fresh = () => { setBackend(memory()); store.load(); const emitted = []; const F = { P: LEARN.puzzle, firsts: 0, right: new Set(), play: true, _emit: (n, d) => emitted.push(n), _styleGates() {} }; return { F, emitted, g: { id: 'gate:w', locks: 0, queue: [] }, item: { ...write, _tries: 0, _form: null } }; };
+  const J = (x, ans, o) => LearnFlow.prototype._judgeRecord.call(x.F, x.g, x.item, prompt(x.item), ans, o);
+  // held: nothing written, no answer event, no lock, nothing queued
+  let x = fresh(); const h = J(x, near, { hold: true });
+  assert.equal(h.held, true); assert.equal(leafOf(write.id), null); assert.equal(x.emitted.length, 0); assert.equal(x.g.locks, 0); assert.equal(x.g.queue.length, 0);
+  // 我的写法也对 → S (claimJudge lets it stand), once
+  const s = J(x, near, { hold: true, decided: true, claim: true });
+  assert.equal(s.r.ok, true); assert.equal(s.r.claimed, true); assert.deepEqual(leafOf(write.id), [1, 'S']); assert.deepEqual(x.emitted, ['learn:answer']); assert.equal(x.g.locks, 0);
+  // 继续 → the miss W, the lock, the other try queued
+  x = fresh(); J(x, near, { hold: true }); const c = J(x, near, { hold: true, decided: true });
+  assert.equal(c.r.ok, false); assert.deepEqual(leafOf(write.id), [0, 'W']); assert.equal(x.g.locks, 1); assert.equal(c.again, true);
+  // a right sentence is never held; a far miss is not held (not claimable); no o.hold: the call it always was
+  x = fresh(); assert.ok(!J(x, write.en, { hold: true }).held); assert.deepEqual(leafOf(write.id), [1, 'W']);
+  x = fresh(); assert.ok(!J(x, 'blah blah', { hold: true }).held); assert.deepEqual(leafOf(write.id), [0, 'W']);
+  x = fresh(); const plain = J(x, near); assert.ok(!plain.held); assert.deepEqual(leafOf(write.id), [0, 'W']);
+  // the station never judges: wire/type.js hands the text to flow._judgeRecord only
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../../src/learn/play/wire/type.js', import.meta.url), 'utf8');
+  assert.ok(/_judgeRecord\(g, item, p, text, \{ hinted: C\.hinted, hold: true \}\)/.test(src) && /decided: true, claim: !!claim/.test(src));
+  assert.ok(!/recordFirst|judge\(|claimJudge|canClaim/.test(src.replace(/_judgeRecord/g, '')));
+});
+
 test('the typing frame (play-fix): fitted to the real band — every rig point between the strip\'s bottom and the keyboard\'s top, her head below the keys\' row — upright with the strip under the clock, landscape with it at the top edge', async () => {
   const { frameFor, RIG_POINTS, projectRig } = await import('../../src/learn/play/type/frame.js');
   // (the bands the audit measured: upright 390 × 844 — strip bottom ≈ 150 px, keyboard ≈ 39 %; landscape 844 × 390 —

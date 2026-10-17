@@ -26,6 +26,9 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
+// --near: the first written sentence (写字墙) is typed a word short — claimable — and must come back HELD (nothing written,
+// the strip's 「我的写法也对 / 继续」), then 「我的写法也对」 is tapped → S (play-fix)
+const NEAR = args.includes('--near');
 const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', 12);
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const V = VIEWS[VIEW] || VIEWS.portrait;
@@ -239,7 +242,9 @@ async function answerType(s, right) {
   check(!(await xhShown()), 'M4: no crosshair while she types');
   await shot('m4-type-' + d.mode);
   // a hint on the first word (the keyboard's 提示 → H), then the text key by key on the game keyboard through the touch layer
-  const text = String(right).toLowerCase();
+  let text = String(right).toLowerCase();
+  const near = NEAR && !report.nearDone && d.mode === 'sentence' && (await ev(() => { const A = __inkwave.match.learn.asking; return !!(A && A.item.meta && A.item.meta.input === 'write'); }));
+  if (near) { report.nearDone = true; const w = text.replace(/[^a-z ' ,?-]/g, '').trim().split(/\s+/); text = w.slice(0, Math.max(1, w.length - 1)).join(' '); say('near miss:', text); }
   if (!report.hinted && d.mode === 'word') { report.hinted = true; const h = await ev(() => { const b = document.querySelector('.iw-pk__b.is-hint'); if (!b || b.style.display === 'none') return null; const r = b.getBoundingClientRect(); return r.width ? [r.left + r.width / 2, r.top + r.height / 2] : null; }); if (h) { await tapAt(h[0], h[1]); await step(50); const st = await state(); check(/提示/.test(st.strip ? st.strip.text : ''), `M4: 提示 on the strip 「${st.strip && st.strip.text}」`); } }
   const keyAt = (k) => ev((k) => { const el = __inkwave.match.learn.play.type.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, k);
   let typed = 0;
@@ -257,7 +262,23 @@ async function answerType(s, right) {
   const fire = await keyAt('fire');
   await tapAt(fire[0], fire[1]);
   await step(50);
-  const v = await waitFor(() => { const d = __inkwave.match.learn.play.type.debug(); return d.verdict ? d : null; }, 40, 50);
+  let v = await waitFor(() => { const d = __inkwave.match.learn.play.type.debug(); return d.verdict || d.held ? d : null; }, 40, 50);
+  if (near) {
+    // held: nothing written yet (no learn:answer, no leaf), the word grey, the strip's two buttons
+    const h = await ev(() => { const F = __inkwave.match.learn, d = F.play.type.debug(), acts = [...document.querySelectorAll('.iw-ps.is-acts .iw-ps__act')].map((b) => { const r = b.getBoundingClientRect(); return { text: b.textContent, primary: b.classList.contains('is-primary'), x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }; }); return { held: d.held, verdict: d.verdict, answers: F.log.filter((e) => e.name === 'learn:answer').length, acts, strip: (document.querySelector('.iw-ps__head') || {}).textContent }; });
+    check(h.held && !h.verdict && h.answers === s.answers.length, `M4 「我的写法也对」: the near miss is held — nothing written (${h.answers} answers)`, h);
+    check(h.acts.length === 2 && h.acts.every((b) => b.h >= 43), 'M4: the strip offers 我的写法也对 / 继续 (≥ 44 px)', h.acts);
+    for (let i = 0; i < 30; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.word.phase); if (ph === 'shown') break; await step(100); }
+    const grey = await ev(() => ({ shot: __inkwave.match.learn.play.type.shot.phase, word: __inkwave.match.learn.play.type.shot.word.phase }));
+    check(grey.shot === 'shown', `M4: the held word stands formed and grey (${grey.shot} / ${grey.word})`, grey);
+    await shot('m4-held');
+    const b = h.acts.find((x) => x.primary);
+    if (b) await tapAt(b.x, b.y);
+    await step(50);
+    v = await waitFor(() => { const d = __inkwave.match.learn.play.type.debug(); return d.verdict ? d : null; }, 40, 50);
+    check(!!v && v.verdict && v.verdict.self === true && v.verdict.ok === true, 'M4: 我的写法也对 → S (the claim stands)', v && v.verdict);
+    report.held = { strip: h.strip, verdict: v && v.verdict };
+  }
   check(!!v && v.verdict, 'M4: 射 → judged', v && v.log);
   // the shell flies (0.75–1.25 s), the word forms, then the verdict plays: shoot the formed word before it bursts
   // (the station's shot: 'assembling' once the shell landed, 'shown' / 'resolving' once the letters formed, then 'done' → the next item)

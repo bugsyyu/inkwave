@@ -19,7 +19,10 @@
 // pose is re-based every frame on the rig's own hull yaw and her feet (the hull springs, the lens rides with it); the
 // way she faces is picked with the lens in mind too (her head → the lens, the lens → the keys: no roof, no wall); on a
 // landscape phone the strip goes up to the top edge in one line while she types (the keyboard has ▶ and 提示 at its rows'
-// starts) — the typewriter gets about twice the height.
+// starts) — the typewriter gets about twice the height. 「我的写法也对」 (a written sentence, PLAY §4 W / S): a near miss
+// comes back HELD from flow._judgeRecord ({ hold: true } → { held }) — nothing written, the ink word stays grey — and the
+// strip offers 「我的写法也对 / 继续」 (the play-4 / play-5 convention); her tap decides (o.decided, o.claim), only then
+// does the word play a verdict. No time-out (PLAY §1.6).
 import * as THREE from 'three';
 import { G, clamp } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
@@ -191,10 +194,38 @@ export class TypeStation {
     this.keys.hide();
     C.pose = this._pose('word', text);
     const { g, item, p } = C, F = this.flow;
-    const { r, first, again } = F._judgeRecord(g, item, p, text, { hinted: C.hinted });
+    const out = F._judgeRecord(g, item, p, text, { hinted: C.hinted, hold: true });   // the one path
+    if (out.held) {
+      // 「我的写法也对」: nothing written yet — the word forms and stays grey; the strip asks, her tap decides (no time-out)
+      C.held = out; this.stats.held++;
+      this.host.strip?.verdict({ ok: false, head: '差一点 — 意思到了', why: (out.r && out.r.why) ? String(out.r.why).slice(0, 46) : '', actions: [
+        { text: '我的写法也对', primary: true, onTap: () => this._decide(true) },
+        { text: '继续', onTap: () => this._decide(false) },
+      ] });
+      F._emit('learn:held', { itemId: item.id, gate: g.id });
+      this.log.push({ t: +F.t.toFixed(2), ev: 'held', item: item.id });
+      return;
+    }
+    this._resolve(out);
+  }
+  // her call on a held sentence: claimed (S when the claim stands) or 继续 (the miss, W) — written now, by the one path
+  _decide(claim) {
+    const C = this.cur; if (!C || !C.held) return;
+    const { g, item, p } = C, F = this.flow;
+    C.held = null;
+    const out = F._judgeRecord(g, item, p, C.text, { hinted: C.hinted, decided: true, claim: !!claim });
+    out.self = !!(claim && out.r.ok && out.r.claimed);
+    if (out.self) this.stats.self++;
+    this.log.push({ t: +F.t.toFixed(2), ev: 'decided', claim: !!claim, ok: out.r.ok, self: out.self });
+    this._resolve(out);
+  }
+  // the verdict, once written: the strip, the cue, the lock, and the ink word plays it
+  _resolve(out) {
+    const C = this.cur, F = this.flow, { g, item } = C, text = C.text, { r, first, again } = out;
     const v = verdictLines(r, item);
     if (r.pct != null && !r.ok) v.head = `差一点：${r.pct}%，是 ${r.canonical}`;
-    C.verdict = { ok: r.ok, first, again, head: v.head, why: v.why, pct: r.pct ?? null };
+    if (out.self) v.head = '记下了 — 你的写法也对';
+    C.verdict = { ok: r.ok, first, again, head: v.head, why: v.why, pct: r.pct ?? null, self: !!out.self };
     this.host.strip?.verdict(v);
     const E = r.ok ? EFFECTS.puzzle.right : again ? EFFECTS.puzzle.wrong : EFFECTS.puzzle.wrong2;
     G.audio?.play?.(E.sfx, { volume: 0.8 });
@@ -213,7 +244,7 @@ export class TypeStation {
         typedOk = ok.length === text.trim().split(/\s+/).length ? ok : undefined;
       } catch (e) { typedOk = undefined; }
     }
-    this.log.push({ t: +F.t.toFixed(2), ev: 'answer', item: item.id, ok: r.ok, pct: r.pct ?? null, first, hinted: C.hinted });
+    this.log.push({ t: +F.t.toFixed(2), ev: 'answer', item: item.id, ok: r.ok, pct: r.pct ?? null, first, hinted: C.hinted, self: !!out.self });
     this.shot.resolve({ ok: r.ok, pct: r.pct, right: r.canonical, toks: r.toks, typedOk }).then(() => this._next(C));
   }
   _next(C) {
