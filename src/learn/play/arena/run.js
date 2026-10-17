@@ -31,13 +31,16 @@ export class ArenaRun extends PlayRun {
   // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre on its floor), boss() → the Boss,
   //         team (play-6: her side — versus2's guest plays on team 1; her ink, the halo, the strip's colour; default 0),
   //         edges (play-6: the sight lines go to each label's lower edge too, not only its middle — a landscape phone saw
-  //         the labels hang just behind a deck's balustrade whose top the middles cleared; default off: the duel as it was) }
+  //         the labels hang just behind a deck's balustrade whose top the middles cleared; default off: the duel as it was),
+  //         settle (play-6: the objects are placed only once the rig's mode blend is over — right after a typed question
+  //         the lens springs back from the 打字蟹's pose with its field of view for 0.6 s, and a cluster placed in that
+  //         blend ends up above the strip; default off) }
   constructor(flow, opts = {}) {
     super(flow, { Targets: ArenaTargets });
     this.mode = opts.mode || 'zone';
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
-    this.team = opts.team | 0; this.edges = !!opts.edges;
+    this.team = opts.team | 0; this.edges = !!opts.edges; this.settle = !!opts.settle;
     if (this.team && G.teamColors[this.team]) { this.ink.copy(G.teamColors[this.team]); this.T.setInk(this.ink); this.strip?.setInk(G.teamHex?.[this.team]); }
     // her tap-shot flies to the object she tapped: on the crowded weak points (and in a cluster seen from her muzzle, lower
     // than the lens) another option's ball can stand on its way — it never eats that round (only its own target may)
@@ -106,7 +109,7 @@ export class ArenaRun extends PlayRun {
     this.frame = { yaw, pitch, still: true, t: 0, on: !this.reduced && !!rig, boom: rig ? rig.curDist : null, seen: true, blocked: 0 };
     C.placed = false;
   }
-  _settled() { return true; }   // (she never stands still in an arena: the objects come up when the ease ends)
+  _settled() { return !(this.settle && G.rig && G.rig.blend && G.rig.blend.active); }   // (she never stands still in an arena: the objects come up when the ease ends — and, settle, the rig's blend)
 
   // ---------------------------------------------------------------------------------------------- placement
   // (the boss: on its weak points when she is within LEARN.arena.bossNear m of its eyes — her round reaches them — else,

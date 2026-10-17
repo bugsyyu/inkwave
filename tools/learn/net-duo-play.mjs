@@ -399,7 +399,8 @@ async function driveCoopPlay(H) {
     const X = await Promise.all([H.view(0), H.view(1)]);
     const h = X[hi], c = X[ci], q = qa.q, tag = `q${q}`;
     seen.add(q);
-    const rec = { q, id: qa.id, hands: 'c' + hi, mech: h.mech, handsStrip: h.strip && { text: h.strip.text, zh: h.strip.zh, play: h.strip.play }, clue: c.clue, clueMech: c.mech, clueStrip: c.strip && { text: c.strip.text, play: c.strip.play } };
+    const rec = { q, id: qa.id, hands: 'c' + hi, mech: h.mech, handsStrip: h.strip && { text: h.strip.text, zh: h.strip.zh, play: h.strip.play }, clue: c.clue, clueMech: c.mech, clueStrip: c.strip && { text: c.strip.text, play: c.strip.play },
+      handsAt: h.me3, typePose: h.type ? { pose: h.type.pose, log: h.type.log } : null, objects: h.m1 ? { projected: h.m1.projected, place: h.m1.place } : null };
     R.questions.push(rec);
     if (!R.t.split) mark('split');
     for (const [i, v] of X.entries()) check(`${tag} c${i}: no card shown, not paused, not held`, noCard(v), { panel: v.panelShown, card: v.cardUp, paused: v.paused, hold: v.hold });
