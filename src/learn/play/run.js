@@ -44,10 +44,11 @@ const UP = new THREE.Vector3(0, 1, 0);
 const _c = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _e = new THREE.Vector3(), _m = new THREE.Vector3();
 
 export class PlayRun {
-  constructor(flow) {
+  constructor(flow, opts = {}) {
     this.flow = flow; this.match = flow.match; this.hud = flow.hud;
     this.reduced = prefersReducedMotion() || G.settings?.cameraShake === 0;
-    this.T = new PlayTargets({ scene: G.scene, renderer: G.renderer, camera: G.camera, reduced: this.reduced });
+    // (opts.Targets: an arena's objects move after they came up — play-5's ArenaTargets, src/learn/play/arena/targets.js)
+    this.T = new (opts.Targets || PlayTargets)({ scene: G.scene, renderer: G.renderer, camera: G.camera, reduced: this.reduced });
     this.ink = (G.teamColors[0] || new THREE.Color('#ff8a14')).clone();
     this.T.setInk(this.ink);
     this.strip = G.hud && G.hud.root ? new PlayStrip(G.hud) : null;

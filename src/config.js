@@ -778,6 +778,31 @@ export const LEARN = {
     atlasMax: 1024,           // px: a gate's label atlas is at most this wide and this tall (PLAY §7 says 1024 × 512: see LEARN §18)
     atlasScale: 2,            // texels per CSS px a label is drawn at (crisp on a 2x / 3x phone)
   },
+  // 区域里的靶场 · 弱点 M5 (PLAY §5.3, §5.4; play-5 = docs/LEARN.md §24; src/learn/play/arena/): the duel's / the quiz's
+  // questions float over the contested zone, the boss's hang on its weak points; the world never stops for them
+  arena: {
+    lift: 2.3,                // m over the zone's floor the cluster's anchor floats (over the squidkids' heads)
+    near: 3, far: 8.5,        // m past the camera boom the cluster may float (the zone's centre when it is this close)
+    frameFor: 0.9,            // s at most the camera eases towards the zone / the boss when a question comes (her look ends it)
+    frameRate: 7,             // 1/s: that ease (dampAngle; reduced motion: none)
+    bossPx: 44,               // px: an option ball's radius on the screen at the socket's distance … (play-5: 30 left the
+                              // labels under the balls ~14 px tall on a landscape phone at 13–15 m; the balls spread apart)
+    bossBall: 0.5, bossBallMax: 1.35,   // … within these metres
+    bossLift: { eyeL: 0.55, eyeR: 0.55, belly: 0.1, cannon: 0.45, shellTop: 1.2 },   // m a ball hangs above its socket
+    bossRow: 1.15,            // × a plank's height between stacked banners over the shell (a long-label choice)
+    shield: 4,                // s of Bubble Guard she gets when a typed question comes in the duel (topped up while she types)
+    ring: 2.4,                // m of her ink laid under her feet then (the typing spot is hers)
+    typeAhead: 5.5,           // m ahead of her the duel's ink word forms (towards the zone)
+    bossPlate: 'belly',       // the hull socket the boss's typed answers are lobbed at (the armour plate)
+    bossHold: 0.6,            // s the boss brain's cool-down is kept at while a question is up (it moves only after she answers)
+    echoAhead: 2.6,           // m in front of her the boss's echo booth (S phase) rises
+    askNear: 14,              // m: the duel waits (up to askWait s) for her to come this close to the zone before a question
+    askWait: 6,
+    bossNear: 10.5,           // m (flat) from her to the boss's eyes within which a choice hangs on its weak points (her
+                              // shooter's round reaches ~12.5 m, the balls hang ~4.5 m up: 10.5 flat ≈ 11.5 to them; at 11 m
+                              // flat the browser audit's round fell short); the boss waits up to bossWait s for her to come that close —
+    bossWait: 8,              // then the options float towards it within her shot instead (the answer is still the hit)
+  },
 };
 
 // ---- On-screen touch controls (src/core/touch.js) ----
