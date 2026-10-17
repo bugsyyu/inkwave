@@ -6,9 +6,10 @@
 // 题即玩法 (docs/PLAY.md; play-8, LEARN §27): there is no question card any more — a question is a thing on the stage and
 // the strip (src/ui/play-strip.js) says it. What stays here: the walk bar (where the next gate is, 「自动走」), the
 // results card at the end of a level (做对 / 共几题, 到期的词, 再来一关 / 回到菜单) and the voice. Chinese first;
-// buttons ≥ 44 pt; dark glass over the stage; honours prefers-reduced-motion.
+// buttons ≥ 44 pt; INKWAVE's sticker look (ink outline, dropped shadow; the results card is the menus' modal card with
+// the results screen's splat); honours prefers-reduced-motion.
 // Its own layer in #ui-root (z 18): over the HUD and the touch controls, under the pause menu.
-import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
+import { h, prefersReducedMotion, restartAnim, colorVars, splatSVG } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
 import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
@@ -42,8 +43,11 @@ export class LearnHud {
     this.rAgain = h('button', { class: 'iw-learn__btn iw-learn__big', type: 'button' }, h('i', { html: GLYPHS.reset }), h('span', null, '再来一关'));
     this.rMenu = h('button', { class: 'iw-learn__btn iw-learn__big is-dim', type: 'button' }, h('i', { html: GLYPHS.back }), h('span', null, '回到菜单'));
     this.results_ = h('div', { class: 'iw-learn__results', role: 'dialog' }, this.rTitle, this.rScore, this.rDue, h('div', { class: 'iw-learn__rbtns' }, this.rAgain, this.rMenu));
+    // (the frame: the card's sticker rim and the ink splat behind the title, outside the scrolling card so it can peek
+    // over its top edge — the forms add their lines to results_ itself)
+    this.rFrame = h('div', { class: 'iw-learn__rframe' }, h('div', { class: 'iw-learn__rsplat', html: splatSVG({ seed: 9, fill: 'var(--self)', r: 60, arms: 10, drops: 4 }) }), this.results_);
 
-    this.el = h('div', { class: 'iw-learn is-off', 'aria-hidden': 'true' }, this.walk_, this.results_);
+    this.el = h('div', { class: 'iw-learn is-off', 'aria-hidden': 'true' }, this.walk_, this.rFrame);
     this.hud.root.appendChild(this.el);
   }
 
@@ -148,7 +152,7 @@ export class LearnHud {
     } else this.rDue.append(h('div', { class: 'iw-learn__rlabel' }, '没有到期的词'));
     this.rAgain.onclick = () => { this._snd('ui_confirm'); actions.again?.(); };
     this.rMenu.onclick = () => { this._snd('ui_back'); actions.menu?.(); };
-    if (!prefersReducedMotion()) restartAnim(this.results_, 'is-enter');
+    if (!prefersReducedMotion()) restartAnim(this.rFrame, 'is-enter');
     setTimeout(() => this.rAgain.focus?.(), 50);
   }
 

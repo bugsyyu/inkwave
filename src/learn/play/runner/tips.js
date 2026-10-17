@@ -11,12 +11,16 @@ import { G } from '../../../core/ctx.js';
 
 const HINT_KEY = 'inkwave:runner:rotateHint';
 const CSS = `
-.iw-run { position: absolute; inset: 0; pointer-events: none; z-index: 16; font-family: 'Rubik', system-ui, sans-serif; color: #fff; }
+.iw-run { position: absolute; inset: 0; pointer-events: none; z-index: 16; font-family: 'Rubik', system-ui, sans-serif; color: #fff;
+  --k: #15121c; --lk: linear-gradient(170deg, rgba(40, 33, 60, .94), rgba(22, 18, 32, .94)); }
 .iw-run * { box-sizing: border-box; }
 .iw-run svg { display: block; width: 100%; height: 100%; }
-.iw-run__hint { position: absolute; left: 50%; bottom: 28px; translate: -50% 0; padding: 10px 18px; border-radius: 999px; background: rgba(21,18,28,.72); font-size: 15px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .4s; }
+/* (INKWAVE's sticker look, styles/hud.css: an ink outline and a solid ink shadow under it) */
+.iw-run__hint { position: absolute; left: 50%; bottom: 28px; translate: -50% 0; padding: 10px 18px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
+  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 15px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .4s; }
 .iw-run__hint.is-on { opacity: 1; }
-.iw-run__rotate { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: rgba(21,18,28,.82); border: 1px solid rgba(255,255,255,.14); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
+.iw-run__rotate { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
+  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
 .iw-run__rotate.is-on { display: flex; }
 .iw-run__rotate i { font-style: normal; font-size: 18px; }
 .iw-run__rotate button { width: 44px; height: 44px; border: 0; background: none; color: #cfc9dc; padding: 13px; cursor: pointer; }

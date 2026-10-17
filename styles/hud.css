@@ -1320,10 +1320,13 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 /* ================================================================== 关卡学习: the level's layer (src/ui/hud-learn.js: walk bar, results)
    Its own layer in #ui-root (not inside .iw-hud, which hides with the HUD and takes no pointer events), so the shared
    tokens are declared again here. z 18: over the HUD (10) and the touch controls (15), under the pause menu (20).
-   Chinese text falls through 'Rubik' (Latin only) to the system's CJK face. Dark glass; team colour via --self. */
+   Chinese text falls through 'Rubik' (Latin only) to the system's CJK face. The HUD's sticker look (ui-sticker, LEARN §32):
+   a hard ink outline (--k), a solid ink shadow dropped under it, a light rim inside; team colour via --self. */
 .iw-learn {
-  --u: min(1vw, 1.7778vh); --k: #15121c; --muted: #c3bdd6; --lk: rgba(14, 12, 22, .92);
-  --spring: cubic-bezier(.34, 1.56, .64, 1); --out: cubic-bezier(.22, 1, .36, 1);
+  --u: min(1vw, 1.7778vh); --k: #15121c; --k2: #1f1a2c; --k3: #2c2540; --muted: #c3bdd6;
+  --lk: linear-gradient(170deg, rgba(40, 33, 60, .96), rgba(22, 18, 32, .96));
+  --ol: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k);
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --spring2: cubic-bezier(.26, 1.9, .5, 1); --out: cubic-bezier(.22, 1, .36, 1);
   --self: #ff8a14; --self-rgb: 255,138,20; --self-ink: #15121c;
   position: absolute; inset: 0; z-index: 18; pointer-events: none; color: #fff;
   font-family: 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
@@ -1332,62 +1335,81 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 .iw-learn.is-off { display: none; }
 .iw-learn * { box-sizing: border-box; }
 .iw-learn svg { display: block; overflow: visible; }
-/* every tap target is at least 44 pt (iPhone first) */
+/* every tap target is at least 44 pt (iPhone first); a press sinks it into its own shadow */
 .iw-learn__btn {
   pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; min-width: 44px; padding: 0 18px; border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, .22); background: var(--self); color: var(--self-ink);
+  border: 2px solid rgba(255, 255, 255, .3); background: var(--self); color: var(--self-ink);
   font: 800 16px/1 'Rubik', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform .12s var(--out), filter .12s, background .15s;
+  box-shadow: var(--ol), inset 0 -3px 0 rgba(0, 0, 0, .14); rotate: var(--tilt, 0deg);
+  transition: translate .08s var(--out), box-shadow .08s, filter .12s, background .15s;
 }
 .iw-learn__btn:hover { filter: brightness(1.08); }
-.iw-learn__btn:active { transform: scale(.96); }
-.iw-learn__btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.iw-learn__btn:active { translate: 0 3px; box-shadow: 0 0 0 2.5px var(--k), 0 1px 0 2.5px var(--k), inset 0 -2px 0 rgba(0, 0, 0, .14); }
+.iw-learn__btn:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
 .iw-learn__btn i { width: 20px; height: 20px; display: grid; place-items: center; }
 .iw-learn__btn i svg { width: 100%; height: 100%; }
-.iw-learn__btn.is-dim { background: rgba(255, 255, 255, .12); color: #fff; }
+.iw-learn__btn.is-dim { background: var(--k3); color: #fff; border-color: rgba(255, 255, 255, .2); box-shadow: var(--ol); }
+.iw-learn__btn.is-dim i svg { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
 
 /* ---- the walk: where the next gate is, how far, auto-walk */
 .iw-learn__walk {
   position: absolute; left: 50%; top: calc(var(--u) * 7.4); transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 10px; border-radius: 999px;
-  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .14); box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .2); box-shadow: var(--ol), 0 8px 18px rgba(0, 0, 0, .22);
   pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s linear .25s;
 }
 .iw-learn.is-walk .iw-learn__walk { opacity: 1; visibility: visible; transition: opacity .25s, visibility 0s; }
-.iw-learn__arrow { width: 32px; height: 32px; display: grid; place-items: center; color: var(--self); rotate: var(--deg, 0deg); transition: rotate .15s linear; }
+.iw-learn__arrow { width: 32px; height: 32px; padding: 5px; display: grid; place-items: center; border-radius: 50%; background: var(--self); color: var(--self-ink);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .3), 0 0 0 2px var(--k); rotate: var(--deg, 0deg); transition: rotate .15s linear; }
 .iw-learn__arrow svg { width: 100%; height: 100%; }
 .iw-learn__walkmain { display: flex; flex-direction: column; line-height: 1.1; min-width: 64px; }
-.iw-learn__walktxt { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
-.iw-learn__dist { font: 800 18px/1.1 'Rubik', system-ui, sans-serif; }
+.iw-learn__walktxt { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .06em; }
+.iw-learn__dist { font: 400 18px/1.15 'Titan One', 'Rubik', system-ui, sans-serif; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 .iw-learn__walk.is-near .iw-learn__dist { color: var(--self); }
-.iw-learn__gate { font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .1); white-space: nowrap; }
-.iw-learn__auto { background: rgba(255, 255, 255, .12); color: #fff; padding: 0 14px; }
-.iw-learn__auto.is-on { background: var(--self); color: var(--self-ink); }
+.iw-learn__gate { font-size: 13px; font-weight: 800; padding: 6px 10px; border-radius: 999px; background: #ece8f6; color: var(--k); white-space: nowrap;
+  box-shadow: 0 0 0 2px var(--k); rotate: -3deg; }
+.iw-learn__auto { background: var(--k3); color: #fff; padding: 0 14px; border-color: rgba(255, 255, 255, .2); }
+.iw-learn__auto.is-on { background: var(--self); color: var(--self-ink); border-color: rgba(255, 255, 255, .3); }
 
 /* (play-8: the question card that stood here is gone — a question is a thing on the stage, the strip says it: play-strip.js) */
-@keyframes iw-learn-in { from { opacity: 0; translate: 0 40px; } }
+@keyframes iw-learn-in { from { opacity: 0; scale: .72; rotate: -4deg; } 55% { opacity: 1; } }
 
-/* ---- results */
-.iw-learn__results {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(560px, calc(100vw - 32px)); max-height: 86vh; overflow-y: auto; padding: 24px 22px; border-radius: 24px;
-  background: var(--lk); border: 1.5px solid rgba(255, 255, 255, .14); box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
-  pointer-events: auto; display: none; flex-direction: column; gap: 14px; text-align: center;
+/* ---- results: the modal card of the menus (ui.css .iw-modal__card — a white rim in an ink ring, a dropped shadow) with
+   the results screen's ink splat slowly turning behind the title (.iw-res__splat), peeking over the card's top edge.
+   The frame carries the look and the splat; the card inside it (.iw-learn__results) scrolls */
+.iw-learn__rframe {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px));
+  border-radius: 24px; background: var(--k2); box-shadow: 0 0 0 3px #fff, 0 0 0 7px var(--k), 0 11px 0 7px rgba(0, 0, 0, .35);
+  pointer-events: auto; display: none;
 }
-.iw-learn.is-done .iw-learn__results { display: flex; }
-.iw-learn__results.is-enter { animation: iw-learn-in .55s var(--spring) backwards; }
-.iw-learn__rtitle { font-size: 30px; color: var(--self); }
-.iw-learn__rscore { font-size: 18px; }
-.iw-learn__rscore b { font-size: 40px; font-weight: 900; margin-right: 6px; }
-.iw-learn__rscore small { display: block; color: var(--muted); font-size: 14px; margin-top: 4px; }
+.iw-learn.is-done .iw-learn__rframe { display: block; }
+.iw-learn__rframe.is-enter { animation: iw-learn-in .6s var(--spring) backwards; }
+.iw-learn__rsplat { position: absolute; left: 50%; top: -44px; width: 128px; height: 128px; translate: -50% 0; rotate: -8deg; pointer-events: none; }
+.iw-learn__rsplat svg { width: 100%; height: 100%; animation: iw-spin 60s linear infinite; }
+.iw-learn__results {
+  position: relative; max-height: 86vh; overflow-y: auto; padding: 30px 22px 26px; border-radius: inherit;
+  display: flex; flex-direction: column; gap: 14px; text-align: center;
+}
+/* (two classes: .iw-display, in ui.css, comes later in the cascade) Titan One for the digits, the system's CJK face for the
+   words — at 800, never a synthesised bold Titan One; a thinner stroke than .iw-display's .17em keeps 关 / 周 open */
+.iw-learn__results .iw-learn__rtitle { font-size: 30px; line-height: 1.1; color: #fff; font-weight: 800; font-synthesis: none;
+  font-family: 'Titan One', 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-text-stroke: .15em var(--k); rotate: -2deg; }
+.iw-learn__rscore { font-size: 18px; font-weight: 700; }
+.iw-learn__rscore b { font: 400 44px/1 'Titan One', 'Rubik', sans-serif; color: var(--self); margin-right: 6px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.iw-learn__rscore small { display: block; color: var(--muted); font-size: 14px; margin-top: 6px; }
 .iw-learn__rdue { text-align: left; }
-.iw-learn__rlabel { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-bottom: 6px; }
-.iw-learn__rdue ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.iw-learn__rdue li { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .08); font-size: 15px; }
+.iw-learn__rlabel { font-size: 13px; font-weight: 900; color: var(--muted); letter-spacing: .12em; margin-bottom: 9px; text-shadow: 0 2px 0 rgba(0, 0, 0, .4); }
+.iw-learn__rdue ul { list-style: none; margin: 0; padding: 2px 2px 4px; display: flex; flex-wrap: wrap; gap: 10px 9px; }
+.iw-learn__rdue li { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 12px; background: var(--k3); font-size: 15px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .14), 0 0 0 2px var(--k), 0 3px 0 2px var(--k); rotate: -1deg; }
+.iw-learn__rdue li:nth-child(even) { rotate: 1deg; }
 .iw-learn__rdue li span { color: var(--muted); font-size: 13px; }
-.iw-learn__rbtns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.iw-learn__rbtns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; padding: 4px 0 6px; }
 .iw-learn__big { min-height: 52px; font-size: 18px; padding: 0 24px; }
+.iw-learn__rbtns .iw-learn__big { --tilt: -1.5deg; }
+.iw-learn__rbtns .iw-learn__big.is-dim { --tilt: 1deg; }
 
 /* ---- the rest of the HUD / touch layer during a level: no weapon buttons (fire · sub · special · cheer are the
    1st, 4th, 5th and 7th buttons of touch.js's LAYOUT + TOP_LAYOUT order); jump, squid, map and pause stay */
@@ -1400,8 +1422,14 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 /* ---- phone: the walk bar hugs the top-left corner */
 @media (max-width: 640px) {
   .iw-learn__walk { left: 10px; top: calc(10px + env(safe-area-inset-top)); transform: none; max-width: calc(100vw - 20px); gap: 8px; }
-  .iw-learn__results { width: calc(100vw - 24px); padding: 20px 16px; }
-  .iw-learn__rtitle { font-size: 26px; }
+  .iw-learn__rframe { width: calc(100vw - 32px); }
+  .iw-learn__results { padding: 28px 16px 22px; }
+  .iw-learn__results .iw-learn__rtitle { font-size: 26px; }
+}
+/* a landscape phone: the card a little lower and shorter, so the splat over its top edge stays on the screen */
+@media (max-height: 460px) and (orientation: landscape) {
+  .iw-learn__rframe { top: calc(50% + 16px); }
+  .iw-learn__results { max-height: calc(100vh - 76px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .iw-learn *, .iw-learn *::before, .iw-learn *::after { animation: none !important; transition: none !important; }
