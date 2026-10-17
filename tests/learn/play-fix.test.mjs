@@ -117,3 +117,32 @@ test('the typing frame (play-fix): fitted to the real band — every rig point b
     assert.ok(P(RIG_POINTS.head)[1] - P(row)[1] >= (H / 2) * 0.05 - 1, `${W}x${H}: her head ${P(RIG_POINTS.head)[1].toFixed(0)} well under the row ${P(row)[1].toFixed(0)}`);
   }
 });
+
+test('the exit area\'s stops (play-fix): no switching by distance while she walks (the booth-edge pacing), a stop passes once she has stopped at it; the review day\'s boards are stops; no pad → done once spoken and every board read', async () => {
+  const { ExitStation } = await import('../../src/learn/play/wire/exit.js');
+  const mk = (kinds) => {
+    const her = { pos: { x: 0, y: 0, z: 0 } }, F = { auto: true, t: 0, _emit() {} }, read = new Set();
+    const X = new ExitStation({ flow: F, match: { local: her }, strip: null });
+    X.on = true; X.skipped = new Set(); X.visited = new Set();
+    X.spots = kinds.map((k, i) => ({ kind: k, x: i * 4, y: 0, z: 0, node: -1, sign: k === 'echo' ? -1 : i - (kinds[0] === 'echo' ? 1 : 0) }));
+    X.echoAt = kinds.includes('echo') ? X.spots[0] : null; X.padAt = kinds.includes('checkin') ? {} : null;
+    X.echo = { state: 'ready' }; X.signs = { walk: { read: (i) => read.has(i) } };
+    return { X, F, her, read };
+  };
+  // the booth's edge: 0.8 m from it with the walk on — still the booth (the first version switched to the pad at 0.9 m)
+  let { X, F, her } = mk(['echo', 'checkin']);
+  her.pos.x = 0.8; X._reach(0.1);
+  assert.equal(X.nextSpot().kind, 'echo');
+  // the walk stops in the booth → reached → the pad next; the booth's own 说完了 comes when she walks out
+  X.echo.state = 'in'; F.auto = false; X._reach(0.1);
+  assert.equal(X.nextSpot().kind, 'checkin'); assert.equal(X.done, false);
+  X.checked = true; assert.equal(X.done, true);
+  // the review day (w1d7: placement, weekly, the booth — no pad): the boards are stops; done once spoken and both read
+  const r = mk(['echo', 'placement', 'weekly']); X = r.X; F = r.F; her = r.her;
+  X.spoke = true; X.visited.add(X.spots[0]);
+  assert.equal(X.nextSpot().kind, 'placement'); assert.equal(X.done, false);
+  r.read.add(0); assert.equal(X.nextSpot().kind, 'weekly'); assert.equal(X.done, false);
+  // standing at a board 1.5 s with the walk stopped counts too (a board whose viewing node lies off its zone never frames)
+  her.pos.x = 8; F.auto = false; X._reach(1.0); assert.equal(X.done, false); X._reach(0.6);
+  assert.equal(X.nextSpot(), null); assert.equal(X.done, true);
+});
