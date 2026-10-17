@@ -746,6 +746,9 @@ body.iw-dio-on .iw-spl__tint { visibility: hidden; }
 
 /* spectating (local player splatted): the aim cluster and ally tags step aside */
 .iw-xh, .iw-mks, .iw-dds { transition: opacity .25s; }
+/* play-7 (题即玩法): a duel's question objects are up — the on-screen name tags step aside (hud.markerYield); the arrows
+   to allies off the screen stay */
+.iw-mks.is-yield .iw-mk:not(.is-off) { opacity: 0; transition: opacity .2s; }
 .iw-hud.is-spectating .iw-xh, .iw-hud.is-spectating .iw-mks, .iw-hud.is-spectating .iw-dds, .iw-hud.is-spectating .iw-kcards { opacity: 0; }
 
 /* crosshair point beyond the weapon's range: ghost the reticle (dot shrinks, ring thins) */

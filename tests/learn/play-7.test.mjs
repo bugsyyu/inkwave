@@ -84,12 +84,13 @@ test('the letter measured is one em of the line being typed (deck-geo DECK; atla
   assert.match(atlas, /cell \* 0\.78/, 'the atlas still draws letters at 0.78 of a cell');
 });
 
-test('landscape.js without a page: no column (portrait framing stays)', () => {
+test('landscape.js without a page: no column (portrait framing stays), the board band is boardBand', () => {
   assert.equal(typingColumn(null), null);
   assert.equal(typingColumn({ rect: () => ({ split: false, mid: null, top: 500 }) }), null);
+  assert.deepEqual(hudBand(844 / 390, 844, 390), boardBand(844 / 390, 844, 390));
 });
 
-test('the stations frame landscape typing in the column; the strip leaves it', () => {
+test('the stations frame landscape typing in the column; the strip leaves it; the duel\'s name tags have a switch', () => {
   for (const f of ['src/learn/play/wire/type.js', 'src/learn/play/runner/glide.js', 'src/learn/play/arena/type.js']) {
     const s = src(f);
     assert.match(s, /splitFrame\(/, `${f} frames with splitFrame`);
@@ -100,4 +101,12 @@ test('the stations frame landscape typing in the column; the strip leaves it', (
   const L = src('src/learn/play/landscape.js');
   assert.match(L, /\.iw-ps\.is-typing \.iw-ps__box \{ left: calc\(env\(safe-area-inset-left\) \+ 8px\)/, 'the typing strip goes to the top-left corner');
   assert.match(L, /max-height: 460px\) and \(orientation: landscape\)/, 'phones only: desktop keeps its layout');
+  // hud.js: one method, the tags' own update untouched
+  const hud = src('src/ui/hud.js');
+  assert.match(hud, /markerYield\(on\) \{ this\.markerLayer\.classList\.toggle\('is-yield', !!on\); \}/);
+  assert.ok(!/is-yield/.test(hud.slice(hud.indexOf('_updMarkers(ms) {'), hud.indexOf('_updPrompt('))), '_updMarkers does not know about it');
+  assert.match(src('styles/hud.css'), /\.iw-mks\.is-yield \.iw-mk:not\(\.is-off\) \{ opacity: 0;/);
+  const host = src('src/learn/play/arena/host.js');
+  assert.match(host, /this\.mode === 'zone' && this\.kind === 'm1'/, 'only the duel / the quiz (zone) yields, only while its objects are up');
+  assert.match(host, /walk\.bandFor = hudBand/, 'the boss booth board is framed under the top row');
 });

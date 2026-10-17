@@ -6,7 +6,8 @@
 //     between the pads, from under the clock to the bottom of the screen, is the typewriter's (type/split.js). Before
 //     play-7 the typing strip went up to the top edge in one line over the clock (play-fix, play-4: LEARN §22 / §23).
 //   · the boss's HP bar and its phase strip go up into the top row either side of the clock, smaller (on a landscape
-//     phone they stood under the clock, over the question strip and the 回声亭's board: LEARN §24 已知坑 1)
+//     phone they stood under the clock, over the question strip and the 回声亭's board: LEARN §24 已知坑 1); while she
+//     types in the boss fight the strip's corner starts under that row
 //   · typingColumn(keys, H?) — the open column for type/split.js: the pads' inner edges, and its top under whatever stands
 //     there on the screen (the clock row, the strip, the boss's bar, the runner's standings, the touch layer's top keys)
 //   · hudBand(aspect, W, H) — a board's framing band (board/frame.js boardBand) whose top clears the same row: the boss's
@@ -25,6 +26,7 @@ const CSS = `@media (max-height: 460px) and (orientation: landscape) {
   .iw-ps.is-typing .iw-ps__q, .iw-ps.is-typing .iw-ps__head { font-size: 17px !important; }
   .iw-ps.is-typing .iw-ps__zh, .iw-ps.is-typing .iw-ps__why { font-size: 17px !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
   .iw-ps.is-typing .iw-ps__acts { flex-wrap: wrap; }
+  :root:has(.iw-hud .iw-bb:not(.is-off)) .iw-ps.is-typing .iw-ps__box { top: 44px !important; }
   .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + 42px); translate: none; top: 3px; }
   .iw-hud.is-learn .iw-bb.is-intro { animation-name: iw-bb-in7; }
   @keyframes iw-bb-in7 { from { opacity: 0; translate: 0 -12px; scale: .7; } }
