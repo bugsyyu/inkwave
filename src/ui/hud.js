@@ -380,7 +380,7 @@ export class HUD {
     this._updDeaths(f.deaths);
     this._updSplatJump(f.jumpQueue);
     this._updPrompt(this.boss.on ? this.boss.prompt(f.prompt) : f.prompt);
-    this._updFps(f.fps, dt);
+    this._updFps(f.fps, dt, f.fpsNote);
     this._updZones(f.zones, dt);
     this.boss.update(dt);
   }
@@ -1953,7 +1953,8 @@ export class HUD {
     this.promptEl.animate([{ transform: 'translateX(-50%) translateY(12px) scale(.85)', opacity: 0 }, { transform: 'translateX(-50%) translateY(0) scale(1)', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.34,1.56,.64,1)' });
   }
 
-  _updFps(fps, dt) {
+  // note: 「120 帧 · 2.0× · 第 0 档」 in her App (main.js _loop, the render step in effect), else the bare rate
+  _updFps(fps, dt, note) {
     const L = this._L;
     const has = fps != null && isFinite(fps);
     if (has !== L.fpsOn) { L.fpsOn = has; this.fpsEl.style.display = has ? '' : 'none'; }
@@ -1961,7 +1962,7 @@ export class HUD {
     L.fpsT = (L.fpsT || 0) + dt;
     if (L.fpsT < 0.25 && L.fpsTxt) return;
     L.fpsT = 0;
-    const txt = `${Math.round(fps)} FPS`;
+    const txt = note || `${Math.round(fps)} FPS`;
     if (txt !== L.fpsTxt) { L.fpsTxt = txt; this.fpsEl.textContent = txt; this.fpsEl.classList.toggle('is-bad', fps < 45); }
   }
 

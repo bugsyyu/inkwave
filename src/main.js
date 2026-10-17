@@ -4,6 +4,8 @@ import { G, on, emit, clamp, damp } from './core/ctx.js';
 import { Renderer } from './core/renderer.js';
 import { Input } from './core/input.js';
 import { TouchControls, shouldUseTouch, isTouchDevice } from './core/touch.js';
+import { deviceInfo } from './core/device.js';
+import { RENDER_STEPS, RENDER_START, startStep, afterMatch, shouldCap, hotPower, govReadout, loadGov, saveGov } from './core/render-gov.js';
 import { mapTheme,
   DEFAULT_SETTINGS, QUALITY, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, WEAPONS, WEAPON_ORDER, WEAPON_SUCCESSOR, ZONES, SUB, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER,
   MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH, OFFLINE_MAPS, mapOfflineOk, mapNoBots, mapBossOk, LEARN,
@@ -103,11 +105,24 @@ class Game {
       // quality tier on a phone — including picking 'low' — silently brought the shadow pass back: the whole block
       // was skipped and settings.shadows kept its desktop default of true. Choosing a quality is not choosing
       // shadows, and the phone that had ever opened the quality row would quietly be the slow one.
+      //
+      // Her App names the device (src/core/device.js): then the tier and the shadows come from its render step instead
+      // (config.js RENDER_STEPS — the class's start, moved by the real frame times of earlier matches: render-gov.js), and
+      // so do the density, bloom, AO, shadow map and particles (G.renderProfile → renderer, Environment, FX). Only at launch:
+      // a new step recompiles shaders. What she picked herself still wins, each by its own flag as above.
+      this.device = deviceInfo(window);
+      this.gov = loadGov();
+      const step = startStep(this.device, this.gov);
+      G.renderProfile = step == null ? null : RENDER_STEPS[step];
+      const P = G.renderProfile, dq = P ? P.quality : 'low', ds = P ? P.shadows : false;
       let changed = false;
-      if (storedRaw?.qualityChosen !== true && this.settings.quality !== 'low') { this.settings.quality = 'low'; changed = true; }
-      if (storedRaw?.shadowsChosen !== true && this.settings.shadows !== false) { this.settings.shadows = false; changed = true; }
+      if (storedRaw?.qualityChosen !== true && this.settings.quality !== dq) { this.settings.quality = dq; changed = true; }
+      if (storedRaw?.shadowsChosen !== true && this.settings.shadows !== ds) { this.settings.shadows = ds; changed = true; }
       if (changed) saveJSON('inkwave.settings', this.settings);
     }
+    // her App's power events (index.html keeps them in window.__iwNative): heat or Low Power Mode → a steady 60 now (_onPower)
+    const NV = window.__iwNative;
+    if (NV) { const prev = NV.on; NV.on = (e) => { if (e && e.type === 'power') this._onPower(NV.power); if (typeof prev === 'function') prev(e); }; }
     // Touch devices also halve the two largest GPU allocations. The tiers are sized for a desktop GPU; on a phone the
     // 2048² ink atlas and the procedural texture set are tens of megabytes of video memory before the world is even
     // built, and an Android GPU process that runs out of memory is killed outright — every WebGL context dies with it
@@ -245,7 +260,7 @@ class Game {
     this.zoneMarks = new ZoneMarks(scene);   // Zone Control ground markings: build / clear themselves on 'match:state'
     await progress(0.4, t('boot.harbor'));
     const B = G.level.bounds;
-    G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: q.shadowSize, footprint: this._footprint(G.level), forceDeckField: this.touchMode });
+    G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: (this.R.q || q).shadowSize, footprint: this._footprint(G.level), forceDeckField: this.touchMode });
     if (G.env.envMap) scene.environment = G.env.envMap;
     // sky-fill balance (scene.environmentIntensity, hemisphere) + per-theme exposure are the environment theme's job
     // (Environment.setTheme), so a stage/time looks the same booted into or switched to mid-session
@@ -254,7 +269,7 @@ class Game {
     G.projectiles = new Projectiles(scene);
     G.subs = new SubSystem(scene);
     G.specials = new SpecialSystem(scene);
-    G.fx = new fxMod.FX(scene, { quality: q });
+    G.fx = new fxMod.FX(scene, { quality: this.R.q || q });   // (the particles: the tier's, or her App's render step's)
     G.fx.setLighting?.(G.env.getSkyColors?.());
     this._applyNight();
     G.fx.setCollider?.((from, to) => { const h = G.physics.segment(from, to, this._fxHit || (this._fxHit = new Hit()), true); return h.hit ? { point: h.point, normal: h.normal } : null; });
@@ -1231,13 +1246,18 @@ class Game {
   _loop(ts) {
     requestAnimationFrame((t) => this._loop(t));
     this._trackVsync(ts);
-    const cap = this.settings.fpsCap || 0;
+    const cap = this.settings.fpsCap || this._autoCap || 0;   // (_autoCap: a 120 Hz screen held at 60 — _dynRes, _onPower)
     if (cap && ts !== undefined && this._lastTs !== undefined && ts - this._lastTs < 1000 / cap - 2) return;
     this._lastTs = ts;
     this.timer.update(ts); let dt = Math.max(0, this.timer.getDelta());
     if (this.frozen || this._building) return;
     this.fpsAcc += dt; this.fpsN++;
-    if (this.fpsAcc > 0.5) { this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0; }
+    if (this.fpsAcc > 0.5) {
+      this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0;
+      // 显示帧率 with her App's render step in effect: the density and the step too, for checking on her phone (render-gov.js)
+      const st = this.R?.q?.step;
+      this.fpsNote = this.settings.showFps && st != null ? govReadout(this.fps, this.R.renderer.getPixelRatio(), st, !!this._autoCap) : undefined;
+    }
     this._dynRes(dt);
     dt = Math.min(dt, 1 / 24);
     this._frame(dt);
@@ -1260,7 +1280,7 @@ class Game {
   }
   // the frame interval (ms) we pace and size the render for: the display's refresh, or the user's cap if that is lower
   _frameTarget() {
-    const cap = this.settings.fpsCap || 0;
+    const cap = this.settings.fpsCap || this._autoCap || 0;
     return Math.max(this._vs?.ms || 1000 / 60, cap ? 1000 / cap : 0);
   }
 
@@ -1269,14 +1289,18 @@ class Game {
   // at the target, and a down-step re-arms that allowance — see below.
   _dynRes(dt) {
     if (dt <= 0 || dt > 0.25) return;
-    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0, slow: 0 });
+    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0, slow: 0, cap: 0 });
     d.acc += dt; d.n++; d.t += dt;
     if (d.t < 4) return;
-    const avg = d.acc / d.n;
+    const avg = d.acc / d.n, win = d.t;
     d.acc = 0; d.n = 0; d.t = 0;
     const m = this.match;
+    // (her App's render step: a match's frame record closes once it stops playing or another one starts — _govEnd)
+    if (this._gs && (this._gs.m !== m || m.state !== 'playing')) this._govEnd();
     if (this.settings.quality === 'ultra' || document.hidden || !m || m.attract || m.state !== 'playing') { d.fast = 0; return; }
+    if (this._capM !== m) this._matchPower(m);
     const s = this.R.dynScale || 1, tgt = this._frameTarget() / 1000;
+    const floor = this.R.dynFloor(), atFloor = s <= floor + 0.01, slow = avg > tgt * 1.12, shed = !this.R.bloom?.enabled;
     // `ups` caps how many times the scale may climb back, so the image never pumps between sizes (re-sizing every
     // couple of seconds read as flicker). It is deliberately NOT a lifetime budget: a down-step means the device's
     // conditions actually changed, so it re-arms the allowance. Without that, one transient spike (another tab, a
@@ -1288,9 +1312,56 @@ class Game {
     else if (avg > tgt * 1.12) { d.fast = 0; if (++d.slow >= 2) { d.slow = 0; this.R.shedBloom?.(); } }
     else {
       d.slow = 0;
-      if (avg < tgt * 1.04 && s < 1 && d.ups < 2) { if (++d.fast >= 3) { this.R.setDynamicScale(s + 0.125); d.fast = 0; d.ups++; } }
+      // (not back up while her phone is hot: _onPower holds the floor)
+      if (avg < tgt * 1.04 && s < 1 && d.ups < 2 && this._capWhy !== 'hot') { if (++d.fast >= 3) { this.R.setDynamicScale(s + 0.125); d.fast = 0; d.ups++; } }
       else d.fast = 0;
     }
+    // 自动 60: past the floor density and the bloom shed, a 120 Hz screen still missing two windows in a row is held at a steady
+    // 60 (judder between 8 and 16 ms reads worse than 60 even) — with her App's render step only (render-gov.js shouldCap). The
+    // dynamic scale may climb again from there (it has the headroom now: ups re-armed). The next launch runs one step lower.
+    d.cap = slow && atFloor && shed ? d.cap + 1 : 0;
+    if (this.R.q.step != null && shouldCap({ s, floor, shed, slowWindows: d.cap, targetMs: this._vs?.ms || 0, cap: this.settings.fpsCap || this._autoCap })) {
+      this._autoCap = 60; this._capWhy = 'slow'; d.cap = 0; d.ups = 0; d.fast = 0;
+    }
+    this._govWin(m, win, avg, tgt, slow, atFloor);
+  }
+
+  // ---- her App's render step (config.js RENDER_STEPS, src/core/render-gov.js): one record per match, judged when it ends
+  _govWin(m, secs, avg, tgt, slow, atFloor) {
+    if (this.R.q.step == null || this._govDone || !this.device) return;
+    const g = this._gs && this._gs.m === m ? this._gs : (this._gs = { m, secs: 0, ms: 0, n: 0, slow: 0, floor: 0, tgt: 0, shed: false, capped: false, hot: false });
+    g.secs += secs; g.ms += avg * 1000; g.n++; g.tgt = tgt * 1000;
+    if (slow) g.slow++;
+    if (atFloor) g.floor++;
+    if (this.R.bloomShed) g.shed = true;
+    if (this._capWhy === 'slow') g.capped = true;
+    if (this._capWhy === 'hot') g.hot = true;
+  }
+  _govEnd() {
+    const g = this._gs; this._gs = null;
+    const st = this.R.q.step;
+    if (!g || !g.n || st == null || this._govDone || !this.device) return;
+    const stats = { secs: g.secs, targetMs: g.tgt, avgMs: g.ms / g.n, slowFrac: g.slow / g.n, floorFrac: g.floor / g.n, shed: g.shed, capped: g.capped, hot: g.hot };
+    const base = this.gov && this.gov.model === this.device.model ? this.gov : { v: 1, model: this.device.model, good: 0, bad: 0, at: 0 };
+    const r = afterMatch({ ...base, step: st }, stats, RENDER_START[this.device.cls] ?? 0);
+    this.govLast = { step: r.step, changed: r.changed, why: r.why, stats };   // (for a look from the console: __inkwave.govLast)
+    if (r.why === 'short' || r.why === 'hot') return;
+    this.gov = r.saved; saveGov(r.saved);
+    // a new step takes effect at the next launch; until then this session's matches still run the old one, so they stop judging
+    if (r.changed) this._govDone = true;
+  }
+  // her phone's power (index.html window.__iwNative: thermal serious / critical, Low Power Mode): held at 60 and the floor
+  // density at once; let go at the start of the next match once it is back to nominal / fair
+  _onPower(p) {
+    if (!hotPower(p)) return;
+    this._autoCap = 60; this._capWhy = 'hot';
+    if (this.R && this.settings.quality !== 'ultra') this.R.setDynamicScale(this.R.dynFloor());
+  }
+  _matchPower(m) {
+    this._capM = m;
+    const p = window.__iwNative?.power;
+    if (hotPower(p)) this._onPower(p);
+    else if (this._capWhy === 'hot') { this._autoCap = 0; this._capWhy = null; }
   }
 
   _frame(dt) {
@@ -1648,7 +1719,8 @@ class Game {
       // a Super Jump planned on the TAB map while splatted ({ kind, target, name } | null): shown on the splat screen
       jumpQueue: !a.alive ? m.controller?.jumpQueue || null : null,
       prompt,
-      fps: this.settings.showFps && this.fps ? this.fps : undefined,   // 0 while the page is hidden: show nothing rather than a stale or zero reading
+      fps: this.settings.showFps && this.fps ? this.fps : undefined,
+      fpsNote: this.settings.showFps ? this.fpsNote : undefined,   // (帧率 · 密度 · 档位 with her App's render step: _loop)   // 0 while the page is hidden: show nothing rather than a stale or zero reading
       // Zone Control: counts / penalties / the operational objective (HUD counters, objective chip, banners)
       zones: m.zones ? { ...m.zones.state(), viewer: a.team } : undefined,
     };

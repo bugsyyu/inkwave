@@ -9,7 +9,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { QUALITY, rendererQuality, renderDensity, densityFloor } from '../config.js';
+import { QUALITY, rendererQuality, withProfile, renderDensity, densityFloor } from '../config.js';
 import { G } from './ctx.js';
 import { shouldUseTouch } from './touch.js';
 
@@ -102,7 +102,9 @@ export class Renderer {
     this.scene = null; this.camera = null;
     this.settings = settings;
     this.touch = shouldUseTouch(settings);
-    this.q = rendererQuality(settings, this.touch, this.appleGPU);
+    // her App's render step (main.js boot, src/core/render-gov.js): density, bloom, AO and shadow map from it while the tier is its own
+    this.profile = G.renderProfile || null;
+    this.q = withProfile(rendererQuality(settings, this.touch, this.appleGPU), this.profile, settings);
     this._w = 0; this._h = 0;
   }
 
@@ -169,7 +171,7 @@ export class Renderer {
     const prevQ = this.q;
     this.settings = settings;
     this.touch = shouldUseTouch(settings);
-    this.q = rendererQuality(settings, this.touch, this.appleGPU);
+    this.q = withProfile(rendererQuality(settings, this.touch, this.appleGPU), this.profile, settings);
     const shadowChanged = this.renderer.shadowMap.enabled !== (settings.shadows !== false);
     if (prevQ !== this.q || shadowChanged) {
       if (prevQ !== this.q) { this.dynScale = 1; this.bloomShed = false; }
