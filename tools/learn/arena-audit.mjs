@@ -430,6 +430,22 @@ for (const viewName of VIEWS_WANT) { try {
       });
       (report.tops = report.tops || []).push({ label, ...top });
       check(top.over.length === 0, `${label}: strip / clock / boss bar / phase strip clear of each other (${JSON.stringify(top.R)})`, top.over);
+      // play-9 (LEARN §27 已知坑 ⑦): the boss's clock as wide as it gets — the longest phase name in full, as play-8 saw it
+      // (213 px) — the HP bar and the phase strip still clear of it (landscape.js: --iw-clock-half), once per view
+      if (FORM === 'boss' && V.w > V.h && !report.wideClock) {
+        const wide = await ev(async () => {
+          const el = __G.hud && __G.hud.timerTxt; if (!el) return null;
+          const was = el.textContent; el.textContent = 'R 阅读 · 词汇 · 语法 · 13:20';
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));   // (the ResizeObserver's turn)
+          const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width > 0 ? { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } : null; };
+          const R = { clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: box('.iw-lf:not(.is-off) .iw-lf__phase') };
+          const hit = (a, q) => a && q && a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
+          el.textContent = was;
+          return { R, half: getComputedStyle(document.documentElement).getPropertyValue('--iw-clock-half'), over: ['bar', 'phase'].filter((k) => hit(R.clock, R[k])), onScreen: !!(R.bar && R.bar.x >= 0 && R.phase && R.phase.x + R.phase.w <= innerWidth) };
+        });
+        report.wideClock = wide;
+        check(!!wide && wide.over.length === 0 && wide.onScreen, `${label}: the boss's clock at its widest (${wide && wide.R.clock && wide.R.clock.w} px) — the HP bar and the phase strip clear of it, on the screen (${JSON.stringify(wide && wide.R)})`, wide);
+      }
     }
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
