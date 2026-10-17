@@ -201,6 +201,7 @@ export class DuelFlow extends LearnFlow {
     this.t += dt;
     this._pourInk();
     this.arena?.update(dt);   // (every frame, paused or not: it waits itself)
+    this.ui.aside(!!(this.arena && this.arena.stationUp));   // (the prop bag off the right edge while a station or the objects are up: LEARN §30)
     const m = this.match;
     if (this.finishT >= 0) { this.finishT -= dt; if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing') return;

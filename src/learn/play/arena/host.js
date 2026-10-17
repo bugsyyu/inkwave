@@ -171,6 +171,7 @@ export class ArenaHost {
       || (this.kind === 'type' && !!this.type.cur) || (this.kind === 'echo' && !!(this.echo && this.echo.cur && this.echo.echo && this.echo.echo.walk.framed >= 0))
       // (play-8: and while a flip card or a 备战 board stands in front of her — the bots' tags sat on them too)
       || (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
+    this.stationUp = tags;   // (the forms' prop bag steps aside to the same: forms/ui.js aside — LEARN §30)
     if (tags !== !!this._tagsYield) { this._tagsYield = tags; G.hud?.markerYield?.(tags); }
     // (play-8: no crosshair while a flip card or a 备战 board stands in front of her — nothing is aimed there, it sat on the
     // board's text; the typing station hides it itself, the objects keep it)
