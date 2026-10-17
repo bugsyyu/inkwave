@@ -9,7 +9,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { QUALITY, rendererQuality } from '../config.js';
+import { QUALITY, rendererQuality, renderDensity, densityFloor } from '../config.js';
 import { G } from './ctx.js';
 import { shouldUseTouch } from './touch.js';
 
@@ -95,13 +95,14 @@ export class Renderer {
     r.shadowMap.type = THREE.PCFShadowMap;
     r.setClearColor(0x9fd8f0, 1);
     container.appendChild(r.domElement);
-    this.appleGPU = isAppleGPU(r.getContext());
+    // (?applegpu: the Apple-GPU profile on any GPU — the audits' way to see the iPhone's sharper density and bloom in SwiftShader)
+    this.appleGPU = isAppleGPU(r.getContext()) || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('applegpu'));
     r.domElement.id = 'game-canvas';
     this.container = container;
     this.scene = null; this.camera = null;
     this.settings = settings;
     this.touch = shouldUseTouch(settings);
-    this.q = rendererQuality(settings, this.touch);
+    this.q = rendererQuality(settings, this.touch, this.appleGPU);
     this._w = 0; this._h = 0;
   }
 
@@ -114,7 +115,7 @@ export class Renderer {
     const r = this.renderer, q = this.q;
     if (this.composer) { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); }
     this.dynScale = this.dynScale || 1;
-    const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.dynScale;
+    const pr = this._density() * this.dynScale;
     r.setPixelRatio(pr);
     const w = window.innerWidth, h = window.innerHeight;
     r.setSize(w, h);
@@ -168,14 +169,14 @@ export class Renderer {
     const prevQ = this.q;
     this.settings = settings;
     this.touch = shouldUseTouch(settings);
-    this.q = rendererQuality(settings, this.touch);
+    this.q = rendererQuality(settings, this.touch, this.appleGPU);
     const shadowChanged = this.renderer.shadowMap.enabled !== (settings.shadows !== false);
     if (prevQ !== this.q || shadowChanged) {
-      if (prevQ !== this.q) this.dynScale = 1;
+      if (prevQ !== this.q) { this.dynScale = 1; this.bloomShed = false; }
       this._buildComposer();
       this.scene?.traverse((o) => { if (o.material) { const m = Array.isArray(o.material) ? o.material : [o.material]; m.forEach((mm) => (mm.needsUpdate = true)); } });
     }
-    if (this.bloom) this.bloom.enabled = !!(this.q.bloom && settings.bloom);
+    if (this.bloom) this.bloom.enabled = !!(this.q.bloom && settings.bloom) && !this.bloomShed;
   }
 
   // Lowest dynamic scale: never below 0.75 of CSS-pixel density, so Retina screens (preset density > 1) can give
@@ -186,9 +187,17 @@ export class Renderer {
   // halved density is immediately visible as blur on a 3x screen. Reducing resolution bought ~3 frames and cost the
   // whole image.
   dynFloor() {
-    if (this.touch) return 1;
-    const base = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio);
-    return Math.max(0.5, Math.min(0.75, 0.75 / base));
+    return densityFloor(this.q, this.touch, window.devicePixelRatio || 1, window.innerWidth, window.innerHeight);
+  }
+  // the render density before the dynamic scale (config.js renderDensity: the tier's cap; an Apple touch device's sharper
+  // ratio inside its pixel budget)
+  _density() { return renderDensity(this.q, window.devicePixelRatio || 1, window.innerWidth, window.innerHeight); }
+  // frames still miss at the lowest density: shed the bloom the Apple default turned on (main.js _dynRes; a pass flag, no
+  // program changes). A quality change brings it back (applySettings).
+  shedBloom() {
+    if (!this.q.apple || this.bloomShed || !this.bloom || !this.bloom.enabled) return false;
+    this.bloomShed = true; this.bloom.enabled = false;
+    return true;
   }
 
   // Dynamic resolution (never on ultra): scale the render density between dynFloor() and 1 of the quality preset.
@@ -196,7 +205,7 @@ export class Renderer {
     s = Math.max(this.dynFloor(), Math.min(1, s));
     if (Math.abs(s - this.dynScale) < 0.01) return;
     this.dynScale = s;
-    const pr = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio) * s;
+    const pr = this._density() * s;
     this.renderer.setPixelRatio(pr);
     this.composer.setPixelRatio(pr);
     this.composer.setSize(this._w, this._h);

@@ -1269,7 +1269,7 @@ class Game {
   // at the target, and a down-step re-arms that allowance — see below.
   _dynRes(dt) {
     if (dt <= 0 || dt > 0.25) return;
-    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0 });
+    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0, slow: 0 });
     d.acc += dt; d.n++; d.t += dt;
     if (d.t < 4) return;
     const avg = d.acc / d.n;
@@ -1282,9 +1282,15 @@ class Game {
     // conditions actually changed, so it re-arms the allowance. Without that, one transient spike (another tab, a
     // thermal moment, a hitch while a shader compiles) pins the game at low resolution for the rest of the session
     // even after the cause is long gone — which is what a player experiences as "the game is stuck looking bad".
-    if (avg > tgt * 1.12 && s > this.R.dynFloor() + 0.01) { this.R.setDynamicScale(s - 0.125); d.fast = 0; d.ups = 0; }
-    else if (avg < tgt * 1.04 && s < 1 && d.ups < 2) { if (++d.fast >= 3) { this.R.setDynamicScale(s + 0.125); d.fast = 0; d.ups++; } }
-    else d.fast = 0;
+    if (avg > tgt * 1.12 && s > this.R.dynFloor() + 0.01) { this.R.setDynamicScale(s - 0.125); d.fast = 0; d.ups = 0; d.slow = 0; }
+    // (an Apple touch device at its floor density and still missing: shed the bloom its default turned on — TOUCH.appleBloom;
+    // smooth comes before the glow. Two slow windows in a row at the floor, so one hitch never costs it)
+    else if (avg > tgt * 1.12) { d.fast = 0; if (++d.slow >= 2) { d.slow = 0; this.R.shedBloom?.(); } }
+    else {
+      d.slow = 0;
+      if (avg < tgt * 1.04 && s < 1 && d.ups < 2) { if (++d.fast >= 3) { this.R.setDynamicScale(s + 0.125); d.fast = 0; d.ups++; } }
+      else d.fast = 0;
+    }
   }
 
   _frame(dt) {

@@ -831,6 +831,15 @@ export const TOUCH = {
   // tier's desktop-calibrated 0.75 pixel ratio and zero anti-aliasing as heavy jaggies; these raise only those two.
   minPixelRatio: 1.5,
   minMsaa: 2,
+  // Apple GPUs (iPhone / iPad; the IELTS-Base App's WKWebView) hold more than the floor: the owner, 10-17 — 「画风和精致度和精细
+  // 程度和原版游戏一样，丝滑 高清」. The 3x screen is drawn at 2x instead of 1.5x (the floor above; 1.78× the pixels — the scene is
+  // vertex-bound, see renderer.dynFloor) and the ink's bloom is on, as on the desktop. Both give way when frames miss: the
+  // dynamic resolution steps 2 → 1.75 → 1.5 (densityFloor), then the bloom is shed (main.js _dynRes) — smooth first, sharp second.
+  // applePixels caps the render target (CSS w × h × ratio²) so a big iPad does not allocate 5 MP HDR buffers: past it the
+  // ratio falls back towards the floor, never under it.
+  applePixelRatio: 2,
+  applePixels: 2.1e6,
+  appleBloom: true,
   // GPU memory is the binding constraint on a phone, not frame time: Chromium evicts its own compositor shared
   // images when the GPU process runs short, which shows up as DOM tiles failing to rasterise (the loading screen
   // turns to noise) long before the WebGL context itself is lost.
@@ -870,10 +879,29 @@ export const DEFAULT_SETTINGS = {
 // monitor: pixelRatio 0.75 and msaa 0 together render the scene at three-quarters of CSS resolution with no
 // anti-aliasing at all, which on a 3x phone screen is a field of jaggies. Sharpen those two knobs only; the
 // storage-related fields (paintAtlas, shadowSize, particles) stay exactly as the tier defines them.
-export function rendererQuality(settings, touch) {
+export function rendererQuality(settings, touch, apple = false) {
   const q = QUALITY[settings?.quality] || QUALITY.high;
   if (!touch) return q;
-  return { ...q, pixelRatio: Math.max(q.pixelRatio, TOUCH.minPixelRatio), msaa: Math.max(q.msaa, TOUCH.minMsaa) };
+  const t = { ...q, pixelRatio: Math.max(q.pixelRatio, TOUCH.minPixelRatio), msaa: Math.max(q.msaa, TOUCH.minMsaa) };
+  // (an Apple GPU: the sharper ratio and the bloom — TOUCH.applePixelRatio; storage fields untouched, as above)
+  if (apple) { t.pixelRatio = Math.max(t.pixelRatio, TOUCH.applePixelRatio); t.bloom = q.bloom || TOUCH.appleBloom; t.apple = true; }
+  return t;
+}
+
+// The render density (renderer pixel ratio before the dynamic scale) for a quality q on a screen of dpr and w × h CSS px:
+// the tier's cap, and on an Apple touch device kept inside TOUCH.applePixels (never under the touch floor).
+export function renderDensity(q, dpr = 1, w = 1, h = 1) {
+  const d = dpr || 1;
+  let pr = Math.min(d, q.pixelRatio);
+  if (q.apple) pr = Math.max(Math.min(d, TOUCH.minPixelRatio), Math.min(pr, Math.sqrt(TOUCH.applePixels / Math.max(1, w * h))));
+  return pr;
+}
+// The lowest dynamic scale for it: touch devices never go under their floor density (renderer.dynFloor says why); an
+// Apple one may step down to it from its sharper ratio. Elsewhere 0.75 of CSS density, never under half the preset.
+export function densityFloor(q, touch, dpr = 1, w = 1, h = 1) {
+  const base = renderDensity(q, dpr, w, h);
+  if (touch) return q.apple ? Math.min(1, Math.min(dpr || 1, TOUCH.minPixelRatio) / base) : 1;
+  return Math.max(0.5, Math.min(0.75, 0.75 / base));
 }
 
 // Quality presets consumed by the renderer + fx.
