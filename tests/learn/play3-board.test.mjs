@@ -144,6 +144,24 @@ test('boards along the approach: before the gate, to her right, facing her, gap 
   }
 });
 
+test('play-8: a stretch too short for its boards (a whole day\'s first gate near the spawn) — they close up, then take both sides of the route; never two on one spot, all before the gate', () => {
+  for (const [len, n] of [[12, 4], [9, 4], [16, 5], [7, 3], [30, 4]]) {
+    const route = []; for (let z = 0; z <= len; z += 0.5) route.push({ x: 0, y: 0, z });
+    const S = boardSpots(route, n);
+    assert.equal(S.length, n);
+    for (const s of S) assert.ok(s.z >= -0.01 && s.z < len, `${len} m / ${n}: before the gate (${s.z.toFixed(2)})`);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const a = S[i], b = S[j], dB = Math.hypot(a.x - b.x, a.z - b.z), dV = Math.hypot(a.view.x - b.view.x, a.view.z - b.view.z);
+      assert.ok(dB >= 1.39 && dV >= 1.0, `${len} m / ${n}: boards ${i}, ${j} apart (${dB.toFixed(2)} m, views ${dV.toFixed(2)} m)`);
+      if (a.x * b.x > 0) assert.ok(Math.abs(a.z - b.z) >= 2.79, `${len} m / ${n}: two on one side a board's width apart`);
+    }
+    for (const s of S) assert.ok(s.view.z < s.z + 1e-6, 'each faces her coming');
+  }
+  // a long enough stretch: as before — her right, gap apart
+  const route = []; for (let z = 0; z <= 30; z++) route.push({ x: 0, y: 0, z });
+  assert.ok(boardSpots(route, 3).every((s) => s.x < 0));
+});
+
 function walkOf() {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 300);
   const W = new BoardWalk({ scene, camera, color: '#ff8a14' });
@@ -153,6 +171,19 @@ function walkOf() {
   W.place('g1', boardSpots(route, 2));
   return { W, scene, camera };
 }
+
+test('play-8: two boards at one viewing spot — once the first is read, the other is framed where she stands (the auto-walk is not sent back to it for ever)', () => {
+  const { W } = walkOf();
+  W.clear();
+  const route = []; for (let z = 0; z <= 30; z++) route.push({ x: 0, y: 0, z });
+  const s = boardSpots(route, 1)[0];
+  W.place('g1', [s, { ...s }]);
+  const events = []; W.on.framed = (i) => events.push('framed' + i); W.on.read = (i) => events.push('read' + i);
+  const her = new THREE.Vector3(s.view.x, 0, s.view.z);
+  for (let k = 0; k < 200; k++) W.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
+  assert.deepEqual(events, ['framed0', 'read0', 'framed1', 'read1']);
+  assert.equal(W.nextSpot(), null, 'both read: on to the gate');
+});
 
 test('the walk: framed while she stands at a board, let go when she walks on; read after a moment; the next spot for the auto-walk', () => {
   const { W } = walkOf();
