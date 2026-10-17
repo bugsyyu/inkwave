@@ -373,5 +373,10 @@ const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cu
 report.end = end; report.seen = seen;
 say('end', JSON.stringify({ ...end, host: undefined }));
 check(end.opened >= 1, `gates opened: ${end.opened} / ${end.gates}`);
-if (report.exit) { const x = await ev(() => __inkwave.match.learn.play.exit.debug()); report.exit = x; check(x.done && (!x.spots.some((s) => s.kind === 'checkin') || x.checked), `exit: walked (spoke ${x.spoke}, checked ${x.checked})`, x); const signs = end.log.includes('sign'); check(signs, 'learn:sign in the log'); }
+if (report.exit) { const x = await ev(() => __inkwave.match.learn.play.exit.debug()); report.exit = x; check(x.done && (!x.spots.some((s) => s.kind === 'checkin') || x.checked), `exit: walked (spoke ${x.spoke}, checked ${x.checked})`, x); const signs = end.log.includes('sign'); check(signs, 'learn:sign in the log');
+  // (play-fix) every stop of the exit area reached — the booth spoken, the weekly / placement boards read or stood at, the
+  // pad stepped on — none given up on by the walk's timer
+  check(x.spots.every((s) => !s.skipped), 'exit: no stop passed over by the walk\'s timer', x.spots);
+  const ends = await ev(() => ({ results: !!document.querySelector('.iw-learn.is-done'), phase: __inkwave.match.learn.phase }));
+  check(ends.phase === 'done', `exit: the day ended (phase ${ends.phase}, results ${ends.results})`, ends); }
 await finish();

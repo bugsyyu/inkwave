@@ -4,6 +4,11 @@
 // 打卡垫 (踩上去 = 这一天走完了: the local star table, never evidence) and, on the review day, the 周报牌 / 入门小测牌
 // (their classic page). The write wall is not here: its sentences are a gate of their own (M4, flow._place).
 // Nothing here is judged or recorded.
+// play-fix: the review day's 周报牌 / 入门小测牌 are stops of their own (the auto-walk stops at each, she reads it, 「自动走」
+// goes on; a day without a check-in pad ends once the booth is spoken and every board read — the check-in pad, where
+// there is one, still ends the day and comes last); and a stop counts as reached once the walk has stopped at it — the
+// first version switched to the next stop at 0.9 m while the walk only stopped at 0.7 m, and she paced to and fro
+// between the two at the booth's edge until the audit's budget ran out (three re-runs of play-wire's audit).
 //
 //   const S = new ExitStation(host)
 //   S.start(end, back) → bool     the stations rise round the route's end (end: the last node; back: a node a few m
@@ -27,12 +32,18 @@ export class ExitStation {
   get still() { return false; }
   get pose() { return (this.echo && this.echo.framing) || (this.signs && this.signs.framing) || null; }
   get tapApi() { return (this.echo && this.echo.walk.framed >= 0 && this.echo.tapApi) || (this.signs && this.signs.walk.framed >= 0 && this.signs.tapApi) || null; }
-  get done() { return this.on && (this.padAt ? this.checked : (!this.echoAt || this.spoke)); }
+  get done() {
+    if (!this.on) return false;
+    if (this.padAt) return this.checked;
+    return (!this.echoAt || this.spoke) && this.spots.every((s) => s.kind === 'echo' || this._past(s));
+  }
+  // a board stop is past once its board is read (the walk framed it 1.2 s) or the walk gave up on it
+  _past(s) { return (this.skipped && this.skipped.has(s)) || (this.visited && this.visited.has(s)) || (s.sign >= 0 && this.signs && this.signs.walk.read(s.sign)); }
 
   start(end, back, endNode = -1) {
     const F = this.flow, signs = F.level.signs || [], nav = G.nav;
     if (!signs.length || !end) return false;
-    this.skipped = new Set();
+    this.skipped = new Set(); this.visited = new Set();
     const speak = signs.find((s) => s.design && s.design.mechanic === 'echo-booth'), item = speak && speak.items[0];
     const boards = signs.filter((s) => s.design && ['checkin-pad', 'weekly-sign', 'placement-sign'].includes(s.design.mechanic));
     if (!item && !boards.length) return false;
@@ -76,11 +87,12 @@ export class ExitStation {
       this.signs.on.checkin = (sg) => this._checkin(sg);
       this.signs.walk.on.framed = () => F.hud?.playMode?.(true); this.signs.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
       const list = boards.map((s) => ({ id: s.id, kind: s.design.mechanic === 'checkin-pad' ? 'checkin' : s.design.mechanic === 'weekly-sign' ? 'weekly' : 'placement', title: s.title, text: s.items[0] && s.items[0].zh }));
+      list.sort((x, y) => (x.kind === 'checkin') - (y.kind === 'checkin'));   // (the check-in pad last: stepping on it ends the day)
       this.signs.prepare('exit', list);
       const yaw = Math.atan2(-fx, -fz);   // the boards face back along the route, towards her
       const places = list.map((s, i) => { const lat = (item ? 1.6 : 0) + (i - (list.length - 1) / 2) * 2.6; const b = spot(lat, -1.2); return { x: b.x + fx * 1.0, y: b.y, z: b.z + fz * 1.0, yaw, view: { x: b.x - fx * (LEARN.board.view - 1.0), y: b.y, z: b.z - fz * (LEARN.board.view - 1.0) } }; });
       this.signs.place('exit', places);
-      list.forEach((s, i) => { const v = places[i].view; const k = nav ? nav.nearest(_v.set(v.x, v.y + 1, v.z), 2.5, true) : -1; this.spots.push({ x: v.x, y: v.y, z: v.z, node: k, kind: s.kind, title: s.kind === 'checkin' ? '打卡垫' : s.kind === 'weekly' ? '周报牌' : '入门小测牌' }); if (s.kind === 'checkin') this.padAt = { x: v.x, y: v.y, z: v.z }; });
+      list.forEach((s, i) => { const v = places[i].view; const k = nav ? nav.nearest(_v.set(v.x, v.y + 1, v.z), 2.5, true) : -1; this.spots.push({ x: v.x, y: v.y, z: v.z, node: k, kind: s.kind, sign: i, title: s.kind === 'checkin' ? '打卡垫' : s.kind === 'weekly' ? '周报牌' : '入门小测牌' }); if (s.kind === 'checkin') this.padAt = { x: v.x, y: v.y, z: v.z }; });
     }
     this.on = true;
     this.log.push({ t: +F.t.toFixed(2), ev: 'exit', spots: this.spots.map((s) => s.kind) });
@@ -98,19 +110,31 @@ export class ExitStation {
     this.flow._emit('learn:classic', { kind, id: sg && sg.id });
     G.game?.menus?.toast?.(kind === 'speak' ? '口语评分在经典页（课本）' : kind === 'weekly' ? '周报在经典页（课本）' : '入门小测在经典页（课本）');
   }
-  // the auto-walk's next stop: the booth (until she has spoken), then the check-in pad; the other signs are optional
+  // the auto-walk's next stop: the booth (until she has spoken, or the walk has stopped in it), the weekly / placement
+  // boards (until read), then the check-in pad. (No switching by distance while she walks: a stop is passed once reached —
+  // the walk stopped there — or read / spoken / checked, or given up on)
   nextSpot() {
     if (!this.on) return null;
-    const a = this.match.local;
     for (const s of this.spots) {
       if (this.skipped && this.skipped.has(s)) continue;
+      if (this.visited && this.visited.has(s)) continue;
       if (s.kind === 'echo' && this.spoke) continue;
       if (s.kind === 'checkin' && this.checked) continue;
-      if (s.kind !== 'echo' && s.kind !== 'checkin') continue;
-      if (a && Math.hypot(a.pos.x - s.x, a.pos.z - s.z) < 0.9) continue;
+      if ((s.kind === 'weekly' || s.kind === 'placement') && this._past(s)) continue;
       return s;
     }
     return null;
+  }
+  // reached: she stands at the stop with the walk stopped (the auto-walk stops 0.7 m from it; her own walk, the same) —
+  // the booth once she is in it; a board once she has stood there 1.5 s (it is read by then if it framed; a board whose
+  // viewing node lies off its zone never frames, and she must not wait out exitWalkMax there)
+  _reach(dt) {
+    const F = this.flow, a = this.match.local; if (!a || F.auto) { this._atT = 0; return; }
+    const s = this.nextSpot(); if (!s || s.kind === 'checkin') { this._atT = 0; return; }
+    const n = s.node >= 0 && G.nav ? G.nav.nodes[s.node] : s;
+    if (Math.hypot(a.pos.x - n.x, a.pos.z - n.z) >= 1.2) { this._atT = 0; return; }
+    this._atT = (this._atT || 0) + dt;
+    if (s.kind === 'echo' ? this.echo && this.echo.state !== 'ready' : this._atT >= 1.5) { this.visited.add(s); this._atT = 0; this.log.push({ t: +F.t.toFixed(2), ev: 'reached', kind: s.kind }); }
   }
   // a spot the walk could not reach in time (the flow's stall timer): passed over — a skipped check-in pad ends the day
   skip(s) { if (!s) return; this.skipped.add(s); this.log.push({ t: +this.flow.t.toFixed(2), ev: 'skip', kind: s.kind }); if (s.kind === 'checkin') this.checked = true; if (s.kind === 'echo') this.spoke = true; }
@@ -119,8 +143,9 @@ export class ExitStation {
     const a = this.match.local, t = G.time, o = { aspect: innerWidth / innerHeight, speed: a ? Math.hypot(a.vel?.x || 0, a.vel?.z || 0) : 0 };
     this.echo?.update(dt, t, a ? a.pos : null, o);
     this.signs?.update(dt, t, a ? a.pos : null, o);
+    this._reach(dt);
   }
-  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), z: +s.z.toFixed(1), node: s.node, skipped: !!(this.skipped && this.skipped.has(s)) })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
+  debug() { return this.on ? { spots: this.spots.map((s) => ({ kind: s.kind, x: +s.x.toFixed(1), z: +s.z.toFixed(1), node: s.node, skipped: !!(this.skipped && this.skipped.has(s)), visited: !!(this.visited && this.visited.has(s)), read: s.sign >= 0 && this.signs ? this.signs.walk.read(s.sign) : null })), echo: this.echo ? { state: this.echo.state, framed: this.echo.walk.framed } : null, signs: this.signs ? { framed: this.signs.walk.framed, checked: this.signs.checked } : null, spoke: this.spoke, checked: this.checked, done: this.done, log: this.log.slice(-8) } : { idle: true }; }
   clear() { this.echo?.close(); this.signs?.clear(); this.on = false; }
   dispose() { this.clear(); this.echo?.dispose(); this.signs?.dispose(); this.echo = null; this.signs = null; }
 }
