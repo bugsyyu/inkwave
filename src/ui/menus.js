@@ -25,8 +25,9 @@ import {
 } from './menu-art.js';
 import { bossSilhouette, bossEmblem, BOSS_GLYPH, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
 import { WhatsNew } from './news.js';
-import { loadWeek } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
-import { FORM_ZH } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
+import { loadWeek, store as learnStore } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
+import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
+import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
 import { t, isZh, gameName, teamName, TIPS_ZH, TITLE_ZH, botNames, lookName, presetText } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
 
 const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
@@ -42,6 +43,8 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 // 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web and ?lang=en (the
 // original INKWAVE, even inside the App) never change.
 const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
+// 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js)
+const APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];
@@ -904,7 +907,7 @@ export class Menus {
       // 关卡学习 (docs/LEARN.md): her IELTS course, a day a level
       { id: 'learn', label: t('main.learn'), sub: t('main.learnSub'), icon: GLYPHS.pencil, cls: 'iw-btn--menu iw-btn--learn', accept: () => this._go('learn'), sound: 'ui_confirm' },
       // opened from the IELTS-Base App (?from=app): the way back to the classic workbench, ../index.html
-      ...(FROM_APP ? [{ id: 'book', label: t('main.book'), sub: t('main.bookSub'), icon: GLYPHS.exit, cls: 'iw-btn--menu', accept: () => { location.href = '../index.html'; }, sound: 'ui_confirm' }] : []),
+      ...(FROM_APP ? [{ id: 'book', label: t('main.book'), sub: t('main.bookSub'), icon: GLYPHS.exit, cls: 'iw-btn--menu', accept: () => { location.href = BOOK_URL; }, sound: 'ui_confirm' }] : []),
       { id: 'loadout', label: t('main.loadout'), icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: t('main.locker'), icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: t('main.settings'), icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
@@ -915,7 +918,20 @@ export class Menus {
     if (FROM_APP) {
       const pick = (id) => items.splice(items.findIndex((x) => x.id === id), 1)[0];
       const learn = pick('learn'), book = pick('book'), play = pick('play');
-      items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
+      const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;
+      if (T) {
+        // (游戏为主体: her course's today is the first button — its planned form, its due words once the week has loaded;
+        // 选关 keeps the picker one tap away)
+        const plan = DAY_PLAN['w' + T.week] && DAY_PLAN['w' + T.week][T.day];
+        const where = `第 ${T.week} 周 · 第 ${T.day} 天` + (plan && FORM_ZH[plan.form] ? ` · ${FORM_ZH[plan.form]}` : '');
+        const today = { id: 'today', label: T.done ? '今天学完了 · 再练一关' : '开始今天的关', sub: where, icon: T.done ? GLYPHS.check : GLYPHS.play,
+          cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn iw-btn--today', sound: 'ui_confirm',
+          accept: () => this._startLearn({ week: T.week, day: T.day, kind: 'plan' }) };
+        items.unshift(today, { ...learn, label: '选关', sub: '选周 · 选天 · 选形式', cls: 'iw-btn--menu' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
+        this._appTodayDue(T, where);
+      } else {
+        items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
+      }
     }
     const tilts = [-2.2, 1.3, 1.4, -1.1, 1.6, -1.3, 1.1];
     const btns = items.map((it, i) => { const b = this._btn({ ...it, tilt: tilts[i % tilts.length] }); b.classList.add('iw-in', 'iw-in--left'); return b; });
@@ -1050,12 +1066,25 @@ export class Menus {
     };
   }
 
+  // 游戏为主体: the today button's second line gains the week's due words (store.due: the memory model over her history and
+  // the game's) once the week has loaded — a DOM write on the button that is up, nothing when the menu has moved on
+  _appTodayDue(T, where) {
+    loadWeek(T.week).then(() => {
+      let n = 0;
+      try { n = learnStore.due(T.week).length; } catch (e) { return; }
+      const b = this._scr && this._scr.el && this._scr.el.querySelector('.iw-btn--today .iw-btn__sub');
+      if (b && n > 0) b.textContent = `${where} · 要复习 ${n} 个`;
+    }).catch(() => {});
+  }
+
   // ================================================================ SCREEN: learn (关卡学习: 选周 / 选天 / 选形式 → 开局)
   // Chinese throughout (docs/LEARN.md §1.4): this is her side of the game. The four forms (docs/LEVELS.md §2): the day's
   // recommended one is just first in the list; the boss is the whole week's 周考 (the day picker does not apply to it).
   _scr_learn() {
     const s = this._settings();
-    const st = this._learnPick || (this._learnPick = { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
+    const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;   // (游戏为主体: her course's today first, until she picks another)
+    const st = this._learnPick || (this._learnPick = T ? { week: T.week, day: T.day, kind: (DAY_PLAN['w' + T.week] && DAY_PLAN['w' + T.week][T.day] || {}).form || 'puzzle' }
+      : { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
     const FORMS = [
       { id: 'puzzle', name: '解密闯关', sub: '一个人 · 答对门开', icon: GLYPHS.key, on: true },
       { id: 'race', name: FORM_ZH.race, sub: '和 3 个机器人游一圈 · 游进对的墨幕', icon: GLYPHS.bolt, on: true },   // 墨浪跑酷 (PLAY §5.2, play-4)
@@ -1115,13 +1144,13 @@ export class Menus {
     this._starting = true;
     if (this._scr) {
       this._scr.el.classList.add('is-launch');
-      this._burstAt(this._scr.el.querySelector('.iw-btn--start'), { count: 18, dist: 11, size: 1.4, ring: true });
+      this._burstAt(this._scr.el.querySelector('.iw-btn--start, .iw-btn--today'), { count: 18, dist: 11, size: 1.4, ring: true });
       this._sfx('splat_big');
     }
     this._runWipe(() => {
       this._starting = false;
       safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
-      if (this.current === 'learn') this.show(null, { instantLeave: true });
+      if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关)
     });
   }
 

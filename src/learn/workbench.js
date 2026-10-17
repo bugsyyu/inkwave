@@ -162,5 +162,42 @@ export function covered(ls, id, doc) {
   return keys(doc.it).every((item) => isObj(doc.it[item]) && keys(doc.it[item]).every((date) => isObj(hit[item]) && isObj(hit[item][date]) && keys(hit[item][date]).length > 0));
 }
 
+/* ───────────────────────────── her App's mirror ───────────────────────────── */
+// 游戏为主体 (IELTS-Base docs/GAME-FIRST.md 第一期): in her App the lesson page mirrors her data into the App's own folder
+// after its saves (app/native.js mirrorFlush posts { type: 'mirror', text } — text = the blob exactly as stored under
+// DATA_KEY) and finds it back at launch when the web storage was cleared (ios/IELTSBase/Bridge.swift MirrorStore). With
+// the game as her front page her answers reach that blob through pushEvidence, so the game sends the same message after
+// a push that changed it: debounced like the page's (MIRROR_WAIT), at once when the page hides or goes away (flush).
+// Only in the iOS App (window.__IELTS_NATIVE.platform 'ios' and its message handler); a no-op everywhere else.
+export const MIRROR_WAIT = 5000;
+let mir = { timer: 0, last: null, ls: null };
+function nativeHandler() {
+  try {
+    const W = globalThis, h = W.webkit && W.webkit.messageHandlers && W.webkit.messageHandlers.ielts, c = W.__IELTS_NATIVE;
+    return h && typeof h.postMessage === 'function' && isObj(c) && c.platform === 'ios' ? h : null;
+  } catch (e) { return null; }
+}
+function mirrorSend() {
+  const ls = mir.ls;
+  clearTimeout(mir.timer); mir.timer = 0;
+  const h = nativeHandler(), text = get(ls, DATA_KEY);
+  if (!h || typeof text !== 'string' || !text || text === mir.last) return false;
+  let o = null; try { o = JSON.parse(text); } catch (e) { return false; }
+  if (!isObj(o) || !isObj(o.profile)) return false;   // (the App's restore only takes a blob with a profile)
+  try { h.postMessage({ type: 'mirror', text }); } catch (e) { return false; }
+  mir.last = text;
+  return true;
+}
+// mirror(ls) — after a push that changed her blob: send it within MIRROR_WAIT; mirror(ls, true) — now (the page hides)
+export function mirror(ls, now) {
+  if (!nativeHandler()) return false;
+  mir.ls = ls;
+  if (now) return mirrorSend();
+  if (!mir.timer) mir.timer = setTimeout(mirrorSend, MIRROR_WAIT);
+  return true;
+}
+// a pending mirror goes now (pagehide / hidden); nothing pending: nothing sent
+export function mirrorFlush() { return mir.timer ? mirrorSend() : false; }
+
 // tests: forget the parsed blob
-export function _reset() { cache = { ls: null, raw: null, o: null, ev: null }; }
+export function _reset() { cache = { ls: null, raw: null, o: null, ev: null }; clearTimeout(mir.timer); mir = { timer: 0, last: null, ls: null }; }
