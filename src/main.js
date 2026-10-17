@@ -1662,4 +1662,6 @@ game.boot().catch((e) => {
   window.__beacon?.('boot', `programs=[${progs}] :: ` + ((e && e.stack) || e));   // reaches the dev server's log
   const el = document.getElementById('boot-error');
   if (el) { el.textContent = 'Something went wrong while loading: ' + e.message; el.style.display = 'block'; }
+  // 游戏为主体 (IELTS-Base docs/GAME-FIRST.md): opened from her App, a game that cannot start hands her back to the lesson page
+  window.__gfBack?.('boot: ' + ((e && e.message) || e));
 });

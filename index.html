@@ -71,6 +71,40 @@
   window.addEventListener('error', (e) => { if (e && e.message) window.__beacon('error', e.message + ' @ ' + (e.filename || '?') + ':' + (e.lineno || 0)); });
   window.addEventListener('unhandledrejection', (e) => window.__beacon('rejection', (e && e.reason && e.reason.message) || String(e && e.reason)));
 </script>
-<script type="module" src="./src/main.js"></script>
+<script>
+  // 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: opened from her App (?from=app) this is the App's front page. If the
+  // game cannot start — no WebGL, a module that fails to load, a fatal boot error, a boot that has not finished in 60 s — she
+  // goes back to the lesson page by herself (../index.html?classic=1&why=…) instead of a red box she cannot get past.
+  // Her App's native events reach this page too (window.__IELTS_NATIVE_EVENT): a tapped review reminder opens the review
+  // page there; the rest is kept for the renderer (window.__iwNative: power / thermal).
+  (function () {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.get('from') !== 'app') return;
+      let gone = false;
+      const booted = () => !!(window.__inkwave && window.__inkwave.bootMs != null);
+      window.__gfBack = (why) => {
+        if (gone || booted()) return;
+        gone = true;
+        try { location.replace('../index.html?classic=1&why=' + encodeURIComponent(String(why || 'boot').slice(0, 80))); } catch (e) { /* stay */ }
+      };
+      setTimeout(() => window.__gfBack('slow'), 60000);
+      const N = (window.__iwNative = window.__iwNative || { power: null, events: [] });
+      const prev = window.__IELTS_NATIVE_EVENT;
+      window.__IELTS_NATIVE_EVENT = function (evt) {
+        try {
+          const e = typeof evt === 'string' ? JSON.parse(evt) : evt;
+          if (!e || typeof e !== 'object') return;
+          if (e.type === 'notify.open' && e.kind === 'review') { location.href = '../index.html?classic=1#review'; return; }
+          if (e.type === 'power') N.power = { lowPower: !!e.lowPower, thermal: String(e.thermal || '') };
+          N.events.push(e); if (N.events.length > 20) N.events.shift();
+          if (typeof N.on === 'function') N.on(e);
+        } catch (err) { /* a malformed event is dropped */ }
+        if (typeof prev === 'function') try { prev(evt); } catch (err) { /* ignore */ }
+      };
+    } catch (e) { /* the game as before */ }
+  })();
+</script>
+<script type="module" src="./src/main.js" onerror="window.__gfBack && window.__gfBack('module')"></script>
 </body>
 </html>
