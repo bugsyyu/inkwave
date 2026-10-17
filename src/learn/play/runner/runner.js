@@ -171,6 +171,14 @@ export class RunnerFlow extends RaceFlow {
     a.character.root.position.copy(a.pos);
     this.sNow = this.sPrev = this.lastGoodS - 3; this.latT = 0; this.paintS = Math.min(this.paintS, this.sNow - 2);
     this.cam.fresh = true; this.cam.take(G.rig);
+    this._respawnRows();
+  }
+  // (play-8) the sea while a row of curtains is up — she went off the edge steering to her lane (halyard's mid deck: off
+  // the stairs onto the narrow ramp with her lane out over the water, LEARN §27) — that row is no answer: back on the road
+  // with latT 0 she would swim through a lane she never chose (the whole-day audit saw it written as a wrong first answer).
+  // It comes again, nothing written — as through the gap, or under a leap (PLAY §1 rule 5)
+  _respawnRows() {
+    for (const row of this.rows.slice()) if (row.state === 'shown' && row.centers && row.s > this.sNow) this._settle(row, 1e9);
   }
 
   // The race's own bot (RaceFlow._bot, unchanged) on a lap run many times: it "arrives" at a checkpoint or the line by

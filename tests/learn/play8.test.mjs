@@ -2,6 +2,8 @@
 //   · the sources: no question card (hud-learn.js has none), no LEARN.play switch, no learn.hold, no pause for a question
 //     (match.paused = true only where a level's results card comes up), the touch layer leaves the strip's buttons alone
 //   · a typed word's 回炉 choice (flow._wordPool / _altPrompt): its distractors are words, never a 音标 item's /j/ (play-8 ③ ②)
+//   · the runner: the sea while a row of curtains is up → that row is no answer (she is put back on the road's line, in a
+//     lane she never chose — the whole-day audit on halyard saw it written as a wrong first answer)
 //   · the duel's 备战 between rounds: M6 boards for every round of every duel day (the step's own boards, else a note;
 //     the 今日小考 and the 回炉 round a note), laid out like any board; the bots stand by their brains being switched off,
 //     not by a pause — and switched back on
@@ -16,6 +18,7 @@ import { LEARN } from '../../src/config.js';
 import { planDay } from '../../src/learn/design.js';
 const { DuelFlow } = await import('../../src/learn/forms/duel.js');
 const { LearnFlow } = await import('../../src/learn/flow.js');
+const { RunnerFlow } = await import('../../src/learn/play/runner/runner.js');
 import { prompt } from '../../src/learn/engine.js';
 const { layoutBoard } = await import('../../src/learn/play/board/paint.js');
 
@@ -95,4 +98,17 @@ test('a typed word\'s 回炉 choice offers words only: no 音标 option (/j/, /i
     }
   }
   assert.ok(n > 500 && sym > 0, `${n} typed words checked (${sym} 音标 options in the levels)`);
+});
+
+test('the runner: back from the sea while a row of curtains is up, that row is no answer (it comes again, nothing written) — rows already crossed, typing stretches and boards are left alone', () => {
+  const calls = [];
+  const rows = [
+    { id: 'ahead', state: 'shown', centers: [-0.75, 0.75], s: 130 },
+    { id: 'built', state: 'built', centers: [-0.75, 0.75], s: 160 },
+    { id: 'done', state: 'done', centers: [-0.75, 0.75], s: 90 },
+    { id: 'glide', state: 'shown', kind: 'glide', s: 140 },
+  ];
+  const F = Object.assign(Object.create(RunnerFlow.prototype), { rows, sNow: 110, _settle(row, d) { calls.push([row.id, d]); row.state = 'done'; } });
+  F._respawnRows();
+  assert.deepEqual(calls, [['ahead', 1e9]], 'only the curtain row she was steering to — settled through no lane (rowAnswer: no answer)');
 });
