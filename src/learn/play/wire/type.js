@@ -12,8 +12,16 @@
 //                              physical keys while a menu is up
 //   S.pose · S.still           the camera pose wanted (null when idle) · she stands while she types
 //   S.clear() · S.dispose() · S.debug()
+// play-fix — the typing lens the way play-4 got it right in the runner (runner/glide.js): the band is the real one — the
+// strip's bottom edge as it stands on the screen (upright it sits under the clock and the pause / map keys, about a fifth
+// of the way down: frame.js's default 0.1 put the paper under it) and the keyboard's real share — read off the DOM after
+// both are up (and again at most every 0.4 s: the hint re-shows the strip), frameFor run once per band and kept; the
+// pose is re-based every frame on the rig's own hull yaw and her feet (the hull springs, the lens rides with it); the
+// way she faces is picked with the lens in mind too (her head → the lens, the lens → the keys: no roof, no wall); on a
+// landscape phone the strip goes up to the top edge in one line while she types (the keyboard has ▶ and 提示 at its rows'
+// starts) — the typewriter gets about twice the height.
 import * as THREE from 'three';
-import { G } from '../../../core/ctx.js';
+import { G, clamp } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { EFFECTS } from '../../design.js';
 import { TypeShot } from '../type/shot.js';
@@ -23,14 +31,28 @@ import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
 import { ieltsNow } from '../../ielts.js';
 
-const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _c = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
+// the strip while she types on a landscape phone (play-4's runner rule, tips.js, for the puzzle): up to the top edge, one
+// line, no ▶ — the band between it and the keyboard (44 % of the height) is what the typewriter gets
+const CSS = `@media (max-height: 460px) and (orientation: landscape) {
+  .iw-ps.is-typing:not(.is-runner) .iw-ps__box { top: 6px; padding: 4px 14px; gap: 8px; border-radius: 16px; }
+  .iw-ps.is-typing:not(.is-runner) .iw-ps__play { display: none; }
+  .iw-ps.is-typing:not(.is-runner):not(.is-verdict) .iw-ps__text { display: flex; align-items: baseline; gap: 12px; white-space: nowrap; min-width: 0; }
+  .iw-ps.is-typing:not(.is-runner) .iw-ps__q, .iw-ps.is-typing:not(.is-runner) .iw-ps__head { font-size: 17px; }
+  .iw-ps.is-typing:not(.is-runner) .iw-ps__zh { margin-top: 0; font-size: 17px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+}`;
+let cssDone = false;
+function ensureCss() { if (cssDone || typeof document === 'undefined') return; cssDone = true; const el = document.createElement('style'); el.id = 'iw-wire-type-css'; el.textContent = CSS; document.head.appendChild(el); }
 
 export class TypeStation {
   constructor(host) {
     this.host = host; this.flow = host.flow; this.match = host.match;
     this.shot = null; this.keys = null; this.cur = null; this.mounted = false;
     this.log = [];
+    this._fc = new Map();   // frameFor's typing frames by band (a search: once per band / aspect)
+    this._tp = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 52, fits: true };   // the typing pose, re-based every frame
+    this.stats = { asked: 0, held: 0, self: 0, lensTurned: 0 };
   }
   fits(item, p) { return !!(p && TYPED.has(p.type) && !p._flip); }
   get still() { return !!this.cur; }
@@ -38,6 +60,7 @@ export class TypeStation {
 
   _ensure() {
     if (this.shot) return;
+    ensureCss();
     const color = G.teamColors[0] || new THREE.Color('#ff8a14');
     this.shot = new TypeShot({ scene: G.scene, team: 0, color, quality: G.settings?.quality || 'high', reduced: this.host.reduced });
     try { this.shot.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* warmed on first use */ }
@@ -58,9 +81,17 @@ export class TypeStation {
     const a = this.match.local, H = this.host;
     const ref = String((item.meta && item.meta.ref) || item.en || '');
     const mode = p.type === 'write' || /\s/.test(ref) ? 'sentence' : 'word';
+    // the keyboard and the strip first: the typing frame is fitted to where they really are (play-fix)
+    this.keys.setMode(mode); this.keys.clear(); this.keys.setHintUsed(false); this.keys.show();
+    H.strip?.show(p, { replay: () => H.say(p.tts, { slow: !!(p._tip && p._tip.slow) }) });
+    H.strip?.el?.classList?.add('is-typing');
+    H.strip?.fit(H.m1._topKeys());
+    const band = this._band(), f = this._typeFrame(band);
     // she faces the route past the gate — or, when a wall / a ledge / a planter stands close that way, the nearest
     // direction with the longest open stretch (the ink word is about 4 m wide); the word forms FRAME.dist m ahead (closer
-    // when the stretch is shorter), on ground near her own level, with a clear line from her head to it
+    // when the stretch is shorter), on ground near her own level, with a clear line from her head to it. play-fix: and
+    // the typing lens that way must be in the open (her head → the lens, the lens → the keys) — under the harbour's
+    // pavilion roof, past a wall, the picture was the floor or a wall
     const yaw0 = H.facingYaw(g, a);
     const reach = (yaw) => {
       let targetY = a.pos.y, dist = FRAME.dist, ok = false;
@@ -72,31 +103,70 @@ export class TypeStation {
         dist = d; targetY = near ? gy : a.pos.y; ok = near && clear;
         if (ok) break;
       }
-      return { yaw, dist: ok ? dist : 0, targetY };
+      return { yaw, dist: ok ? dist : 0, targetY, lens: this._lensClear(f, yaw, a.pos) };
     };
+    const better = (r, b) => (r.lens !== b.lens ? r.lens : r.dist > b.dist);
     let pick = reach(yaw0);
-    if (pick.dist < FRAME.dist) for (const dy of [0.45, -0.45, 0.9, -0.9, 1.4, -1.4]) { const r = reach(yaw0 + dy); if (r.dist > pick.dist) pick = r; if (pick.dist >= FRAME.dist) break; }
+    if (!pick.lens || pick.dist < FRAME.dist) {
+      for (const dy of [0.45, -0.45, 0.9, -0.9, 1.4, -1.4, 2.0, -2.0, 2.6, -2.6, Math.PI]) {
+        // (past ±1.4 rad only for the lens: the word may then land short, she faces a little back along the route)
+        if (Math.abs(dy) > 1.5 && pick.lens) break;
+        const r = reach(yaw0 + dy); if (better(r, pick)) pick = r;
+        if (pick.lens && pick.dist >= FRAME.dist) break;
+      }
+    }
+    if (pick.yaw !== yaw0 && pick.lens) this.stats.lensTurned++;
     const yaw = pick.yaw, dist = pick.dist || 3.4, targetY = pick.targetY;
     if (!this.mounted) { a.yaw = a.aimYaw = yaw; this.shot.mount(a); this.mounted = true; }
     else if (Math.abs(((yaw - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.4) { a.yaw = a.aimYaw = yaw; this.shot.rig.hullYaw = yaw; }
     _v.set(a.pos.x + Math.sin(yaw) * dist, targetY + 0.1, a.pos.z + Math.cos(yaw) * dist);
     this.shot.opts.groundY = targetY;
     this.shot.begin({ mode, target: _v.clone() });
-    this.keys.setMode(mode); this.keys.clear(); this.keys.setHintUsed(false); this.keys.show();
-    this.cur = { g, item, p, mode, yaw, targetY, dist, t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '' };
-    this.cur.pose = this._pose('type');
-    H.strip?.show(p, { replay: () => H.say(p.tts, { slow: !!(p._tip && p._tip.slow) }) });
-    H.strip?.fit(H.m1._topKeys());
+    this.cur = { g, item, p, mode, yaw, targetY, dist, t: 0, answered: false, hinted: false, verdict: null, pose: null, text: '', band, f, bandT: 0, lens: pick.lens, held: null };
+    this.cur.pose = this._typePose();
     if (p.tts) H.say(p.tts, { slow: !!(p._tip && p._tip.slow) });
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, mode, dist, dy: +(targetY - a.pos.y).toFixed(2) });
+    this.stats.asked++;
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, mode, dist, dy: +(targetY - a.pos.y).toFixed(2), band: band.key, lens: pick.lens, turn: +(yaw - yaw0).toFixed(2) });
     return true;
+  }
+
+  // the band the typewriter is framed in (play-fix): the strip's real bottom edge (+ 6 px) and the keyboard's real share
+  _band() {
+    const W = innerWidth, Hh = innerHeight || 1, aspect = W / Hh;
+    const r = this.host.strip?.rect?.();
+    const top = r ? +clamp(Math.ceil(((r.bottom + 6) / Hh) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
+    const kb = this.keys ? +clamp(Math.ceil(this.keys.frac * 50) / 50, 0, 0.6).toFixed(2) : (aspect < 1 ? 0.4 : 0.45);
+    return { aspect, top, kb, key: `${aspect.toFixed(2)}|${kb}|${top}` };
+  }
+  // frame.js's typing frame (the rig's own frame: origin at her feet, +Z the hull, +X her left), kept per band
+  _typeFrame(band) {
+    let f = this._fc.get(band.key);
+    if (!f) { f = frameFor({ phase: 'type', aspect: band.aspect, kbFrac: band.kb, topFrac: band.top }); this._fc.set(band.key, f); if (this._fc.size > 12) this._fc.delete(this._fc.keys().next().value); }
+    return f;
+  }
+  // is the typing lens in the open for this facing? her head → the lens, the lens → the keys' middle
+  _lensClear(f, yaw, at) {
+    const P = G.physics; if (!P || !P.los) return true;
+    const sy = Math.sin(yaw), cy = Math.cos(yaw);
+    _c.set(at.x + cy * f.pos[0] + sy * f.pos[2], at.y + f.pos[1], at.z - sy * f.pos[0] + cy * f.pos[2]);
+    return P.los(_w.set(at.x, at.y + 1.6, at.z), _c) && P.los(_c, _v.set(at.x + sy * 0.86, at.y + 1.08, at.z + cy * 0.86)) && P.los(_c, _v.set(at.x + sy * 1.7, at.y + 1.95, at.z + cy * 1.7));
+  }
+  // the typing pose in the world, re-based on the hull and her feet (a persistent object: nothing allocated per frame)
+  _typePose() {
+    const C = this.cur, a = this.match.local; if (!C || !a) return null;
+    const f = C.f, P = this._tp;
+    const yaw = this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : C.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
+    P.pos.set(a.pos.x + cy * f.pos[0] + sy * f.pos[2], a.pos.y + f.pos[1], a.pos.z - sy * f.pos[0] + cy * f.pos[2]);
+    P.look.set(a.pos.x + cy * f.look[0] + sy * f.look[2], a.pos.y + f.look[1], a.pos.z - sy * f.look[0] + cy * f.look[2]);
+    P.fov = f.fov; P.fits = f.fits;
+    return P;
   }
 
   // the rig-frame pose from frame.js → world: origin at her feet, +Z her facing, +X her left
   _pose(phase, text) {
     const C = this.cur, a = this.match.local; if (!C || !a) return null;
     const W = innerWidth, H = innerHeight, aspect = W / H;
-    const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0, dist: C.dist };
+    const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0, topFrac: C.band ? C.band.top : undefined, dist: C.dist };
     if (phase === 'word') { const b = wordBox(text || C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.targetY + 0.1 + this.shot.lift - a.pos.y }; }
     const f = frameFor(o);
     const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw);
@@ -160,17 +230,24 @@ export class TypeStation {
     C.t += dt;
     // she keeps facing the target while she types (the aimFace springs; the hull turns itself on 射)
     a.aimYaw = C.yaw; a.fireFacing = Math.max(a.fireFacing || 0, 0.3);
-    if (this.host.resized) { C.pose = this._pose(C.answered ? 'word' : 'type', C.text); this.keys.layout(); }
+    if (this.host.resized) { this.keys.layout(); if (C.answered) C.pose = this._pose('word', C.text); else C.bandT = 1; }
+    if (!C.answered) {
+      // (the band read again at most every 0.4 s — the hint re-shows the strip, a turn of the phone moves everything)
+      C.bandT += dt;
+      if (C.bandT >= 0.4) { C.bandT = 0; const b = this._band(); if (b.key !== C.band.key) { C.band = b; C.f = this._typeFrame(b); } }
+      C.pose = this._typePose();
+    }
   }
 
   clear() {
     this.cur = null;
+    this.host.strip?.el?.classList?.remove('is-typing');
     if (this.keys) this.keys.hide();
     if (this.shot) { this.shot.clear(); if (this.mounted) { this.shot.unmount(); this.mounted = false; } }
   }
   debug() {
     const C = this.cur;
-    return C ? { item: C.item.id, mode: C.mode, phase: this.shot.phase, text: this.shot.text, answered: C.answered, hinted: C.hinted, verdict: C.verdict, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, pose: C.pose && { pos: C.pose.pos.toArray().map((v) => +v.toFixed(2)), fov: C.pose.fov, fits: C.pose.fits }, log: this.log.slice(-10) } : { idle: true, mounted: this.mounted, log: this.log.slice(-6) };
+    return C ? { item: C.item.id, mode: C.mode, phase: this.shot.phase, text: this.shot.text, answered: C.answered, hinted: C.hinted, verdict: C.verdict, kbUp: !!(this.keys && this.keys.visible), kbFrac: this.keys ? +this.keys.frac.toFixed(3) : null, band: C.band && C.band.key, lens: C.lens, held: !!C.held, pose: C.pose && { pos: C.pose.pos.toArray().map((v) => +v.toFixed(2)), fov: C.pose.fov, fits: C.pose.fits }, stats: { ...this.stats }, log: this.log.slice(-10) } : { idle: true, mounted: this.mounted, stats: { ...this.stats }, log: this.log.slice(-6) };
   }
   dispose() { this.clear(); this.shot?.dispose(); this.keys?.destroy(); this.shot = null; this.keys = null; }
 }

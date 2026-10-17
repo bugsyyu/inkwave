@@ -102,6 +102,7 @@ const state = () => ev(() => {
     phase: F.phase, cur: F.cur, auto: F.auto, paused: m.paused, hold: !!F.hold, panelShown: !!(pr && pr.width > 0 && pr.height > 0 && getComputedStyle(panel).display !== 'none'), cardUp: !!(__G.hud.learn && __G.hud.learn._ask),
     strip: stripOn ? { text: strip.innerText.replace(/\s+/g, ' ').trim(), rect: [sr.left, sr.top, sr.width, sr.height].map(Math.round), ok: !!document.querySelector('.iw-ps.is-ok'), bad: !!document.querySelector('.iw-ps.is-bad') } : null,
     kb: kbOn ? [kr.left, kr.top, kr.width, kr.height].map(Math.round) : null,
+    xh: (() => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; })(),
     W: innerWidth, H: innerHeight, mechanic: H.kind, asking, item: F.asking && F.asking.item.id, dbg: d, touchLive: __inkwave.touch ? __inkwave.touch.enabled : null,
     answers: F.log.filter((e) => e.name === 'learn:answer'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'),
     rigMode: __inkwave.rig.mode, cam: [__G.camera.position.x, __G.camera.position.y, __G.camera.position.z].map((v) => +v.toFixed(2)), fov: +__G.camera.fov.toFixed(1),
@@ -118,6 +119,36 @@ const rightAnswer = () => ev(() => {
   return (item.meta && item.meta.ref) || item.en;
 });
 const inside = (b, s) => b.x >= s.x - 1 && b.y >= s.y - 1 && b.x + b.w <= s.x + s.w + 1 && b.y + b.h <= s.y + s.h + 1;
+// the crosshair (play-fix: hidden while a station holds her — typing, a stage, a flip card, a framed board — as the runner
+// hides it; M1 keeps it: she aims there)
+const xhShown = () => ev(() => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; });
+// the lens has come to rest (the station's spring): the camera moves < 1 cm a step, or the steps run out
+async function settle(max = 30, ms = 100) {
+  let last = null;
+  for (let i = 0; i < max; i++) {
+    const c = await ev(() => [__G.camera.position.x, __G.camera.position.y, __G.camera.position.z]);
+    if (last && Math.hypot(c[0] - last[0], c[1] - last[1], c[2] - last[2]) < 0.01) return i;
+    last = c; await step(ms);
+  }
+  return max;
+}
+// the type frame on the screen (play-fix, play-4's way: tools/learn/runner-drive.js frameCheck): the rig's points
+// (type/frame.js RIG_POINTS, in the rig's own frame) projected with the live camera — the plate, the strike point and the
+// lines on the paper between the strip's real bottom edge and the keyboard's real top; her head below the keys' middle
+// row (a wide screen: the far row)
+const typeFrame = () => ev(async () => {
+  const FR = await import(new URL('src/learn/play/type/frame.js', location.href).href);
+  const T = __inkwave.match.learn.play.type, rig = T.shot && T.shot.rig; if (!rig || !rig.root || !rig.root.parent) return null;
+  const cam = __G.camera, V3 = cam.position.constructor, R = FR.RIG_POINTS;
+  rig.root.updateMatrixWorld(true); cam.updateMatrixWorld(true);
+  const P = (p) => { const v = new V3(p[0], p[1], p[2]).applyMatrix4(rig.root.matrixWorld).project(cam); return [Math.round(((v.x + 1) / 2) * innerWidth), Math.round(((1 - v.y) / 2) * innerHeight)]; };
+  const st = document.querySelector('.iw-ps:not(.is-off) .iw-ps__box'), kb = document.querySelector('.iw-pk:not(.is-off) .iw-pk__panel');
+  const top = st ? Math.round(st.getBoundingClientRect().bottom) : 0, kbTop = kb ? Math.round(kb.getBoundingClientRect().top) : innerHeight;
+  const pts = [...R.plate, R.strike, ...R.textLines, R.typed10].map(P), head = P(R.head), row = P(innerWidth / innerHeight > 1.4 ? [0, 1.16, 1.12] : R.midRow), paper = R.paperTop.map(P);
+  const inBand = pts.every(([x, y]) => y >= top - 2 && y <= kbTop + 2 && x >= -2 && x <= innerWidth + 2);
+  const ys = pts.map((q) => q[1]);
+  return { stripBottom: top, kbTop, rig: [Math.min(...ys), Math.max(...ys)], xs: [Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[0]))], head, row, paper, inBand, headBelowRow: head[1] > row[1], band: T.cur && T.cur.band, hull: +rig.hullYaw.toFixed(3), yaw: T.cur && +T.cur.yaw.toFixed(3) };
+});
 const tapAt = async (x, y) => { if (V.touch) await page.touchscreen.tap(Math.round(x), Math.round(y)); else await page.mouse.click(Math.round(x), Math.round(y)); };
 
 // walk (the auto-walk; a board stop is a frame check + 「自动走」 again) until a question is up or the level is done
@@ -146,6 +177,7 @@ async function walkOn() {
         const st = await state();
         check(b.framing && b.framing.fits && st.rigMode === 'path', `board ${b.framed}: framed (fits ${b.framing && b.framing.fits}), the lens on the board`, { framing: b.framing, rigMode: st.rigMode });
         check(!st.paused && !st.panelShown, `board ${b.framed}: the world runs on, no card`);
+        check(!st.xh, `board ${b.framed}: no crosshair while it is framed`);
         report.boards.push({ i: b.framed, framing: b.framing, hotspots: b.hotspots, read: b.boards[b.framed] && b.boards[b.framed].read });
         await shot('m6-board');
         if (b.hotspots.length && !report.hotTapped) { report.hotTapped = true; const h = b.hotspots[0]; await tapAt(h.x + h.w / 2, h.y + h.h / 2); await step(100); say('tapped board hotspot', h.id); }
@@ -199,6 +231,12 @@ async function answerType(s, right) {
   check(!!s.kb && keysOut.length === 0, 'M4: the game keyboard up, every key inside the screen', { kb: s.kb, out: keysOut });
   check(d.phase === 'typing' && d.pose && d.pose.fits !== false, `M4: typing (${d.mode}), the type frame`, d.pose);
   check(s.rigMode === 'path', 'M4: the lens is the station\'s (rig in path mode)', s.rigMode);
+  const steps = await settle();
+  const fr = await typeFrame();
+  report.typeFrames = report.typeFrames || []; report.typeFrames.push({ item: d.item, mode: d.mode, steps, ...fr });
+  check(!!fr && fr.inBand, `M4: the typewriter between the strip (${fr && fr.stripBottom}) and the keyboard (${fr && fr.kbTop}): ${fr && fr.rig.join('–')} px`, fr);
+  check(!!fr && fr.headBelowRow, `M4: her head (${fr && fr.head[1]}) below the keys' row (${fr && fr.row[1]})`, fr);
+  check(!(await xhShown()), 'M4: no crosshair while she types');
   await shot('m4-type-' + d.mode);
   // a hint on the first word (the keyboard's 提示 → H), then the text key by key on the game keyboard through the touch layer
   const text = String(right).toLowerCase();
@@ -214,6 +252,7 @@ async function answerType(s, right) {
   await step(100);
   const t = await ev(() => __inkwave.match.learn.play.type.debug());
   check(t.text && t.text.toLowerCase() === text.replace(/[^a-z ' .,?-]/g, ''), `M4: typed on the game keyboard 「${t.text}」`, t);
+  check(!(await xhShown()), 'M4: no crosshair while she types');
   await shot('m4-typed-' + d.mode);
   const fire = await keyAt('fire');
   await tapAt(fire[0], fire[1]);
@@ -225,6 +264,7 @@ async function answerType(s, right) {
   const formed = await waitFor(() => { const S = __inkwave.match.learn.play.type.shot; return S.word && (S.word.phase === 'assembling' || S.word.phase === 'shown' || S.word.phase === 'resolving') ? S.word.phase : null; }, 90, 50);
   check(!!formed, 'M4: the shell landed, the ink word forms at the target', formed);
   for (let i = 0; i < 12; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.word.phase); if (ph === 'shown' || ph === 'resolving') break; await step(50); }
+  check(!(await xhShown()), 'M4: no crosshair while the ink word plays');
   await shot('m4-word-' + d.mode);
   for (let i = 0; i < 8; i++) await step(150);
   return v && v.verdict;
@@ -234,6 +274,7 @@ async function answerBeat(s, right) {
   const safe = { x: 16, y: s.strip ? s.strip.rect[1] + s.strip.rect[3] : 0, w: s.W - 32, h: s.H - (s.strip ? s.strip.rect[1] + s.strip.rect[3] : 0) };
   check(d0.pads.length === d0.n && d0.pads.every((p) => p.x >= safe.x && p.x <= safe.x + safe.w && p.y >= safe.y && p.y <= safe.y + safe.h), `M3: ${d0.n} pads' centres inside the safe area`, { pads: d0.pads, safe });
   check(s.rigMode === 'path', 'M3: the lens is the stage\'s', s.rigMode);
+  check(!s.xh, 'M3: no crosshair on the stage');
   // the word plays on a bar line: wait for the round to listen
   const lis = await waitFor(() => { const d = __inkwave.match.learn.play.beat.debug(); return d.state && d.state.round === 'listen' ? d : null; }, 80, 100);
   check(!!lis, 'M3: the word played (round listening)', lis && lis.state);
@@ -255,6 +296,7 @@ async function answerFlip(s) {
   check(d.phase === 'rise' || d.phase === 'front', 'M8: the card rises', d.phase);
   const front = await waitFor(() => { const d = __inkwave.match.learn.play.flip.debug(); return d.phase === 'front' && d.card ? d : null; }, 40, 100);
   check(!!front, 'M8: the card up, its face to her', front);
+  check(!(await xhShown()), 'M8: no crosshair at the flip card');
   await shot('m8-card');
   await tapAt(front.card.x + front.card.w / 2, front.card.y + front.card.h / 2);
   const back = await waitFor(() => { const d = __inkwave.match.learn.play.flip.debug(); return d.phase === 'back' && d.targets.length === 2 ? d : null; }, 40, 100);
