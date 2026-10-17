@@ -166,6 +166,17 @@ const typeFrame = () => ev(async () => {
   const ys = pts.map((q) => q[1]);
   return { stripBottom: top, kbTop, rig: [Math.min(...ys), Math.max(...ys)], xs: [Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[0]))], head, row, paper, inBand, headBelowRow: head[1] > row[1], band: T.cur && T.cur.band, hull: +rig.hullYaw.toFixed(3), yaw: T.cur && +T.cur.yaw.toFixed(3) };
 });
+// the word's frame (play-fix): the word's middle seen from the lens (nothing in between) and on the screen under the strip
+const wordFrame = () => ev(() => {
+  const T = __inkwave.match.learn.play.type, S = T.shot, C = T.cur; if (!S || !S.target) return null;
+  const cam = __G.camera, V3 = cam.position.constructor, w = new V3(S.target.x, S.target.y + S.lift, S.target.z);
+  cam.updateMatrixWorld(true);
+  const seen = !__G.physics || __G.physics.los(cam.position, w);
+  const v = w.clone().project(cam), x = Math.round(((v.x + 1) / 2) * innerWidth), y = Math.round(((1 - v.y) / 2) * innerHeight);
+  const st = document.querySelector('.iw-ps:not(.is-off) .iw-ps__box'), top = st ? st.getBoundingClientRect().bottom : 0;
+  const lens = C && C.pose ? C.pose.lens : null;
+  return { seen, at: [x, y], stripBottom: Math.round(top), onScreen: v.z < 1 && x >= 0 && x <= innerWidth && y >= top - 10 && y <= innerHeight, lens };
+});
 const tapAt = async (x, y) => { if (V.touch) await page.touchscreen.tap(Math.round(x), Math.round(y)); else await page.mouse.click(Math.round(x), Math.round(y)); };
 
 // walk (the auto-walk; a board stop is a frame check + 「自动走」 again) until a question is up or the level is done
@@ -288,7 +299,10 @@ async function answerType(s, right) {
     const h = await ev(() => { const F = __inkwave.match.learn, d = F.play.type.debug(), acts = [...document.querySelectorAll('.iw-ps.is-acts .iw-ps__act')].map((b) => { const r = b.getBoundingClientRect(); return { text: b.textContent, primary: b.classList.contains('is-primary'), x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }; }); return { held: d.held, verdict: d.verdict, answers: F.log.filter((e) => e.name === 'learn:answer').length, acts, strip: (document.querySelector('.iw-ps__head') || {}).textContent }; });
     check(h.held && !h.verdict && h.answers === s.answers.length, `M4 「我的写法也对」: the near miss is held — nothing written (${h.answers} answers)`, h);
     check(h.acts.length === 2 && h.acts.every((b) => b.h >= 43), 'M4: the strip offers 我的写法也对 / 继续 (≥ 44 px)', h.acts);
-    for (let i = 0; i < 30; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.word.phase); if (ph === 'shown') break; await step(100); }
+    for (let i = 0; i < 80; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.phase); if (ph === 'shown') break; await step(100); }
+    await settle();
+    const wf = await wordFrame(); report.wordFrames = report.wordFrames || []; report.wordFrames.push({ held: true, ...wf });
+    check(!!wf && wf.seen && wf.onScreen, `M4: the held word in view (lens ${wf && wf.lens}, at ${wf && wf.at})`, wf);
     const grey = await ev(() => ({ shot: __inkwave.match.learn.play.type.shot.phase, word: __inkwave.match.learn.play.type.shot.word.phase }));
     check(grey.shot === 'shown', `M4: the held word stands formed and grey (${grey.shot} / ${grey.word})`, grey);
     await shot('m4-held');
@@ -306,6 +320,7 @@ async function answerType(s, right) {
   check(!!formed, 'M4: the shell landed, the ink word forms at the target', formed);
   for (let i = 0; i < 12; i++) { const ph = await ev(() => __inkwave.match.learn.play.type.shot.word.phase); if (ph === 'shown' || ph === 'resolving') break; await step(50); }
   check(!(await xhShown()), 'M4: no crosshair while the ink word plays');
+  if (!near) { const wf = await wordFrame(); report.wordFrames = report.wordFrames || []; report.wordFrames.push(wf); check(!!wf && wf.seen && wf.onScreen, `M4: the ink word in view (lens ${wf && wf.lens}, at ${wf && wf.at})`, wf); }
   await shot('m4-word-' + d.mode);
   for (let i = 0; i < 8; i++) await step(150);
   return v && v.verdict;

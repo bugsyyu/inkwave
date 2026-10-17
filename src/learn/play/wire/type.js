@@ -171,10 +171,25 @@ export class TypeStation {
     const W = innerWidth, H = innerHeight, aspect = W / H;
     const o = { phase, aspect, kbFrac: phase === 'type' ? this.keys.frac : 0, topFrac: C.band ? C.band.top : undefined, dist: C.dist };
     if (phase === 'word') { const b = wordBox(text || C.text || 'word'); o.word = { w: b.w, h: b.h, y: C.targetY + 0.1 + this.shot.lift - a.pos.y }; }
-    const f = frameFor(o);
     const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw);
     const toW = (q) => new THREE.Vector3(a.pos.x + cy * q[0] + sy * q[2], a.pos.y + q[1], a.pos.z - sy * q[0] + cy * q[2]);
-    return { pos: toW(f.pos), look: toW(f.look), fov: f.fov, fits: f.fits };
+    if (phase !== 'word') { const f = frameFor(o); return { pos: toW(f.pos), look: toW(f.look), fov: f.fov, fits: f.fits }; }
+    // the word's frame (play-fix): with the strip's real bottom the frame stands further back, and in the first gate's plaza
+    // that put the fountain's statue between the lens and her (the held word stood grey behind it) — so the lens must see
+    // the word, the rig, and her head must see the lens: the real band first, then frame.js's own band (nearer), then
+    // half way to the word; none clear → the typing pose holds (the word forms ahead of her, above the rig)
+    const P = G.physics, wy = a.pos.y + o.word.y;
+    _c.set(a.pos.x + sy * C.dist, wy, a.pos.z + cy * C.dist);
+    const clear = (pose) => !P || !P.los || (P.los(pose.pos, _c) && P.los(pose.pos, _v.set(a.pos.x + sy * 0.9, a.pos.y + 1.2, a.pos.z + cy * 0.9)) && P.los(_w.set(a.pos.x, a.pos.y + 1.6, a.pos.z), pose.pos));
+    const tries = [o, { ...o, topFrac: undefined }, { ...o, topFrac: undefined, dist: Math.max(3, C.dist * 0.6) }];
+    for (let k = 0; k < tries.length; k++) {
+      const f = frameFor(tries[k]);
+      // (a nearer word frame keeps the word where it is: only the lens's spot changes)
+      const pose = { pos: toW(f.pos), look: k < 2 ? toW(f.look) : _c.clone(), fov: f.fov, fits: f.fits, lens: k };
+      if (clear(pose)) { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'wordLens', k }); return pose; }
+    }
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'wordLens', k: -1 });
+    return C.pose && C.pose.pos ? { pos: C.pose.pos.clone(), look: _c.clone(), fov: C.pose.fov, fits: false, lens: -1 } : null;
   }
 
   _hint() {
