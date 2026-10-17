@@ -7,7 +7,7 @@
 //   idle  the rest (not counted); a typed question or a booth ends the sample (short levels: the first ones are choices)
 // → per bucket { n, p50, p95, max } and p95(ask) / p95(walk). SwiftShader numbers only compare two states on one box.
 //   NODE_PATH=/opt/node22/lib/node_modules flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/perf-forms.mjs \
-//     --form runner|duel|boss [--view portrait|landscape] [--frames 600] [--out f.json]
+//     --form runner|duel|boss [--view portrait|landscape] [--frames 600] [--warm 0] [--out f.json]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,6 +19,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const FORM = opt('form', 'duel'), VIEW = opt('view', 'portrait'), FRAMES = +opt('frames', 600), OUT = opt('out', null);
+const WARM = +opt('warm', 0);   // (frames run before the sampler starts: the first rows' / objects' programs and atlases)
 const Q = { runner: '?learn=w1d3&kind=race&short=1', duel: '?learn=w1d6&kind=duel&short=1', boss: '?learn=w1d7&kind=boss&short=1' }[FORM];
 const V = VIEW === 'landscape' ? { w: 844, h: 390, app: false } : { w: 390, h: 844, app: true };
 const T0 = Date.now(), say = (...a) => console.log(`[perf ${FORM} ${VIEW} ${((Date.now() - T0) / 1000).toFixed(1).padStart(6)}]`, ...a);
@@ -76,9 +77,10 @@ const nearBoss = () => ev(() => {
   const Vc = a.pos.constructor, want = new Vc(b.pos.x + Math.sin(b.yaw) * 9, b.pos.y + 1, b.pos.z + Math.cos(b.yaw) * 9);
   const k = nav.nearest(want, 6, true); if (k < 0) return; const n = nav.nodes[k]; a.pos.set(n.x, n.y, n.z); a.vel.set(0, 0, 0);
 });
-await ev(() => { window.__pf.on = true; });
+if (!WARM) await ev(() => { window.__pf.on = true; });
 let answered = 0, walkT = 0;
-for (let f = 0; f < FRAMES; f++) {
+for (let f = 0; f < FRAMES + WARM; f++) {
+  if (WARM && f === WARM) await ev(() => { window.__pf.on = true; });
   // the arena: nothing asked → hold W (she runs: the walk bucket), and every few frames turn her a little (a wall stops a
   // straight run); a question placed → let go, wait ~1 s with it up, then answer it by hand (right) and go on
   if (FORM !== 'runner') {
