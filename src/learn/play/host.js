@@ -25,6 +25,12 @@ import { ExitStation } from './wire/exit.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
+// play-fix: no crosshair while a station holds the lens — she types, hops the stage, flips a card, reads a framed board
+// (or the booth / a sign) — nothing is aimed there and it sat on the typewriter mid-screen; M1 keeps it (she aims there).
+// The runner hides it its own way (.iw-hud.is-runner, runner/tips.js)
+const XH_CSS = '.iw-hud.is-station .iw-xh { display: none; }';
+let xhCss = false;
+function ensureXhCss() { if (xhCss || typeof document === 'undefined') return; xhCss = true; const el = document.createElement('style'); el.id = 'iw-wire-xh-css'; el.textContent = XH_CSS; document.head.appendChild(el); }
 
 // which mechanic an item's prompt plays as (pure; Node-tested over the three weeks): a flip card → M8, a choice of the
 // ink-target kinds (or the typed card's 回炉 choice) → M1, a pair / symbol choice of 2 or 4 → M3, anything typed → M4;
@@ -49,6 +55,7 @@ export class PlayHost {
     this.type = new TypeStation(this); this.beat = new BeatStation(this); this.flip = new FlipStation(this); this.boards = new BoardStation(this); this.exit = new ExitStation(this);
     this.stations = { type: this.type, beat: this.beat, flip: this.flip };
     this.kind = null; this.cur = null; this.resized = false; this.log = [];
+    this.xhOff = false; ensureXhCss();
     this._onKey = (e) => { if (this.kind === 'beat' && this.beat.key(e)) { e.preventDefault(); e.stopPropagation(); } };
     this._onResize = () => { this._resizedAt = true; };
     if (typeof window !== 'undefined') { window.addEventListener('keydown', this._onKey, true); window.addEventListener('resize', this._onResize); window.addEventListener('orientationchange', this._onResize); }
@@ -111,7 +118,14 @@ export class PlayHost {
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && this.kind !== 'm1') this.cam.release(G.rig, a);
     this.cam.update(dt, G.rig, G.camera);
+    this._crosshair(!!(S || pose));
     this.resized = false;
+  }
+  // the HUD's crosshair off while a station holds her / the lens (a class on the HUD, toggled only on a change)
+  _crosshair(off) {
+    if (off === this.xhOff) return;
+    this.xhOff = off;
+    G.hud?.el?.classList?.toggle('is-station', off);
   }
   _warmAll() {
     try { this.type.warm(); this.beat.warm(); this.flip.warm(); this.boards.warm(); } catch (e) { console.warn('[play-wire] warm', e); }
@@ -245,12 +259,13 @@ export class PlayHost {
   // what the audits read
   debug() {
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
-    return { mechanic: this.kind, item: this.cur && this.cur.item.id, cam: { on: this.cam.on, want: !!this.cam.want, fov: +this.cam.fov.toFixed(1), rigMode: G.rig && G.rig.mode }, still: !!(S && S.still), m1: this.m1.debug(), station: S ? S.debug() : null, boards: this.boards.debug(), exit: this.exit.debug(), log: this.log.slice(-12) };
+    return { mechanic: this.kind, item: this.cur && this.cur.item.id, cam: { on: this.cam.on, want: !!this.cam.want, fov: +this.cam.fov.toFixed(1), rigMode: G.rig && G.rig.mode }, still: !!(S && S.still), xhOff: this.xhOff, m1: this.m1.debug(), station: S ? S.debug() : null, boards: this.boards.debug(), exit: this.exit.debug(), log: this.log.slice(-12) };
   }
   dispose() {
     if (typeof window !== 'undefined') { window.removeEventListener('keydown', this._onKey, true); window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
     this.cam.release(G.rig, this.match.local);
+    this._crosshair(false);
     this.type.dispose(); this.beat.dispose(); this.flip.dispose(); this.boards.dispose(); this.exit.dispose();
     this.m1.dispose();
   }
