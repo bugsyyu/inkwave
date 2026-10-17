@@ -207,9 +207,9 @@ export class Coop2Flow extends LearnFlow {
     // 题即玩法: the answering side's objects / 打字蟹 (its view: no recording, no stem, no Chinese); the clue side's board
     if (this.play && ((role === 'hands' && this.play.canAsk(g, item, view)) || role === 'clue')) {
       this.q.play = true;
-      if (role === 'hands') { this.asking = { gate: g, item, p: view }; this.play.ask(g, item, view); }
+      this.ui.say('');   // (the note line sits where the strip does on a landscape phone: the strip / the board say it now)
+      if (role === 'hands') { this.asking = { gate: g, item, p: view }; this.play.ask(g, item, view); this.play.strip?.chip(`${d.n}/${d.total} · 你答 · ${partner}说`, 'type'); }
       else this.play.clue(g, item, view, { partner, alt: !!d.alt });
-      this.ui.say(role === 'hands' ? `${partner}那边有题目 · 听${partner}说` : `把题目讲给${partner} · ${partner}来答`);
       return;
     }
     this.hud?.ask(view, {

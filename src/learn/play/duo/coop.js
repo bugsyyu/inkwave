@@ -127,22 +127,23 @@ export class CoopPlay {
   // her level, a clear line from her head to the face and room behind her for the framing camera), facing her
   _clueSpot(g) {
     const a = this.match.local, L = G.level, P = G.physics; if (!a) return null;
-    const base = this.facingYaw(g, a);
+    const base = this.facingYaw(g, a), why = [];
     for (const dy of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, Math.PI]) {
       const yaw = base + dy, sx = Math.sin(yaw), cz = Math.cos(yaw);
       const x = a.pos.x + sx * BD.view, z = a.pos.z + cz * BD.view;
       const gy = L ? L.groundHeight(x, z, a.pos.y + 1.0) : a.pos.y;
-      if (!(gy > -Infinity) || Math.abs(gy - a.pos.y) > 0.6) continue;
+      if (!(gy > -Infinity) || Math.abs(gy - a.pos.y) > 0.6) { why.push('ground'); continue; }
       if (P && P.los) {
         _c.set(x, gy + BD.bottom + 0.55, z);
-        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _c)) continue;
+        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.5, a.pos.z), _c)) { why.push('face'); continue; }
         // (the framing camera stands behind her, a little up: it must see the face from there)
-        if (!P.los(_c, _w.set(a.pos.x - sx * 1.4, a.pos.y + 2.1, a.pos.z - cz * 1.4))) continue;
+        if (!P.los(_c, _w.set(a.pos.x - sx * 1.4, a.pos.y + 2.1, a.pos.z - cz * 1.4))) { why.push('lens'); continue; }
         // (and nothing stands where the slab goes, either side of its middle)
-        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x + cz * 1.0, gy + 1.0, z - sx * 1.0)) || !P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x - cz * 1.0, gy + 1.0, z + sx * 1.0))) continue;
+        if (!P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x + cz * 1.0, gy + 1.0, z - sx * 1.0)) || !P.los(_v.set(a.pos.x, a.pos.y + 1.0, a.pos.z), _w.set(x - cz * 1.0, gy + 1.0, z + sx * 1.0))) { why.push('slab'); continue; }
       }
-      return { x, y: gy, z, yaw: yaw + Math.PI, view: { x: a.pos.x, y: a.pos.y, z: a.pos.z } };
+      return { x, y: gy, z, yaw: yaw + Math.PI, view: { x: a.pos.x, y: a.pos.y, z: a.pos.z }, tries: why.length };
     }
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'noBoard', why: why.join(' '), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)) });
     return null;
   }
   _board() {
@@ -199,6 +200,9 @@ export class CoopPlay {
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
     if (this.kind === 'clue') G.playTap = B && B.framed >= 0 ? B.tapApi : null;
     const pose = S ? S.pose : (this.kind === 'clue' && B ? B.framing : null);
+    // (the HUD's crosshair over a framed board is noise: hidden while it is framed, back after — as the 打字蟹 does)
+    const xh = G.hud && G.hud.xh, hideXh = this.kind === 'clue' && !!(B && B.framed >= 0);
+    if (xh && xh.style && hideXh !== !!this.xhHidden) { xh.style.visibility = hideXh ? 'hidden' : ''; this.xhHidden = hideXh; }
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && this.kind !== 'm1') this.cam.release(G.rig, a);
     this.cam.update(dt, G.rig, G.camera);
@@ -241,6 +245,7 @@ export class CoopPlay {
   }
   dispose() {
     if (typeof window !== 'undefined') { window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
+    if (this.xhHidden && G.hud && G.hud.xh) { G.hud.xh.style.visibility = ''; this.xhHidden = false; }
     this._clearStation(); this._clearClue();
     this.cam.release(G.rig, this.match.local);
     this.type.dispose(); this.board?.dispose(); this.board = null;

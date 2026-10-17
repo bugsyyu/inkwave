@@ -330,9 +330,12 @@ export class Versus2Flow extends LearnFlow {
     if (!(d.win >= 0)) return;
     this._applyInk(d);
     const myTeam = this.match.local ? this.match.local.team : 0;
-    if (d.by === this.myId) { this.wins++; this.ui.say('你先答对了！墨淹过去了', { hold: 0 }); }
-    else if (d.win === myTeam) this.ui.say(`${d.name || '队友'} 先答对了`);
-    else this.ui.say(`${d.name || '对面'} 先答对了`, { coral: true });
+    const line = d.by === this.myId ? '你先答对了！墨淹过去了' : `${d.name || (d.win === myTeam ? '队友' : '对面')} 先答对了`;
+    if (d.by === this.myId) this.wins++;
+    // (题即玩法: while this screen's question is up its strip says it — the note line sits where the strip does on a
+    // landscape phone; the HUD's feed has the ink too)
+    if (this.arena && this.arena.cur) { const Q = this.q; if (Q) Q.shown = line; this.arena.strip?.chip(line, d.by === this.myId ? 'type' : ''); }
+    else this.ui.say(line, { coral: d.by !== this.myId && d.win !== myTeam });
   }
   _applyInk(d) {
     const Z = this.match.zones, z = Z && Number.isInteger(d.z) ? Z.zones[d.z] : null;
