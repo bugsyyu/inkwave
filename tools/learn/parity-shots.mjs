@@ -2,7 +2,9 @@
 // phone draws it — a 390 × 844 / 844 × 390 screen at its real density (--dpr 3, an iPhone), the touch defaults left alone
 // (quality and shadows as a phone picks them; --quality pins a tier) — so the learning levels' shots (runner-audit /
 // arena-audit / wire-audit with the same --dpr) can be laid next to the original game's and compared detail for detail.
-//   node tools/learn/parity-shots.mjs --out <dir> [--dpr 3] [--views landscape,portrait] [--quality high] [--secs 8]
+//   node tools/learn/parity-shots.mjs --out <dir> [--dpr 3] [--views landscape,portrait] [--quality high] [--secs 8] [--native iphone16]
+// --native <device>: her App's page as the App leaves it (a made-up window.__IELTS_NATIVE with display / device, no message
+// handlers, so nothing is ever posted to a native side) plus &applegpu — the render step that device gets (src/core/render-gov.js).
 // One PNG per view: <dir>/original-<view>[-<quality>].png, after --secs of play (the bots ink the stage).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -15,6 +17,12 @@ const { chromium } = createRequire(import.meta.url)('playwright');   // (NODE_PA
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const OUT = opt('out', 'parity'), DPR = +opt('dpr', 3), QUAL = opt('quality', ''), SECS = +opt('secs', 8);
+const NATIVE = {
+  iphone16: { platform: 'ios', display: { maxFps: 120, highRefresh: true }, device: { model: 'iPhone16,1', memGB: 8, cores: 6 } },
+  iphone15: { platform: 'ios', display: { maxFps: 60, highRefresh: false }, device: { model: 'iPhone15,4', memGB: 6, cores: 6 } },
+  iphone12: { platform: 'ios', display: { maxFps: 60, highRefresh: false }, device: { model: 'iPhone13,2', memGB: 4, cores: 6 } },
+};
+const NAT = NATIVE[opt('native', '')] || null;
 const VIEWS = { portrait: { w: 390, h: 844 }, landscape: { w: 844, h: 390 } };
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', ogg: 'audio/ogg', mp3: 'audio/mpeg', glb: 'model/gltf-binary', bin: 'application/octet-stream', ktx2: 'image/ktx2', wasm: 'application/wasm' };
 const srv = http.createServer((q, r) => {
@@ -35,14 +43,15 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   const V = VIEWS[vn]; if (!V) continue;
   const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: DPR, isMobile: true, hasTouch: true });
   const page = await ctx.newPage(), errs = [];
+  if (NAT) await page.addInitScript((n) => { window.__IELTS_NATIVE = n; }, NAT);
   page.on('pageerror', (e) => errs.push(e.message));
-  const q = `?autostart=180&nofullscreen` + (QUAL ? `&quality=${QUAL}` : '');
+  const q = `?autostart=180&nofullscreen` + (QUAL ? `&quality=${QUAL}` : '') + (NAT ? '&applegpu' : '');
   await page.goto(base + 'index.html' + q, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.state === 'playing', null, { timeout: 240000, polling: 250 }).catch(() => errs.push('never playing'));
   await page.evaluate(() => __inkwave.debug.freeze());
   for (let s = 0; s < SECS * 2; s++) await page.evaluate(() => __inkwave.debug.step(500));
-  const info = await page.evaluate(() => { const R = __inkwave.R, cv = R && R.renderer && R.renderer.domElement; return { quality: __inkwave.settings.quality, shadows: __inkwave.settings.shadows, pr: R && R.renderer.getPixelRatio(), buf: cv ? cv.width + 'x' + cv.height : '', dpr: devicePixelRatio, touch: !!__inkwave.touchMode }; });
-  const f = path.join(OUT, `original-${vn}${QUAL ? '-' + QUAL : ''}.png`);
+  const info = await page.evaluate(() => { const R = __inkwave.R, cv = R && R.renderer && R.renderer.domElement; const q = (R && R.q) || {}; return { quality: __inkwave.settings.quality, shadows: __inkwave.settings.shadows, pr: R && R.renderer.getPixelRatio(), buf: cv ? cv.width + 'x' + cv.height : '', dpr: devicePixelRatio, touch: !!__inkwave.touchMode, step: q.step, density: q.pixelRatio, ao: !!(R && R.gtao), bloom: !!(R && R.bloom && R.bloom.enabled), shadowMap: !!(R && R.renderer.shadowMap.enabled), shadowSize: q.shadowSize, particles: q.particles }; });
+  const f = path.join(OUT, `original-${vn}${QUAL ? '-' + QUAL : ''}${NAT ? '-' + opt('native') : ''}.png`);
   await page.screenshot({ path: f });
   console.log(`[parity] ${vn} ${JSON.stringify(info)} → ${f}${errs.length ? ' · errors: ' + errs.join(' | ').slice(0, 300) : ''}`);
   if (errs.length) code = 1;
