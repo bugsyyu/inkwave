@@ -12,6 +12,10 @@
 // typewriter between the strip and the keyboard), the evidence leaf. The 看板段 (boards.js): the invariants, each board
 // framed as she comes, a tap on a word row (its own listeners). window.__glidePlan: 'right' | 'hint' | 'wrong' | 'near'
 // cycled per typed item; window.__glideShots: a shot of the first type frame / ink word / held strip / framed board.
+// play-8 — a whole day (PLAY §10): every stepped frame samples PLAY §1 rule 1 (match.paused false, no learn.hold, no
+// .iw-learn__panel shown) from the start line to the results card; window.__runSegment: when the wall clock
+// (__runWallMs) is out, stop at the next row / item boundary inside the checkpoints and report `resume` — the next
+// segment's ?gate= / ?skip= (the gate she is on, after its first items already answered right, in order)
 (async () => {
   const W = window, G = W.__G, I = W.__inkwave, M = () => I.match, F = () => M() && M().learn;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -23,8 +27,17 @@
     const fdt = W.__runDt || 1 / 30, n = Math.max(1, Math.round(ms / 1000 / fdt));
     I._skipRender = true;
     try { for (let i = 0; i < n; i++) I._frame(fdt); } finally { I._skipRender = false; }
+    sample();
     await sleep(0);
   };
+  // (play-8) PLAY §1 rule 1 on every step, until the results card
+  S.inv = S.inv || { samples: 0, breaks: [] };
+  function sample() {
+    const Fl = F(); if (!Fl || Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) return;
+    const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
+    S.inv.samples++;
+    if ((M().paused || Fl.hold || shown) && S.inv.breaks.length < 20) S.inv.breaks.push({ paused: M().paused, hold: !!Fl.hold, panel: shown, phase: Fl.phase, state: M().state, s: Fl.sNow != null ? +(+Fl.sNow).toFixed(1) : null });
+  }
   const render = () => { I._frame(1 / 60); };
   const touch = !!(I.input && I.input.touch && I.input.touch.active);
   // one swipe through the real input path: pointer events on a phone (the touch layer's swipe hook), keys otherwise
@@ -54,7 +67,9 @@
   const leaves = (id) => { const ev = (evDoc().ev) || {}; let n = 0; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) for (const d in it) n += Object.keys(it[d]).length; } return n; };
   const leafOf = (id) => { const ev = (evDoc().ev) || {}; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) { const d = Object.keys(it).sort().pop(); const day = it[d]; const t = Object.keys(day).sort().pop(); return day[t]; } } return null; };
   const rect = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null; };
-  const xhShown = () => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+  // (the crosshair as drawn: .iw-ret inside the .iw-xh anchor — the anchor is a 0 × 0 point at the screen's centre, its
+  // own box never shows, so measuring it proved nothing; play-8, as wire-audit.mjs xhShown does)
+  const xhShown = () => { const e = document.querySelector('.iw-xh'), r = e && e.querySelector('.iw-ret'); if (!r) return false; const cs = getComputedStyle(e), cr = getComputedStyle(r), b = r.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && cr.display !== 'none' && cr.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
   const invariants = (what) => { const c = cardShown(); const chk = { what, paused: M().paused, hold: !!F().hold, cardAsk: c.ask, panelVisible: c.panelVisible, crosshair: xhShown(), camMode: G.rig && G.rig.mode }; S.checks.push(chk); if (chk.paused || chk.hold || chk.cardAsk || chk.panelVisible) S.errors.push('invariant broken (' + what + '): ' + JSON.stringify(chk)); return chk; };
   // a press on the game keyboard: the key's own pointerdown on a phone (play-keys acts on it), keydown on a desktop
   const press = (k) => {
@@ -223,15 +238,27 @@
       console.log('[run] playing after', ((Date.now() - S.t0) / 1000).toFixed(1), 's wall');
       S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode, loopEdges: Fl.loopEdges, jumps: (Fl.T.jumps || []).map((j) => +j.toFixed(1)) };
       // a reading board before the start (PLAY §4: M6 before the run): 出发
-      let k = 0; while (Fl.prep && Fl.prep() && k++ < 6) { const go = document.querySelector('.iw-lf__go'); if (go) go.click(); await step(200); }
+      // (play-8: an M6 board in front of her at the start line and the strip's 「下一块」 / 「出发！」 — no card)
+      let k = 0; while (Fl.prep && Fl.prep() && k++ < 12) { await step(200); S.startBoards = Object.assign(S.startBoards || {}, { framed: (S.startBoards && S.startBoards.framed) || !!(Fl.prepS && Fl.prepS.board && Fl.prepS.board.framed >= 0), paused: M().paused }); const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go) go.click(); }
       await step(300);
     }
     const Fl = F();
     const until = Date.now() + (W.__runWallMs || 240000);
-    while (Date.now() < until) {
+    while (Date.now() < until || (W.__runSegment && !S.resume)) {
       if (Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) break;
+      // (a segment's wall clock is out: stop here — between rows — unless she is past the last checkpoint)
+      if (W.__runSegment && Date.now() >= until) {
+        const k = Fl.cur, g = Fl.gates[k];
+        if (g && Fl.phase !== 'final') {
+          const base = k === 0 ? (W.__runSkip || 0) : 0; let done = 0;
+          while (done < g.items.length && (Fl.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++;
+          // (every item of this checkpoint answered: the next segment starts at the next one — never a gate with nothing in it)
+          if (done >= g.items.length) { if (k + 1 < Fl.gates.length) { S.resume = { gate: (W.__runGate || 1) + k + 1, skip: 0, of: Fl.gates[k + 1].items.length, title: Fl.gates[k + 1].title }; break; } }
+          else { S.resume = { gate: (W.__runGate || 1) + k, skip: base + done, of: base + g.items.length, title: g.title }; break; }
+        }
+      }
       await step(100);
-      if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
+      if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
       if ((S.tick = (S.tick || 0) + 1) % 20 === 0) console.log('[run] t', ((Date.now() - S.t0) / 1000).toFixed(0), 's · s', Fl.sNow.toFixed(1), 'phase', Fl.phase, 'rows', S.rows.length, 'speed', Math.hypot(M().local.vel.x, M().local.vel.z).toFixed(1));
       const row = Fl._shown && Fl._shown();
       if (!row) continue;
@@ -273,7 +300,15 @@
       rec.latT = +Fl.latT.toFixed(2);
       // swim through: until the row is done; measure her speed just before and just after
       const spd = () => { const a = M().local; return Math.hypot(a.vel.x, a.vel.z); };
-      let g = 0; while (row.state !== 'done' && g++ < 400) { if (row.s - Fl.sNow < 1.2 && rec.vBefore == null) rec.vBefore = +spd().toFixed(2); await step(50); }
+      // (window.__runTrace = [a, b]: rows whose place on the lap is in a … b m get a trace of her swim to them — s, d, latT, the
+      // lateral bounds, grounded, height: play-8, the halyard rows after the mid deck's stairs)
+      const TR = W.__runTrace, lapS = ((row.s % Fl.T.len) + Fl.T.len) % Fl.T.len, tracing = !!(TR && lapS >= TR[0] && lapS <= TR[1]);
+      if (tracing) rec.trace = [];
+      let g = 0; while (row.state !== 'done' && g++ < 400) {
+        if (row.s - Fl.sNow < 1.2 && rec.vBefore == null) rec.vBefore = +spd().toFixed(2);
+        if (tracing && rec.trace.length < 200) { const a = M().local, b = Fl._bounds(Fl.sNow + 2); rec.trace.push([+Fl.sNow.toFixed(2), +Fl.dNow.toFixed(2), +Fl.latT.toFixed(2), +b[0].toFixed(2), +b[1].toFixed(2), a.grounded ? 1 : 0, +a.pos.y.toFixed(2), +spd().toFixed(1)]); }
+        await step(50);
+      }
       const ans = [...Fl.log].reverse().find((e) => (e.name === 'learn:answer' || e.name === 'learn:noanswer') && e.itemId === row.item.id);
       rec.event = ans ? ans.name : null; rec.ok = ans ? ans.ok : null; rec.first = ans ? ans.first : null; rec.lane = ans ? ans.lane : null; rec.beat = ans ? ans.beat : null;
       rec.dCross = +Fl.dNow.toFixed(2);
@@ -290,7 +325,7 @@
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)
-    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
+    if (!W.__runMaxRows && !S.resume) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
   } catch (e) { S.errors.push(String(e && e.stack || e)); }
   const Fl = F();
   S.done = true;
@@ -299,13 +334,17 @@
   const twice = Object.keys(firsts).filter((k) => firsts[k] > 1); if (twice.length) S.errors.push('first answer recorded twice: ' + twice.join(', '));
   const xhAny = S.checks.filter((c) => c.crosshair).length;
   const resultsShown = !!(Fl && Fl._hudOn && Fl.finishT < 0 && M().paused);   // (the results card: the run is over, the match held — as every form ends)
-  if (!W.__runMaxRows && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  if (!W.__runMaxRows && !S.resume && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  if (S.inv.breaks.length) S.errors.push('PLAY §1 rule 1 broken while she played: ' + JSON.stringify(S.inv.breaks.slice(0, 3)));
   const out = { resultsShown, boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
   out.cov = G.paint ? G.paint.coverage().map((c) => +c.toFixed(4)) : null;
   out.evDocs = Object.keys(evDoc().ev || {});
+  out.resume = S.resume || null; out.invariants = S.inv;
+  out.answers = Fl ? Fl.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]) : [];
+  out.evidence = evDoc().ev || {};
   render();
   return JSON.stringify(out);
 })()

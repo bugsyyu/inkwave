@@ -36,13 +36,53 @@ function contractList(prefix) {
 
 async function weeks() { return [await loadWeek(1), await loadWeek(2), await loadWeek(3)]; }
 
-test('题即玩法 (PLAY §4, play-wire): every item of every puzzle day plays as one of the PLAY mechanics — none is a card', async () => {
-  let n = 0;
+// PLAY §4's table, as written there: the evidence mode each item kind records (the 「记」 column) — never a card's
+const RECORD_4 = { 'choice/word': 'L', 'choice/quiz': 'L', 'pron/quiz': 'L', 'pron/sym': 'L', 'listen/pair': 'L', 'listen/read': 'L', 'dictation/word': 'T', 'dictation/dict': 'L', 'lesson/write': 'W', 'lesson/lesson': '—', 'lesson/speak': '—' };
+const ANSWER_4 = { choice: ['index'], type: ['text'], write: ['text'], read: ['none'] };   // (meta.input → what the game action hands the judge)
+test('题即玩法 (PLAY §4, play-wire, play-8): every item of the three weeks, in every form, plays as one of the PLAY mechanics — none is a card; its record is §4\'s, its answer its input\'s', async () => {
+  const { judgeRecord } = await import('../../src/learn/play/judge.js');
+  const { prompt } = await import('../../src/learn/engine.js');
+  const { rightAnswerOf, flipPrompt } = await import('../../src/learn/forms/common.js');
+  const forms = { puzzle: 'puzzle', race: 'race', duel: 'duel', quiz: 'duel', versus2: 'duel', coop2: 'puzzle', boss: 'boss' };
+  let n = 0; const seen = {};
   for (const k of [1, 2, 3]) {
     const w = await loadWeek(k);
-    for (const d of w.days) { const P = planDay(w, d.n, 'puzzle'); for (const g of [...P.gates, ...P.signs]) for (const it of g.items) { const id = playOf(it, 'puzzle', g.design && g.design.mechanic); assert.ok(id && PLAY[id] && id !== 'card', w.id + ' d' + d.n + ' ' + it.id); n++; } }
+    const byId = new Map(); for (const dd of w.days) for (const st of daySteps(w, dd.n)) for (const it of st.items) if (!byId.has(it.id)) byId.set(it.id, it);
+    for (const d of w.days) for (const [form, plan] of Object.entries(forms)) {
+      if (plan === 'boss' && d.n !== 1) continue;   // (the week's 周考: once a week, its phases' items resolved as BossFlow._place does)
+      const P = plan === 'boss' ? { gates: bossPlan(w).phases.map((ph) => ({ items: ph.items.map((r) => byId.get(r.id)).filter(Boolean), design: null })), signs: [] } : planDay(w, d.n, plan);
+      for (const g of [...P.gates, ...(P.signs || [])]) for (const it of g.items) {
+        const mech = g.design && g.design.mechanic, id = playOf(it, form, mech), m = it.meta || {};
+        assert.ok(id && PLAY[id] && id !== 'card', `${w.id} d${d.n} ${form} ${it.id}: a mechanic (${id})`);
+        // the answer: what the game action hands the judge, by the item's input (a flip card: her own rating)
+        const flip = id === 'flip-target';
+        assert.ok(flip ? PLAY[id].answer === 'self' : (ANSWER_4[m.input] || []).includes(PLAY[id].answer), `${it.id} ${m.input} → ${id} answers ${PLAY[id].answer}`);
+        n++; seen[form] = (seen[form] || 0) + 1;
+      }
+    }
   }
-  assert.ok(n >= 2200, 'the three weeks: ' + n + ' items');
+  assert.ok(n >= 2200 * 5, 'items × forms: ' + n + ' ' + JSON.stringify(seen));
+  // the record, through the one judging path on the real content: a right first answer of every scored item of a puzzle
+  // day writes §4's mode for its kind (the step kind · the item kind), F for the review day's flip cards
+  for (const k of [1, 2, 3]) {
+    const w = await loadWeek(k);
+    for (const d of w.days) for (const s of daySteps(w, d.n)) for (const it of s.items) {
+      const key = `${s.kind}/${it.meta.kind}`, want = RECORD_4[key];
+      assert.ok(want, `${it.id}: §4 has a row for ${key}`);
+      if (!it.meta.scored) { assert.equal(want, '—', `${it.id}: unscored → nothing recorded`); continue; }
+      setBackend(memory()); store.load();
+      const p = prompt(it), out = judgeRecord({ item: it, p, ans: rightAnswerOf(it, p), store });
+      assert.equal(out.evidence && out.evidence[1], want, `${it.id} (${key}): records ${want}`);
+      const mech = mechanicOf(s);
+      if (mech === 'flash-flip') { setBackend(memory()); store.load(); assert.deepEqual(judgeRecord({ item: it, p: flipPrompt(it), ans: true, store }).evidence, [1, 'F'], 'a flip card records F'); }
+      for (const form of ['puzzle', 'race', 'duel', 'coop2', 'boss']) {
+        const id = playOf(it, form, mech);
+        if (id === 'flip-target') assert.equal(PLAY[id].record, 'F');
+        else if (want === '—') assert.equal(PLAY[id].record, '—', `${it.id} ${form}: ${id} records nothing`);
+        else assert.ok(PLAY[id].record.split(/[^A-Z]+/).includes(want), `${it.id} ${form}: ${id}'s record (${PLAY[id].record}) has §4's ${want}`);
+      }
+    }
+  }
 });
 
 test('coverage(w1–w3): every step has a mechanic, missing is empty, the classic set is exactly placement / weekly / speak / checkin', async () => {

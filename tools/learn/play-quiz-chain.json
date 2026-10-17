@@ -1,8 +1,0 @@
-[
-  { "until": "window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.learn" },
-  { "evalFile": "tools/learn/drive-forms.js", "log": "puzzle" },
-  { "eval": "(() => { const b = document.querySelector('.iw-learn__quiz'); if (!b) return 'no quiz button: ' + (document.querySelector('.iw-learn__rbtns') || {}).innerText; const txt = b.innerText; b.click(); return 'clicked: ' + txt; })()", "log": "quiz-button" },
-  { "until": "__inkwave.match && __inkwave.match.learn && __inkwave.match.learn.level && __inkwave.match.learn.level.quiz" },
-  { "eval": "JSON.stringify({ kind: __inkwave.match.learnKind, quiz: !!__inkwave.match.learn.level.quiz, actors: __inkwave.match.actors.length, teams: __inkwave.match.actors.map((a) => a.team).join(''), zones: !!__inkwave.match.zones, items: __inkwave.match.learn.level.gates[0].items.length, stage: __inkwave.mapDef.id, time: __inkwave.match.learn.level.time })", "log": "quiz-boot" },
-  { "evalFile": "tools/learn/drive-forms.js", "log": "quiz" }
-]

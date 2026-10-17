@@ -12,14 +12,14 @@
 //                                    opts.base: a ready prompt instead of the engine's (a typed word's 「选义」 retry,
 //                                    flow._altPrompt's choice-of-typed: the right option is the one whose text is the word)
 //   rowLabels(item, p) · isBanner(label) · rowLanes(item, p)
-//   rowAnswer(item, p, lane, opts)   entering a curtain: lane → judgeAnswer → store.recordFirst — exactly what a card's
-//                                    answer does (race.js _answer); lane −1 (the gap between curtains) = no answer, nothing
+//   rowAnswer(item, p, lane, opts)   entering a curtain: lane → the one judging path (play/judge.js) — what RunnerFlow's
+//                                    _judgeRecord does for a curtain; lane −1 (the gap between curtains) = no answer, nothing
 //                                    written. Beat timing never comes in here (PLAY §1 rule 4: timing ≠ correctness)
 //   planCourse(entries, T, W, R)     where every row would stand on the lap (no retries): the checkpoints for the bots
 //                                    and how many laps the run needs (a 'boards' entry — boards.js withBoards — takes
 //                                    its e.len of road)
 import { prompt, store } from '../../api.js';
-import { judgeAnswer } from '../../forms/common.js';
+import { judgeRecord } from '../judge.js';   // the one judging path (play-8)
 import { readLead, leadDistance } from './lanes.js';
 import { placeRow } from './track.js';
 
@@ -97,13 +97,12 @@ export function rowPrompt(item, opts = {}) {
 // the lane of the right answer in a row's prompt (the audits and the 「差一点」 line)
 export function rightLane(item, p) { if (p._alt === 'choice-of-typed') return rightIndex(item, p); return p._perm ? p._perm.indexOf(item.answer) : item.answer; }
 
-// Entering a curtain — the same judge and the same first-answer record as a card (race.js _answer: judgeAnswer, then
-// store.recordFirst({ itemId, item, ok, pct, hinted, at })). lane −1 / null: through the gap — no answer, no evidence.
+// Entering a curtain — the lane is the option index, judged and recorded on the one path (play/judge.js judgeRecord,
+// as RunnerFlow._judgeRecord does it). lane −1 / null: through the gap — no answer, no evidence.
 export function rowAnswer(item, p, lane, opts = {}) {
   if (lane == null || lane < 0 || lane >= (p.options || []).length) return { answered: false };
-  const r = judgeAnswer(item, p, lane);
-  const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!opts.hinted, at: opts.at ?? Date.now() });
-  return { answered: true, lane, r, first: !!rec.first, rec };
+  const out = judgeRecord({ item, p, ans: lane, o: { hinted: opts.hinted, at: opts.at }, store });
+  return { answered: true, lane, r: out.r, first: out.first, leaf: out.evidence };
 }
 
 // ---------------------------------------------------------------------------------------------- the static course

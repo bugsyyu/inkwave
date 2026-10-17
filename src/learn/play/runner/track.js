@@ -196,7 +196,10 @@ export function clearWidths(nav, T, opts = {}) {
 // a row of `lanes` lanes at arc length s: every sample over [s − runIn, s + runOut] must leave lanes × laneW between its
 // left and right edges for one common lateral centre c (the one nearest the centre line), the road may turn at most
 // `turn` rad across that stretch and climb at most `rise` m — curtains stand square across a straight, flat run — and no
-// jump-up edge may lie in the `jumpClear` m before the run-in (she is held on the line there to hop it)
+// jump-up edge may lie in the `jumpClear` m before the run-in (she is held on the line there to hop it); play-8: over
+// the last `leadClear` m of the reading zone before the run-in, a stretch off the row's floor (a ramp, a flight of steps:
+// more than `leadStep` m above or below it) must be as wide as the row — a narrow one keeps her on the road's line to its top,
+// the outer lanes out of reach (halyard's start deck: LEARN §23 拿不准的 11), so a row is not let stand at its head
 // The grid's walkable band is where her centre can be — it already keeps the capsule (PLAYER.radius + 0.08) off every
 // wall — so the row needs the lanes' curtains (laneW − gap wide each) inside that band: lanes × laneW − gap of grid, which
 // is a corridor of more than lanes × laneW from wall to wall (PLAY's rule) once the capsule's room is added back.
@@ -218,6 +221,13 @@ export function rowFit(T, W, s, lanes, opts = {}) {
   if (lo > hi + 1e-6 || ymax - ymin > rise) return { ok: false };
   // no jump-up edge over the approach (the runner keeps her on the road's line to hop it: no lane change there)
   const jc = opts.jumpClear ?? 8;
+  // and no narrow climb or drop over the reading zone's last metres (she steers into her lane there; 4 m / 0.9 m: the
+  // least the seven stages' rows move for it — 8 m / 0.45 m took a third of saltpan's four-lane rows)
+  const lc = opts.leadClear ?? 4, st = opts.leadStep ?? 0.9;
+  for (let i = Math.round((s - runIn - lc) / T.step); i < i0; i++) {
+    const q = wrapI(T, i);
+    if ((T.y[q] < ymin - st || T.y[q] > ymax + st) && W.left[q] + W.right[q] < need - 1e-6) return { ok: false };
+  }
   for (const j of T.jumps || []) {
     const d = (((s - j) % T.len) + T.len) % T.len;   // how far past the edge the row stands
     if (d < runIn + jc || T.len - d < runOut + 1) return { ok: false };

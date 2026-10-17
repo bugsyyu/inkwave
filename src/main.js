@@ -602,8 +602,6 @@ class Game {
     // only a live round pauses on focus loss; intro / time's up / judge / results release the mouse on purpose.
     // Holding the map is never a reason to pause (some browsers/embeds steal focus on TAB): relock on the next click.
     if (this.match?.controller?.mapHeld || (this.rig?.mapK ?? 0) > 0) { this._relock = true; return; }
-    // 关卡学习: a race / duel question releases the mouse for the answer card while the round runs on (learn.hold) — not a pause
-    if (this.match?.learn?.hold) { this._relock = true; return; }
     if (G.mode === 'match' && this.match && !this.match.paused && this.match.state === 'playing' && !this.menus?.current) this.pause();
   }
   // pull the fog back while the view is overhead (the stage is ~150 m away up there), restore it exactly after

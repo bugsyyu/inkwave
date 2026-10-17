@@ -6,7 +6,6 @@
 //   LANG                'zh' (default) | 'en' (?lang=en)
 //   gameName(kind, id, en)   a weapon / sub / special / stage / team name in the page's language (en = the fallback)
 // Pure: no DOM needed (the Node test imports it); the page language goes on <html lang> when there is a document.
-import { LEARN } from '../config.js';   // 题即玩法 (play-4): the learn mode's words follow the LEARN.play switch (config is a leaf: no cycle)
 const q = typeof location !== 'undefined' && location && location.search ? new URLSearchParams(location.search) : null;
 export const LANG = q && /^en/i.test(q.get('lang') || '') ? 'en' : 'zh';
 export const isZh = LANG === 'zh';
@@ -39,8 +38,7 @@ export const DICT = {
   'main.onlineSub': ['Play with friends · private rooms', '和朋友一起 · 私人房间'],
   'main.live': ['LIVE', '在线'],
   'main.learn': ['学习 · LEARN', '学习 · LEARN'],
-  'main.learnSub': LEARN.play ? ['解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', '解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 第 1–3 周']   // (题即玩法 PLAY §5.2, play-4)
-    : ['解密闯关 · 道具赛 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', '解密闯关 · 道具赛 · 对抗赛 · Boss 战 · 第 1–3 周'],
+  'main.learnSub': ['解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', '解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 第 1–3 周'],   // (题即玩法 PLAY §5.2, play-4)
   'main.book': ['回课本 · BACK', '回课本'],
   'main.bookSub': ['回到雅思工作台', '回到雅思工作台'],
   'main.loadout': ['LOADOUT', '装备'],
@@ -49,8 +47,7 @@ export const DICT = {
   'main.howto': ['HOW TO PLAY', '怎么玩'],
   'main.credits': ['CREDITS', '制作人员'],
   'desc.play': ['Turf War or Zone Control 4 v 4 — or team up with the bots against HULLBREAKER in a Boss Battle', '4 对 4 涂地赛、区域赛，或者和机器人一起打 Boss'],
-  'desc.learn': LEARN.play ? ['雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考', '雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考']
-    : ['雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、道具赛答对拿道具、对抗赛答题蓄墨、Boss 战是周考', '雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、道具赛答对拿道具、对抗赛答题蓄墨、Boss 战是周考'],
+  'desc.learn': ['雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考', '雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考'],
   'desc.book': ['回到雅思工作台', '回到雅思工作台：课本、考试中心、我的进度'],
   'desc.online': ['Private rooms for up to 8 friends — create one or join with a room code', '最多 8 个朋友的私人房间 — 开一个，或者输房间码加入'],
   'desc.loadout': ['Choose your weapon, sub and special — or practice with it', '选武器、副武器和特殊武器 — 也可以先练一练'],
@@ -949,8 +946,8 @@ export const TIPS_ZH = [
   '答错不扣分：门上多一道锁，换个问法再来一次。',
   '每道题当天的第一次作答记进你的进度 — 和雅思工作台是同一份。',
   '手机竖着拿也能玩：点「自动走」，它会带你走到下一道门。',
-  '听不清？点「听」再放一遍。',
-  LEARN.play ? '墨浪跑酷：左右滑换道，游进对的墨幕 — 答对加速、还拿道具；穿过空隙不算答。' : '道具赛：答对拿道具 — 超级跳、墨雨、回声、墨幕、墨弹。',
+  '听不清？点题条上的 ▶ 再听一遍。',
+  '墨浪跑酷：左右滑换道，游进对的墨幕 — 答对加速、还拿道具；穿过空隙不算答。',
   '对抗赛：答对一题，区域里最缺墨的那块就涂成你的颜色。',
   'Boss 战是这一周的周考：听、读、写、说四段，每答对一题打掉一截血。',
   '连对 3 题特殊槽满，连对 5 题跳一段舞。',

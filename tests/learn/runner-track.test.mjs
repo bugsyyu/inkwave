@@ -77,6 +77,25 @@ test('a fixture ring: the lap is a closed smooth line; the clearance scan reads 
   const room = roomAt(T, W, 30); assert.ok(room.left >= 0 && room.right >= 0 && room.left + room.right <= W.left[60] + W.right[60]);
 });
 
+test('play-8: a row does not stand at the head of a narrow climb or drop — the reading zone\'s last metres off the row\'s floor must be as wide as the row (flat and narrow, wide and raised, or farther back: still fine)', () => {
+  const { nav, start, goal } = ringNav();
+  const route = loopRoute(nav, start, goal, { avoid: 6 });
+  const T = buildTrack(nav.nodes, route.loop, { keep: straighten(nav, route.loop, { edgeType: nav.edgeType }) }), W = clearWidths(nav, T);
+  let s = -1; for (let i = Math.round(20 / T.step); i < T.n; i++) if (rowFit(T, W, i * T.step, 3).ok && rowFit(T, W, i * T.step + 12, 3).ok) { s = i * T.step + 12; break; }
+  assert.ok(s > 0, 'a straight where a 3-lane row fits');
+  const with_ = (from, to, y, w) => {
+    const T2 = { ...T, y: Float32Array.from(T.y) }, W2 = { ...W, left: Float32Array.from(W.left), right: Float32Array.from(W.right) };
+    for (let i = Math.round((s - R.runIn - from) / T.step); i < Math.round((s - R.runIn - to) / T.step); i++) { T2.y[i] = y; if (w != null) { W2.left[i] = w / 2; W2.right[i] = w / 2; } }
+    return rowFit(T2, W2, s, 3).ok;
+  };
+  assert.equal(with_(3, 0, 1.5, 1.2), false, 'a narrow ramp 1.5 m up, right before the run-in: the outer lanes out of reach');
+  assert.equal(with_(3, 0, -1.5, 1.2), false, '… or 1.5 m down');
+  assert.equal(with_(3, 0, 0, 1.2), true, 'narrow but flat: she swims across to her lane (as before)');
+  assert.equal(with_(3, 0, 1.5, null), true, 'raised but as wide as the row');
+  assert.equal(with_(3, 0, 0.5, 1.2), true, 'a step under 0.9 m');
+  assert.equal(with_(12, 6, 1.5, 1.2), true, 'narrow and raised, but more than 4 m back');
+});
+
 test('every offline stage: the race\'s lap as the runner\'s road — clear widths scanned, a race day\'s rows all placed (≥ 2 lanes, mostly every lane), side branches for 走远路', async () => {
   const { MAP_LAYOUTS } = await import('../../src/world/maps.js');
   const { Level } = await import('../../src/world/level.js');

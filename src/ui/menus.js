@@ -1058,8 +1058,7 @@ export class Menus {
     const st = this._learnPick || (this._learnPick = { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
     const FORMS = [
       { id: 'puzzle', name: '解密闯关', sub: '一个人 · 答对门开', icon: GLYPHS.key, on: true },
-      LEARN.play ? { id: 'race', name: FORM_ZH.race, sub: '和 3 个机器人游一圈 · 游进对的墨幕', icon: GLYPHS.bolt, on: true }   // 墨浪跑酷 (PLAY §5.2, play-4)
-        : { id: 'race', name: '道具赛', sub: '和 3 个机器人跑一圈 · 答对拿道具', icon: GLYPHS.bolt, on: true },
+      { id: 'race', name: FORM_ZH.race, sub: '和 3 个机器人游一圈 · 游进对的墨幕', icon: GLYPHS.bolt, on: true },   // 墨浪跑酷 (PLAY §5.2, play-4)
       { id: 'duel', name: '对抗赛', sub: '4v4 抢区域 · 答题蓄墨', icon: GLYPHS.swords, on: true },
       { id: 'boss', name: 'Boss 战', sub: '周考 · 听 读 写 说 四段', icon: BOSS_GLYPH, on: true },
     ];

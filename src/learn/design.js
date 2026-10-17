@@ -22,8 +22,8 @@ import { SUBS, SPECIALS, OFFLINE_MAPS, DIFFICULTY, TIMES, LEARN } from '../confi
 const N = LEARN;
 
 export const FORMS = ['puzzle', 'race', 'duel', 'boss'];
-// (题即玩法 PLAY §5.2, play-4: under LEARN.play the race is 墨浪跑酷 — the id stays 'race'; flag off, 道具赛 as before)
-export const FORM_ZH = { puzzle: '解密闯关', race: N.play ? '墨浪跑酷' : '道具赛', duel: '对抗赛', boss: 'Boss 战（周考）' };
+// (题即玩法 PLAY §5.2, play-4: the race is 墨浪跑酷 — the id stays 'race')
+export const FORM_ZH = { puzzle: '解密闯关', race: '墨浪跑酷', duel: '对抗赛', boss: 'Boss 战（周考）' };
 // the stages a learning level may use: the offline ones (cargo is online-only, humans-only, never a boss stage)
 export const STAGE_IDS = OFFLINE_MAPS.map((m) => m.id);
 
@@ -61,10 +61,16 @@ export const PLAY = {
   'flip-target':  { zh: '翻牌靶', answer: 'self', record: 'F', reuse: 'ink targets · a CanvasTexture card' },
   'signs':        { zh: '路标', answer: 'none', record: '—', reuse: 'decor pad · a board' },
 };
-// the mechanic an item plays as in a form (PLAY §4's table; mechanic: the step's, for the review day's flash-flip cards)
+// the mechanic an item plays as in a form (PLAY §4's table; mechanic: the step's, for the review day's flash-flip cards).
+// form: puzzle · race (墨浪跑酷) · duel · quiz (one duel round) · boss · versus2 · coop2 (the answering side's: the clue
+// side holds the board). play-8: there is no 'card' — every item of every form has one of PLAY's mechanics; the
+// review day's flash words are flip cards where the form asks them so (the puzzle, the duel) and typed where it types
+// them (the runner's 滑行段, the two-player forms ask the engine's own prompt — tests/learn/design.test.mjs)
 export function playOf(item, form = 'puzzle', mechanic = null) {
   const m = (item && item.meta) || {}, kind = m.kind, input = m.input;
-  if (mechanic === 'flash-flip' && input === 'type') return 'flip-target';
+  if (mechanic === 'flash-flip' && input === 'type') return form === 'puzzle' || form === 'duel' ? 'flip-target' : 'type-shot';
+  if (form === 'quiz' || form === 'versus2') form = 'duel';   // (the quiz is a duel round; versus2 the duel's cluster on two screens)
+  if (form === 'coop2') return input === 'choice' ? 'ink-target' : input === 'type' || input === 'write' ? 'type-shot' : kind === 'speak' ? 'echo-booth' : kind === 'lesson' ? (m.type === 'checkin' || m.type === 'weekly' || m.type === 'placement' ? 'signs' : 'board-walk') : null;
   if (form === 'boss') return input === 'read' ? (kind === 'speak' ? 'echo-booth' : 'signs') : input === 'type' || input === 'write' ? 'type-shot' : 'weak-point';   // (W: M4 on the armour plates; the answer is still a string)
   if (input === 'choice') {
     if (kind === 'sym' || kind === 'pair') return form === 'puzzle' || form === 'race' ? 'beat-pads' : 'ink-target';

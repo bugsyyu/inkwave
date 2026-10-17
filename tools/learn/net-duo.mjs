@@ -1,19 +1,12 @@
 // 关卡学习 · two players online (docs/LEARN.md §14): the Node relay + the game's file server + two headless browsers,
-// one room, one match of versus2 (双人联机赛) or coop2 (双人成形合作赛), driven through G.net and the question layer,
-// measured on both screens. Starts and stops its own relay and file server (free ports; nothing left running).
+// one room — the lobby screen of versus2 (双人联机赛) / coop2 (双人成形合作赛): net-duo-lobby.mjs (MODE arrows, the 课 row,
+// coop2's locks and start rule). Starts and stops its own relay and file server (free ports; nothing left running).
+// (play-8: the match itself — the questions as things on both screens — is tools/learn/net-duo-play.mjs; the card-era
+// match drive that stood here is gone with the cards.)
 //
-// usage: node tools/learn/net-duo.mjs [--mode versus2|coop2] [--week 1] [--day 1] [--map tidewater] [--bots] [--budget 170]
-//                                      [--shots <dir>] [--shot-question] [--w 400 --h 225] [--lobby]
-//   --lobby: the room screen only (net-duo-lobby.mjs: MODE arrows, the 课 row, coop2's locks and start rule), no match
+// usage: node tools/learn/net-duo.mjs --lobby [--mode versus2|coop2] [--week 1] [--day 1] [--map tidewater] [--bots]
+//                                      [--budget 170] [--shots <dir>] [--w 400 --h 225]
 //   needs puppeteer-core (npm install, or a node_modules linked from a checkout that has it) and Chrome (CHROME_PATH).
-//   Software-GL boxes: the pages run ?quality=low with shadows / bloom off, and once the match exists the simulation is
-//   stepped (debug.freeze + _frame with the renderer skipped): the rules are measured, not the renderer.
-//   The match is the short one (lobby.learn.short: versus2 = 2 questions on a 60 s clock; coop2 = 2 gates × 2 questions).
-//
-// versus2 script: question 1 — the guest answers right at once, the host right 1.5 s later (the guest inks: own time);
-//                 question 2 — the host right at once, the guest wrong (the host inks); then the host calls the match.
-// coop2 script:   both players walk (auto-walk) to the gate, each onto a pad; the clue / hands halves go to different
-//                 screens; the hands side answers (the first one wrong: the item comes back reworded, to the other player).
 import puppeteer from 'puppeteer-core';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -111,106 +104,13 @@ try {
   const lob = await Promise.all([0, 1].map((i) => ev(i, () => ({ id: __G.net.myId, code: __G.net.code, mode: __G.net.lobby.mode, learn: __G.net.lobby.learn, players: __G.net.lobby.players.map((p) => [p.name, p.team, p.host ? 'H' : '']) }))));
   mark('room'); R.room = lob; R.ids = lob.map((x) => x.id);
   check('room: both in one room, same mode and lesson', lob[0].code === lob[1].code && lob[0].mode === MODE && lob[1].mode === MODE && lob[1].learn.week === WEEK && lob[1].learn.day === DAY, `${code} ${JSON.stringify(lob[0].players)} / guest sees ${lob[1].mode} w${lob[1].learn.week}d${lob[1].learn.day}`);
-  if (args.includes('--lobby')) {
-    // the lobby screen check only (needs the stepper, defined just below for the match)
-    R.lobbyOnly = true;
-  } else await ev(0, () => __G.net.start());
-
-  if (R.lobbyOnly) {
+  R.lobbyOnly = true;   // (the lobby screen check: the match is net-duo-play.mjs's)
+  {
     const step = (sec) => Promise.all([0, 1].map((i) => ev(i, (n) => { const I = __inkwave; I._skipRender = true; try { for (let j = 0; j < n; j++) I._frame(1 / 24); } finally { I._skipRender = false; } }, Math.max(1, Math.round(sec * 24)))));
     const shot = async (i, name) => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); await ev(i, () => __inkwave.debug.step(16.7)); await pages[i].screenshot({ path: `${SHOTS}/${name}-c${i}.png` }); say('shot', `${SHOTS}/${name}-c${i}.png`); };
     await (await import('./net-duo-lobby.mjs')).driveLobby({ step, ev, check, mark, say, shot });
     throw Object.assign(new Error('lobby check done'), { done: true });
   }
-  // ---- both in the level (built from the same content on each screen)
-  await Promise.all([0, 1].map((i) => pages[i].waitForFunction('__G.net.state === "match" && __inkwave.match && __inkwave.match.learn && (__inkwave.match.state === "intro" || __inkwave.match.state === "playing")', { timeout: 90000, polling: 200 })));
-  mark('inLevel');
-  // (frozen since the start: the simulation is stepped from here — software GL renders a frame in ~0.4 s and the
-  // rules don't need the picture)
-  // software GL compiles the squidkids' shader variants in the GPU process (KHR_parallel_shader_compile) long after the
-  // match is built; a stepped frame that touches GL waits behind that queue — wait until both screens' programs are
-  // ready (pages idle meanwhile: their pings keep the room alive)
-  for (let k = 0; ; k++) {
-    const P = await Promise.all([0, 1].map((i) => ev(i, () => { const ps = __G.renderer.info.programs || []; return [ps.length, ps.filter((p) => p.isReady && !p.isReady()).length]; })));
-    if (k % 5 === 0 || P.every((x) => !x[1])) say(`shader programs (all / compiling): c0 ${P[0].join(' / ')} · c1 ${P[1].join(' / ')}`);
-    if (P.every((x) => !x[1]) || k > 40) break;
-    await sleep(1500);
-  }
-  mark('shadersReady');
-  // --profile: where the first stepped frames spend their time (per subsystem, ms)
-  if (args.includes('--profile')) await Promise.all([0, 1].map((i) => ev(i, () => {
-    const I = __inkwave, P = (window.__prof = {});
-    const wrap = (o, k, name) => { if (!o || typeof o[k] !== 'function' || o[k].__w) return; const f = o[k]; const w = function (...a) { const t = performance.now(); try { return f.apply(this, a); } finally { P[name] = (P[name] || 0) + performance.now() - t; } }; w.__w = true; o[k] = w; };
-    wrap(__G.paint, 'flush', 'paint.flush'); wrap(__G.env, 'update', 'env.update'); wrap(__G.fx, 'update', 'fx.update'); wrap(I.screenfx, 'update', 'screenfx.update');
-    wrap(I.showcase, 'update', 'showcase.update'); wrap(I, '_updateHud', 'hud'); wrap(I.diorama, 'update', 'diorama.update'); wrap(I.match, 'update', 'match.update');
-    wrap(I.match, 'updateController', 'controller'); wrap(I.rig, 'update', 'rig.update'); wrap(I.decor, 'update', 'decor.update'); wrap(I.props, 'update', 'props.update');
-    wrap(I.swimWake, 'update', 'swimWake.update'); wrap(__G.projectiles, 'update', 'projectiles'); wrap(__G.specials, 'update', 'specials'); wrap(__G.subs, 'update', 'subs');
-    wrap(I.fxHooks, 'update', 'fxHooks'); wrap(__G.net, 'update', 'net.update'); wrap(I, '_dioFog', 'dioFog'); wrap(I, '_updateLocalLoops', 'loops'); wrap(I, '_updateAmbience', 'ambience');
-    wrap(I.match.learn, 'update', 'learn.update'); wrap(I.minimap, 'update', 'minimap.update'); wrap(I.minimap, 'draw', 'minimap.draw'); wrap(__G.hud, 'update', 'hud.update');
-    for (const a of I.match.actors) { wrap(a, 'update', 'actor.update'); wrap(a, '_finishFrame', 'actor.finish'); }
-  })));
-  const info = await Promise.all([0, 1].map((i) => ev(i, () => { const m = __inkwave.match; return { mode: m.mode, kind: m.learnKind, actors: m.actors.length, teams: m.actors.map((a) => a.team), host: __G.net.isHost, gates: (m.learn.gates || []).length, items: m.learn.level.gates.map((g) => g.items.map((it) => it.id)) }; })));
-  R.level = info;
-  check('both in the level: same form, same level from the same content', info[0].kind === MODE && info[1].kind === MODE && JSON.stringify(info[0].items) === JSON.stringify(info[1].items), `${MODE}: ${info[0].actors} squidkids, teams ${JSON.stringify(info[0].teams)}, ${info[0].items.flat().length} items`);
-
-  // the simulation in the engine's own largest step (main.js clamps a slow frame to 1/24 s), a few frames per evaluate so
-  // each page's event loop runs in between: its pings must reach the relay (a socket silent for 20 s in a match is dropped)
-  const FDT = 1 / 24, CHUNK = 4, SPEED = 2;   // (2 × real time: ~50 messages a second a socket, under the relay's 90)
-  const stepPerf = { calls: 0, frames: 0, ms: 0, chunks: 0 };
-  // (and never much faster than real time: a stepped client sends a tick per simulated 1/20 s, and the relay cuts off a
-  // socket that sends far more than a real one would — 90 messages a second)
-  const step = async (sec) => {
-    const n = Math.max(1, Math.round(sec / FDT)), t = Date.now();
-    for (let done = 0; done < n; done += CHUNK) {
-      const k = Math.min(CHUNK, n - done), tc = Date.now();
-      const ms = await Promise.all([0, 1].map((i) => ev(i, (k, dt) => { const I = __inkwave, t0 = performance.now(); I._skipRender = true; try { for (let j = 0; j < k; j++) I._frame(dt); } finally { I._skipRender = false; } return [Math.round(performance.now() - t0), __G.net.state, I.match && I.match.state]; }, k, FDT)));
-      if (stepPerf.chunks++ < 4) say(`chunk of ${k} frames: ${Date.now() - tc} ms wall · page ms/net/state ${JSON.stringify(ms)}`);
-      if (args.includes('--profile') && stepPerf.chunks <= 2) for (const i of [0, 1]) say(`  c${i} profile: ${await ev(i, () => JSON.stringify(Object.entries(window.__prof || {}).filter(([, v]) => v > 50).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + Math.round(v))))}`);
-      const ahead = (done + k) * FDT * 1000 / SPEED - (Date.now() - t);
-      await sleep(Math.max(5, ahead));
-    }
-    stepPerf.calls++; stepPerf.frames += n; stepPerf.ms += Date.now() - t;
-    if (stepPerf.calls % 10 === 1) say(`step: ${(stepPerf.ms / stepPerf.frames).toFixed(0)} ms per stepped frame (both pages), ${(stepPerf.frames * FDT).toFixed(1)} s simulated`);
-  };
-  R.stepPerf = stepPerf;
-  const shot = async (i, name) => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); await ev(i, () => __inkwave.debug.step(16.7)); await pages[i].screenshot({ path: `${SHOTS}/${MODE}-${name}-c${i}.png` }); say('shot', `${SHOTS}/${MODE}-${name}-c${i}.png`); };
-  // the live question on a screen (the flow's own record of it: never read off the stage)
-  const live = (i) => ev(i, () => {
-    const m = __inkwave.match, F = m && m.learn, A = __G.hud.learn._ask;
-    if (!F || !A || A.answered) return null;
-    const q = F.q || null;
-    return { q: q ? q.q : F.cq || null, id: (F.asking && F.asking.item.id) || null, type: A.p.type, text: A.p.text, opts: A.p.options ? A.p.options.length : 0, hasInput: !!document.querySelector('.iw-learn__input:not([disabled])'), tts: !!A.p.tts, at: q && q.t0 ? performance.timeOrigin + q.t0 * 1000 : performance.timeOrigin + performance.now(), role: q ? q.role || null : null, play: getComputedStyle(__G.hud.learn.playBtn).display !== 'none', clueHint: (document.querySelector('.iw-learn__clue') || {}).textContent || null };
-  });
-  // answer the live question right / wrong through the DOM (the right answer from the flow's own rightAnswer())
-  const answer = (i, right) => ev(i, (right) => {
-    const F = __inkwave.match.learn, A = __G.hud.learn._ask;
-    if (!A || A.answered) return 'none';
-    const want = F.rightAnswer ? F.rightAnswer() : null;
-    if (A.p.type === 'choice') {
-      const btns = [...document.querySelectorAll('.iw-learn__opt')];
-      let k = typeof want === 'number' ? want : btns.findIndex((b) => b.querySelector('.iw-learn__opten').textContent === String(want));
-      if (k < 0) k = 0;
-      if (!right) k = k === 0 ? 1 : 0;
-      btns[k].click();
-      return 'choice ' + k;
-    }
-    const inp = document.querySelector('.iw-learn__input');
-    if (!inp) return 'no form';
-    inp.value = right ? String(want || '') : 'zzz qqq';
-    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
-    return 'typed ' + inp.value;
-  }, right);
-  const state = (i) => ev(i, () => {
-    const m = __inkwave.match, F = m && m.learn, Z = m && m.zones;
-    return { state: m && m.state, t: m && +m.time.toFixed(1), host: __G.net.isHost, net: __G.net.state, err: __G.net.error, dbg: F && F.debug ? F.debug() : null,
-      log: F ? F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.q != null ? '@' + e.q : '') + (e.by ? ':' + e.by : '')).join(' ') : '',
-      zone: Z ? { share: Z.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))), count: Z.count.map((c) => Math.ceil(c)), winner: Z.winner, reason: Z.reason } : null,
-      results: !!document.querySelector('.iw-results'), strip: (document.querySelector('.iw-res__learn') || {}).innerText || null, learnCard: (document.querySelector('.iw-learn.is-done .iw-learn__results') || {}).innerText || null,
-      ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev || {}) };
-  });
-
-  const drive = MODE === 'coop2' ? (await import('./net-duo-coop.mjs')).driveCoop : driveVersus;
-  await drive({ step, live, answer, state, shot, ev, pages, check, mark, say, sleep, R, budgetLeft: () => BUDGET - (Date.now() - T0) });
 } catch (e) {
   if (!(e && e.done)) {
     say('ERROR', e && e.stack ? e.stack.split('\n').slice(0, 6).join('\n') : e);
@@ -221,62 +121,3 @@ report();
 clearTimeout(watchdog);
 cleanup();
 process.exit(R.checks.every((c) => c.ok) && !R.error ? 0 : 1);
-
-// ------------------------------------------------------------------------------------------------ versus2
-async function driveVersus({ step, live, answer, state, shot, ev, check, mark, say, sleep, R, budgetLeft }) {
-  const seen = new Map();   // q → [live on c0, live on c1]
-  const plan = { 1: { first: 1, fast: [false, true], right: [true, true] }, 2: { first: 0, fast: [true, false], right: [true, false] } };
-  let shots = 0, lastSig = '', resultsSeen = 0;
-  while (budgetLeft() > 6000) {
-    await step(0.5);
-    const L = await Promise.all([live(0), live(1)]);
-    for (const i of [0, 1]) {
-      const x = L[i]; if (!x || !x.q) continue;
-      const s = seen.get(x.q) || [null, null];
-      if (s[i]) continue;
-      s[i] = x; seen.set(x.q, s);
-    }
-    for (const [q, s] of seen) {
-      if (!s[0] || !s[1] || s.done) continue;
-      s.done = true;
-      if (!R.firstQ) {
-        mark('sameQuestion');
-        R.firstQ = { q, ids: [s[0].id, s[1].id], types: [s[0].type, s[1].type], text: s[0].text, shownApartMs: Math.round(Math.abs(s[0].at - s[1].at)) };
-        check('same question at the same time on both screens', s[0].id === s[1].id && s[0].id && Math.abs(s[0].at - s[1].at) < 1500, `q${q} ${s[0].id} (${s[0].type}) shown ${R.firstQ.shownApartMs} ms apart`);
-        if (SHOT_Q && shots++ < 1) { await shot(0, 'q1'); await shot(1, 'q1'); }
-      }
-      const P = plan[q] || { fast: [true, false], right: [true, true] };
-      const order = P.fast[0] ? [0, 1] : [1, 0];
-      say(`q${q}: ${order.map((i) => `c${i} ${P.right[i] ? 'right' : 'wrong'}`).join(' then ')}`);
-      say(`  c${order[0]}:`, await answer(order[0], P.right[order[0]]));
-      await sleep(1500);
-      say(`  c${order[1]}:`, await answer(order[1], P.right[order[1]]));
-    }
-    const S = await Promise.all([state(0), state(1)]);
-    const sig = S.map((x) => `${x.state}/${x.net}${x.err ? '!' + x.err : ''} q${x.dbg ? x.dbg.q : '-'} closed ${x.dbg ? x.dbg.closed : '-'} t${x.t}`).join(' | ');
-    if (sig.replace(/ t[\d.]+/g, '') !== lastSig) { lastSig = sig.replace(/ t[\d.]+/g, ''); say(sig); }
-    if (S.some((x) => x.net !== 'match')) { say('a client left the match:', sig); break; }
-    if (S.some((x) => x.state === 'finish' || x.state === 'judge' || x.state === 'results') && !R.t.matchEnd) {
-      mark('matchEnd'); say('match over:', S.map((x) => x.state + ' ' + JSON.stringify(x.zone)).join(' | '));
-      // INKWAVE's judge runs on the HUD's own rAF effect clock, which a stepped, GPU-starved page barely ticks: its debug
-      // multiplier (hud.timeScale) plays it through in a few ticks
-      await Promise.all([0, 1].map((i) => ev(i, () => { __G.hud.timeScale = 25; })));
-    }
-    // (the results screen builds a moment after the state turns: wait for the strip itself, a few seconds at most)
-    if (S.every((x) => x.results && x.strip)) break;
-    if (R.t.matchEnd && S.every((x) => x.state === 'results')) { resultsSeen = resultsSeen || Date.now(); if (Date.now() - resultsSeen > 8000) break; }
-  }
-  const S = await Promise.all([state(0), state(1)]);
-  R.final = S.map((x) => ({ state: x.state, net: x.net, err: x.err, host: x.host, log: x.log, zone: x.zone, strip: x.strip, ev: x.ev, dbg: x.dbg }));
-  for (const [i, x] of S.entries()) say(`c${i} ${x.host ? 'host ' : 'guest'} log: ${x.log}`);
-  const inks = S.map((x) => (x.log.match(/ink@\d+:\S+/g) || []));
-  check('ink: the first right answer by own time inked, the same on both screens', inks[0].length >= 1 && JSON.stringify(inks[0]) === JSON.stringify(inks[1]), JSON.stringify(inks[0]));
-  const q1 = inks[0].find((s) => s.startsWith('ink@1')), q2 = inks[0].find((s) => s.startsWith('ink@2'));
-  check('question 1: the guest inked (right 1.5 s sooner by its own clock; the host\'s answer reached the referee first)', q1 === 'ink@1:' + R.ids[1], `${q1} (host ${R.ids[0]}, guest ${R.ids[1]})`);
-  check('question 2: the host inked (right at once; the guest answered wrong)', q2 === 'ink@2:' + R.ids[0], String(q2));
-  check('flood: the zone shares moved on both screens and agree', S.every((x) => x.zone && x.zone.share[0][0] + x.zone.share[0][1] > 0) && Math.abs(S[0].zone.share[0][0] - S[1].zone.share[0][0]) < 0.05 && Math.abs(S[0].zone.share[0][1] - S[1].zone.share[0][1]) < 0.05, JSON.stringify(S.map((x) => x.zone && x.zone.share)));
-  check('evidence: each player\'s first answers went to their own store', S.every((x) => x.ev.length >= 1), JSON.stringify(S.map((x) => x.ev)));
-  check('results: INKWAVE\'s results screen with the answers strip on both', S.every((x) => x.results && x.strip && /双人联机赛/.test(x.strip)), JSON.stringify(S.map((x) => x.strip)));
-  if (S.every((x) => x.results)) mark('results');
-  if (budgetLeft() > 12000) { await shot(0, 'results'); await shot(1, 'results'); }
-}

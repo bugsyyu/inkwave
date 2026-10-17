@@ -1,5 +1,5 @@
 // 题即玩法 play-5 — the arena's play host (docs/PLAY.md §5.3 对抗赛 / 今日小考, §5.4 Boss; LEARN §24): DuelFlow and BossFlow
-// (src/learn/forms/) own one of these under LEARN.play, the way the puzzle owns play-wire's PlayHost — the same shape
+// (src/learn/forms/) own one of these (versus2 too), the way the puzzle owns play-wire's PlayHost — the same shape
 // (canAsk / ask / update / gateOpened / dispose), the same pieces: the strip (PlayRun's PlayStrip), the voice
 // (hud-learn's recordings / device voice), the lens (play-wire's cam.js: a station's pose is sprung to; M1 keeps the
 // follow camera and only eases it towards the zone / the boss), standing still while a station needs her (her intents
@@ -7,7 +7,9 @@
 //   M1 墨靶 / M5 弱点   every plain choice (单词选义 / 语法 · 发音小测 / 阅读题 / 音标 / 听辨对子, the typed card's 回炉 choice) → ArenaRun
 //   M4 字弹            单词卡 · 听写句 · 写句 → ArenaType (the duel's shield ring; the boss's armour plate)
 //   M7 回声亭          the boss's S phase (askEcho) → EchoBooth on the deck in front of her
-// Judging is only ever the form's _judgeRecord (every station hands it an index or a string).
+//   M8 翻牌靶          a review day's flash-flip cards in a duel (play-8) → play-wire's FlipStation, through this host
+//   M6 展板            the duel's 备战 between rounds (showPrep, play-8) → PrepStation (prep.js): no pause, no card
+// Judging is only ever the form's _judgeRecord (every station hands it an index, a string or her rating).
 import * as THREE from 'three';
 import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
@@ -16,6 +18,9 @@ import { ArenaType } from './type.js';
 import { arenaKind } from './m1.js';
 import { PlayCam } from '../cam.js';
 import { EchoBooth } from '../echo/booth.js';
+import { FlipStation } from '../wire/flip.js';
+import { PrepStation } from './prep.js';
+import { isFlipGate } from '../../forms/common.js';
 import { hudBand } from '../landscape.js';
 
 const A = LEARN.arena;
@@ -75,7 +80,10 @@ export class ArenaHost {
     this.cam = new PlayCam({ reduced: this.reduced });
     this.type = new ArenaType(this, opts);
     this.echo = this.mode === 'boss' ? new EchoStation(this) : null;
-    this.stations = { type: this.type, echo: this.echo };
+    this.flip = new FlipStation(this);   // (built on first use: only a review day asks flip cards)
+    this.prepS = new PrepStation(this);
+    this.stations = { type: this.type, echo: this.echo, flip: this.flip, prep: this.prepS };
+    this._anchor = opts.anchor || (opts.boss ? (out) => { const b = opts.boss(); return b ? out.copy(b.pos) : null; } : null);
     this.kind = null; this.cur = null; this.resized = false; this.log = [];
     this._onResize = () => { this._resizedAt = true; };
     if (typeof window !== 'undefined') { window.addEventListener('resize', this._onResize); window.addEventListener('orientationchange', this._onResize); }
@@ -95,10 +103,11 @@ export class ArenaHost {
     else {
       F.hud?.hide?.(); F.hud?.playMode?.(true);
       this.cam.take(G.rig, G.camera);
-      this.type.ask(g, item, p);
-      G.playTargets = null; G.playTap = null;
+      const S = this.stations[kind];
+      S.ask(g, item, p);
+      G.playTargets = null; G.playTap = S.tapApi || null;
     }
-    if (F.asking) F.asking.play = kind === 'm1' ? (this.mode === 'boss' ? 'weak-point' : 'ink-target') : 'type-shot';
+    if (F.asking) F.asking.play = kind === 'm1' ? (this.mode === 'boss' ? 'weak-point' : 'ink-target') : kind === 'flip' ? 'flip-target' : 'type-shot';
     this.log.push({ t: +F.t.toFixed(2), ev: 'ask', kind, item: item.id });
     return true;
   }
@@ -118,10 +127,26 @@ export class ArenaHost {
     else if (this.kind && this.stations[this.kind]) this.stations[this.kind].clear();
     if (G.playTap && this.kind && this.kind !== 'm1') G.playTap = null;
   }
+  // the duel's 备战 between rounds (play-8): the step's boards one at a time in front of her, the strip's 「开始这一轮」 — or
+  // walking on — calls o.onGo(how); the match runs on (the form holds the clock and the zone, the bots stand)
+  showPrep(specs, o = {}) {
+    this._clearStation();
+    this.kind = 'prep'; this.cur = null;
+    this.flow.hud?.hide?.(); this.flow.hud?.playMode?.(true);
+    G.playTargets = null; G.playTap = null;
+    this.prepS.show(specs, { ...o, onGo: (how) => { if (this.kind === 'prep') { this.kind = null; this.cam.release(G.rig, this.match.local); } o.onGo?.(how); } });
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'prep', boards: (specs || []).length });
+    return true;
+  }
   // the station has handed its answer on and the form is going on: the lens back to her (a type question keeps the rig
   // mounted until another kind comes — the next typed item types again at once)
   clear() { this._clearStation(); this.kind = null; this.cur = null; this.cam.release(G.rig, this.match.local); this.flow.hud?.playMode?.(false); }
-  prep(g) { this.m1.prep(g); }
+  prep(g) { this.m1.prep(g); if (isFlipGate(g)) this.flip.prepare(g); }
+  // which way she faces for a station that rises in front of her (a flip card, a 备战 board): towards the zone / the boss
+  facingYaw(g, a) {
+    const c = this._anchor ? this._anchor(_v) : null;
+    return c && Math.hypot(c.x - a.pos.x, c.z - a.pos.z) > 1.5 ? Math.atan2(c.x - a.pos.x, c.z - a.pos.z) : a.yaw;
+  }
   // play-6 (versus2): the question closed before she answered — the live station shows v ({ head, why }) and hands on to
   // the form's _askNext after ms; false when nothing was live (the form then goes on itself)
   expire(v, ms) {
@@ -143,16 +168,22 @@ export class ArenaHost {
     // the same while the 打字蟹 is up (duel or boss: a tag sat on the typewriter) and while the boss's 回声亭 board is
     // framed (the squad's tags sat on its buttons on a landscape phone)
     const tags = (this.mode === 'zone' && this.kind === 'm1' && !!(this.m1.cur && this.m1.cur.placed && !this.m1.cur.answered))
-      || (this.kind === 'type' && !!this.type.cur) || (this.kind === 'echo' && !!(this.echo && this.echo.cur && this.echo.echo && this.echo.echo.walk.framed >= 0));
+      || (this.kind === 'type' && !!this.type.cur) || (this.kind === 'echo' && !!(this.echo && this.echo.cur && this.echo.echo && this.echo.echo.walk.framed >= 0))
+      // (play-8: and while a flip card or a 备战 board stands in front of her — the bots' tags sat on them too)
+      || (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
     if (tags !== !!this._tagsYield) { this._tagsYield = tags; G.hud?.markerYield?.(tags); }
+    // (play-8: no crosshair while a flip card or a 备战 board stands in front of her — nothing is aimed there, it sat on the
+    // board's text; the typing station hides it itself, the objects keep it)
+    const xhOff = (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
+    if (xhOff !== !!this._xhOff) { this._xhOff = xhOff; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = xhOff ? 'hidden' : ''; }
     if (m.paused) { this.resized = false; return; }
-    this.type.update(dt); this.echo?.update(dt);
+    this.type.update(dt); this.echo?.update(dt); this.flip.update(dt); this.prepS.update(dt);
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     // she fell while typing: the question comes back later, nothing written
     if (S === this.type && a && !a.alive && this.type.cur) { this.type.abort(); this.kind = null; this.cur = null; this.cam.release(G.rig, a); this.resized = false; return; }
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
-    if (S && S === this.echo) G.playTap = this.echo.tapApi;
+    if (S && (S === this.echo || S === this.flip || S === this.prepS)) G.playTap = S.tapApi;
     const pose = S ? S.pose : null;
     if (pose) { this.cam.take(G.rig, G.camera); this.cam.to(pose); }
     else if (this.cam.on && (this.kind === 'm1' || !S)) this.cam.release(G.rig, a);
@@ -174,10 +205,11 @@ export class ArenaHost {
   }
   dispose() {
     if (this._tagsYield) { this._tagsYield = false; G.hud?.markerYield?.(false); }
+    if (this._xhOff) { this._xhOff = false; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = ''; }
     if (typeof window !== 'undefined') { window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
     this.cam.release(G.rig, this.match.local);
-    this.type.dispose(); this.echo?.dispose();
+    this.type.dispose(); this.echo?.dispose(); this.flip.dispose(); this.prepS.dispose();
     this.m1.dispose();
   }
 }

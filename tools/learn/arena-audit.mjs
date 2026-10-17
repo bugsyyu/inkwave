@@ -7,7 +7,8 @@
 //       [--far] (boss: leave her where she is — the options then float towards it) [--skip-to S] (boss: clear the phases before)
 //       duel   ?learn=w1d6&kind=duel&short=1 (two rounds of two)      quiz   ?learn=w1d1&kind=quiz&short=1 (two questions)
 //       boss   ?learn=w1d7&kind=boss&short=1 (four phases of two)      --n: questions to answer per view (default 3)
-//   Per view: boot → the prep board's 开始 (duel / quiz) → step until the first question; for each question asserted:
+//   Per view: boot → the 备战 board (duel / quiz: an M6 board in front of her, the match NOT paused — play-8) and the
+//   strip's 「开始」 → step until the first question; for each question asserted:
 //     no question card shown (.iw-learn__panel), match.paused false, learn.hold falsy, the strip up, the touch layer live;
 //     M1 / M5: every object's projected box inside the safe area (the screen under the strip, 16 px each side; the
 //              boss: on the screen under the strip), a PLAIN round at the right object (her weapon fired with the aim
@@ -17,6 +18,12 @@
 //              (duel), the text typed key by key on the game keyboard, 射 → judged, the word forms at the target
 //     S (boss): the booth rises in front of her; walking onto its pad plays the sample; walking off = 说完了 → the hit
 //   Screenshots: <dir>/<form>-<view>-<what>.png (one per mechanic per view).
+//   play-8 — a whole match in segments (PLAY §10「整天从头跑到尾」): --full (no ?short: every round / phase, every item)
+//   [--gate N --skip K] (start at the N-th round / phase, its K-th item: where the segment before stopped) --profile <dir>
+//   (one Chromium profile for every segment: her store carries on) --segment <s> (stop at the first question boundary
+//   after s s of wall clock; the report's `resume` is the next segment's --gate / --skip) --out <file>; one view. Every
+//   step samples PLAY §1 rule 1 (match.paused false, no learn.hold, no .iw-learn__panel shown); a whole run ends on the
+//   results card. (With --full the plain-round check runs on the first two M1 questions only: it costs a second each.)
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/arena-audit.mjs …
 import http from 'node:http';
 import fs from 'node:fs';
@@ -28,11 +35,16 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', 3), BUDGET = +opt('budget', 1500) * 1000;
+// (--full steps without drawing — see wire-audit.mjs; --render draws every step. Not the boss: its balls ride the
+// walking boss's sockets, whose world matrices the drawing brings up to date frame by frame — stepped without it, the
+// balls lag the boss by a whole step and a tap at where they were drawn misses: play-8's first whole 周考)
+const FAST = args.includes('--full') && !args.includes('--render') && (opt('form', 'duel') !== 'boss' || args.includes('--fast'));   // (--fast: the boss too — a drawn landscape boss takes 3–4 min a question)
+const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
+const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
 const LEARN_Q = opt('learn', FORM === 'boss' ? 'w1d7' : FORM === 'quiz' ? 'w1d1' : 'w1d6');
 const GATE = +opt('gate', 0);   // (a duel day's gate N and N+1: ?short=1&gate=N — a typed gate is w1d6 --gate 4)
-const QUERY = `?learn=${LEARN_Q}&kind=${FORM}&short=1&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '');
+const QUERY = `?learn=${LEARN_Q}&kind=${FORM}${FULL ? '' : '&short=1'}&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '') + (SKIPN > 0 ? `&skip=${SKIPN}` : '');
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const T0 = Date.now();
 let VIEW = '';
@@ -48,17 +60,23 @@ const srv = http.createServer((q, r) => {
   r.writeHead(200, { 'content-type': MIME[path.extname(p).slice(1)] || 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(p).pipe(r);
 });
-await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+// (--port: a fixed one — localStorage is per origin, so the segments of a whole day must all be served on the same port
+// for her store to carry on; day-run.mjs picks one for the day)
+await new Promise((ok) => srv.listen(+opt('port', 0) || 0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/game/`;
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const LAUNCH = { executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+// (--profile: a persistent context — the segments of a whole match share her localStorage, so the store carries on)
+const browser = PROFILE ? null : await chromium.launch(LAUNCH);
+let live = null;
 const reports = {}, allFails = [];
 const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finishAll(2); }, BUDGET);
 async function finishAll(code) {
   clearTimeout(watchdog);
   console.log('\n[arena-audit] REPORT ' + JSON.stringify(reports));
+  if (OUT) try { fs.writeFileSync(OUT, JSON.stringify(reports, null, 1)); } catch (e) { say('could not write', OUT); }
   console.log(`[arena-audit] ${FORM}: ${allFails.length ? allFails.length + ' FAILED' : 'all checks passed'}`);
   for (const f of allFails) console.log('  FAIL ' + f);
-  try { await browser.close(); } catch (e) { /* gone */ }
+  try { await (browser || live).close(); } catch (e) { /* gone */ }
   srv.close();
   process.exit(code != null ? code : (allFails.length ? 1 : 0));
 }
@@ -67,10 +85,11 @@ process.on('unhandledRejection', (e) => { allFails.push('driver error ' + String
 for (const viewName of VIEWS_WANT) { try {
   VIEW = viewName;
   const V = VIEWS[viewName] || VIEWS.portrait;
-  const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch });
+  const CO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch };
+  const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
-  const page = await ctx.newPage();
-  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, questions: [] };
+  const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
+  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, query: QUERY, learn: LEARN_Q, gate: GATE, skip: SKIPN, full: FULL, questions: [] };
   reports[VIEW] = report;
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!/^blob:|^data:/.test(u)) bad.push('FAILED ' + u.replace(base, '/game/') + ' ' + ((r.failure() || {}).errorText || '')); });
@@ -78,7 +97,19 @@ for (const viewName of VIEWS_WANT) { try {
   page.on('pageerror', (e) => errs.push('[pageerror] ' + e.message + ' ' + String(e.stack || '').split('\n').slice(1, 3).join(' | ')));
   const check = (ok, what, detail) => { if (!ok) { fails.push(what + (detail ? ' — ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)).slice(0, 600) : '')); allFails.push(`${VIEW}: ${what}`); } say((ok ? 'ok   ' : 'FAIL ') + what + (detail && !ok ? ' ' + JSON.stringify(detail).slice(0, 500) : '')); return ok; };
   const ev = (fn, ...a) => page.evaluate(fn, ...a);
-  const step = (ms = 16.7) => ev((m) => __inkwave.debug.step(m), ms);
+  // every step also samples PLAY §1 rule 1 (play-8): match.paused false, no learn.hold, no .iw-learn__panel shown — from
+  // the first frame to the results card
+  const inv = { samples: 0, breaks: [] }; report.invariants = inv;
+  const step = async (ms = 16.7) => {
+    const r = await ev(([m, fast]) => {
+      if (fast) { const I = __inkwave, n = Math.max(1, Math.round(m / (1000 / 60))); I._skipRender = true; try { for (let i = 0; i < n; i++) I._frame(1 / 60); } finally { I._skipRender = false; } __G.scene.updateMatrixWorld(); __G.camera.updateMatrixWorld(true); }
+      else __inkwave.debug.step(m);
+      const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || F.finishT >= 0 || document.querySelector('.iw-learn.is-done')) return null;
+      const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
+      return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, state: M.state } : 0;
+    }, [ms, FAST]);
+    if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
+  };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const shotDone = new Set();
   const shot = async (name) => {
@@ -86,6 +117,7 @@ for (const viewName of VIEWS_WANT) { try {
     shotDone.add(name);
     fs.mkdirSync(SHOTS, { recursive: true });
     const f = path.join(SHOTS, `${FORM}${GATE ? '-g' + GATE : ''}-${VIEW}-${name}.png`);
+    if (FAST) await ev(() => __inkwave._frame(1 / 60));   // (fast stepping draws nothing: one drawn frame for the picture)
     await page.screenshot({ path: f, timeout: 180000 });
     say('shot', f);
   };
@@ -98,19 +130,24 @@ for (const viewName of VIEWS_WANT) { try {
   await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.learn, null, { timeout: 420000, polling: 250 });
   report.boot = await ev(() => { const F = __inkwave.match.learn, m = __inkwave.match; __inkwave.debug.freeze(); if (m.learnKind === 'boss' && __inkwave.debug.freezeBots) __inkwave.debug.freezeBots(); return { kind: m.learnKind, arena: !!F.arena, mode: F.arena && F.arena.mode, actors: m.actors.length, zones: !!m.zones, boss: !!m.boss, stage: __inkwave.mapDef && __inkwave.mapDef.id, gates: F.gates.map((g) => ({ id: g.id, n: g.items.length, kinds: [...new Set(g.items.map((it) => it.meta.kind + '.' + it.meta.input))] })), state: m.state, quiz: !!F.level.quiz }; });
   say('boot', JSON.stringify(report.boot));
-  check(report.boot.arena, 'LEARN.play is on: the form has its arena host');
+  check(report.boot.arena, 'the form has its arena host');
   // the intro / the prep board: step until the level plays and the board (duel / quiz) can be started
-  for (let i = 0; i < 120; i++) { const st = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), go: !!document.querySelector('.iw-lf__board.is-on') })); if (st.state === 'playing' && (st.prep || FORM === 'boss')) break; await step(250); }
-  const pre = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), board: !!document.querySelector('.iw-lf__board.is-on'), paused: __inkwave.match.paused }));
+  for (let i = 0; i < 120; i++) { const st = await ev(() => { const F = __inkwave.match.learn; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep') }; }); if (st.state === 'playing' && (st.up || FORM === 'boss')) break; await step(250); }
+  await step(30);   // (the board rises and the lens frames it)
+  const pre = await ev(() => { const F = __inkwave.match.learn, P = F.arena && F.arena.prepS; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep'), board: P ? P.debug() : null, go: !!document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'), paused: __inkwave.match.paused, hold: !!F.hold, panel: !!document.querySelector('.iw-learn__panel, .iw-lf__board.is-on'), bots: __inkwave.match.actors.filter((a) => a.bot).every((a) => a._learnIdle), xh: __G.hud && __G.hud.xh ? getComputedStyle(__G.hud.xh).visibility : null }; });
   say('pre', JSON.stringify(pre));
   // --skip-to S (boss): the audit's hand clears the phases before it (BossFlow._phaseDone 'cleared': the boss falls to each
   // band's floor, nothing written) — to reach the 回声亭 without eight questions first
   const SKIP = opt('skip-to', null);
   if (FORM === 'boss' && SKIP) { const r = await ev((ph) => { const F = __inkwave.match.learn; let n = 0; while (F.gates[F.pi] && F.gates[F.pi].phase !== ph && n++ < 6) F._phaseDone(F.gates[F.pi], 'cleared'); return { phase: F.gates[F.pi] && F.gates[F.pi].phase, skipped: n }; }, SKIP); say('skipped to', JSON.stringify(r)); }
   if (FORM !== 'boss') {
-    check(pre.board && pre.prep, 'the prep board is up before the round (LEVELS §2.3 备战; the clock stops)');
+    check(pre.up && pre.prep && pre.go, 'the 备战 is up before the round: an M6 board in front of her and 「开始」 on the strip (PLAY §4)', pre);
+    check(pre.paused === false && !pre.hold && !pre.panel, 'the 备战 does not stop the match (no pause, no hold, no card panel — play-8)', pre);
+    check(pre.bots, 'the bots stand while she reads (their brains off, not the match)', pre);
+    check(pre.xh === 'hidden', 'no crosshair on the 备战 board (play-8)', pre.xh);
+    if (SHOTS && !shotDone.has('prep')) { for (let i = 0; i < 16; i++) await step(100); const P2 = await ev(() => __inkwave.match.learn.arena.prepS.debug()); say('prep board before the picture', JSON.stringify(P2)); }   // (the board rises and the lens springs to it: the picture after that)
     await shot('prep');
-    await ev(() => document.querySelector('.iw-lf__go').click());
+    await ev(() => document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary').click());
     await step(50);
   }
 
@@ -159,9 +196,9 @@ for (const viewName of VIEWS_WANT) { try {
   async function untilQuestion() {
     for (let i = 0; i < 240; i++) {
       if (FORM === 'boss' && !FAR && i % 4 === 0) { const at = await ev(() => { const F = __inkwave.match.learn; return F._nearSaid || (F.arena && F.arena.m1 && F.gates[F.pi] && F.gates[F.pi].phase !== 'S' && !F.arena.m1.bossNear()); }); if (at) { const p = await nearBoss(); if (i === 0) say('walked her to the boss', JSON.stringify(p)); } }
-      const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind), card: !!(__G.hud.learn && __G.hud.learn._ask), board: !!document.querySelector('.iw-lf__board.is-on'), done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
-      if (s.asking || s.card || s.done || s.echo) return s;
-      if (s.board) { await ev(() => document.querySelector('.iw-lf__go').click()); }
+      const s = await ev(() => { const F = __inkwave.match.learn, H = F.arena; return { asking: !!(F.asking && H && H.kind && H.kind !== 'prep'), board: !!(H && H.kind === 'prep'), paused: __inkwave.match.paused, done: F.phase === 'done' || !!document.querySelector('.iw-learn.is-done'), between: F.phase === 'between', echo: !!(H && H.kind === 'echo') }; });
+      if (s.asking || s.done || s.echo) return s;
+      if (s.board) { if (s.paused) check(false, 'the 备战 between rounds does not pause the match', s); await step(20); await ev(() => { const b = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (b) b.click(); }); }
       await step(250);
     }
     return { timeout: true };
@@ -185,6 +222,7 @@ for (const viewName of VIEWS_WANT) { try {
     // play-7: the duel's objects up → the name tags over the bots step aside (hud.markerYield): every tag on the screen is
     // see-through, and none of them sits on an object's label (LEARN §24 已知坑 3)
     if (FORM !== 'boss') {
+      if (FAST) await sleep(350);   // (the tags fade on a CSS transition — .2 s of wall time; stepping without drawing gets here sooner)
       const tg = await ev((boxes) => {
         const L = document.querySelector('.iw-mks'), out = [];
         for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none') continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, off: el.classList.contains('is-off'), op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
@@ -196,6 +234,7 @@ for (const viewName of VIEWS_WANT) { try {
     await shot(d.banner ? 'm1-banners' : 'm1-balls');
     // a PLAIN round at the right object: her own weapon, aimed at it, no tap — it splats and answers nothing (PLAY §1.5)
     const before = st.answers.length, hitsBefore = ((d.log || []).filter((e) => e.ev === 'hit')).length;
+    if (!FULL || n <= 2) {
     await ev((k) => { const P = __inkwave.match.learn.arena.m1, a = __inkwave.match.local, W = __G.projectiles; const c = P.T.slots[k].pos; a.aimPoint.copy(c); a.aimDir.copy(c).sub(a.pos).setY(c.y - a.pos.y - 1.05).normalize(); const w = a.weapon && a.weapon.kind === 'shooter' ? a.weapon : null; if (w) W.fireShooter(a, w, 0); else W.fireShooter(a, { ...a.weapon, kind: 'shooter', projSpeed: 26, straightTime: 0.2, impactRadius: 0.5, damage: 20, trailEvery: 1.5, trailRadius: 0.5, range: 14 }, 0); }, right);
     let plainHit = null;
     for (let i = 0; i < 70; i++) { await step(16.7); const r = await ev((h0) => { const d = __inkwave.match.learn.arena.m1.debug(); const hits = (d.log || []).filter((e) => e.ev === 'hit'); return hits.length > h0 ? hits[hits.length - 1] : null; }, hitsBefore); if (r) { plainHit = r; break; } }
@@ -204,6 +243,7 @@ for (const viewName of VIEWS_WANT) { try {
     if (FORM === 'boss' && !plainHit) say(`info ${label}: the plain round met the boss (or fell short) before the ball — no answer either way`);
     else check(!!plainHit && plainHit.deliberate === false, `${label}: a plain round of hers met the object (deliberate: false)`, plainHit || 'no hit logged');
     check(s2.answers.length === before && !s2.dbg.m1.answered, `${label}: … and answered nothing (learn:answer unchanged, the question still up)`, { answers: s2.answers.length, before });
+    }
     // the tap on the right object → the round, the hit on it, the answer
     // (where it is NOW: the boss's balls ride a walking boss, the lens follows them)
     const dNow = await ev(() => __inkwave.match.learn.arena.m1.debug());
@@ -386,6 +426,9 @@ for (const viewName of VIEWS_WANT) { try {
     }
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
+    // (a whole day asks some items twice — a word in its round and again in 单词第二遍: the second is practice; first ===
+    // true exactly when the store had no leaf for it today — play-8)
+    const had = await ev((id) => { try { const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; const E = JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; return Object.values(E).some((doc) => doc && doc.it && doc.it[id] && doc.it[id][day]); } catch (e) { return false; } }, s.item || '');
     let v = null;
     if (s.mechanic === 'm1') v = await answerM1(s, right, label);
     else if (s.mechanic === 'type') v = await answerType(s, right, label);
@@ -395,7 +438,7 @@ for (const viewName of VIEWS_WANT) { try {
     check(!!v && v.ok === true, `${label}: answered right`, v || s2.dbg);
     if (s.mechanic !== 'echo') {
       const na = s2.answers.slice(before);
-      check(na.length === 1 && na[0].first === true, `${label}: learn:answer once, first of the day`, na);
+      check(na.length === 1 && na[0].first === !had, had ? `${label}: learn:answer once, practice (its first answer of the day was earlier)` : `${label}: learn:answer once, first of the day`, na);
       if (FORM !== 'boss') check(s2.inks > inks, `${label}: the zone flooded with her ink (learn:ink)`);
       else check(s2.hps > hps && s2.bossHp < s.bossHp, `${label}: the weak-point hit: HP ${s.bossHp} → ${s2.bossHp}`);
     }
@@ -404,11 +447,24 @@ for (const viewName of VIEWS_WANT) { try {
     seen[s.mechanic] = (seen[s.mechanic] || 0) + 1;
     for (let i = 0; i < 8; i++) await step(100);
     if (n >= MAXQ) break;
+    // (a whole match in segments: past the segment's wall clock, stop at this question boundary — the next segment
+    // starts at this round / phase, after its first items already answered right, in order; never in the 回炉 round —
+    // the last round of a whole duel day is 25 words: it must be able to stop there too)
+    if (SEGMENT && Date.now() - T0 > SEGMENT) {
+      // (a round that is over — its gate open, the pause after it, every item of it answered — resumes at the next one:
+      // never a finished round replayed, never a gate with nothing in it)
+      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; const base = Math.max(1, G0) + k; if (g.state === 'open' || F.phase === 'between' || done >= g.items.length) { const n = F.gates[k + 1]; return n && !n._relearnGate ? { gate: base + 1, skip: 0, of: n.items.length, title: n.title || n.phase } : null; } return { gate: base, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
+      if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
+    }
   } } catch (e) { check(false, 'driver error', String(e && e.message || e) + ' ' + String(e && e.stack || '').split('\n').slice(1, 3).join(' | ')); }
-  const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
+  // (a whole match: on to the results card — the clock of a last round may still run)
+  if (FULL && !report.resume) for (let i = 0; i < 400; i++) { const done = await ev(() => !!document.querySelector('.iw-learn.is-done')); if (done) break; await step(250); }
+  const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, results: !!document.querySelector('.iw-learn.is-done'), resultsText: ((document.querySelector('.iw-learn__results') || {}).innerText || '').slice(0, 400), answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
   report.end = end; report.seen = seen; report.fails = fails; report.badResponses = bad; report.errors = errs;
-  say('end', JSON.stringify({ seen, end }));
+  say('end', JSON.stringify({ seen, end: { ...end, evidence: undefined, answers: end.answers.length } }));
   check(n >= 1, `questions answered: ${n}`);
+  if (FULL && !report.resume) check(end.results, 'the whole match ran to the results card', end.phase);
+  if (inv.breaks.length) check(false, 'PLAY §1 rule 1 held on every step', inv.breaks.slice(0, 3)); else say(`invariants: ${inv.samples} steps sampled, none broken`);
   say(`${fails.length ? fails.length + ' FAILED' : 'all checks passed'} · 4xx ${bad.length} · console errors ${errs.length}`);
   for (const e of errs.slice(0, 5)) say('  ' + e);
   for (const b of bad.slice(0, 5)) say('  ' + b);

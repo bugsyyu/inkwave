@@ -1,28 +1,29 @@
 // 关卡学习 — Boss 战 boss (docs/LEVELS.md §2.5): the week's 周考 as HULLBREAKER. bossPlan(week) picks the items — L
 // listening 20 · R reading / vocab / grammar 20 · W the week's 3 sentences · S 4 Part 1 questions + 2 read-aloud —
 // and maps them to the boss's HP bands 100–66 · 66–33 · 33–10 · 10–0 (the boss's own phases 1 / 2 / 3 follow at 66 /
-// 33 %: crablets, then the frenzy). Questions come between its moves (the boss idle, no telegraph running): the match
-// is held while she answers (the boss only moves after she has answered). Right = one weak-point hit worth the
+// 33 %: crablets, then the frenzy). Questions come between its moves (the boss idle, no telegraph running); the boss
+// only moves after she has answered. Right = one weak-point hit worth the
 // phase's band / its questions (boss.applyDamage, so the HUD's bar, chip and damage numbers are INKWAVE's); wrong =
 // the boss gets a move of its phase (brain.force) and she dodges for LEARN.boss.dodge seconds; the item comes back
 // reworded once, then joins the 回炉 queue (asked again at the end). Streak 3 fills her special; streak 5 forces a
 // charge (the stun window). Her squad (3 bots) fights it as in Boss Battle, but only her answers hurt it: every
 // other hit is turned into a flash. Each phase has a time budget (LEARN.boss.phaseTime); when it runs out the rest
-// of that phase waits for another day and the boss falls to the band's floor. The S phase is cards (「等语音服务器」,
+// of that phase waits for another day and the boss falls to the band's floor. The S phase is the 回声亭 (「等语音服务器」,
 // 「说完了」 = the hit), no scoring, no evidence.
 //
-// 题即玩法 play-5 (docs/PLAY.md §3 M5, §5.4; LEARN §24): under LEARN.play a question is on the boss itself — a choice hangs
+// 题即玩法 play-5 (docs/PLAY.md §3 M5, §5.4; LEARN §24): a question is on the boss itself — a choice hangs
 // its option balls on HULLBREAKER's weak points (a round on the right one is the answer: the weak-point hit), a typed
 // item is the 打字蟹 lobbing its sheet at the hull's armour plate, the S phase is the 回声亭 on the deck (src/learn/play/
 // arena/) — never match.paused, never a hold, never a card. The boss still moves only after she has answered: while a
-// question is up its brain's cool-down is kept topped up. The one judging path is _judgeRecord below.
+// question is up its brain's cool-down is kept topped up. The one judging path is _judgeRecord below (play/judge.js).
 import * as THREE from 'three';
 import { G } from '../../core/ctx.js';
 import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store, bossLevel, daySteps } from '../api.js';
 import { EFFECTS } from '../design.js';
-import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, judgeAnswer, rightAnswerOf, relearnTip, canClaim, claimJudge } from './common.js';
+import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, rightAnswerOf, relearnTip } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
@@ -40,25 +41,26 @@ export class BossFlow extends LearnFlow {
     this.group.visible = false;
     this.ui = new FormsUi(G.hud); this.ui.start(); this.ui.onUse = (i) => this.useProp(i);
     this.boss = match.boss;
-    this.hold = false; this.asking = null; this.askT = 2.5; this.pi = 0; this.phaseLeft = 0; this.cards = false;
+    this.asking = null; this.askT = 2.5; this.pi = 0; this.phaseLeft = 0; this.cards = false;
     this.bag = []; this.hintNext = false; this.echoNext = false;
     this.streak = 0; this.rightN = 0; this.firstRight = 0; this.relearn = []; this.relearnRight = 0; this.relearnAsked = false; this.skipped = [];
     this.perPhase = {};
     for (const g of this.gates) this.perPhase[g.phase] = { zh: g.zh, asked: 0, right: 0, firstRight: 0, total: g.items.length, skipped: 0, timeUp: false };
     this.scoredN = this.gates.filter((g) => g.phase !== 'S').reduce((n, g) => n + g.items.length, 0);
     // (B's constructor counted the plan's gates, which are empty for a boss: the questions are the phases' items — the
-    // card's 「第 n / 共几题」 reads this; the S cards are not questions)
+    // results' 「做对 / 共几题」 reads this; the S booths are not questions)
     this.total = this.scoredN;
     this._prevSpecial = false; this._clockTxt = ''; this._wrapDamage(); this.clock = 0;
-    this._pendingMove = false; this._cardPaused = false; this._echoClearT = -1; this.A = LEARN.arena; this._nearWait = 0; this._nearSaid = false;
+    this._pendingMove = false; this._echoClearT = -1; this.A = LEARN.arena; this._nearWait = 0; this._nearSaid = false;
     // 题即玩法 (play-5): the questions are on the boss — the host asks them, judges through _judgeRecord
-    this.arena = LEARN.play && match.mode === 'learn' ? new ArenaHost(this, { mode: 'boss', boss: () => this.boss }) : null;
+    // (play-8: edges / settle on, as the duel and versus2: a label's lower edge in sight, nothing placed mid-blend)
+    this.arena = match.mode === 'learn' ? new ArenaHost(this, { mode: 'boss', boss: () => this.boss, edges: true, settle: true }) : null;
     this._startPhase(0);
     this._unsubs = [];
   }
 
   // the phases as gates: every planned item resolved to its game item (A's bossLevel for the scored ones, the day's
-  // speak steps for the S cards); the pos is where the boss spawns (the arena)
+  // speak steps for the S booths); the pos is where the boss spawns (the arena)
   _place() {
     const plan = this.level, w = plan.weekRef;
     const byId = new Map();
@@ -166,7 +168,7 @@ export class BossFlow extends LearnFlow {
   _holdBoss() { const b = this.boss; if (this.arena && b && b.brain && !b.move) { b.brain.cool = Math.max(b.brain.cool, this.A.bossHold); b.brain.plan = null; } }
   _ask(g) {
     this._holdBoss();
-    const item = g.queue.shift(), a = this.match.local, m = this.match;
+    const item = g.queue.shift();
     const p = item._form === 'alt' ? this._altPrompt(item) : prompt(item);
     if (item._relearn) { const tip = relearnTip(item); p.zh = [tip.zh, p.zh].filter(Boolean).join('　'); p._tip = tip; }
     if (this.hintNext && p.type !== 'choice') { this.hintNext = false; p.zh = ['提示：' + ((item.meta && (item.meta.hint || item.meta.zhFull)) || item.zh || ''), p.zh].filter(Boolean).join('　'); p._hinted = true; }
@@ -174,49 +176,21 @@ export class BossFlow extends LearnFlow {
     this.asked++; this.perPhase[g.phase].asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._relearn ? 'relearn' : item._form || 'normal', phase: g.phase });
     // 题即玩法: the question is on the boss — its weak points carry the options, the rig lobs at its hull (no hold, no pause, no card)
-    if (this.arena && this.arena.canAsk(g, item, p)) {
-      G.audio?.play?.('ui_confirm', { volume: 0.6 });
-      this.arena.ask(g, item, p);
-      if ((this.echoNext || (p._tip && (p._tip.slow || p._tip.speakBoth))) && p.tts) {
-        this.echoNext = false;
-        const again = p._tip && p._tip.speakBoth && item.meta && item.meta.pair ? item.meta.pair.filter((w) => w !== p.tts)[0] : p.tts;
-        setTimeout(() => { if (this.asking && this.asking.item === item) this.arena.say(again || p.tts); }, 1900);
-      }
-      return;
+    if (!this.arena || !this.arena.canAsk(g, item, p)) {   // (none in the three weeks: tests/learn/play-arena.test.mjs — passed over, never a card)
+      console.warn('[boss] no station for', item.id, p.type);
+      this._after(g, false); return;
     }
-    // the card (flag off): held, the match paused for it, as before
-    this.hold = true; a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.jump = false;
-    m.paused = true; this._cardPaused = true;   // the boss only moves after she has answered (B's order: hold, then the mouse)
-    G.input?.exitLock?.();
     G.audio?.play?.('ui_confirm', { volume: 0.6 });
-    this.hud?.ask(p, {
-      gate: { index: g.index + 1, total: this.gates.length, locks: g.locks, title: g.title },
-      item: { n: this.asked, total: this.total + this._retriesLeft(), retry: item._form === 'alt' },
-      onAnswer: (ans) => this._answer(g, item, p, ans),
-    });
+    this.arena.ask(g, item, p);
     if ((this.echoNext || (p._tip && (p._tip.slow || p._tip.speakBoth))) && p.tts) {
       this.echoNext = false;
       const again = p._tip && p._tip.speakBoth && item.meta && item.meta.pair ? item.meta.pair.filter((w) => w !== p.tts)[0] : p.tts;
-      setTimeout(() => { if (this.asking && this.asking.item === item) this.hud?._speak?.(again || p.tts); }, 1900);
+      setTimeout(() => { if (this.asking && this.asking.item === item) this.arena.say(again || p.tts); }, 1900);
     }
   }
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
 
-  // the card's answer (flag off): the one judging path; a near-miss sentence is held for the card's claim offer (I,
-  // docs/LEARN.md §17 — forms/common.js canClaim) until she claims it (S) or goes on (W)
-  _answer(g, item, p, ans) {
-    const out = this._judgeRecord(g, item, p, ans);
-    if (out.held) {
-      let claimed = false;
-      this.hud?.verdict({ ok: false, text: '差一点 — 意思到了', why: out.r.why, canonical: out.r.canonical, locks: g.locks, again: false },
-        () => { this._judgeRecord(g, item, p, ans, { decided: true, claim: claimed }); this._after(g, this._pendingMove); },
-        { onClaim: () => { const c = claimJudge(item, p, ans); if (!c.ok) return null; claimed = true; return { ok: true, why: c.why, text: '记下了 — 你的写法也对' }; } });
-      return;
-    }
-    this.hud?.verdict({ ok: out.r.ok, why: out.r.why, canonical: out.r.canonical, locks: g.locks, again: out.again }, () => this._after(g, this._pendingMove));
-  }
-  // The one judging path (PLAY §1 rule 2), whatever asked — the card's button, a round on a weak point's ball, the typed
-  // sheet on the hull: judge (B's mapping of the reworded forms) → the day's first answer into her progress (hinted →
+  // The one judging path (PLAY §1 rule 2), whatever asked — a round on a weak point's ball, the typed sheet on the hull: judge (B's mapping of the reworded forms) → the day's first answer into her progress (hinted →
   // H; her own claim → S) → the hit or the boss's move (pending until the verdict has been shown: _after), the retry /
   // 回炉. A near-miss sentence (canClaim) is HELD: { held: true }, nothing written, no lock, no move — the caller offers
   // 「我的写法也对」 and comes back with o.decided (o.claim: she claimed it; claimJudge decides whether it stands).
@@ -224,12 +198,11 @@ export class BossFlow extends LearnFlow {
   // flow.js's: { r, first, again }. (After play-wire's _judgeRecord(…, o) merges, the recording lines can be super's.)
   _judgeRecord(g, item, p, ans, o = {}) {
     const P = this.perPhase[g.phase] || (this.perPhase[g.phase] = { zh: '', asked: 0, right: 0, firstRight: 0, total: 0, skipped: 0, timeUp: false });
-    let r = o.judged || judgeAnswer(item, p, ans), self = false;
-    if (!o.decided && canClaim(item, p, r)) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
-    if (o.decided) { this._claimHeld = null; if (o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; self = true; } } }
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: Date.now(), ...(self ? { self: true } : {}) });
-    const first = !!rec.first;
+    // (a near-miss sentence is always held: the W phase waits for her — the boss does not move until she decides)
+    const out = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted, hold: true, decided: o.decided, claim: o.claim }, store });
+    const { r, first, self, hinted } = out;
+    if (out.held) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
+    if (o.decided) this._claimHeld = null;
     if (first) { this.firsts++; if (r.ok) { this.firstRight++; P.firstRight++; } }
     if (r.ok) { this.right.add(item.id); P.right++; }
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, phase: g.phase, ...(self ? { self: true } : {}) });
@@ -256,10 +229,8 @@ export class BossFlow extends LearnFlow {
     return super._altPrompt(item);
   }
   _after(g, move) {
-    this.asking = null; this.hold = false; this._pendingMove = false;
+    this.asking = null; this._pendingMove = false;
     this.hud?.hide(); this.hud?.el.classList.remove('is-walk');
-    if (this._cardPaused) { this._cardPaused = false; this.match.paused = false; }
-    G.input?.requestLock?.(); if (G.game) G.game._relock = true;
     if (move) this._bossMove(g);
     else this.askT = this.B.askGap;
   }
@@ -298,35 +269,27 @@ export class BossFlow extends LearnFlow {
     if (sk === 'streak5') { G.audio?.play?.(EFFECTS.boss.streak5.sfx, { volume: 0.8 }); G.hud?.banner?.('custom', EFFECTS.boss.streak5.banner[1]); const b = this.boss; if (b && b.brain) { b.brain.force = 'charge'; b.brain.cool = 0; b.brain.plan = null; } this.ui.say('连对 5 题 — Boss 要撞墙了（眩晕）'); }
   }
 
-  // ---------------------------------------------------------------------------------------------- the S cards
+  // ---------------------------------------------------------------------------------------------- the S phase
+  // the 回声亭 on the deck in front of her — she steps onto its pad, the sample plays, stepping off is 说完了 (_echoDone)
+  // (this.cards: a booth is up — the boss waits, as for a question)
   _card(g) {
     this._holdBoss();
-    const item = g.queue.shift(), m = this.match, meta = item.meta || {};
+    const item = g.queue.shift();
     this.cards = true;
-    const n = g.items.length - g.queue.length;
-    this._emit('learn:question', { itemId: item.id, gate: g.id, type: 'speak', form: this.arena ? 'echo' : 'card', phase: 'S' });
+    this._emit('learn:question', { itemId: item.id, gate: g.id, type: 'speak', form: 'echo', phase: 'S' });
     this.perPhase.S.asked++;
-    // 题即玩法: the 回声亭 on the deck in front of her — she steps onto its pad, the sample plays, stepping off is 说完了 (_echoDone)
-    if (this.arena && this.arena.askEcho(g, item)) return;
-    this.hold = true; m.paused = true; this._cardPaused = true; G.input?.exitLock?.();
-    const spec = item._readAloud
-      ? { title: `S 口语 · 朗读 ${n} / ${g.items.length} · 评分等语音服务器`, head: '朗读这句：', cards: [{ label: '句子', en: item.en, zh: item.zh }], rows: [{ en: '听范读', zh: '', tts: item.tts || item.en }] }
-      : { title: `S 口语 · 第 ${n} / ${g.items.length} 问 · 评分等语音服务器`, head: item.en, rows: [{ en: item.en, zh: item.zh, tts: item.tts || item.en }], cards: [meta.model ? { label: '范例（跟着说 2–4 句）', en: meta.model, zh: meta.modelZh } : null, ...(meta.phrases || []).slice(0, 3).map((ph) => ({ label: '句型', en: typeof ph === 'string' ? ph : ph.en, zh: typeof ph === 'string' ? '' : ph.zh })), meta.tip ? { label: '提示', en: '', zh: meta.tip } : null].filter(Boolean) };
-    this.ui.showBoard({ ...spec, go: '说完了' }, () => { this.ui.hideBoard(); this._echoDone(g, item, { how: 'board' }); });
+    if (!this.arena || !this.arena.askEcho(g, item)) { console.warn('[boss] no booth for', item.id); this._echoDone(g, item, { how: 'none' }); }
   }
-  // 说完了 (the booth's pad stepped off, or the board's button): the hit — unscored, nothing written (PLAY §3 M7)
+  // 说完了 (the booth's pad stepped off, or its board's button): the hit — unscored, nothing written (PLAY §3 M7)
   _echoDone(g, item, d) {
     if (!this.cards) return;
-    this.cards = false; this.hold = false; this.perPhase.S.right++;
+    this.cards = false; this.perPhase.S.right++;
     this._emit('learn:answer', { itemId: item.id, ok: true, first: false, gate: g.id, phase: 'S', unscored: true, how: d && d.how });
     this._hit(bossDamage(this.plan, 'S') * this.boss.maxHp, true);
     G.audio?.play?.(EFFECTS.boss.right.sfx, { volume: 0.8 });
-    if (this._cardPaused) { this._cardPaused = false; this.match.paused = false; }
-    G.input?.requestLock?.(); if (G.game) G.game._relock = true;
     this.askT = 1.5;
     if (this.arena) this._echoClearT = 1.2;   // (the pad fills with her ink first, then the booth goes)
   }
-  prep() { return this.cards && !(this.arena && this.arena.kind === 'echo'); }
 
   // ---------------------------------------------------------------------------------------------- props
   _propKey(a) {
@@ -349,7 +312,7 @@ export class BossFlow extends LearnFlow {
     if (this.phase === 'done') return;
     const b = this.boss;
     if (b && !b.dead) this._hit(b.hp + 1, true);   // the last card was the last hit; make sure it fell
-    this.phase = 'done'; this.hold = true;
+    this.phase = 'done';
     this.match.local.character.setDance?.('victory');
     G.audio?.play?.(EFFECTS.boss.defeat.sfx, { volume: 0.9 });
     this.finishT = 4.2;
@@ -382,7 +345,7 @@ export class BossFlow extends LearnFlow {
 
   debug() {
     const b = this.boss;
-    return { form: 'boss', phase: this.gates[this.pi] ? this.gates[this.pi].phase : null, pi: this.pi, phases: this.gates.map((g) => ({ id: g.phase, n: g.items.length, left: g.queue.length, state: g.state })), hp: b ? +b.hpFrac().toFixed(3) : null, bossPhase: b ? b.phase : null, idle: b ? (b.visible && !b.move && b.anim === 0) : null, hold: this.hold, cards: this.cards, phaseLeft: +this.phaseLeft.toFixed(1), bag: this.bag.slice(), streak: this.streak, relearn: this.relearn.length, per: this.perPhase, actors: this.match.actors.length, asking: this.asking ? { item: this.asking.item.id, type: this.asking.p.type, play: this.asking.play || null } : null, brainCool: b && b.brain ? +b.brain.cool.toFixed(2) : null, move: b && b.move ? b.move.id : null, arena: this.arena ? this.arena.debug() : null };
+    return { form: 'boss', phase: this.gates[this.pi] ? this.gates[this.pi].phase : null, pi: this.pi, phases: this.gates.map((g) => ({ id: g.phase, n: g.items.length, left: g.queue.length, state: g.state })), hp: b ? +b.hpFrac().toFixed(3) : null, bossPhase: b ? b.phase : null, idle: b ? (b.visible && !b.move && b.anim === 0) : null, cards: this.cards, phaseLeft: +this.phaseLeft.toFixed(1), bag: this.bag.slice(), streak: this.streak, relearn: this.relearn.length, per: this.perPhase, actors: this.match.actors.length, asking: this.asking ? { item: this.asking.item.id, type: this.asking.p.type, play: this.asking.play || null } : null, brainCool: b && b.brain ? +b.brain.cool.toFixed(2) : null, move: b && b.move ? b.move.id : null, arena: this.arena ? this.arena.debug() : null };
   }
   effects() { const b = this.boss; return { hp: b ? +b.hpFrac().toFixed(3) : null, bossPhase: b ? b.phase : null, move: b && b.move ? b.move.id : null, phase: this.gates[this.pi] ? this.gates[this.pi].phase : null, streak: this.streak }; }
 

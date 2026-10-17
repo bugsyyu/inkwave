@@ -6,7 +6,8 @@
 //                             语法 · 发音小测 / 阅读题 / 音标 / 听辨对子: PLAY §4's 对抗赛 and Boss columns are all M1 / M5) and the
 //                             typed card's 回炉 choice (p._alt 'choice-of-typed'); never a flip card, a typed rewording, or
 //                             more planks than LEARN.m1.bannerMax
-//   arenaKind(item, p)        'm1' (ink targets) · 'type' (字弹 M4: anything typed) · null (nothing here — the card)
+//   arenaKind(item, p)        'm1' (ink targets) · 'type' (字弹 M4: anything typed) · 'flip' (翻牌靶 M8: a review day's
+//                             flash-flip card in a duel, play-8) · null (nothing here — none in the three weeks)
 //   weakSockets(n)            the boss's sockets an n-option choice hangs its balls on (eyes first: the weak points she
 //                             can always see; the belly and the cannon mouth after), PLAY §3 M5
 //   clusterLocals(objs, anchor, basis) → Float32Array  each object's offsets from the cluster's anchor in the camera basis at
@@ -41,7 +42,7 @@ export function canPlayArena(item, p) {
 export function arenaKind(item, p) {
   if (!p) return null;
   if (canPlayArena(item, p)) return 'm1';
-  if (p._flip) return null;
+  if (p._flip) return 'flip';
   if (TYPED.has(p.type)) return 'type';
   return null;
 }

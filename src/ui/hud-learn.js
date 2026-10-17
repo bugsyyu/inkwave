@@ -1,13 +1,12 @@
-// 关卡学习 — the question layer (docs/LEARN.md §5, hooks). The HUD owns one: `hud.learn = new LearnHud(hud)`; the
-// level (src/learn/flow.js) drives it: start(flow) · walk(info) · ask(prompt, opts) · verdict(v, next) · hide() ·
-// results(data, actions) · end().
+// 关卡学习 — the level's own layer (docs/LEARN.md §5, hooks). The HUD owns one: `hud.learn = new LearnHud(hud)`; the
+// level (src/learn/flow.js and the forms) drives it: start(flow) · walk(info) · playMode(on) · hide() ·
+// results(data, actions) · end() — and the voice every play kind speaks with: _speak(text, done, o) (the course's
+// recording, else the device's own English voice through speechSynthesis).
 //
-// Chinese first: the question is Chinese, every English line carries its Chinese (an option's gloss shows with the
-// verdict, so a zh→en choice is not given away). Three ways to answer — a real <input> (dictation; Enter submits),
-// choice buttons, and ▶ to hear the item again (item.audio when the course has a recording, else the device's own
-// English voice through speechSynthesis). Then the verdict with 「为什么」, and 「继续」 (or Enter) to go on.
-// Phone (≤ LEARN.ui.phoneMax px wide): the card takes the bottom half of the screen, buttons ≥ 44 pt, 16 px+ text so
-// iOS does not zoom the field. Dark glass over the stage; honours prefers-reduced-motion.
+// 题即玩法 (docs/PLAY.md; play-8, LEARN §27): there is no question card any more — a question is a thing on the stage and
+// the strip (src/ui/play-strip.js) says it. What stays here: the walk bar (where the next gate is, 「自动走」), the
+// results card at the end of a level (做对 / 共几题, 到期的词, 再来一关 / 回到菜单) and the voice. Chinese first;
+// buttons ≥ 44 pt; dark glass over the stage; honours prefers-reduced-motion.
 // Its own layer in #ui-root (z 18): over the HUD and the touch controls, under the pause menu.
 import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
@@ -15,19 +14,14 @@ import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
 import { say as sayAudio, stop as stopAudio } from '../learn/audio.js';   // the course's recordings (LEARN §16), else the device voice below
 
-const KIND_ZH = { typed: '听写', type: '听写', choice: '选择', write: '写句', read: '看一看', flip: '翻牌', clue: '你说 · 队友答' };
-const LOCK_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="28" width="36" height="28" rx="6" fill="currentColor"/><path d="M22 28v-7a10 10 0 0 1 20 0v7" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>';
-
 export class LearnHud {
   constructor(hud) {
     this.hud = hud;
     this.on = false;
     this.flow = null;
     this._L = {};        // last-written values (per-frame dirty checks)
-    this._ask = null;    // the live question { p, opts, answered }
     this._voice = null;
     this._build();
-    this._onKey = (e) => this._key(e);
   }
 
   // ================================================================ build
@@ -41,29 +35,6 @@ export class LearnHud {
     this.autoBtn.addEventListener('click', () => { if (this.flow) { this.flow.autoWalk(!this.flow.auto); this._snd('ui_click'); } });
     this.walk_ = h('div', { class: 'iw-learn__walk' }, this.arrow, h('span', { class: 'iw-learn__walkmain' }, this.walkTxt, this.walkDist), this.walkGate, this.autoBtn);
 
-    // ---- question card
-    this.prog = h('span', { class: 'iw-learn__prog' });
-    this.locks = h('span', { class: 'iw-learn__locks' });
-    this.kind = h('span', { class: 'iw-learn__kind' });
-    this.qText = h('div', { class: 'iw-learn__q' });
-    this.qZh = h('div', { class: 'iw-learn__zh' });
-    this.playBtn = h('button', { class: 'iw-learn__btn iw-learn__play', type: 'button' }, h('i', { html: GLYPHS.speaker }), h('span', null, '听'));
-    this.playBtn.addEventListener('click', () => this._play());
-    this.form = h('div', { class: 'iw-learn__form' });
-    this.vIcon = h('i', { class: 'iw-learn__vicon' });
-    this.vText = h('b', { class: 'iw-learn__vtext' });
-    this.vWhy = h('div', { class: 'iw-learn__why' });
-    this.nextBtn = h('button', { class: 'iw-learn__btn iw-learn__next', type: 'button' }, h('span', null, '继续'), h('i', { html: GLYPHS.next }));
-    this.nextBtn.addEventListener('click', () => this._continue());
-    // 「我的写法也对」 (a written sentence check() calls claimable — forms/common.js canClaim): her own call, recorded as S
-    this.claimBtn = h('button', { class: 'iw-learn__btn iw-learn__claim is-dim', type: 'button' }, h('i', { html: GLYPHS.check }), h('span', null, '我的写法也对'));
-    this.claimNote = h('small', { class: 'iw-learn__claimnote' });
-    this.claimEl = h('div', { class: 'iw-learn__claimrow' }, this.claimBtn, this.claimNote);
-    this.verdictEl = h('div', { class: 'iw-learn__verdict' }, h('div', { class: 'iw-learn__vline' }, this.vIcon, this.vText), this.vWhy, this.claimEl, this.nextBtn);
-    this.panel = h('div', { class: 'iw-learn__panel', role: 'dialog', 'aria-label': '题目' },
-      h('div', { class: 'iw-learn__head' }, this.kind, this.prog, this.locks),
-      this.qText, this.qZh, this.playBtn, this.form, this.verdictEl);
-
     // ---- results card
     this.rTitle = h('div', { class: 'iw-learn__rtitle iw-display' }, '这一关走完了');
     this.rScore = h('div', { class: 'iw-learn__rscore' });
@@ -72,7 +43,7 @@ export class LearnHud {
     this.rMenu = h('button', { class: 'iw-learn__btn iw-learn__big is-dim', type: 'button' }, h('i', { html: GLYPHS.back }), h('span', null, '回到菜单'));
     this.results_ = h('div', { class: 'iw-learn__results', role: 'dialog' }, this.rTitle, this.rScore, this.rDue, h('div', { class: 'iw-learn__rbtns' }, this.rAgain, this.rMenu));
 
-    this.el = h('div', { class: 'iw-learn is-off', 'aria-hidden': 'true' }, this.walk_, this.panel, this.results_);
+    this.el = h('div', { class: 'iw-learn is-off', 'aria-hidden': 'true' }, this.walk_, this.results_);
     this.hud.root.appendChild(this.el);
   }
 
@@ -81,7 +52,7 @@ export class LearnHud {
     this.flow = flow;
     this.on = true;
     this._L = {};
-    this.el.classList.remove('is-off', 'is-ask', 'is-done');
+    this.el.classList.remove('is-off', 'is-done');
     this.el.setAttribute('aria-hidden', 'false');
     this.el.classList.add('is-walk');
     colorVars(this.el, 'self', (G.teamHex || [])[0] || '#ff8a14');   // her ink colour on the buttons and the ring
@@ -92,23 +63,21 @@ export class LearnHud {
     this._warmVoice();
   }
   end() {
-    this.on = false; this.flow = null; this._ask = null;
-    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-ask', 'is-done', 'is-play'); this.playOn = false;
+    this.on = false; this.flow = null;
+    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-done', 'is-play'); this.playOn = false;
     this.el.setAttribute('aria-hidden', 'true');
     this.hud.el?.classList.remove('is-learn');
     G.touch?.el?.classList.remove('is-learn');
-    window.removeEventListener('keydown', this._onKey, true);
     stopAudio();   // the recording or the device's voice
-    clearTimeout(this._vT);
   }
 
-  // 题即玩法 (docs/PLAY.md §2; src/learn/play/run.js): while a question is ink targets the strip (src/ui/play-strip.js) takes
-  // the walk bar's place — no card, no walk bar; off again when the gate opens or a card item comes
+  // 题即玩法 (docs/PLAY.md §2; src/learn/play/run.js): while a question is up the strip (src/ui/play-strip.js) takes the
+  // walk bar's place; off again when the gate opens
   playMode(on) {
     this.playOn = !!on;
     this.el.classList.toggle('is-play', this.playOn);
-    if (this.playOn) this.el.classList.remove('is-walk', 'is-ask');
-    else if (this.on && !this.el.classList.contains('is-ask') && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
+    if (this.playOn) this.el.classList.remove('is-walk');
+    else if (this.on && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
   }
 
   // ================================================================ walking
@@ -129,184 +98,11 @@ export class LearnHud {
     if (near !== L.near) { L.near = near; this.walk_.classList.toggle('is-near', near); this.walkTxt.textContent = near ? '到门前了' : '下一道门'; }
   }
 
-  // ================================================================ a question
-  ask(p, opts) {
-    this._ask = { p, opts, answered: false };
-    const { gate, item } = opts;
-    this.kind.textContent = (item.retry ? '再问一次 · ' : '') + (KIND_ZH[p.type] || '题');
-    this.prog.textContent = `第 ${item.n} / ${item.total} 题 · 门 ${gate.index} / ${gate.total}`;
-    this._locks(gate.locks);
-    this.qText.textContent = p.text || '';
-    this.qZh.textContent = p.zh || '';
-    this.qZh.style.display = p.zh && p.type !== 'flip' ? '' : 'none';   // (a flip card shows its Chinese on the card)
-    const canPlay = !!(p.tts || p.audio);
-    this.playBtn.style.display = canPlay ? '' : 'none';
-    this.form.innerHTML = '';
-    this.input = null; this.flipBtns = null; this._flip = null;
-    if (p.type === 'clue') {
-      // 双人合作 (coop2, docs/LEARN.md §14): this screen holds the clue half — the stem and the sound, no form; the
-      // partner's screen has the form (the verdict comes back here too)
-      this.form.className = 'iw-learn__form is-clue';
-      this.choices = null;
-      this.form.append(h('div', { class: 'iw-learn__clue' }, p.hint || ''));
-    } else if (p.type === 'choice') {
-      this.form.className = 'iw-learn__form is-choice';
-      this.choices = (p.options || []).map((o, i) => {
-        const b = h('button', { class: 'iw-learn__opt', type: 'button', 'data-i': String(i) },
-          h('b', { class: 'iw-learn__optn' }, String(i + 1)),
-          h('span', { class: 'iw-learn__opten' }, o.text),
-          h('small', { class: 'iw-learn__optzh' }, o.zh || ''));
-        b.addEventListener('click', () => this._submit(i));
-        return b;
-      });
-      this.form.append(...this.choices);
-    } else if (p.type === 'flip') {
-      // 快闪翻牌 (the review day's 150 words): the Chinese on the front → 「翻过来」: the word, its IPA, its sound →
-      // her own 「记得 / 不记得」 (evidence F). Space / Enter flips, 1 / 2 rate.
-      this.form.className = 'iw-learn__form is-flip';
-      this.choices = null;
-      const B = p.back || {};
-      const card = h('div', { class: 'iw-learn__card' },
-        h('div', { class: 'iw-learn__face is-front' }, h('small', null, '中文'), h('b', null, p.zh || '')),
-        h('div', { class: 'iw-learn__face is-back' }, h('b', { class: 'iw-learn__backen' }, B.en || ''), B.ipa ? h('span', { class: 'iw-learn__backipa' }, `/${B.ipa}/`) : null, h('small', null, B.zh || '')));
-      const flip = h('button', { class: 'iw-learn__btn iw-learn__flip', type: 'button' }, h('i', { html: GLYPHS.reset }), h('span', null, '翻过来'));
-      const know = h('button', { class: 'iw-learn__btn iw-learn__know', type: 'button' }, h('i', { html: GLYPHS.check }), h('span', null, '记得'));
-      const forgot = h('button', { class: 'iw-learn__btn iw-learn__forgot is-dim', type: 'button' }, h('i', { html: GLYPHS.close }), h('span', null, '不记得'));
-      this._flip = () => {
-        if (this.form.classList.contains('is-flipped')) return;
-        this.form.classList.add('is-flipped');
-        this._snd('ui_toggle');
-        if (B.tts) { this.playBtn.style.display = ''; this._ask.p = { ...p, tts: B.tts }; this._play(); }
-        setTimeout(() => know.focus?.(), 30);
-      };
-      flip.addEventListener('click', () => this._flip());
-      card.addEventListener('click', () => this._flip());
-      know.addEventListener('click', () => this._submit(true));
-      forgot.addEventListener('click', () => this._submit(false));
-      this.form.append(card, flip, h('div', { class: 'iw-learn__rate' }, know, forgot));
-      this.flipBtns = [know, forgot];
-    } else {
-      this.form.className = 'iw-learn__form is-typed' + (p.type === 'write' ? ' is-write' : '');
-      this.choices = null;
-      // a sentence to write gets a box of three lines (the whole sentence in view while she writes); a word or a
-      // dictation is one line. Enter submits either way (Shift+Enter is a new line in the box).
-      this.input = p.type === 'write'
-        ? h('textarea', { class: 'iw-learn__input is-area', rows: '3', placeholder: p.placeholder || '用英文写出这句话', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'sentences', spellcheck: 'false', enterkeyhint: 'done', 'aria-label': '答案' })
-        : h('input', { class: 'iw-learn__input', type: 'text', placeholder: p.placeholder || '输入英文', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', 'aria-label': '答案' });
-      // keys typed here are letters, not game keys: never let W/A/S/D reach the input layer on window
-      this.input.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._submit(this.input.value.replace(/\s*\n\s*/g, ' ')); } });
-      const ok = h('button', { class: 'iw-learn__btn iw-learn__submit', type: 'button' }, h('span', null, '提交'), h('i', { html: GLYPHS.check }));
-      ok.addEventListener('click', () => this._submit(this.input.value));
-      this.form.append(this.input, ok);
-    }
-    this.verdictEl.classList.remove('is-on', 'is-ok', 'is-bad');
-    this.panel.classList.remove('is-answered');
-    this.el.classList.add('is-ask'); this.el.classList.remove('is-walk');
-    if (!prefersReducedMotion()) restartAnim(this.panel, 'is-enter');
-    window.addEventListener('keydown', this._onKey, true);
-    // hear it once as it comes up (the walk's keys / taps are the gesture the browser wants)
-    if (canPlay && p.type !== 'flip') this._play();
-    if (this.input && !G.input?.touch?.active) setTimeout(() => this.input?.focus(), 60);
-  }
-
-  _locks(n) {
-    this.locks.innerHTML = '';
-    for (let i = 0; i < n; i++) this.locks.appendChild(h('i', { class: 'iw-learn__lock', html: LOCK_SVG, title: '答错一次' }));
-    this.locks.style.display = n ? '' : 'none';
-  }
-
-  _submit(ans) {
-    const a = this._ask;
-    if (!a || a.answered) return;
-    // (an empty field is not an answer: A's dictation / spelling type is 'type', the stub's and the reworded card's 'typed')
-    if (a.p.type !== 'choice' && a.p.type !== 'flip' && !String(ans ?? '').trim()) { restartAnim(this.form, 'is-shake'); this._snd('ui_error'); return; }
-    if (a.p.type === 'flip' && !this.form.classList.contains('is-flipped')) { this._flip?.(); return; }   // (rate after seeing the back)
-    a.answered = true;
-    if (this.flipBtns && a.p.type === 'flip') this.flipBtns.forEach((b, i) => { b.disabled = true; b.classList.toggle('is-picked', (i === 0) === (ans === true)); });
-    if (this.choices) { this.choices.forEach((b, i) => { b.disabled = true; b.classList.toggle('is-picked', i === ans); }); }
-    if (this.input) { this.input.disabled = true; this.input.blur(); }
-    a.opts.onAnswer(ans);
-  }
-
-  // claim (optional): { onClaim() → the verdict after her claim ({ ok, why, text? }) or null when check() refuses it } — offered
-  // on a near miss only; 继续 without it goes on as a miss (the flow's next() reads which happened)
-  verdict(v, next, claim) {
-    const a = this._ask; if (!a) return;
-    a.next = next;
-    this._claimOffer(a, v, claim);
-    this.vIcon.innerHTML = v.ok ? GLYPHS.check : GLYPHS.close;
-    this.vText.textContent = v.text || (v.ok ? '对了！' : v.again ? '不对，门上多了一道锁。待会儿换个问法再来' : '不对，记住正确的写法');
-    this.vWhy.textContent = v.why ? `为什么：${v.why}` : '';
-    this._locks(v.locks);
-    this.verdictEl.classList.add('is-on', v.ok ? 'is-ok' : 'is-bad');
-    this.panel.classList.add('is-answered');
-    // the right option lights up and every option shows its Chinese now (the English line gets its gloss)
-    if (this.choices) {
-      const want = String(v.canonical ?? '');
-      this.choices.forEach((b) => { const en = b.querySelector('.iw-learn__opten')?.textContent || ''; b.classList.toggle('is-right', en === want); });
-    }
-    if (!prefersReducedMotion()) restartAnim(this.verdictEl, 'is-pop');
-    // (I: on a phone the card is the bottom half and scrolls — a sentence, its verdict and 「我的写法也对」 run past it: bring
-    // the verdict and 「继续」 into view, as IELTS-Base's exam does with its result)
-    try { this.nextBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* old engines */ }
-    // a wrong answer waits for 「继续」 so the correction is actually read; a right one moves on by itself
-    clearTimeout(this._vT);
-    if (v.ok) this._vT = setTimeout(() => this._continue(), prefersReducedMotion() ? 500 : LEARN.ui.verdictMs);
-  }
-
-  _claimOffer(a, v, claim) {
-    const on = !!(claim && !v.ok);
-    this.claimEl.style.display = on ? '' : 'none';
-    this.claimBtn.style.display = '';
-    this.claimBtn.disabled = !on;
-    this.claimNote.textContent = '点了算自评，周报里请老师看';
-    this.claimBtn.onclick = on ? () => {
-      if (a !== this._ask || a.claimed) return;
-      const nv = claim.onClaim && claim.onClaim();
-      if (!nv || !nv.ok) { restartAnim(this.claimEl, 'is-shake'); this._snd('ui_error'); return; }
-      a.claimed = true;
-      this.claimBtn.style.display = 'none';
-      this.claimNote.textContent = '已记下：你的写法（周报里请老师看）';
-      this.vIcon.innerHTML = GLYPHS.check;
-      this.vText.textContent = nv.text || '记下了 — 你的写法也对';
-      this.vWhy.textContent = nv.why ? `为什么：${nv.why}` : '';
-      this.verdictEl.classList.remove('is-bad'); this.verdictEl.classList.add('is-ok');
-      if (!prefersReducedMotion()) restartAnim(this.verdictEl, 'is-pop');
-      this._snd('ui_confirm');
-      clearTimeout(this._vT);
-      this._vT = setTimeout(() => this._continue(), prefersReducedMotion() ? 500 : LEARN.ui.verdictMs);
-    } : null;
-  }
-
-  _continue() {
-    const a = this._ask;
-    if (!a || !a.answered || !a.next) return;
-    clearTimeout(this._vT);
-    const next = a.next; a.next = null;
-    this._ask = null;
-    next();
-  }
-
+  // between questions / after a gate: the voice stops, the walk bar comes back (a station puts the strip up after it:
+  // playMode(true))
   hide() {
-    this._ask = null;
-    clearTimeout(this._vT);
-    window.removeEventListener('keydown', this._onKey, true);
     stopAudio();   // the recording or the device's voice
-    this.el.classList.remove('is-ask');
     if (this.on) this.el.classList.add('is-walk');
-  }
-
-  // while a question is up: 1–9 pick an option, Enter continues after the verdict (typed input handles its own Enter)
-  _key(e) {
-    const a = this._ask; if (!a) return;
-    if (e.target === this.input) return;
-    if (a.answered) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); this._continue(); } return; }
-    if (this.choices && /^[1-9]$/.test(e.key)) { const i = +e.key - 1; if (this.choices[i]) { e.preventDefault(); e.stopPropagation(); this._submit(i); } }
-    if (a.p.type === 'flip') {
-      const flipped = this.form.classList.contains('is-flipped');
-      if (!flipped && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); e.stopPropagation(); this._flip?.(); }
-      else if (flipped && (e.key === '1' || e.key === '2')) { e.preventDefault(); e.stopPropagation(); this._submit(e.key === '1'); }
-    }
   }
 
   // ================================================================ sound: the recording, or the device's English voice
@@ -321,18 +117,6 @@ export class LearnHud {
       this._voice = vs.find((v) => /^en[-_]US/i.test(v.lang) && /natural|premium|enhanced|samantha|ava|allison/i.test(v.name)) || vs.find((v) => /^en[-_]US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
     } catch { this._voice = null; }
     return this._voice;
-  }
-  _play() {
-    const a = this._ask; if (!a) return;
-    const p = a.p;
-    stopAudio();   // (whatever was playing ends first, so its end does not clear this button)
-    this.playBtn.classList.add('is-playing');
-    const done = () => this.playBtn.classList.remove('is-playing');
-    if (p.audio) {
-      try { const au = new Audio(p.audio); au.onended = done; au.onerror = () => { done(); this._speak(p.tts, done); }; au.play().catch(() => { done(); this._speak(p.tts, done); }); return; } catch { /* fall through */ }
-    }
-    // a relearned sentence is heard slowly the first time (forms/common.js relearnTip: slow)
-    this._speak(p.tts, done, { slow: !!(p._tip && p._tip.slow) });
   }
   // the course's recording of the text (src/learn/audio.js: IELTS-Base's app/audio/ in her App), else the device's voice
   _speak(text, done, o) {
@@ -354,7 +138,7 @@ export class LearnHud {
   // ================================================================ results
   results(data, actions) {
     this.hide();
-    this.el.classList.remove('is-walk', 'is-ask'); this.el.classList.add('is-done');
+    this.el.classList.remove('is-walk', 'is-play'); this.el.classList.add('is-done');
     this.rScore.innerHTML = '';
     this.rScore.append(h('b', null, String(data.done)), h('span', null, ` / ${data.total} 题 做对`), h('small', null, data.locks ? ` · 门上一共 ${data.locks} 道锁` : ' · 一道锁都没有'));
     this.rDue.innerHTML = '';

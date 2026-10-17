@@ -15,7 +15,7 @@
 
 1. **内容不减少。** 三周课程的每一步（词、句、发音、听写、语法、场景题）、考试中心的每一种题、每一条雅思规则的判分，都要能在关卡里出现；关卡只是外壳。做不到的先留在「经典页」入口里，不删。
 2. **证据模型就是内容。** 她在关卡里的每一次「当天首答」写进和 IELTS-Base 一样的证据格式（`ev-<周一>`），由同一个记忆模型（`app/base/model.js` 的半衰期、到期）排到期、由同一个考试排程（`app/exam/sched.js`）出题和估分。进度是同一份：先本机（`localStorage`），再接她今天配好的同步服务器（`IELTS-Base/server`）。**不另起一套账。**
-3. **iPhone 先行。** 学习关卡不要求双摇杆瞄准：答题的操作是点、选、打字、说；走位用一根摇杆或自动走。热区 ≥ 44 pt。减少动态效果、深色都要好看。
+3. **iPhone 先行。** 学习关卡不要求双摇杆瞄准：答题是一个游戏动作——点射题物、换道、踩拍子、在游戏键盘上打字开火（PLAY §3；play-8 起卡片删了，世界从不暂停）；走位用一根摇杆或自动走。热区 ≥ 44 pt。减少动态效果、深色都要好看。
 4. **每一句英文都配中文。** 课程路径上她看到的英文一律带中文（IELTS-Base 的 `gloss` 规矩）。~~INKWAVE 自己的英文菜单先留着~~（10-16 起，G：游戏壳默认全中文，INKWAVE 原来的英文在 `?lang=en`，见 §15）；英文只出现在题目本身里。
 5. **直接复用 INKWAVE。** 舞台、角色、武器、墨、机器人、房间、HUD、音乐都照用；不重写引擎。IELTS-Base 的场景底图、她的写实模型、咖啡馆全景、分块以后作为新的舞台 / 道具加进来。
 6. **隐私照旧。** `app/my-progress.*` 不打开、不复制、不上传；录音（100 MB）不进 git；仓库里不写模型名；提交末尾两行署名照 IELTS-Base。
@@ -70,10 +70,10 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 进游戏的三个钩子（只改这三处，其余不动）：
 - `src/game/match.js`：`mode: 'learn'`，`opts.learn = { kind, level }`；`puzzle` 单人无敌人（像 practice），`race` 单人 + 机器人跑路线，`duel` 走 `zones` 的规则，`boss` 走 `boss`。
 - `src/ui/menus.js`：主菜单多一项 **「学习 · Learn」** → 选周 / 选天 / 选形式 → 开局。
-- `src/ui/hud.js` + `src/ui/hud-learn.js`：答题层（题干、选项 / 输入框 / 播放按钮、对错和「为什么」、进度）；手机上占下半屏，热区 ≥ 44 pt。
+- `src/ui/hud.js` + `src/ui/hud-learn.js`：~~答题层（题干、选项 / 输入框 / 播放按钮、对错和「为什么」、进度）；手机上占下半屏~~（play-8 更正：题卡删了——题干是顶上的题条 `src/ui/play-strip.js`，答案是舞台里的题物 `src/learn/play/`，PLAY §2–§3；`hud-learn.js` 只剩走路条、关卡结尾的结果卡和念英文的声音），热区 ≥ 44 pt。
 - 数字都在 `src/config.js` 的 `LEARN`（题数、时限、道具效果、机器人答题正确率）。
 
-事件走 `src/core/ctx.js` 的总线，照 `docs/EVENTS.md` 的样子：`learn:question`、`learn:answer`（{ id, ok, first }）、`learn:gate`、`learn:done`。
+事件走 `src/core/ctx.js` 的总线，照 `docs/EVENTS.md` 的样子：`learn:question`、`learn:answer`（{ id, ok, first }）、`learn:gate`、`learn:done`（play-8：没有卡片专有的事件；一道题没有玩法接得住时流程发 `learn:skip` 跳过它——三周里不会发生，`design.test` 核每个条目都有玩法）。
 
 ## 6. 节奏（先竖切片，再铺开）
 
@@ -99,7 +99,7 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 
 **API 照契约，多出来的都是加项**：
 - `content.js`：`loadWeek(n)` 返回课程包里的 `week`（`{ id, n, title, days }`，`days` 就是包里的天，带 `a/b/c`）；`daySteps(week, d)` 的 Step 多一个 `meta`：`{ type（包里的 type）, k（科目）, sess, day: { id, n, title, teacher }, scored（计分条目数）, lesson?（语法讲解的行）, passage?（阅读：title titleZh en zh gloss parse）, from?（flash 来自哪些步）}`。Item 的 `meta` 固定有 `{ kind, input, step, scored }`：`kind` 是 IELTS-Base 索引里的种类（`word dict quiz read pair sym write speak lesson`），`input` 是作答方式 `'type' | 'choice' | 'write' | 'read'`；引擎按这两个分派。**id 就是 IELTS-Base 的条目 id**（`w:monday`、`d:w1d1:b1:jawo5t`、`q:w1d1:a3:…`、`q:w1d1:b2:q:…`、`p:cap|cup`、`s:ʌ`、`x:…`、`k:…`），所以证据可以直接并进她的账。另有 `setLoader(fn)`（Node / Electron 自己读文件）、`weekIndex(week)`、`itemOf(id)`、`dayOf(week, d)`、`KINDS`。
-- 包里的步 → 关卡步：`symbols / symreview` → **pron**（「哪个词里有 /ʌ/？」：这个音的第一个例词对同一步里相邻三个音的例词，都是包里的词）；`grammar` 且 `k: 'pron'` → **pron**（第 2、3 周的弱读 / 连读 / 重音小测，原题原选项）；`grammar` → **choice**；`words` → **choice**（看到、听到这个词，选中文；干扰项是同一步相邻三个词的中文）；`flash` → **dictation**（听到词、打出来 = 宿主的卡片听写；`meta.typed: true`，`hint` 是中文和音标，B 先显示了提示就算辅助作答，记 `hinted: true`）；`dictation` → **dictation**（整句，宿主的 `dictScore`）；`reading` → **listen**（`tts` 是整篇课文，每题都带，B 一步放一次；问题是包里的题）；`pairs` → **listen**（放词对中的一个，`stableHash(id) % 2` 决定放哪个，两个都是选项）；`write / speak / checkin / weekly / placement` → **lesson**。写句子的条目仍然计分、`judge` 能判（`input: 'write'`，走 gen.js 的 WT），只是步的 kind 先是 lesson、不进解谜关的门；口语、打卡、周复盘、入门小测的条目 `scored: false`。
+- 包里的步 → 关卡步：`symbols / symreview` → **pron**（「哪个词里有 /ʌ/？」：这个音的第一个例词对同一步里相邻三个音的例词，都是包里的词）；`grammar` 且 `k: 'pron'` → **pron**（第 2、3 周的弱读 / 连读 / 重音小测，原题原选项）；`grammar` → **choice**；`words` → **choice**（看到、听到这个词，选中文；干扰项是同一步相邻三个词的中文）；`flash` → **dictation**（听到词、打出来 = 宿主的卡片听写；`meta.typed: true`，`hint` 是中文和音标，B 先显示了提示就算辅助作答，记 `hinted: true`；play-8 更正：卡片删了，提示是游戏键盘上的「提示」键或墨雨，判分一处写在 `play/judge.js`）；`dictation` → **dictation**（整句，宿主的 `dictScore`）；`reading` → **listen**（`tts` 是整篇课文，每题都带，B 一步放一次；问题是包里的题）；`pairs` → **listen**（放词对中的一个，`stableHash(id) % 2` 决定放哪个，两个都是选项）；`write / speak / checkin / weekly / placement` → **lesson**。写句子的条目仍然计分、`judge` 能判（`input: 'write'`，走 gen.js 的 WT），只是步的 kind 先是 lesson、不进解谜关的门；口语、打卡、周复盘、入门小测的条目 `scored: false`。
 - `engine.js`：`prompt(item)` 的 `type` 是 `'type' | 'choice' | 'write' | 'read'`；选词义时 `options[].text` 是中文、`zh` 空，其余 `text` 英文、`zh` 中文；听写和拼词的 `text` 是中文指令，句子只在 `tts` 里（听，不看）；拼词多 `hint: { zh, ipa }`。`judge(item, answer)` 固定 `{ ok, why, canonical }`，另给：听写 `pct, zh, toks`（错因 `sp / fw / end / mis` 已译成「拼写 / 弱读小词没听出 / 词尾吞了 / 没听出」）；拼词 `close`（`fdClose` 的「很接近」，可做「我的写法也对」）、`ops`；写句 `claimable, forms, coverage`。选择题的 `answer` 可以是序号、数字字符串或选项原文。没计分的条目 `judge` 返回 `{ ok: true, why: '看完就好，不计分。' }`——**流程不要对它们 `recordFirst`**（store 也会拒绝）。
 - `store.js`：`recordFirst({ itemId | item, ok, pct?, day?, at?, hinted?, self?, typed? })`，`day` 默认设备今天、`at` 默认现在（她的手机就在她的时区，和宿主的墙钟一致）；听写请传 `judge` 给的 `pct`（叶子存百分数，和 `core.record` 一样）；返回 `{ first, doc, date, hms, leaf }` 或 `{ first: false }`（当天已有首答）/`{ first: false, reason }`（索引里没有这个条目、没计分、方式不对——`core.record` 也是这样不写）。方式照 `core.js mapEvidence`：课上作答 `L`，打字的词 `T`（提示后 `H`，「我的写法也对」`S`），写句 `W`（自认对 `S`）。`due(week, asOf?)` = `Model.answers` + `Model.memory` 的 `due`（p < 0.6 或上次错），最该复习的在前；没答过的不算到期（它们是「新」的，不是「到期」）。`progress(week, day)` = 这天计分条目里有过证据的 / 全部（单词和它的卡片算一个）。`evidence()` 就是 `{ 'ev-<周一>': { v: 2, it: { 条目: { 日期: { 时分秒: [结果, 方式] } } } } }`，以后交给 `Model.mergeDoc` 并进她的账。另有 `setBackend({ getItem, setItem })`、`KEY`、`reset()`、`hasEvOn()`、`hasAny()`。
 - `levels.js`：四个函数都返回 `{ kind, stage: 'tidewater', week, day, title, teacher, gates: [{ id: 'gate:<步>', stepId, kind, title, minutes, items, pos: null }], signs }`；`gates` 是这天每个要作答的步（lesson 步是 `signs`），**步里的条目全在**（复习日 `symreview` 48 个、`flash fromWeek` 150 个是故意的，每道门问几个由 flow.js 定）。`raceLevel` 把 `store.due(week)` 到期的条目排到各自检查点前面、有到期的检查点排前面，`due` 字段给到期的 id；`duelLevel` 多 `rules: { mode: 'zones', teams: 2 }`；`bossLevel(week)` 是整周：每道门多 `phase`（`L` 听力 / 发音、`R` 单词 / 语法 / 阅读、`W` 写句，`S` 口语等语音服务器）和 `day`，按阶段再按天排。
@@ -230,13 +230,13 @@ vendor/ielts/  bank.js gen.js sched.js mark.js model.js（原样复制，带来�
 - **竖屏**（她竖着拿手机从 App 进来）：`styles/ui.css` 末尾的竖屏段给**主菜单、学习屏、设置、学习局的暂停**一列的版式（按钮全宽、字 ≥ 15 px、热区 ≥ 44 px、键盘提示条藏起来）；`touch.js` 的「把手机横过来」条只盖其它 INKWAVE 屏（选模式、装备、换装、联机…，它们还是横屏的版式）。`?from=app` 时主菜单的第一个大按钮是「学习」、下面是「回课本」。
 - **字体**：Titan One、Rubik 没有汉字。`styles/ui.css` 给 `'Titan One'` 加了一个只管汉字的别名（`unicode-range` 指到系统的粗黑体：苹方中粗、冬青黑体 W6、思源黑体 Bold、微软雅黑 Bold），拉丁字母还是原来的 Titan One；中文时描边细一点。
 
-**今日小考**（E 只代码审过）：`?learn=w1d1&kind=quiz&short=1` 和**解谜结算卡上的「今日小考」按钮**都在 headless 里跑通了。修的：审计脚本等结果卡原来按墙钟 8 秒，软件 GL 下一模拟秒要好几秒墙钟，结果卡（`finishT` 1.4 秒）还没到就超时——改成按模拟时间等；小考原来把结果写进这一天的星星（2 题的短考也能给 w1d1 一颗星）——现在只记 `w1d1:quiz` 的奖杯，结果卡不显示星、写「小考不算这一天的星星」和「课上答过的再答只算练习」；小考的备战板写「今日小考 · 傍晚一轮对抗赛」而不是「备战 · 第 1 / 1 轮」。`tools/learn/play-quiz-chain.json`：解谜短关 → 结果卡的按钮 → 8 题的 2 对 2（傍晚、zones 版舞台）→ 结果卡。
+**今日小考**（E 只代码审过）：`?learn=w1d1&kind=quiz&short=1` 和**解谜结算卡上的「今日小考」按钮**都在 headless 里跑通了。修的：审计脚本等结果卡原来按墙钟 8 秒，软件 GL 下一模拟秒要好几秒墙钟，结果卡（`finishT` 1.4 秒）还没到就超时——改成按模拟时间等；小考原来把结果写进这一天的星星（2 题的短考也能给 w1d1 一颗星）——现在只记 `w1d1:quiz` 的奖杯，结果卡不显示星、写「小考不算这一天的星星」和「课上答过的再答只算练习」；小考的备战板写「今日小考 · 傍晚一轮对抗赛」而不是「备战 · 第 1 / 1 轮」。`tools/learn/play-quiz-chain.json`：解谜短关 → 结果卡的按钮 → 8 题的 2 对 2（傍晚、zones 版舞台）→ 结果卡（play-8：这个走卡片路的脚本和 `drive-forms.js` 一起删了；小考在 `tools/learn/arena-audit.mjs --form quiz` 里跑）。
 
 **Boss 的音乐**：`bossAudio.js` 的 `isBossMatch(m)` 认 `mode 'boss'` 和 `mode 'learn' + learnKind 'boss'`，周考里 `battle / battle_final` 也路由到 Boss 的曲子，阶段切换 `boss → boss_2 → boss_3`，打沉时收。headless 里看了 `G.music.play` 的请求序列：`boss · battle→boss · battle_final→boss · boss_2 · boss_3 · null`。
 
-**复习日快闪翻牌**（LEVELS §1.1 / §3.1，原来是打字卡）：复习日 150 词那一步（`mechanic 'flash-flip'`）在解谜、道具赛、对抗赛里都是**翻牌**：正面中文 →「翻过来」→ 背面英文、美音音标、自动读一遍 →「记得 / 不记得」（键盘：空格翻、1 / 2 评）。自评记证据方式 **`F`**：`store.recordFirst` 加了 `how` 参数（`Model.MODES` 里有 `F`；IELTS-Base `core.js mapEvidence` 的「看词自评」就是 `[ok ? 1 : 0, 'F']`；不在 `MODES` 里的方式什么也不写）。「不记得」不上锁、不绕路，马上换成打字卡再来一次（当天首答已经是那个 `F`，打字只算练习），打字再错照常换问法、进回炉。`forms/common.js` 的 `isFlipGate / flipPrompt / flipJudge / cardFor` 三种形式共用；`hud-learn.js` 画卡。审计加了 `?gate=N`（短关从第 N 道门开始，复习日翻牌是 `&gate=3`）。
+**复习日快闪翻牌**（LEVELS §1.1 / §3.1，原来是打字卡）：复习日 150 词那一步（`mechanic 'flash-flip'`）在解谜、道具赛、对抗赛里都是**翻牌**：正面中文 →「翻过来」→ 背面英文、美音音标、自动读一遍 →「记得 / 不记得」（键盘：空格翻、1 / 2 评）。自评记证据方式 **`F`**：`store.recordFirst` 加了 `how` 参数（`Model.MODES` 里有 `F`；IELTS-Base `core.js mapEvidence` 的「看词自评」就是 `[ok ? 1 : 0, 'F']`；不在 `MODES` 里的方式什么也不写）。「不记得」不上锁、不绕路，马上换成打字卡再来一次（当天首答已经是那个 `F`，打字只算练习），打字再错照常换问法、进回炉。`forms/common.js` 的 `isFlipGate / flipPrompt / flipJudge / cardFor` 三种形式共用；`hud-learn.js` 画卡（play-8 更正：卡删了——翻牌是 M8 翻牌靶 `src/learn/play/flip/`，解谜、跑酷的复习日和对抗赛 w1d7 都是它；「不熟」照旧交给打字蟹）。审计加了 `?gate=N`（短关从第 N 道门开始，复习日翻牌是 `&gate=3`）。
 
-**E 没做的、这次做了的**：Boss W 段写句的输入框是**三行的 `<textarea>`**（一整句在眼前；回车提交、Shift+回车换行）；空答案不再能提交（原来只拦替身的 `'typed'`，A 的听写是 `'type'`）；**路标的 3D 占位**：写字墙 / 回声亭 / 打卡垫（复习日还有周报牌、入门小测牌）在出口区各一个环 + 立柱 + 中文牌子（画在画布贴图上），面朝她来的方向（解谜在对面出口、道具赛在终点；对抗赛和 Boss 没有路线，不放）——只是占位，不出题；Boss 周考答题卡的「第 n / 共几题」原来分母是 0；手机上 Boss 的段条只写段名的第一个词（「R 阅读」），不再竖着折行。
+**E 没做的、这次做了的**：Boss W 段写句的输入框是**三行的 `<textarea>`**（一整句在眼前；回车提交、Shift+回车换行；play-8 更正：输入框随卡片删了，W 段是字弹 M4 打在装甲板上）；空答案不再能提交（原来只拦替身的 `'typed'`，A 的听写是 `'type'`）；**路标的 3D 占位**：写字墙 / 回声亭 / 打卡垫（复习日还有周报牌、入门小测牌）在出口区各一个环 + 立柱 + 中文牌子（画在画布贴图上），面朝她来的方向（解谜在对面出口、道具赛在终点；对抗赛和 Boss 没有路线，不放）——只是占位，不出题；Boss 周考答题卡的「第 n / 共几题」原来分母是 0；手机上 Boss 的段条只写段名的第一个词（「R 阅读」），不再竖着折行。
 
 **测试**：`npm run test:learn` 53 / 53（原 43 + `i18n.test.mjs` 6：每个键都有英文和中文、占位符两边一致、Node 里默认中文、`?lang=en` 是原来的英文、每把武器 / 副武器 / 特殊武器 / 舞台 / 队名 / 难度都有中文名、**扫描**她会经过的代码——`menus.js` 的载入 / 标题 / 主菜单 / 学习屏 / 暂停 / 设置 / 怎么玩 / 制作人员和共用控件、`hud.js`、`hud-boss.js`、`hud-learn.js`、`forms/ui.js`、`touch.js`、`boss-art.js`、设置预览、`main.js` 的进度字和击倒信息——没有不经过 `t()` 的英文字符串（白名单只有键名和专名），再一条确认扫描会咬人；+ `flip.test.mjs` 4：复习日恰好一道 150 张的翻牌门、别的天还是打字卡；翻牌的正反面和判定；`cardFor` 的三种去向；`recordFirst({ how: 'F' })` 的叶子 `Model.validLeaf` 认、方式不对不写、一天一个首答、「不记得」第二天到期）；`npm run check` 200 文件绿。
 
@@ -1269,3 +1269,108 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - **给合并的人**：和 `play-6` 的交集只有 `arena/type.js` / `arena/host.js`，改的段落不重叠（见「动了别人地盘的」）；合并后 `versus2` / `coop2` 用 `ArenaType` 的打字在横屏也走分体和 `splitFrame`（不用改）。`docs/LEARN.md`：play-6 应该写 §25，这里是 §26，合并时两节各自保留。
 - **接口**：`keys.rect()` → `{ top, h, split, mid: { x0, x1 } | null, halves }`；`typingColumn(keys)` → `{ W, H, top, bottom, x0, x1, shelf }` | null；`splitFrame(col)` → `{ pos, look, fov, fits, score, px: { y0, y1, x0, x1, h, glyph, head, row } }`（打字蟹坐标，`fov` 交给 `PlayCam` / `runner/cam.js` 的 `zoom`）；`G.hud.markerYield(bool)`；`BoardWalk.bandFor = (aspect, W, H) → band`。
 - **已知坑**：① 审计里 `--max` 截短的那一关会记一条「gates opened 0 / 2」——审计自己的，不是游戏的；② 键盘的滑入是墙钟上的 CSS 过渡，审计照旧关掉；③ 题条的滑入动画在冻时钟下可能停在透明的开头（`land-measure` 不按透明度判题条）；④ `splitFrame` 第一次搜一种屏约 15–80 ms（Node），三个站都在 `warm()` 里先算；转屏以后第一次会再搜一次。
+
+## 27. play-8 交付（2026-10-17，分支 `play-8`：删卡片 + 判分合成一条 + 整天从头跑到尾 + 桌面 + 已知小毛病——PLAY §9 第 8 期）
+
+**先读了什么**：PLAY §1（12 条）、§4 表、§5.3、§9 第 8 期、§10、§11；本文 §18–§25 每节的「拿不准的 / 没做的 / 交接」（任务书的清单就是它们：§22 更新 5 的墨球出界、§23 拿不准的 11 的 halyard 起跑台、§24 交接的「四份同签名的 `_judgeRecord`」和 `_wordPool`、§24 拿不准的 1 的备战板、§25 拿不准的 2 / 交接的 `edges` / `settle` 和 ▶）；`flow.js`、`forms/*.js`、`play/**` 里每一处 `LEARN.play` / `hold` / `paused` / `hud.ask`；play-7 的工作树（只读：它改横屏取景、键盘、HUD 的钟和名牌，我这边一行没碰这些）。
+
+**先定的**：
+1. **证据快照先做、在基线上跑**（`tools/learn/evidence-snapshot.mjs`）：三周全部计分条目 × 六种形式（解谜、跑酷、对抗赛 + 小考、Boss、versus2、coop2）× 对 / 错 / 差一点 / 提示（键盘的、道具的）/ 扣住了再自认 / 扣住了继续 / 翻牌认识 / 不熟再打 / 换问法对错 / 回炉，每个用例在一个只有该形式原型 + 它的 `_judgeRecord` 要读的字段的替身上调用**各形式自己的** `_judgeRecord`，记下每次调用的 `first / held` 和最后的证据叶子；`Date.now` 钉死、每个用例自己的随机种子，输出排序后的 JSONL + sha256。基线在 `55c8343` 的拷贝上用同一个工具跑（工具只读不改游戏代码）；删卡片、合判分、修毛病每一步之后重跑，**128 270 个用例逐字节相同（sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`）**——这是硬指标。
+2. **一条判分路** `src/learn/play/judge.js` `judgeRecord({ item, p, ans, o, store }) → { r, first, held, self, hinted, evidence }`（纯函数）：判（`o.judged` 或 `judgeAnswer`）→ 扣住（`o.hold` + `canClaim`：不写、不算首答）→ 她的决定（`o.decided` + `o.claim` → `claimJudge`，站得住就是 `S`，否则照原样 `W`）→ 提示（`p._hinted` 或 `o.hinted` → `H`）→ 翻牌（`p._flip` → `F`）→ `store.recordFirst`。各形式的 `_judgeRecord(g, item, p, ans, o)` 只剩自己的东西：传什么 `o`（解谜原样传站点给的；跑酷和 Boss 永远 `hold: true`；对抗赛 / versus2 / coop2 只传 `judged / hinted`）和之后的队列 / 锁 / 再问一次 / 回炉 / 效果。
+3. **对抗赛的备战 = M6 展板 + 走路，比赛不停**（PLAY §4「课文 · 对抗赛：M6（备战时）」；§24 拿不准的 1）：`match.paused` 不动；区域的钟顶在下一轮的时长上（`m.time = max(m.time, roundT)`，HUD 写「备战 · 第 n / N 轮」）、第一轮的 ZoneControl 用 `winner = -1` 冻着（之后每轮开打时才新建）、机器人的大脑换成一个每帧清意图的函数（`_idleBots`：站着摆 `lobby_pose`，开打时删掉换回原来的），她自己随便走。展板一次一块立在她面前（新 `arena/prep.js` `PrepStation`，站位找法从 coop2 的线索板抽成 `board/front.js frontSpot`），题条上「下一块 n / N」「开始这一轮」；往前走 `LEARN.duel.prepWalk`（6 m，config 新键）、桌面按回车也开打。展板的内容：这一步自己的板（解谜的 `gateSpecs`：单词 / 音标 / 讲解 / 课文），没有就一块说明板；小考、回炉那一轮各一块说明板。
+4. **卡片版道具赛删掉，`race.js` 留成没有卡片的基类**（`RunnerFlow` 继承它的机器人、名次、道具、`_laneFlood`）：任务书给的两条路里这条改动最小；它只剩跑酷用得到的方法（没有 `_answer` / hold / 检查点出题 / 「跳过」道具）。跑酷起跑前的阅读课文原来是卡片板，改成同一个 `PrepStation`（「出发」）。
+5. **复习日翻牌**：解谜、对抗赛是翻牌靶 M8（对抗赛原来走卡片：`ArenaHost` 加了一个 `FlipStation`，`arena/m1.js arenaKind` 给 `p._flip` 返回 `'flip'`）；跑酷、versus2、coop2 本来就是字弹（`T / H`）——`design.js playOf` 照实写，PLAY §4 那一格标了「play-8 更正」。
+6. **一道题没有站点接**（三周里不会发生，`design.test` / `play-wire.test` 核）：`_askNext` 不再退到卡片，`console.warn` + `learn:skip { itemId, gate, type }` 跳过它（EVENTS.md 加了一行）。
+7. **整天怎么跑**：SwiftShader 下一天要一个小时上下，锁是两个子代理共用的，所以分段：每段 ≤ 15 分钟，到点在题和题之间停，报告里写下一段从哪道门的第几个条目接着（`?gate=N&skip=K`，`forms/index.js` 读 `skip`：第 N 道门从第 K 个条目开，门都答完了就是写字墙的第 K 句），所有段用同一个 Chromium 配置目录**和同一个端口**（存储按源分：换了端口就是一个空的存储——第一次分段跑对抗赛时就是这样，见实测 D5）；`tools/learn/day-run.mjs` 一段一段地起（每段自己进锁）、`tools/learn/day-check.mjs` 把几段合起来核（见测试）。
+
+**改了什么**：
+- **删卡片**：`config.js` 删 `LEARN.play`（加 `LEARN.duel.prepWalk`）；`flow.js`：构造只在解谜时建 `PlayHost`、`_place` / `_buildSigns` / `_arrive` / `_askNext` / `_altPrompt` 的开关分支只剩玩法那一支、`toCard` 和卡片的 `_answer` 删掉、出题时不再 `paused / exitLock / hold`、锁一律珊瑚色；`forms/race.js`（见先定的 4）、`duel.js`（ArenaHost 一直在、备战见先定的 3）、`boss.js`（卡片分支、`_answer`、hold、`_cardPaused`、`prep()` 删掉，回声亭照旧）、`versus2.js` / `coop2.js`（卡片分支、`_answer`、hold、`hud._ask` 删掉；coop2 没有作答方宿主时只剩线索视图，结果卡时清意图）；`forms/index.js`（`flowFor`：`race` 就是 `RunnerFlow`，`runner` 是它的别名）；`forms/ui.js` 删 `showBoard / hideBoard`；`forms/common.js` 删 `boardOf` / `BOARDED`；`hud-learn.js` 删问答卡（面板 DOM、`ask / verdict / _submit / _claimOffer / _continue / _key / _play`、键盘监听、`KIND_ZH`、锁图标），留走路条、结果卡、`playMode`、声音；`styles/hud.css` 删卡片的 CSS；`i18n.js` / `menus.js` 去掉开关；`design.js` `FORM_ZH.race = '墨浪跑酷'`、`playOf` 管到七种形式。
+- **别人的文件各一两行**（见「动了别人地盘的」）：`touch.js`、`match.js`、`main.js`。
+- **判分**：新 `play/judge.js`；六个 `_judgeRecord` 和 `runner/rows.js rowAnswer` 都走它。
+- **小毛病**：① `run.js` `_drift` + `targets.js show({ keep })`；② `flow.js` `WORD`；③ `runner/track.js rowFit`；④ `duel.js` / `boss.js` 的 `ArenaHost` 开 `edges / settle`；⑤ `runner-drive.js xhShown` 量 `.iw-ret`；⑥ `duo/coop.js` 作答方键盘不要 ▶。
+- **整天才看到的**：`board/frame.js boardSpots`（短路段不叠板）、`board/walk.js`（同一位置的两块板依次框）；`runner/runner.js _respawnRows`（问着一行幕时掉进海里，那一行不算答）。
+- **合并 dev（`676cca2`，play-7）之后**：`arena/host.js` 的名牌让位（`markerYield`）也管对抗赛的翻牌卡和备战展板，这两样在她面前时准星也藏起来；`arena/prep.js` 的展板按 play-7 的 `hudBand` 取景。
+- **审计**（`tools/learn/`）：删 `drive.js`、`drive-forms.js`、`play-forms*.json`、`play-desktop.json`、`play-phone.json`、`play-quiz-chain.json`、`play-audit.mjs`、`net-duo-coop.mjs`（都只会走卡片）；`net-duo.mjs` 只剩大厅、`net-duo-play.mjs` 去掉 `--play 0`；`portrait-groups.mjs` 删卡片那几组；`runner-audit` 的 forms 场景和卡片道具赛的帧时间删掉；`wire-audit` / `arena-audit` / `runner-audit` 加整天分段（`--full --profile --segment --gate --skip --out`）、每一步核 PLAY §1 第 1 条，整天时不画帧地步进（每步之后更新场景图和相机矩阵、截图前画一帧，`--render` 照旧每步画）；`runner-audit --trace a,b`（游向某段路上那几行的逐步轨迹）；`net-duo-play` 核 coop2 作答方键盘没有 ▶；新 `evidence-snapshot.mjs`、`day-run.mjs`（一段一段起、每段自己进锁、按 resume 接、一天一个端口）、`day-check.mjs`（几段报告合起来核）；三个审计加 `--port`；`wire-audit` 桌面上节拍台按键答（1–4）；`arena-audit --fast`（Boss 也不画帧）。
+- **文档**：LEVELS.md（§0 原则 5、§2 开头三条、§2.2 检查点和第二次错、§2.3 备战、§5 相机 / HUD / 文字、§4 / §6.4 的「hud-learn 的输入」）、本文 §1 / §5 / §8 / §15、PLAY.md 七处「play-8 更正」、EVENTS.md（`learn:gate` / `learn:question` 的说明、`learn:skip`）。
+
+**动了别人地盘的**：
+- `src/main.js` 删 2 行（`_onPointerUnlock` 里 `learn.hold` 时重新锁指针——hold 没了）。
+- `src/game/match.js` 1 行（控制器的启用不再看 `learn.hold`）+ 1 行注释。
+- `src/core/touch.js`：`live` 不再看 `learn.hold`；学习局里点在题条的 ▶ / 按钮上（`.iw-ps__play, .iw-ps__act, .iw-learn__btn`）照旧让给它们。
+- `src/ui/hud-learn.js` / `styles/hud.css`：任务书第 1 条要删的问答卡就在这里，所以是删，不是「只做加法」——`hud.js` 一行没动；HUD 的钟、名牌、Boss HP 条（play-7）没碰。
+- `src/learn/play/board/frame.js` / `walk.js`（play-3 的）：上面那两处修补；`src/learn/play/run.js` / `targets.js`（play-1 的）：墨球出界那一处；`src/learn/play/runner/track.js` / `runner.js`（play-4 的）：`rowFit` 和掉海那一处。
+- `weapons.js`、`actor.js`、`cameraRig.js`、`src/ui/play-keys.js`、`src/learn/play/type/*`、横屏取景：一行没动。
+- **和 play-7 的合并**（主会话让收尾前合 dev `676cca2`）：两边都改过的 `tools/learn/{wire-audit,arena-audit,runner-audit}.mjs`、`runner-drive.js`、`styles/hud.css`、`board/walk.js` 自动合上；冲突只有 `arena/host.js` 的 import（两边都要）和 PLAY §8（App 一段照 dev、触屏一行留 play-8 更正）；合并提交 `fe9772f`。
+
+**测试**：`npm run test:learn` 205 → 216（play-8 加 11 条），合并 dev 以后 242（dev 231 + 11）；`npm run check` 合并后 285 个文件。
+- 新 `judge.test.mjs`（3）：`judgeRecord` 的约定（对、当天第二次是练习、键盘提示 / 道具提示 → `H`、翻牌 `F`、扣住不写 → 自认 `S` / 继续 `W`、没有 `o.hold` 不扣、`o.judged` 就是判定）；**各形式 vs `judgeRecord`**：第 1 周每个计分条目 × 六种形式 × 对 / 错 / 提示 / 差一点扣住 / 自认 / 继续（3 000+ 个用例），形式自己的 `_judgeRecord` 写出的叶子和「同一答案、这个形式的约定」下 `judgeRecord` 写出的一样、扣不扣也一样；源码：`src/learn` 下只有 `play/judge.js` 调 `recordFirst`，六个形式的 `_judgeRecord` 各调一次 `judgeRecord`。
+- 新 `play8.test.mjs`（5）：源码里没有问答卡、`LEARN.play`、`learn.hold`、`hud.ask / verdict / showBoard`，`src/learn` 下 `paused = true` 只在 `_results`；触屏层让开题条按钮；三周每个对抗赛日每一轮的备战展板都排得出来（字 ≥ 54 画布像素）、小考 / 回炉是说明板；机器人在备战里是大脑换掉（清意图）不是暂停、开打换回；打字单词的回炉选择只有单词（三周 × 解谜 / 跑酷 / 对抗赛，旧代码上这条失败：`Saturday and Sunday` 当干扰项）；跑酷掉进海里时只有她前面挂着的那一行幕按「没答」处理。
+- `design.test.mjs`：三周每个条目 × 七种形式 `playOf` 有值、不是卡片、`answer` 和 `meta.input` 对得上（翻牌是 `self`）、§4 表的 `record` 用 `judgeRecord` 写出的叶子核。
+- `runner-track.test.mjs` +1（合成的窄坡 / 窄台阶在读题区末尾：不放行；平而窄、宽而高、矮于 0.9 m、4 m 以外：照放）；`play3-board.test.mjs` +2（短路段的展板、同一位置两块板）；`forms / duo / play-arena / play-wire / play3-flip / play4 / runner-glide / runner-answer` 改成没有卡片的说法（`boardOf` → `gateSpecs`、`_answer` → `judgeRecord`）。
+- **证据快照**：见先定的 1——基线和每次改动后逐字节相同，合并 dev 以后在合并的代码上再核一次，也相同（128 270 个用例，sha256 `bae04357…`）。
+
+**实测**（浏览器：一次一个 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10`，Chromium + SwiftShader、`?quality=low`、阴影 / 泛光关、冻时钟步进、竖屏 390 × 844 触屏（`&from=app`）；整天的都经 `tools/learn/day-run.mjs` 起、`day-check.mjs` 合起来核；报告和截图在主会话草稿目录的 `play8-out/`、`play8-shots/`，不进仓库；2026-10-17 UTC）：
+
+| 轮 | 跑的什么 | 结果 | 看到的 / 改的 |
+|---|---|---|---|
+| s1 | 解谜 w1d1 短关门 1–2（合并前，删卡片之后的第一次） | 1 条失败 | 门 2 第一题 `w:monday` 的第三颗墨球标签出右边 31 px——已知小毛病 ①，复现；布局在安全区里，投影整排右移 54–64 px：镜头在墨球放下以后又挪了 0.58 m、转了 3.9° |
+| s2 | 同上，`run.js _drift` 之后 | 全过 | 镜头停稳 0.5 s 后重排一次（`relaid dp 0.578 dq 0.068`），四颗都在安全区里 |
+| d1 | 解谜 w1d1 **整天**（第一次） | 在门 1 前停了 600 s | 门 1 的 4 块音标板有 3 块叠在一个位置，框住的永远是第一块、自动走一次次停在那里——`boardSpots` / `BoardWalk` 修了（「改了什么」） |
+| s3 | 对抗赛 w1d6 短关，竖 + 横，各 2 题 | 全过 | 备战：展板在她面前、题条「开始第 1 轮」、`paused` 假、没有 hold / 面板、机器人站着（大脑关）；之后照旧出题、点射、区域涂墨 |
+| s4 | 跑酷 w1d3 短关（默认的错 / 对 / 空 / 对） | 结果卡 6 / 6、第 1 名；采样 1 047 步没破；2 条审计报错 | 写字墙那一段第二句（按「提示」以后）打字机的纸顶在题条下沿上面（纸 187–230 px、题条底 239 px）——跑酷竖屏的打字取景，不是这一期的地盘，记在交接 |
+| s5 | 合作赛 coop2 w2d5 竖屏（两个页面 + 中继） | 56 / 56 | 新加的检查：作答方打字时键盘上没有 ▶（3 题都核了）——已知小毛病 ⑥ 在浏览器里核过 |
+| s6 | 联机赛 versus2 w1d1 竖屏 | 33 / 33 | 删卡片之后照旧 |
+| D1 | 解谜 w1d1 **整天**（合并前；之后的整天都不画帧地步进） | **一段 417 s 跑完，day-check 全过** | 85 题（节拍台 16、墨靶 34、字弹 35）、14 块展板、8 / 8 道门（含写字墙）、出口（回声亭说完、打卡垫）→ 结果卡；PLAY §1 第 1 条采样 4 618 步没破；60 个计分条目各一次首答（另 25 次是「单词第二遍」的练习）、60 片叶子；控制台 0、4xx 0。截图里门 2 那一题四颗墨球都在屏里（①） |
+| D2 | 跑酷 w1d3 **整天**（halyard，合并前） | **一段 391 s 跑完，day-check 全过** | 52 行车道 + 35 题滑行段打字 → 结果卡「60 / 85 题做对 · 58 / 60 首答答对 · ★★★ · 第 1 名 · 9:00」；采样 8 026 步没破；首答 60 个各一次。**2 行**她划到了对的道、记的却是错（`w:kind`、`q:w1d3:a3:mv5i4q`，都在这一圈的 75.1 m）；起跑台坡下那一行（9.9–10.3 m）8 次都到了 |
+| D3 | 跑酷 w1d3 整天（合并后，`--trace 68,80`） | 同 D2（同样那 2 行） | 轨迹：中间高台的台阶下来是窄坡，她往外道转向时从坡边掉进海里（y −1.6，卡住），海「泼倒」她、`_respawned` 把她放回路中线、latT 0，从第 1 道游过去 → 记成 [0, L]。改：回来时还挂着的那一行按「没答」（`_respawnRows`） |
+| D7 | 跑酷 w1d3 整天（掉海那一行改成「没答」以后） | **一段跑完，day-check 全过** | 那 2 行变成 `learn:noanswer`（她又掉了海、回来以后那一行不算）、马上再来一次、都答对了：结果卡「60 / 85 题做对 · 一道锁都没有 · 60 / 60 首答答对 · ★★★ · 第 1 名 · 8:58」，没有一个错的首答；52 行 + 35 题打字；采样 8 007 步没破；控制台 0、4xx 0。截图 `play8-shots/runner-w1d3-portrait/`（D3 那次的：第一行、看板、打字的三个阶段） |
+| K1 | 桌面 1280 × 720 解谜 w1d1 门 1 两题（键鼠） | 第一次：节拍台没答 | 审计照触屏用鼠标点台子——桌面上鼠标是镜头的；台子的键是 1–4 / A–D / 方向键，审计改成按键 |
+| K2 | 同上（按键） | **全过** | 展板框住、两题节拍台按数字键答对、首答各一次、没有面板 / 暂停 / hold。截图 `play8-shots/desktop-puzzle/` |
+| K3 | 桌面 1280 × 720 跑酷 w1d3 两行（键：A / D 换道） | **全过** | 看板段、两行拍子行都进了对的道、首答各一次；采样 224 步没破；控制台 0、4xx 0。截图 `play8-shots/desktop-runner/` |
+| D4 | 对抗赛 w1d6 整天（合并后），第 1 段 | 34 题、7 条失败 | 失败都是 play-7 新加的「名牌让位」检查：`is-yield` 已经在、名牌透明度还在 0.04–0.49——CSS 过渡是墙钟 0.2 s，不画帧的步进到得太快；审计改成量之前等 350 ms |
+| D5 | 同上，第 2 段（门 3 第 2 个起） | 31 题全过、看门狗截断；**这一段的存储是空的** | 最后一轮（「单词第二遍」25 个）里到了 780 s 不停段（审计原来「最后一轮不停」），870 s 看门狗——审计改了。day-check 把两段合起来核出 `w:school` 等 10 个词首答记了两次：第 1 段已经写过 [1, L]——三个审计每次起服务用随机端口，localStorage 按源分，同一个配置目录里第 2 段看到的是新的空存储（每段自己的「首答一次」核的是它自己看到的存储，所以没核出来）。审计加 `--port`、`day-run` 一天用一个端口；对抗赛整天重跑 |
+| D6 | 解谜 w1d1 **整天**（合并 dev 以后） | **一段 421 s 跑完，day-check 全过** | 同 D1：85 题、14 块展板、8 / 8 道门、出口 → 结果卡「这一关走完了 · 60 / 85 题做对 · 一道锁都没有」；采样 4 637 步没破；60 个首答各一次、60 片叶子；控制台 0、4xx 0；墨球重排两次（镜头停稳后又挪了 0.10 m）。截图 `play8-shots/puzzle-w1d1-portrait/`（每种玩法一张 + 结果卡） |
+| D8 | 对抗赛 w1d6 **整天重跑**（合并后，同一个端口） | **两段，day-check 全过** | 第 1 段 33 题（门 1 的 8 个音标；门 2 的 25 个词问到第 14 个这一轮就结束了——区域倒数数完，LEVELS §2.3 的规矩；门 3、门 4），停在题和题之间；第 2 段从门 5 接着（存储接上了：33 → 45 片叶子），26 题（门 5、门 6，门 7「单词第二遍」15 个——都是门 2 问过的词，练习），到结果卡（这一段自己的一关：「26 / 36 题做对 · 0 / 3 轮区域赢了」）。两段每轮之前都是备战展板、比赛不停、机器人站着；采样 2 632 + 2 693 步没破；45 个首答各一次；控制台 0、4xx 0。门 2 没问到的 10 个词这一天没有首答（区域赛的一轮会在题问完之前结束——设计如此，day-check 只列出来）。截图 `play8-shots/duel-w1d6-portrait/` |
+| P1 | 对抗赛 w1d6 短关，竖 + 横，备战展板升起、镜头框住以后再截图（每步画） | 全过 | 展板（音标板 /ts/ /dz/）立在她面前、框在题条下面，题条「备战 · 第 1 / 2 轮 · 开始第 1 轮」；截图上准星压在板子的字上 → 翻牌卡 / 备战展板在她面前时也藏准星（`arena/host.js`，同打字蟹） |
+| P2 | 同上竖屏（藏准星以后） | 全过（新检查「备战展板上没有准星」） | 截图 `play8-shots/duel-prep/duel-portrait-prep.png`（横屏那张是 P1 的 `duel-landscape-prep.png`） |
+| B1 | Boss w1 整局（合并后，不画帧） | 一段 12 分钟打完：结果卡「第 1 周周考打完了 · 43 / 43 题做对」（L 20 / 20、R 20 / 20、W 3 / 3、S 6 / 6 张说完）；采样 5 657 步没破；首答 43 个各一次、43 片叶子；控制台 0、4xx 0；56 次出题里 7 次第一发点射打空（随它的「答对了 / 首答 / 掉血」各算一条，共 29 条）、4 次墨球框出安全区 | 打空：墨弹带标记发出、没有命中记录——没答、没写，这一题再出一次就中了。出界：不画帧时挂在走动 Boss 上的球落后一步，Boss 改回每步画（B2 里出界没再出现）；打空 B2 每步画也有，见下 |
+| B2 | Boss w1 短关、每步画、3 题（为了截图和对照） | 3 题里 2 题第一发点射打空（再出一次就中） | 这就是 §24 拿不准的 11 的「Boss 弱点上偶尔第一发点射没有命中」——不是这一期带进来的，也不是不画帧带来的，只是整局里比 §24 的短关看到得多；打空从来不记证据。截图 `play8-shots/boss-w1-portrait/` |
+| B3 | Boss w1 **横屏** 844 × 390、从 R 段起、每步画（已知小毛病 ⑦，合并 dev 以后：play-7 的横屏取景在里面） | 一段 13.7 分钟只答了 3 题（R 的两个打字词 + 一题横幅），**全过** | 打字机 293 px 高（≥ 240）、键盘拆两半（中间那列 270–574 px）、打的字 17.9 px、题条 / 钟 / HP 条 / 阶段牌 / 打字机互不压、准星藏、名牌让开。每步画的横屏 Boss 一题 3–4 分钟，整段跑不完——剩下的用 B4。截图 `play8-shots/boss-w1-landscape/` |
+| B4 | 同上，R / W / S 三段整段、不画帧（`--fast`） | 一段打完：结果卡「第 1 周周考打完了 · 23 / 23 题做对」（R 20 / 20、W 3 / 3、S 6 / 6 张说完）；采样 3 367 步没破；首答 23 个各一次、23 片叶子；控制台 0、4xx 0；4 条失败 | ① 一次墨球框出安全区（不画帧时球落后走动的 Boss 一步，B1 同）。② 两次「钟和 HP 条 / 阶段牌叠了」：Boss 的钟有时写着段名（「R 阅读 · 词汇 · 语法 · 13:20」，213 px 宽），play-7 放在钟两侧的 HP 条和阶段牌按窄钟摆——横屏 HUD 那一排，play-7 的地盘，没动，记在交接。③ W 段一句长句的纸（452–679 px）伸到右半块键盘上（中间那列到 574 px）——横屏打字取景，同上 |
+
+**PLAY §1 的 12 条**（卡片删了，没有开关可言）：① 不暂停 / 不定身 / 不弹面板 ✓——源码扫描（`play8.test`：没有问答卡、没有 `learn.hold`、`src/learn` 下 `paused = true` 只在 `_results`），审计每一步采样（整天每种形式几千步，一次都没破：实测）；对抗赛的备战也不停了；打字时站着是站点清意图（play-wire 起就这样），不是定身。② 判分一条路 ✓——`play/judge.js`，源码扫描只有它调 `recordFirst`。③ 证据如实 ✓——快照逐字节相同；§4 表的记法 `design.test` 核；跑酷掉海那一行不再记成她没选的答案。④ 节奏不等于对错——没碰（`play3-beat` 照过）。⑤ 没有误答——没碰判定；跑酷掉海回来的那一行按「没答」（同穿空隙、同超级跳越线）；对抗赛审计前两道墨球题照旧核「普通一枪不算答」。⑥ 不惩罚——锁一律珊瑚色（原来卡片关时也是）。⑦ 中文——用到的字符串都留着（题条、展板、i18n）。⑧ 不加素材 ✓——没有新文件以外的东西（代码和审计）。⑨ 画风流畅——没有新的绘制；备战展板是现成的 `BoardWalk`。⑩ 竖横 ✓——整天跑的是竖屏；对抗赛备战竖横都跑了短关；Boss 的 R / W 段横屏整段跑（实测）。⑪ 内容一条不少 ✓——`design.test` 三周每个条目 × 七种形式都有玩法、没有 `card`。⑫ 开关可退——按 PLAY §9 第 8 期删了（PLAY §1 第 12 条标了「play-8 更正」）。
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **`hud-learn.js` 是删不是加**：任务书第 1 条要删的问答卡 / `clue` 卡就在 `hud-learn.js` 里，「`hud*.js` 只做加法」我理解成别动 HUD 别的东西（`hud.js` 一行没动、钟 / 名牌 / Boss HP 条是 play-7 的）。卡片的 CSS 同理从 `styles/hud.css` 删了（只留 `@keyframes iw-learn-in`，结果卡还用）。
+2. **快照里少了解谜的「道具提示」用例**：`judgeRecord` 对每个形式都认 `p._hinted`（道具墨雨），原来解谜的 `_judgeRecord` 不认——解谜里没有道具（`flow.js` 没有 `bag / useProp`），这条路走不到，所以快照工具对解谜不跑这个用例，基线在 `55c8343` 上用同一个工具重跑。其余用例两边一字不差。
+3. **`o.self` 没有了**：原来的卡片路有一个 `o.self`（卡片上的「我的写法也对」直接给）；玩法里自认只经「扣住 → 她点了 → `decided + claim`」这一条，`claimJudge` 站不住就照原样记 `W`。卡片删了，`o.self` 没人传，就没留。
+4. **跑酷 / versus2 / coop2 的复习日是打字**（先定的 5）：PLAY §4 写的是 M8；照代码现状（play-4 / play-6 起就这样）改了 PLAY 的那一格而不是改代码——在跑酷的车道上翻牌、两个屏幕同时自评都不顺。
+5. **对抗赛的复习日翻牌**：原来对抗赛 w1d7 的 150 张走卡片，现在是 `ArenaHost` 里的 `FlipStation`（解谜的 `wire/flip.js`，挂在区域题簇的锚点前）；浏览器里只在 Node 测试里核了机制 / 证据 `F`，整天的对抗赛跑的是 w1d6。
+6. **备战怎么「不停」**（先定的 3）：顶钟、冻第一轮的区域、换掉机器人的大脑（每帧清意图）——没有动 `match.paused`、`zones.js`、`bots.js`；走 6 m 开打是我定的数（展板 1.7 m 在她面前，走过板子再多走一点）。桌面上鼠标被镜头占着（射击时指针锁定），所以加了回车。
+7. **跑酷起跑前的阅读课文**：原来是卡片板（`LEARN.play` 关时）/ 板 + 「出发」，现在统一用 `PrepStation`（同对抗赛的备战），镜头位用它的 `pose`；起跑前没有别的看板。
+8. **`_askNext` 没有站点就跳过**（先定的 6）：理论上会少问一题（不写证据）；三周里测试核过不会发生。
+9. **`?skip=` 从 `location` 读**（`forms/index.js skipOf`），没经 `main.js` 传参——为了不动 `main.js`；只有审计用。
+10. **`FormsUi` 的展板和 `boardOf` 删了**：它们只给卡片版的备战 / 看板段用；对抗赛的备战改用解谜的 `gateSpecs`（同一份内容画成 M6 板）。
+11. **删掉的审计**：`drive.js`、`drive-forms.js`、`play-*.json`、`play-audit.mjs`、`net-duo-coop.mjs`、`portrait-groups.mjs` 的区域 / 关卡 / versus2 / Boss 组——它们只会点卡片，改成玩法等于重写，而 wire / runner / arena / net-duo-play 已经各管一种形式；`play-quiz-chain.json`（解谜结果卡 → 小考）没有重做成玩法版：小考在 `arena-audit --form quiz` 里跑，结果卡上那个按钮这一期没在浏览器里点过。
+12. **`rowFit` 的 4 m / 0.9 m**：七张舞台的行数只动了一点（tidewater / saltpan / crossmarket / lockgate 不变，kelpline 四道行 39 → 36、terraces 33 → 30、halyard 29 → 31，terraces 的终点 1994 → 2049 m）。整天跑酷 w1d3 在 halyard 上：起跑台坡下那一行（这一圈的 9.9–10.3 m，§23 拿不准的 11 说的那个位置）8 次都到了她划的道；出问题的是另一处——中间高台的台阶和窄坡下来的那一行（75.1 m），见 17。Node 里 halyard 的起跑台是跳边、本来就不放行，这条规则在 Node 的七张舞台上挡下的是别处的窄坡。
+13. **墨球重排是一跳**：`_drift` 在镜头停稳 0.3 s 后把题物按停住的镜头重排一次（最多两次），不是平滑跟过去；她自己转镜头、走开、瞄了以后就不再动。重排的那一下在截图里看不出来（题物还在弹出动画里），但真机上可能看得到一下位移。
+14. **⑥ 藏 ▶ 是藏，不是给作答方一个能放的东西**：coop2 作答方的键盘去掉 ▶（`K.onReplay = null`、`K.replay = false` + `layout()`），录音只在线索方那边；浏览器里核过（实测 s5，三题打字都没有 ▶）。
+15. **整天里同一个词问两次**：单词展板那道门问一次（选义 `L`）、「单词第二遍」再打一次（`T`）——第二次是练习、不是首答，这是课程本来的样子（`store` 照旧只认当天首答）；审计按「这一题之前今天有没有它的叶子」核。
+16. **整天审计不画帧**（`--full`）：SwiftShader 下画一帧比模拟一帧贵得多，整天每步都画就跑不完；每步之后更新场景图和相机矩阵（投影、取景、可见性都和画的时候一样算），截图前画一帧。代价：只在画的时候才出的毛病（着色器、贴图上传）整天里看不到——短关的审计（每步都画）照旧在，截图也都是真画出来的。play-7 的「名牌让位」检查量的是 CSS 过渡（墙钟 0.2 s），不画帧时到得太快，对抗赛第一段因此记了 7 条假失败（`is-yield` 已经在、透明度还在 0.04–0.49），之后量之前等 350 ms 墙钟。
+17. **跑酷掉海那一行按「没答」**：只管「回来时还挂着的那一行」；她为什么会从窄坡边掉下去（行放在高台台阶和窄坡下面、外道在水上，`_bounds` 在行前 9 m 就按助跑起点的宽度斜着瞄）没改——把 `rowFit` 的读题区检查拉到 9 m / 0.6 m 能挡住它，但七张舞台的四道行会少很多（saltpan 35 → 21、lockgate 出 5 行两道），我没这么做。
+18. **对抗赛一天里有 10 个词没有首答**：w1d6 整天（实测 D8）门 2 的 25 个词问到第 14 个这一轮就结束了（区域倒数数完——LEVELS §2.3「倒数到 0 也是一轮的结束」），门 7「单词第二遍」又问到第 15 个结束，问的是同样的前 15 个词——剩下 10 个（w:colleague、w:boss、w:salary、w:interview、w:experience、w:skill、w:career、w:apply、w:manager、w:part-time）这一天在对抗赛里一次都没出：55 个计分条目里 10 个没有证据。按代码读是 play-5 起就这样（不是卡片删掉带来的），但没在 `55c8343` 上跑一整天对照过；要不要让一轮问完再结束（或下一轮先问上一轮剩下的），请主会话定。
+
+**没做的**：
+1. 帧时间对比（PLAY §7）、真机、TestFlight：没做（浏览器时间都给了整天）。
+2. 跑酷掉海本身：只修了证据（那一行不算答），没改放行 / 转向（拿不准的 17）；halyard 中间高台下来那一行每圈会让她掉一次海、重来一次。
+3. 跑酷竖屏写字墙那一段按「提示」以后打字机的纸顶到题条上面（实测 s4）——跑酷的打字取景（`runner/glide.js`），play-7 / play-fix 的地盘，没动。
+4. versus2 / coop2 整局没跑（只跑了竖屏一局的短关）；解谜结果卡上的「今日小考」按钮这一期没在浏览器里点过（`play-quiz-chain.json` 删了，没重做）。
+5. 对抗赛复习日（w1d7）的翻牌站（`FlipStation`）只在 Node 里核过机制和证据，整天跑的是 w1d6。
+6. 桌面只跑了任务书要的两段（解谜第一道门两题、跑酷两行）；桌面的「鼠标看」是审计直接设镜头的 yaw / pitch 再开火（无头浏览器没有指针锁定）。
+
+**交接**（分支 `play-8`，没推；从 dev `55c8343` 建出，收尾前合了 dev `676cca2`）：
+- **做到哪**：卡片的代码路径没有了，玩法是唯一的路；判分一条路（`play/judge.js`），三周 × 六种形式的证据快照和 `55c8343` 逐字节相同（合并后也是）；小毛病 ①–⑥ 修了、⑦ 在合并后的代码上跑了（实测 B3 / B4：R / W / S 整段打完；两处横屏 HUD / 取景的小毛病交给 play-7 的人，见已知坑）；解谜、跑酷、对抗赛、Boss 都在浏览器里整天 / 整局跑过（实测表）。
+- **先看哪些文件**：`src/learn/play/judge.js` → 各形式的 `_judgeRecord`（`flow.js`、`runner/runner.js`、`forms/{duel,boss,versus2,coop2}.js`）→ `src/learn/forms/duel.js` 的备战（`_startPrep / _prepSpecs / _showPrep / _idleBots / _roundStart`）→ `src/learn/play/arena/prep.js`、`board/front.js` → `tools/learn/day-run.mjs` / `day-check.mjs` / `evidence-snapshot.mjs`。
+- **接口**：`judgeRecord({ item, p, ans, o: { judged, hinted, hold, decided, claim, at }, store }) → { r, first, held, self, hinted, evidence }`；`ArenaHost.showPrep(specs, { head, go, onGo })`、`ArenaHost.facingYaw(g, a)`；`PrepStation(host)`（`show / update / pose / tapApi / clear / debug / dispose`，宿主要 `flow / match / strip / reduced / say / facingYaw / m1._topKeys`）；`frontSpot({ a, base, spec, bw, W, H })`；`LEARN.duel.prepWalk`；事件 `learn:skip`；审计 `?skip=K`（`forms/index.js`）。
+- **怎么再跑整天**：`node tools/learn/day-run.mjs --name <n> --dir <dir> --form puzzle|race|duel|boss --learn w1d1 [--shots <dir>] -- tools/learn/wire-audit.mjs --view portrait --learn w1d1 --full --segment 780 --budget 870`（对抗赛 / Boss：`arena-audit.mjs --form duel|boss --learn … --views portrait --full --segment 780 --budget 870`；跑酷：`runner-audit.mjs --scenario runner --w 390 --h 844 --touch --query '?learn=w1d3&kind=race' --plan right --glidePlan right --segment --wallMs 660000 --timeout 870`）——它自己一段一段进锁；中途断了用 `--from k --gate N --skip K` 接着。改了判分相关的东西就跑 `node tools/learn/evidence-snapshot.mjs --out <f>`，和基线 `cmp`（基线要在改之前的提交上用同一个工具跑）。
+- **已知坑**：① 整天审计不画帧（拿不准的 16），只看「画出来」的东西用短关；Boss 照旧每步画（横屏太慢时用 `--fast`）。② 同一天里同一个词问两次，第二次是练习——审计按「之前今天有没有叶子」核，别改回「每题都要 first」。③ halyard 中间高台下来那一行（拿不准的 17）。④ 跑酷竖屏写字墙的打字取景（没做的 3）。⑤ 分段跑一定要同一个端口（`day-run` 管；自己手起审计时给 `--port`），否则每段一个空存储、证据接不上，每段自己的检查也看不出来。⑥ Boss 弱点上第一发点射常常打空（§24 拿不准的 11；整局 56 次出题里 7 次）——不写证据、再出一次就中，没查到根。⑦ 横屏 Boss（实测 B4）：钟写着段名时（213 px 宽）压到两侧的 HP 条和阶段牌；W 段长句的纸伸到右半块键盘上——都是 play-7 的横屏 HUD / 取景，没动。

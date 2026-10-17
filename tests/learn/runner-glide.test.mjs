@@ -3,7 +3,7 @@
 // modes (T · H after a hint · L with its percent · W · S when 「我的写法也对」 stands), the other try per PLAY §4's last
 // column (a word → 「选义」 lane row then typed again; a dictation → slowly; a sentence → with the why), a second miss →
 // the race's 回炉; the rig never sees an answer before 射; a near-miss sentence is held (nothing written) until her tap;
-// the write wall's sentences are the run's last stretch; the runner's path writes the race card's leaf.
+// the write wall's sentences are the run's last stretch; the runner's path writes the one judging path's leaf (play/judge.js).
 // 用法：node --test tests/learn/runner-glide.test.mjs
 import { register } from 'node:module';
 register(new URL('./three-hook.mjs', import.meta.url));
@@ -21,7 +21,7 @@ import { buildTrack, straighten, clearWidths } from '../../src/learn/play/runner
 const { LearnFlow } = await import('../../src/learn/flow.js');
 const { GlideStation, glideMove } = await import('../../src/learn/play/runner/glide.js');
 const { RunnerFlow } = await import('../../src/learn/play/runner/runner.js');
-const { RaceFlow } = await import('../../src/learn/forms/race.js');
+const { judgeRecord } = await import('../../src/learn/play/judge.js');
 
 function memory() { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } }; }
 const leafOf = (id) => { const ev = store.evidence(); for (const doc of Object.values(ev)) { const d = doc.it && doc.it[id]; if (d) { const day = Object.values(d)[0]; return Object.values(day)[0]; } } return null; };
@@ -259,7 +259,7 @@ test('「我的写法也对」 on the 滑行段: a near-miss sentence is held �
   }
 });
 
-test('the runner\'s one judging path writes what the race\'s card writes: every choice of w1d3 by lane (right / wrong), a typed word, a dictation — same leaf, same verdict, learn:answer once', () => {
+test('the runner\'s _judgeRecord writes what the one judging path (play/judge.js) writes: every choice of w1d3 by lane (right / wrong), a typed word, a dictation — same leaf, same verdict, learn:answer once', () => {
   const L = planDay(WEEKS[0], 3, 'race');
   const at = Date.parse('2026-10-14T09:30:00');
   const runnerPath = (g, item, p, ans, hinted) => {
@@ -267,20 +267,14 @@ test('the runner\'s one judging path writes what the race\'s card writes: every 
     const out = RunnerFlow.prototype._judgeRecord.call(F, g, item, p, ans, { hinted, at });
     return { out, log: F.log };
   };
-  const cardPath = (g, item, p, ans) => {   // race.js _answer up to its verdict (the part that judges and records)
-    const F = { firsts: 0, firstRight: 0, right: new Set(), log: [], streak: 0, rightN: 0, relearn: [], P: LEARN.puzzle, shield: false,
-      _emit(n, d) { this.log.push({ name: n, ...d }); }, _onRight() {}, _onWrong2() {}, _styleGates() {}, hud: { verdict(v) { F.v = v; } }, _askNext() {} };
-    const now = Date.now; Date.now = () => at;
-    try { RaceFlow.prototype._answer.call(F, { ...g, queue: [] }, { ...item, _tries: 9 }, p, ans); } finally { Date.now = now; }
-    return F;
-  };
+  const onePath = (g, item, p, ans) => ({ v: judgeRecord({ item, p, ans, o: { at }, store }).r });   // (the race card that wrote the same is gone: play-8)
   let n = 0;
   for (const g of L.gates) for (const item of g.items.filter((it) => it.meta.scored)) {
     const p = prompt(item);
     const answers = p.type === 'choice' ? [rightLane(item, rowPrompt(item, {})), (rightLane(item, rowPrompt(item, {})) + 1) % p.options.length] : [item.meta.ref || item.en, 'zzz'];
     for (const ans of answers) {
       setBackend(memory()); const A = runnerPath(g, item, p, ans, false); const evA = JSON.stringify(store.evidence());
-      setBackend(memory()); const B = cardPath(g, item, p, ans); const evB = JSON.stringify(store.evidence());
+      setBackend(memory()); const B = onePath(g, item, p, ans); const evB = JSON.stringify(store.evidence());
       assert.equal(evA, evB, `${item.id} ${JSON.stringify(ans)}: the same evidence`);
       assert.equal(A.out.r.ok, B.v.ok); assert.equal(A.out.first, true);
       assert.equal(A.log.filter((e) => e.name === 'learn:answer').length, 1);

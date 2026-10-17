@@ -1,12 +1,12 @@
 // 题即玩法 play-1 — M1 墨靶 in the puzzle (docs/PLAY.md §2, §3 M1, §5.1, §6): a choice item at a gate is ink balls (or
 // banner planks) floating past the gate; she shoots one and the round landing on it is her answer. The world never
-// stops: no match.paused, no learn.hold, no card. LearnFlow (flow.js) owns one of these when LEARN.play is on and the
-// level is a puzzle (never for a form that extends it: race / duel / boss / coop2 keep their cards for now).
+// stops: no match.paused, no learn.hold, no card. The puzzle's play host (host.js) owns one of these for M1; the arena
+// (arena/run.js) builds on it.
 //
-//   the flow calls:   canAsk(g, item, p) · ask(g, item, p) · toCard() (a card item under the flag holds the match for it,
-//                     as the flag-off arrival does) · update(dt) (every frame, paused or not) · gateOpened(g) · dispose()
-//   it calls back:    flow._judgeRecord(g, item, p, k) — the card's own judge → recordFirst → lock / retry (the one path,
-//                     PLAY §1 rule 2) — then flow._askNext(g) when the verdict has been shown
+//   the flow calls:   canAsk(g, item, p) · ask(g, item, p) · update(dt) (every frame, paused or not) · gateOpened(g) ·
+//                     dispose()
+//   it calls back:    flow._judgeRecord(g, item, p, k) — the one judging path (play/judge.js: judge → recordFirst) and the
+//                     flow's lock / retry — then flow._askNext(g) when the verdict has been shown
 //   a question:       the strip (src/ui/play-strip.js) shows engine.prompt's line + ▶; the objects are laid out on the screen
 //                     (layout.js: the safe area under the strip, clear of her, the touch buttons and the minimap), turned
 //                     into the world on a plane in front of the camera's framing pose (yaw towards the route past the gate,
@@ -21,10 +21,10 @@
 //                     the objects (2.5 m, +0.5 m per right answer at this gate, ≤ 4.5), a hop (trigger 'jump'), the strip
 //                     flashes her ink with 答对了; the next item comes up after LEARN.m1.nextMs
 //   wrong:            EFFECTS.puzzle.wrong (ui_back; the second miss wrong2 ui_toggle): the object turns coral, the right one
-//                     is ringed in her ink, the gate's lock marker (coral under the flag) pops, the strip says 差一点：是 ___
+//                     is ringed in her ink, the gate's lock marker (coral) pops, the strip says 差一点：是 ___
 //                     and the first sentence of 为什么 for LEARN.ui.verdictMs; the retry (the same choice reshuffled) is the
-//                     flow's, as for the card
-//   debug():          what the audits read (tools/learn/play-audit.mjs)
+//                     flow's
+//   debug():          what the audits read (tools/learn/wire-audit.mjs: F.play.m1.debug())
 import * as THREE from 'three';
 import { G, damp, dampAngle, angleDiff } from '../../core/ctx.js';
 import { LEARN, WEAPONS, PLAYER } from '../../config.js';
@@ -95,8 +95,7 @@ export class PlayRun {
 
   // ---------------------------------------------------------------------------------------------- a question
   ask(g, item, p) {
-    const m = this.match, F = this.flow;
-    if (m.paused && m.state === 'playing') { m.paused = false; G.input?.requestLock?.(); }   // (after a card, under the flag)
+    const F = this.flow;
     F.hud?.hide?.();
     F.hud?.playMode?.(true);
     const labels = targetLabels(p);
@@ -110,14 +109,6 @@ export class PlayRun {
     if (p.tts) this._say(p.tts);
     if (F.asking) F.asking.play = 'ink-target';
     this.log.push({ t: +F.t.toFixed(2), ev: 'ask', item: item.id, n: labels.length, banner: this.cur.banner });
-  }
-
-  // a card item under the flag (not yet a play kind): the match holds for the card as it always did
-  toCard() {
-    this._clear();
-    const m = this.match;
-    this.flow.hud?.playMode?.(false);
-    if (!m.paused) { m.paused = true; G.input?.exitLock?.(); }
   }
 
   _clear() {
@@ -233,8 +224,28 @@ export class PlayRun {
     return Math.abs(rig.curDist - Math.min(probe.soft, probe.hard)) < 0.12;
   }
 
+  // the lens came to rest away from where the objects were laid out from (play-8, LEARN §22 更新 5: the follow camera's
+  // pivot and look-ahead springs settle a beat after _settled() let the objects up — on w1d1's second gate upright it
+  // rested 0.6 m nearer and ~4° round, and a label stood 31 px past the right edge): once it has been still for 0.3 s
+  // somewhere else, they are laid out again from where it rests — at most twice, and never once she has looked round,
+  // walked on or aimed (then they stay where she put them in her sights)
+  _drift(dt) {
+    const C = this.cur, cam = G.camera, a = this.match.local, A = C && C.camAt;
+    if (!A || !cam || C.answered || this.shot || this.tap || C.mine || (C.relaid || 0) >= 2) return;
+    if ((G.input && (G.input.mouse.dx || G.input.mouse.dy)) || (a && Math.hypot(a.vel?.x || 0, a.vel?.z || 0) > 0.35)) { C.mine = true; return; }
+    const L = C.lastCam || (C.lastCam = { p: cam.position.clone(), q: cam.quaternion.clone(), rest: 0 });
+    const still = cam.position.distanceTo(L.p) < 0.15 * dt + 1e-4 && cam.quaternion.angleTo(L.q) < 0.05 * dt + 1e-5;   // (under 15 cm/s, 3°/s)
+    L.p.copy(cam.position); L.q.copy(cam.quaternion); L.rest = still ? L.rest + dt : 0;
+    if (L.rest < 0.3) return;
+    const dp = cam.position.distanceTo(A.pos), dq = cam.quaternion.angleTo(A.quat);
+    if (dp < 0.06 && dq < 0.008) return;
+    C.relaid = (C.relaid || 0) + 1;
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'relaid', dp: +dp.toFixed(3), dq: +dq.toFixed(4), after: +(this.flow.t - A.t).toFixed(2) });
+    this._place({ keep: true });
+  }
+
   // lay the objects out on the screen, then put them in the world on a plane in front of the camera as it is now
-  _place() {
+  _place(o = {}) {
     const C = this.cur; if (!C) return;
     const W = innerWidth, H = innerHeight, a = this.match.local, cam = G.camera;
     cam.updateMatrixWorld();
@@ -297,7 +308,9 @@ export class PlayRun {
       break;
     }
     C.D = D; C.lift = lift; C.placed = true;
-    this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() });
+    C.camAt = { pos: cam.position.clone(), quat: cam.quaternion.clone(), t: this.flow.t };   // (the lens they were laid out from: _drift)
+    C.lastCam = null;
+    this.T.show(this._atlasOf(C.g), objs, { right: _r, up: _u, back: _w.copy(_f).negate() }, { keep: !!o.keep });
     this.reg.set(this.T.spheres, C.serial);   // (the live array: a burst or draining object drops out of it)
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'place', D: +D.toFixed(2), lift: +lift.toFixed(2), sunk: C.sunk || 0, blocked: !!C.blocked, kind: L.kind, fits: L.fits, cover: L.cover || null, rows: L.rows || null, d: L.d ? Math.round(L.d) : null, avoid: S.avoid.map((r) => [r.what, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]), safeH: Math.round(safe.h), boom: +(G.rig?.curDist || 0).toFixed(2), her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), cam: [cam.position.x, cam.position.y, cam.position.z].map((v) => +v.toFixed(2)) });
   }
@@ -305,7 +318,7 @@ export class PlayRun {
   // ---------------------------------------------------------------------------------------------- per frame
   update(dt) {
     const m = this.match;
-    if (m.paused) return;   // her own pause / a card: the play waits
+    if (m.paused) return;   // her own pause: the play waits
     this.T.update(dt);
     const C = this.cur; if (!C) return;
     C.t += dt;
@@ -327,6 +340,7 @@ export class PlayRun {
     }
     if (!C.placed && !(Fr && Fr.on) && (this._settled() || (Fr && Fr.t > M.frameFor + 0.6))) this._place();
     if (!C.placed) return;
+    this._drift(dt);
     // desktop: fire pressed with the crosshair on an object is the same shot as a tap
     const fire = !!(a && a.intent.fire);
     if (fire && !this._fireWas && !C.answered && !G.input?.touch?.active) { const k = this._crosshair(); if (k >= 0) this.shoot(k, 'crosshair'); }
@@ -469,6 +483,7 @@ export class PlayRun {
       safe: C && C.screen && C.screen.safe, stripBottom: C && C.screen && C.screen.stripBottom, avoid: C && C.screen && C.screen.avoid, layout: C && C.layout && C.layout.items.map((it) => it.rect), fits: C && C.layout && C.layout.fits,
       projected: proj, placed: !!(C && C.placed), D: C && C.D, lift: C && C.lift, framing: this.frame && { on: this.frame.on, t: +this.frame.t.toFixed(2), yaw: +this.frame.yaw.toFixed(3), pitch: +this.frame.pitch.toFixed(3), boom: this.frame.boom != null ? +this.frame.boom.toFixed(2) : null, seen: this.frame.seen, blocked: this.frame.blocked, still: this.frame.still, camBoom: G.rig ? +G.rig.curDist.toFixed(2) : null },
       verdict: C && C.verdict, shot: this.shot && { k: this.shot.k, fired: this.shot.fired }, log: this.log.slice(-40),
+      relaid: C ? C.relaid || 0 : 0, camDrift: C && C.camAt && G.camera ? { dp: +G.camera.position.distanceTo(C.camAt.pos).toFixed(3), dq: +G.camera.quaternion.angleTo(C.camAt.quat).toFixed(4) } : null,
       her: this.match.local ? [this.match.local.pos.x, this.match.local.pos.y, this.match.local.pos.z].map((v) => +v.toFixed(2)) : null, cam: G.camera ? [G.camera.position.x, G.camera.position.y, G.camera.position.z].map((v) => +v.toFixed(2)) : null,
       atlases: [...this.T.atlases.values()].map((A) => ({ key: A.key, w: A.w, h: A.h, scale: A.scale, n: A.n })), calls: G.renderer?.info?.render?.calls,
     };

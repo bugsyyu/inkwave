@@ -90,12 +90,15 @@ export class BoardWalk {
     const aspect = o.aspect || 16 / 9, speed = o.speed ?? 0;
     // the nearest board whose viewing spot she is at; she has to slow down (or linger) for the camera to come round,
     // and walk clear of the zone (a little past its edge) for it to let go
+    // (play-8: a board already read counts 0.6 m farther — of two boards at one viewing spot, or nearly, the unread one is
+    // framed once the other is read, where she stands; before, the first stayed framed and the auto-walk, sent on to the
+    // other, stopped there again and again; the framed one keeps a hair's edge so two read ones do not trade the lens)
     let best = -1, bd = Infinity;
     for (let i = 0; i < this.list.length; i++) {
-      const L = this.list[i], d = Math.hypot(her.x - L.view.x, her.z - L.view.z);
+      const L = this.list[i], d = Math.hypot(her.x - L.view.x, her.z - L.view.z), e = d + (L.read ? 0.6 : 0) - (i === this.framed ? 0.05 : 0);
       const inside = d < BD.zone + (i === this.framed ? 0.4 : 0);
       L.inT = inside ? L.inT + dt : 0;
-      if (inside && d < bd && (i === this.framed || speed < 1.6 || L.inT > 0.35)) { best = i; bd = d; }
+      if (inside && e < bd && (i === this.framed || speed < 1.6 || L.inT > 0.35)) { best = i; bd = e; }
     }
     if (best !== this.framed) {
       if (best < 0) this._unframe();

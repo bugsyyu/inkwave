@@ -13,12 +13,12 @@
 // Questions: the day's duel plan, one gate at a time in turn, due items first — both players' due lists merged, the
 // longer list giving more (duo.js mergeDue / buildQueue). A question nobody got right comes back once, reworded.
 //
-// 题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): under LEARN.play a question is the same thing on both screens — the duel's
+// 题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): a question is the same thing on both screens — the duel's
 // cluster over the contested zone (play-5's ArenaHost: ink targets for every choice, the 打字蟹 with its ring and bubble
 // for anything typed), each screen laying out its own over the zone for its own camera, the same objects in the same
 // order (a reworded one from a seeded random: duo.js duoAltPrompt). Nobody is held, paused or shown a card; the answer
 // goes the way it always did ('la' → the host's referee → 'lr' floods on every screen → 'lc'), through the one judging
-// path _judgeRecord (the card, flag off, goes through it too). The seconds left are the strip's chip.
+// path _judgeRecord (play/judge.js). The seconds left are the strip's chip.
 import * as THREE from 'three';
 import { G, emit } from '../../core/ctx.js';
 import { LEARN, PLAYER } from '../../config.js';
@@ -26,7 +26,8 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, judgeAnswer, rightAnswerOf } from './common.js';
+import { duelFlood, streakKind, rightAnswerOf } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { zoneCellsXYZ } from './duel.js';
 import { FormsUi } from './ui.js';
 import { Referee, buildQueue, mergeDue, canRequeue, answerTime, tally, validQ, duoAltPrompt, seedOf } from './duo.js';
@@ -58,7 +59,7 @@ export class Versus2Flow extends LearnFlow {
     this.results = [];                   // closed questions { q, id, win, by, res } (the results strip, the tally)
     this.dues = new Map();               // host: player id → their due ids ('ld')
     this.ref = null; this.refNext = this.V.firstAsk; this.endT = -1; this.ended = false; this.refStreak = new Map();
-    this.hold = false; this.asking = null;
+    this.asking = null;
     this.streak = 0; this.rightN = 0; this.firstRight = 0; this.wins = 0;
     this._cells = new Map();
     this._dueSent = false; this._wasHost = this.isHost; this._stopped = false;
@@ -66,7 +67,7 @@ export class Versus2Flow extends LearnFlow {
     // 题即玩法 (play-6): the questions are things over the live zone, on her side's ink (the guest plays team 1). It is
     // also this.play: the flow's dispose takes it, and the touch layer leaves the strip's ▶ to the strip
     this.vg = new Map();   // queue entry index → that question's gate (an arena round of one: its own label atlas)
-    this.arena = LEARN.play ? new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out), team: this._team(), edges: true, settle: true }) : null;
+    this.arena = new ArenaHost(this, { mode: 'zone', anchor: (out) => this._zoneCentre(out), team: this._team(), edges: true, settle: true });
     this.play = this.arena;
   }
   _team() { const me = (this.match.opts.roster || []).find((r) => !r.bot && r.owner === this.myId); return me ? me.team | 0 : (this.match.local ? this.match.local.team | 0 : 0); }
@@ -88,10 +89,8 @@ export class Versus2Flow extends LearnFlow {
     const e = this.queue[i], item = e && this.byId.get(e.id);
     if (item && !e.alt) this.arena.prep(this._gateOf(i, item));
   }
-  // a reworded question, the same on every screen (duo.js duoAltPrompt: seeded by the question's number and id); the
-  // flag off: B's rewording, as before
+  // a reworded question, the same on every screen (duo.js duoAltPrompt: seeded by the question's number and id)
   _altFor(it, d) {
-    if (!this.arena) return this._altPrompt(it);
     return duoAltPrompt(this.level.gates, it, seedOf(d.q, d.id), (x) => this._altPrompt(x)) || this._altPrompt(it);
   }
 
@@ -225,55 +224,35 @@ export class Versus2Flow extends LearnFlow {
     this.asking = { gate: g, item: it, p };   // (the audits read the live question here, as in the other forms)
     this.asked++;
     // 题即玩法: the same objects over the zone on every screen — she plays on (no hold, no pause, no card)
-    if (this.arena && this.arena.canAsk(g, it, p)) {
-      q.play = true;
-      this.ui.say('');
-      G.audio?.play?.('ui_confirm', { volume: 0.6 });
-      this._emit('learn:question', { itemId: it.id, q: d.q, type: p.type, form: d.alt ? 'alt' : 'normal', play: true });
-      this.arena.ask(g, it, p);
-      this._progress(true);
-      return;
+    if (!this.arena.canAsk(g, it, p)) {   // (none in the three weeks: tests/learn/duo.test.mjs — passed over, never a card)
+      console.warn('[versus2] no station for', it.id, p.type);
+      q.answered = true; q.none = true; this._toHost({ k: 'la', q: d.q, ok: 0, ms: 0, none: 1 }); this._after(q); return;
     }
-    this.hold = true;
-    const a = this.match.local;
-    if (a) { a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.jump = false; }
-    G.input?.exitLock?.();
-    G.audio?.play?.('ui_confirm', { volume: 0.6 });
+    q.play = true;
     this.ui.say('');
-    this._emit('learn:question', { itemId: it.id, q: d.q, type: p.type, form: d.alt ? 'alt' : 'normal' });
-    this.hud?.ask(p, { gate: { index: 1, total: 1, locks: 0, title: '' }, item: { n: d.n, total: d.total, retry: !!d.alt }, onAnswer: (ans) => this._answer(ans) });
-    this._progress();
+    G.audio?.play?.('ui_confirm', { volume: 0.6 });
+    this._emit('learn:question', { itemId: it.id, q: d.q, type: p.type, form: d.alt ? 'alt' : 'normal', play: true });
+    this.arena.ask(g, it, p);
+    this._progress(true);
   }
   _progress(force = false) {
     const q = this.q; if (!q) return;
     const left = Math.max(0, Math.ceil(q.sec - (now() - q.t0)));
     // (题即玩法: the strip's chip — 「1/2 · 18 秒」, then 「等其他人」 once she has answered; a write only when it changes)
-    if (q.play) { const t = `${q.n}/${q.total} · ${q.answered ? '等其他人' : `${left} 秒`}`; if (force || t !== q.shown) { q.shown = t; this.arena?.strip?.chip(t, q.answered ? '' : 'beat'); } return; }
-    if (!this.hud?.prog) return;
-    const txt = `第 ${q.n} / ${q.total} 题 · 双人对抗 · ${q.answered ? '等其他人答完' : `还剩 ${left} 秒`}`;
-    if (txt !== q.shown) { q.shown = txt; this.hud.prog.textContent = txt; }
+    if (!q.play) return;
+    const t = `${q.n}/${q.total} · ${q.answered ? '等其他人' : `${left} 秒`}`;
+    if (force || t !== q.shown) { q.shown = t; this.arena?.strip?.chip(t, q.answered ? '' : 'beat'); }
   }
 
-  // the card's answer (flag off, or a kind the arena has no play for): the one judging path, then the card's verdict
-  _answer(ans) {
-    const q = this.q;
-    if (!q || q.answered) return;
-    const { r } = this._judgeRecord(q.g, q.item, q.p, ans);
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: 0, again: false }, () => this._after(q));
-    this._progress();
-  }
-  // The one judging path (PLAY §1 rule 2), whatever answered — the card's button, a round on an ink target, the typed
-  // sheet: judge → her first answer of the day into her own store (unscored items are refused by it; the 打字蟹's 提示 →
+  // The one judging path (PLAY §1 rule 2), whatever answered — a round on an ink target, the typed sheet: judge → her
+  // first answer of the day into her own store (unscored items are refused by it; the 打字蟹's 提示 →
   // H) → 'la' to the host's referee (who inks it is the host's: 'lr') → the ink tank for a miss. Shaped as the other
   // forms' ({ r, first, again }); a miss is never re-asked here (the host re-queues what nobody got right).
   _judgeRecord(g, item, p, ans, o = {}) {
     const q = this.q && this.q.item === item ? this.q : null;
     if (q) q.answered = true;
     const ms = q ? Math.round((now() - q.t0) * 1000) : 0;
-    const r = o.judged || judgeAnswer(item, p, ans);
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(hinted ? { hinted: true } : {}) });
-    const first = !!rec.first;
+    const { r, first, hinted } = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted }, store });   // (the one path; nothing is held in a timed question)
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) { this.right.add(item.id); this.rightN++; this.streak++; } else this.streak = 0;
     if (q) this._toHost({ k: 'la', q: q.q, ok: r.ok ? 1 : 0, ms });
@@ -298,29 +277,20 @@ export class Versus2Flow extends LearnFlow {
     if (!q || q.answered) return;
     q.answered = true; q.none = true;
     this._toHost({ k: 'la', q: q.q, ok: 0, ms: Math.round((now() - q.t0) * 1000), none: 1 });
-    const A = this.hud?._ask;
     if (q.play) {
       // 题即玩法: the station closes it — the right object ringed (or the keyboard gone), the strip says so; then _askNext
       const c = rightAnswerOf(q.item, q.p), text = typeof c === 'number' ? ((q.p.options || [])[c]?.text || '') : String(c || '');
       const zh = q.item.zh && q.item.zh !== text ? q.item.zh : '';
-      const shown = why !== 'next' && this.arena && this.arena.cur && this.arena.cur.g === q.g && this.arena.expire({ head: `${why === 'time' ? '时间到了' : '这一题结束了'}：是 ${text}`, why: zh }, LEARN.ui.verdictMs);
-      if (!shown) { if (this.arena && this.arena.cur && this.arena.cur.g === q.g) this.arena.gateOpened(q.g); this._after(q); }
+      const shown = why !== 'next' && this.arena.cur && this.arena.cur.g === q.g && this.arena.expire({ head: `${why === 'time' ? '时间到了' : '这一题结束了'}：是 ${text}`, why: zh }, LEARN.ui.verdictMs);
+      if (!shown) { if (this.arena.cur && this.arena.cur.g === q.g) this.arena.gateOpened(q.g); this._after(q); }
       else this._progress(true);
-    } else if (A && A.p === q.p) {
-      A.answered = true;
-      this.hud.choices?.forEach((b) => { b.disabled = true; });
-      if (this.hud.input) { this.hud.input.disabled = true; this.hud.input.blur(); }
-      const c = rightAnswerOf(q.item, q.p), text = typeof c === 'number' ? ((q.p.options || [])[c]?.text || '') : String(c || '');
-      this.hud.verdict({ ok: false, why: `${why === 'time' ? '时间到了' : '这一题结束了'} · 正确答案：${text}${q.item.zh && q.item.zh !== text ? `（${q.item.zh}）` : ''}`, canonical: text, locks: 0, again: false }, () => this._after(q));
     } else this._after(q);
     this._emit('learn:answer', { itemId: q.item.id, ok: false, first: false, q: q.q, none: true, why });
   }
   _after(q) {
     if (this.q === q) { this.q = null; this.asking = null; }
     if (this.q) return;   // (a newer question is already up)
-    this.hold = false;
     this.hud?.hide(); this.hud?.el.classList.remove('is-walk');
-    if (this.match.state === 'playing' && !(q && q.play)) { G.input?.requestLock?.(); if (G.game) G.game._relock = true; }   // (题即玩法 never let go of it)
   }
 
   // ---------------------------------------------------------------------------------------------- everyone: the ink
@@ -382,13 +352,14 @@ export class Versus2Flow extends LearnFlow {
   }
 
   // ---------------------------------------------------------------------------------------------- the end
-  // the match left 'playing' (the queue done, a knockout, the clock): put the card away; INKWAVE's judge and results follow
+  // the match left 'playing' (the queue done, a knockout, the clock): the question goes; INKWAVE's judge and results follow
   _stop() {
     if (this._stopped) return;
     this._stopped = true;
     if (this.q && !this.q.answered) { this.q.answered = true; this.q.none = true; }
-    if (this.arena) { if (this.arena.cur) this.arena.gateOpened(this.arena.cur.g); this.hud?.playMode?.(false); }
-    this.q = null; this.asking = null; this.hold = false;
+    if (this.arena.cur) this.arena.gateOpened(this.arena.cur.g);
+    this.hud?.playMode?.(false);
+    this.q = null; this.asking = null;
     this.hud?.hide(); this.hud?.el.classList.remove('is-walk');
     this.ui.say('');
     this._emit('learn:done', { form: 'versus2', week: this.week, day: this.day, asked: this.results.length, right: this.rightN, firsts: this.firsts, firstRight: this.firstRight, wins: this.wins });
@@ -403,7 +374,7 @@ export class Versus2Flow extends LearnFlow {
   debug() {
     const Z = this.match.zones;
     return { form: 'versus2', host: this.isHost, q: this.q ? this.q.q : null, qi: this.qi, queue: this.queue ? this.queue.length : 0, closed: this.results.length, wins: this.wins, right: this.rightN, firsts: this.firsts,
-      hold: !!this.hold, paused: !!this.match.paused, play: this.q ? !!this.q.play : null, answered: this.q ? !!this.q.answered : null, arena: this.arena ? this.arena.debug() : null,
+      paused: !!this.match.paused, play: this.q ? !!this.q.play : null, answered: this.q ? !!this.q.answered : null, arena: this.arena ? this.arena.debug() : null,
       zone: Z ? { count: Z.count.map((c) => Math.ceil(c)), share: Z.active.zones.map((z) => z.share.map((s) => +s.toFixed(3))), winner: Z.winner, reason: Z.reason } : null };
   }
 

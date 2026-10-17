@@ -40,16 +40,29 @@ export function frameBoard(board, aspect, o = {}) {
 // the smallest text on a framed board, in screen px (canvas px × screen px per canvas px)
 export function onScreenFont(layout, frame, boardW) { return layout.minFont * (frame.rect.w / layout.W) * (boardW ? 1 : 1); }
 
+// play-8: a stretch too short for n boards gap apart (a whole day's first gate near the spawn: four sound boards on
+// w1d1's 12 m) used to pile the far ones on the stretch's start — one spot, one board framed for ever, the auto-walk
+// stopping there again and again. Now they close up to `minGap` (a board's width and a little), then stand on both sides
+// of the route in turn (her right, her left), then come nearer the gate; only on a stretch shorter than all that do they
+// share it evenly (BoardWalk frames an unread one of two boards at one spot first — walk.js).
 export function boardSpots(route, n, o = {}) {
-  const gap = o.gap ?? BD.gap, side = o.side ?? BD.side, endGap = o.endGap ?? 5, view = o.view ?? BD.view;
+  const side = o.side ?? BD.side, view = o.view ?? BD.view, minGap = o.minGap ?? 2.8;
+  let gap = o.gap ?? BD.gap, endGap = o.endGap ?? 5, alt = false;
   if (!route || route.length < 2 || n <= 0) return [];
   // walk back from the gate: the last board endGap m before it, the others gap m apart, back towards the start
   const seg = [];
   let acc = 0;
   for (let i = route.length - 1; i > 0; i--) { const a = route[i], b = route[i - 1], L = Math.hypot(b.x - a.x, b.z - a.z); seg.push({ a, b, s0: acc, L }); acc += L; }
   const total = acc, out = [];
+  const fits = () => endGap + gap * (n - 1) <= total + 1e-9;
+  if (n > 1 && !fits()) {
+    gap = Math.max(minGap, (total - endGap) / (n - 1));
+    if (!fits()) { alt = true; gap = Math.max(minGap / 2, (total - endGap) / (n - 1)); }
+    if (!fits()) endGap = Math.max(2, total - gap * (n - 1));
+    if (!fits()) gap = Math.max(0, (total - endGap) / (n - 1));
+  }
   for (let k = 0; k < n; k++) {
-    const s = Math.min(total, endGap + gap * (n - 1 - k));
+    const s = Math.min(total, endGap + gap * (n - 1 - k)), sd = alt && (n - 1 - k) % 2 ? -1 : 1;   // (alt: every other one on her left)
     let sg = seg[seg.length - 1];
     for (const q of seg) if (s <= q.s0 + q.L + 1e-9) { sg = q; break; }
     const f = sg.L > 1e-6 ? (s - sg.s0) / sg.L : 0;
@@ -57,9 +70,9 @@ export function boardSpots(route, n, o = {}) {
     // the walking direction there (start → gate) and her right of it (+X is her left when she faces +Z)
     const dx = sg.a.x - sg.b.x, dz = sg.a.z - sg.b.z, dl = Math.hypot(dx, dz) || 1, fx = dx / dl, fz = dz / dl;
     const rx = -fz, rz = fx;   // her right: forward × up … (fx, fz) → (−fz, fx) turns +Z into −X (her right)
-    const bx = x + rx * side + fx * 0.6, bz = z + rz * side + fz * 0.6;
+    const bx = x + rx * side * sd + fx * 0.6, bz = z + rz * side * sd + fz * 0.6;
     // the board faces her coming: back down the route, turned a little towards the route's middle
-    const yaw = Math.atan2(-fx - rx * 0.35, -fz - rz * 0.35);
+    const yaw = Math.atan2(-fx - rx * 0.35 * sd, -fz - rz * 0.35 * sd);
     out.push({ x: bx, y, z: bz, yaw, view: { x: bx + Math.sin(yaw) * view, y, z: bz + Math.cos(yaw) * view } });
   }
   return out;

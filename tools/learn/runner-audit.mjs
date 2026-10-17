@@ -1,17 +1,20 @@
 // 墨浪跑酷 browser audit (docs/LEARN.md §20). Serves this checkout, opens the game in Chromium (software GL works:
 // SwiftShader args), and runs one of:
-//   --scenario runner  ?learn=<day>&kind=race (play-4: the race IS the runner under LEARN.play): tools/learn/runner-drive.js
+//   --scenario runner  ?learn=<day>&kind=race (the race IS the runner): tools/learn/runner-drive.js
 //                      rows (wrong, right, none, right … by default) through the real inputs; the 滑行段's typed items
 //                      (--glidePlan right,hint,wrong,near) on the game keyboard; the 看板段's boards; screenshots of rows
 //                      (--shots <dir>, --shotRows 1,3) and of the first type frame / ink word / held strip / board;
 //                      the PLAY §1 invariants per row / item / stretch, evidence leaves, coral / slow, no-answer = nothing
 //                      written, the crosshair hidden while she types, the type frame measured, first answers once
-//   --scenario forms   the existing race audit: tools/learn/drive-forms.js on ?kind=race&short=1&fast=1&play=0 (the card
-//                      race: LEARN.play off — race.js unchanged)
-//   --scenario perf    frame-time sampler: the runner vs the race vs a plain turf match on the same stage, real-time loop (not stepped), the
+//   --scenario perf    frame-time sampler: the runner vs a plain turf match on the same stage, real-time loop (not stepped), the
 //                      cost of each _frame call (sim + render) → p50 / p95 / max, after `state === 'playing'` for 3 s
 // Every run fails on a console error, a page error or a 4xx / failed request (the dev error beacon /__inkwave_error/… is
 // answered 204 and its message reported).
+// play-8 — a whole day in segments (PLAY §10): --query without short=1, --plan right --glidePlan right, --profile <dir>
+// (one Chromium profile for every segment: her store — the evidence — carries on), --segment (stop when --wallMs is out,
+// at a row boundary; the output's `resume` is the next segment's &gate= / &skip=), --gate N --skip K (where to start;
+// added to the query). The driver samples PLAY §1 rule 1 on every step (`invariants`). --trace a,b: a per-step trace of
+// her swim to every row whose place on the lap is a … b m (rows[].trace: s, d, latT, bounds, grounded, y, speed).
 // usage (one browser at a time on a shared box):
 //   flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/runner-audit.mjs --scenario runner --w 390 --h 844 --touch \
 //     --query '?learn=w1d3&kind=runner&short=1' --shots /tmp/shots --out /tmp/run.json
@@ -26,6 +29,7 @@ const flag = (k) => args.includes('--' + k);
 const SCEN = opt('scenario', 'runner'), Wd = +opt('w', 1280), Ht = +opt('h', 720), TOUCH = flag('touch'), DPR = +opt('dpr', 1);
 const SHOTS = opt('shots', null), OUT = opt('out', null), SHOT_ROWS = (opt('shotRows', '1') || '').split(',').filter(Boolean).map(Number);
 const PLAN = opt('plan', null), MAXROWS = +opt('maxRows', 0), PERF_S = +opt('perfSeconds', 40), GPLAN = opt('glidePlan', null);
+const PROFILE = opt('profile', null), SEGMENT = flag('segment'), GATE = +opt('gate', 0), SKIP = +opt('skip', 0);
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', wasm: 'application/wasm', txt: 'text/plain; charset=utf-8', ico: 'image/x-icon', mp3: 'audio/mpeg', ogg: 'audio/ogg', glb: 'model/gltf-binary', bin: 'application/octet-stream' };
 const beacons = [];
 const srv = http.createServer((q, r) => {
@@ -38,19 +42,25 @@ const srv = http.createServer((q, r) => {
   r.writeHead(200, { 'content-type': MIME[path.extname(p).slice(1)] || 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(p).pipe(r);
 });
-await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+// (--port: a fixed one — localStorage is per origin, so the segments of a whole day must all be served on the same port
+// for her store to carry on; day-run.mjs picks one for the day)
+await new Promise((ok) => srv.listen(+opt('port', 0) || 0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/`;
 const { chromium } = createRequire(import.meta.url)('playwright');
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
-const kill = () => { try { browser.close(); } catch (e) { /* gone */ } try { srv.close(); } catch (e) { /* gone */ } };
+const LAUNCH = { executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+// (--profile: a persistent context instead of a fresh one — the segments of a whole day share her localStorage)
+const browser = PROFILE ? null : await chromium.launch(LAUNCH);
+let live = null;
+const kill = () => { try { (browser || live)?.close(); } catch (e) { /* gone */ } try { srv.close(); } catch (e) { /* gone */ } };
 const watchdog = setTimeout(() => { console.log('runner-audit WATCHDOG'); kill(); process.exit(2); }, +opt('timeout', 1500) * 1000); watchdog.unref?.();
 const out = { scenario: SCEN, viewport: `${Wd}x${Ht}${TOUCH ? ' touch' : ''}`, runs: [] };
 const bad = [], errs = [];
 
 async function open(query, learn = true) {
-  const ctx = await browser.newContext({ viewport: { width: Wd, height: Ht }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH });
+  const CO = { viewport: { width: Wd, height: Ht }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH };
+  const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript(([touch]) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off', quality: 'low', qualityChosen: true, shadowsChosen: true }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, [TOUCH]);
-  const page = await ctx.newPage();
+  const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!u.includes('/__inkwave_error/')) bad.push('FAILED ' + u.replace(base, '/') + ' ' + ((r.failure() || {}).errorText || '')); });
   page.on('console', (m) => { if (m.type() === 'error') errs.push('[console] ' + m.text().slice(0, 300)); else if (process.env.RUNLOG && m.text().startsWith('[run]')) console.log(m.text()); });
@@ -65,10 +75,12 @@ async function open(query, learn = true) {
 }
 
 async function scenarioRunner() {
-  const q = opt('query', '?learn=w1d3&kind=race&short=1&gate=6') + '&quality=low&nofullscreen&noclips';
+  const q = opt('query', '?learn=w1d3&kind=race&short=1&gate=6') + (GATE ? '&gate=' + GATE : '') + (SKIP ? '&skip=' + SKIP : '') + '&quality=low&nofullscreen&noclips';
   const { ctx, page, bootS } = await open(q);
   // the plan per row, a row cap, and which rows (1-based, in the order they come up) get a screenshot
-  await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs]) => {
+  await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs, seg]) => {
+    if (seg && seg.segment) Object.assign(window, { __runSegment: true, __runGate: seg.gate || 1, __runSkip: seg.skip || 0 });
+    if (seg && seg.trace) window.__runTrace = seg.trace;
     if (after) window.__runShotAfter = true;
     if (gplan) window.__glidePlan = gplan.split(',');
     if (gshots) window.__glideShots = true;
@@ -76,7 +88,7 @@ async function scenarioRunner() {
     if (plan) window.__runPlan = plan.split(',');
     if (maxRows) window.__runMaxRows = maxRows;
     const want = new Set(rows); let seen = 0; window.__runShots = () => want.has(++seen);
-  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000)]);
+  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000), SEGMENT || opt('trace', null) ? { segment: SEGMENT, gate: GATE, skip: SKIP, trace: opt('trace', null) ? opt('trace').split(',').map(Number) : null } : null]);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/runner-drive.js'), 'utf8');
   let res, k = 0;
   for (;;) {
@@ -93,16 +105,7 @@ async function scenarioRunner() {
     const file = path.join(SHOTS, `runner-${Wd}x${Ht}-end.png`);
     await page.screenshot({ path: file }); console.log('shot', file);
   }
-  out.runs.push({ query: q, bootS, ...res });
-  await ctx.close();
-}
-
-async function scenarioForms() {
-  const q = opt('query', '?learn=w1d2&kind=race&short=1&fast=1&play=0') + '&quality=low&nofullscreen';
-  const { ctx, page, bootS } = await open(q);
-  const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/drive-forms.js'), 'utf8');
-  const res = JSON.parse(await page.evaluate(drive));
-  out.runs.push({ query: q, bootS, ...res });
+  out.runs.push({ query: q, gate: GATE, skip: SKIP, bootS, ...res });
   await ctx.close();
 }
 
@@ -134,7 +137,7 @@ async function sample(query, label, prepSrc, learn = true) {
 // (each prep: press 出发 / 走 while a board is up, then run the sim on — frozen, no renderer — to the busy moment)
 const FF = `const I = window.__inkwave, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const ff = (sec) => { I.debug.freeze(); I._skipRender = true; try { for (let i = 0; i < Math.round(sec * 30); i++) I._frame(1 / 30); } finally { I._skipRender = false; I.debug.unfreeze(); } };
-  const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) go.click(); else if (i > 2) break; await sleep(400); } };`;
+  const board = async () => { for (let i = 0; i < 40; i++) { const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go && I.match.learn.boards) go.click(); else if (i > 2) break; await sleep(400); } };`;
 async function scenarioPerf() {
   const day = opt('day', 'w1d3');
   // (the runner: to the first row, into its right lane, on to 5 m before it — so the sampled seconds hold a right
@@ -144,16 +147,13 @@ async function scenarioPerf() {
     const want = row.centers[F.rightAnswer()]; k = 0; while (Math.abs(F.latT - want) > 0.05 && k++ < 6) { F.swipe(want < F.latT ? 'left' : 'right'); ff(0.05); }
     k = 0; while (row.s - F.sNow > 5 && k++ < 80) ff(0.1);
     return { s: +F.sNow.toFixed(1), row: true, ahead: +(row.s - F.sNow).toFixed(1), lat: +F.latT.toFixed(2), want }; })()`);
-  // (the race walking to its first gate: at the gate its card holds the match, which is not a frame to compare)
-  const race = await sample(`?learn=${day}&kind=race&play=0`, 'race', `(async () => { ${FF} await board(); const F = I.match.learn; F.autoWalk && F.autoWalk(true); return { phase: F.phase, cur: F.cur }; })()`);
   // and a plain INKWAVE match (turf, 4 v 4 bots) on the same stage, a few seconds into the fight
   const turf = await sample(`?autostart=180&map=${runner.stage}`, 'turf 4v4', `(async () => { ${FF} ff(6); return { t: +I.match.time.toFixed(1) }; })()`, false);
-  out.runs.push(runner, race, turf);
+  out.runs.push(runner, turf);
 }
 
 try {
   if (SCEN === 'runner') await scenarioRunner();
-  else if (SCEN === 'forms') await scenarioForms();
   else if (SCEN === 'perf') await scenarioPerf();
 } catch (e) { errs.push('[harness] ' + (e && e.stack || e).toString().slice(0, 400)); }
 out.bad = bad; out.errors = errs; out.beacons = beacons.slice(0, 10);

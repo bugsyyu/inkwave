@@ -1,22 +1,22 @@
 // 关卡学习 — 解密闯关 (puzzle) runtime (docs/LEARN.md §4, §5). Owned by Match in mode 'learn' (match.learn).
 //
 // A day's course is a string of gates on the stage's navigation graph, on the route from your spawn to the far side.
-// Each gate carries one step's items. Walk up to a gate (LEARN.puzzle.gateRadius) and the match is held (`paused`)
-// while the question layer (src/ui/hud-learn.js, G.hud.learn) asks the gate's items one by one:
-//   right → counted; wrong → the gate gains a lock and the item comes back later in another form (a dictation as a
-//   choice, a choice as a dictation; a stress row with its options reshuffled); once every item is through, the gate
-//   opens: a cue, a burst, and the ink trail is painted on to the next gate in your team colour.
-//   The last gate is the exit: `learn:done`, the results card (做完 / 共几题, 到期的词, 再来一关 / 回到菜单).
+// Each gate carries one step's items. Walk up to a gate (LEARN.puzzle.gateRadius) and its items come one by one as
+// things on the stage (题即玩法, docs/PLAY.md — the play host, src/learn/play/host.js; the world never stops):
+//   right → counted; wrong → the gate gains a lock and the item comes back later in another form (a typed word as a
+//   choice of words, a dictation heard slowly; a choice with its options reshuffled); once every item is through, the
+//   gate opens: a cue, a burst, and the ink trail is painted on to the next gate in your team colour.
+//   After the last gate: the exit area (the echo booth, the check-in pad), then `learn:done` and the results card.
 // The day's first answer per item goes to the store (当天只认首答 — the evidence the memory model reads).
 //
 // Events on the bus (docs/EVENTS.md): learn:question { itemId, gate, type, form } · learn:answer { itemId, ok, first,
 // gate } · learn:gate { id, index, total, locks, opened } · learn:done { done, total, due }. Everything emitted is also
 // kept in `this.log` so an audit can read the sequence back.
 //
-// 题即玩法 (docs/PLAY.md, LEARN.play — play-1 = docs/LEARN.md §18): with the flag on, a puzzle's choice items (单词选义 /
-// 语法小测 / 发音小测) are not cards: arriving holds nothing, the item is ink targets past the gate and a shot is the
-// answer (src/learn/play/run.js); an item that is not a play kind yet still holds the match for its card, item by item.
-// The judging is this file's _judgeRecord either way. Flag off (or a form built on this class): exactly the cards.
+// 题即玩法 (docs/PLAY.md; play-1 … play-8 = docs/LEARN.md §18–§27): arriving holds nothing — no match.paused, no hold,
+// no card — every item is a station of the host (ink targets, the beat pads, the 字弹, a flip card, the boards …) and
+// a game action is the answer; the judging is _judgeRecord (play/judge.js judgeRecord). The forms built on this class
+// (the runner, the duel, the boss, versus2, coop2) bring their own hosts.
 //
 // Walking: the normal controls (WASD / the touch stick), or auto-walk (autoWalk(true), the HUD's 「自动走」 button):
 // the level steers the squidkid along the nav route to the next gate and jumps the jump-up edges. Moving the stick
@@ -24,15 +24,16 @@
 import * as THREE from 'three';
 import { G, emit } from '../core/ctx.js';
 import { LEARN } from '../config.js';
-import { puzzleLevel, prompt, judge, store } from './api.js';
-import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
-import { canClaim, claimJudge } from './forms/common.js';   // 「我的写法也对」 on a typed sentence (题即玩法 play-fix: S, held until she decides)
+import { puzzleLevel, prompt, store } from './api.js';
+import { cardFor } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
+import { judgeRecord } from './play/judge.js';   // the one judging path (题即玩法 play-8)
 import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
 import { PlayHost } from './play/host.js';
 import { isBanner } from './play/layout.js';   // (a word's 回炉 choice: which distractors stay ink balls)   // 题即玩法 (docs/PLAY.md): every item is a thing on the stage, the world runs on (play-wire, LEARN §22)
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+const WORD = /^[A-Za-z][A-Za-z']*$/;   // (a single word: a typed word's 回炉 choice offers only words — arena/alt.js the same)
 
 export class LearnFlow {
   constructor(match, opts = {}) {
@@ -62,8 +63,8 @@ export class LearnFlow {
     this._buildMeshes();
     this._buildSigns();
     this.hud?.start(this);
-    // (only the puzzle itself: race / duel / boss / coop2 extend this class and keep their cards until their phase)
-    this.play = LEARN.play && this.constructor === LearnFlow && match.mode === 'learn' ? new PlayHost(this) : null;
+    // (the puzzle itself: the forms that extend this class bring their own play hosts)
+    this.play = this.constructor === LearnFlow && match.mode === 'learn' ? new PlayHost(this) : null;
   }
 
   // ---------------------------------------------------------------------------------------------- placement
@@ -87,7 +88,7 @@ export class LearnFlow {
     const defs = this.level.gates.map((g) => ({ ...g, items: g.items.slice() }));
     // 题即玩法 (play-wire, PLAY §4 「写句 → M4 写字墙」): the write wall's sentences are the last gate — typed on the rig at
     // the exit, judged W as the boss's W phase judges them (the sign stood here as a placeholder since B, asking nothing)
-    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') for (const sg of this.level.signs || []) if (sg.design && sg.design.mechanic === 'write-wall' && sg.items && sg.items.length) defs.push({ ...sg, items: (this.level.short ? sg.items.slice(0, 2) : sg.items).slice(), kind: 'write' });
+    if (this.constructor === LearnFlow && this.match.mode === 'learn') for (const sg of this.level.signs || []) if (sg.design && sg.design.mechanic === 'write-wall' && sg.items && sg.items.length) defs.push({ ...sg, items: (this.level.short ? sg.items.slice(0, 2) : sg.items).slice(), kind: 'write' });
     const fit = Math.max(1, Math.min(defs.length, Math.floor((len - P.firstGateMin) / P.minGateGap) + 1));
     while (defs.length > fit) { const last = defs.pop(); defs[defs.length - 1].items.push(...last.items); }
     const n = defs.length;
@@ -156,7 +157,7 @@ export class LearnFlow {
     if (!signs.length || path.length < 4 || typeof document === 'undefined') return;
     // (题即玩法 play-wire: the placeholders stood exactly where the last gate's objects float; the host's own stations —
     // the echo booth, the check-in pad, the boards — take the exit area, LEARN §22)
-    if (LEARN.play && this.constructor === LearnFlow && this.match.mode === 'learn') return;
+    if (this.constructor === LearnFlow && this.match.mode === 'learn') return;
     const end = nav.nodes[path[path.length - 1]], back = nav.nodes[path[Math.max(0, path.length - 6)]];
     let fx = end.x - back.x, fz = end.z - back.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
     const sx = -fz, sz = fx, col = G.teamColors[0] || new THREE.Color('#ff8a14');
@@ -190,8 +191,8 @@ export class LearnFlow {
 
   _styleGates() {
     const col = G.teamColors[0] || new THREE.Color('#ff8a14');
-    // (题即玩法: a lock is coral — never a team's colour, PLAY §1 rule 6; the cards keep their red)
-    const grey = new THREE.Color('#6b6680'), red = new THREE.Color(this.play ? '#f08a7a' : '#ff3d5e');
+    // (题即玩法: a lock is coral — never a team's colour, PLAY §1 rule 6)
+    const grey = new THREE.Color('#6b6680'), red = new THREE.Color('#f08a7a');
     for (const g of this.gates) {
       const M = g.mesh; if (!M) continue;
       const next = g.state === 'next', open = g.state === 'open';
@@ -314,14 +315,9 @@ export class LearnFlow {
 
   // ---------------------------------------------------------------------------------------------- gate → questions
   _arrive(g) {
-    this.phase = 'ask';
+    this.phase = 'ask';   // (nothing holds: the stations stand her still themselves while one needs her)
     const a = this.match.local;
     a.intent.move.set(0, 0, 0); a.intent.jump = a.intent.fire = false;
-    if (!this.play) {
-      // hold the match BEFORE releasing the mouse: losing pointer lock on a live round opens the pause menu otherwise
-      this.match.paused = true;
-      G.input?.exitLock?.();
-    }   // (题即玩法: nothing holds — a card item holds the match itself, in _askNext)
     G.audio?.play?.('ui_confirm', { volume: 0.7 });
     this._emit('learn:gate', { id: g.id, index: g.index + 1, total: this.gates.length, locks: g.locks, opened: false });
     this._askNext(g);
@@ -334,40 +330,24 @@ export class LearnFlow {
     this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
-    if (this.play) {
-      if (this.play.canAsk(g, item, p)) { this.play.ask(g, item, p); return; }   // ink targets: the world runs on
-      this.play.toCard();   // not a play kind yet: the card, the match held for it
-    }
-    this.hud?.ask(p, {
-      gate: { index: g.index + 1, total: this.gates.length, locks: g.locks, title: g.title },
-      item: { n: this.asked, total: this.total + this._retriesLeft(), retry: item._form === 'alt' },
-      onAnswer: (ans) => this._answer(g, item, p, ans),
-    });
+    if (this.play && this.play.canAsk(g, item, p)) { this.play.ask(g, item, p); return; }   // a thing on the stage: the world runs on
+    // (every prompt a gate of the three weeks can ask has a station — tests/learn/play-wire.test.mjs; one without would
+    // be passed over, never asked as a card)
+    console.warn('[learn] no station for', item.id, p.type);
+    this._emit('learn:skip', { itemId: item.id, gate: g.id, type: p.type });
+    this._askNext(g);
   }
+  // the reworded items still to come (coop2 counts them into its 「第 n / 共几题」)
   _retriesLeft() { let n = 0; for (const g of this.gates) for (const it of g.queue) if (it._form === 'alt') n++; return n; }
 
-  _answer(g, item, p, ans) {
-    const { r, again } = this._judgeRecord(g, item, p, ans);
-    G.audio?.play?.(r.ok ? 'hit_marker' : p._flip ? 'ui_toggle' : 'ui_error', { volume: 0.8 });
-    this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
-  }
-
-  // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
-  // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
+  // The puzzle's side of the one judging path (PLAY §1 rule 2; the path itself is play/judge.js judgeRecord: judge → the
+  // day's first answer into the store, a hint → H, a flip card's rating → F, a held sentence → 我的写法也对 S / 继续 W).
+  // Every station hands its answer here (an ink target's / a pad's index, the 字弹's text with o.hinted / o.hold, her
+  // rating on a flip card); what is the puzzle's own stays here: the tallies, learn:answer, the lock and the retry.
   _judgeRecord(g, item, p, ans, o = {}) {
-    let r;
-    if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
-    else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
-    else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
-    else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
-    else r = judge(item, ans);
-    // 题即玩法 play-fix — 「我的写法也对」 the way play-4 / play-5 do it (runner.js / boss.js _judgeRecord): a station that
-    // can wait for her (o.hold: the 字弹's typed sentence) gets a near miss canClaim allows back HELD — nothing written, no
-    // lock, { held: true }; her tap decides: o.decided + o.claim → claimJudge re-checks it, standing → S; o.decided alone
-    // → the miss as it was (W). Without o.hold / o.decided: exactly the call it always was
-    if (o.hold && !o.decided && canClaim(item, p, r)) return { r, first: false, again: false, held: true };
-    if (o.decided && o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; o = { ...o, self: true }; } }
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.hinted ? { hinted: true } : {}), ...(o.self ? { self: true } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date; 题即玩法: a hint used → H, her own claim → S)
+    const out = judgeRecord({ item, p, ans, o, store });
+    const { r, first } = out;
+    if (out.held) return { r, first: false, again: false, held: true };
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });
@@ -382,7 +362,8 @@ export class LearnFlow {
   }
 
   // The other form of an item (asked when the first answer was wrong), judged through the same judge():
-  //   dictation / typed sentence → a choice among the right text and near misses (the picked text goes to the judge)
+  //   typed word (or sentence) → a choice among the right text and near misses — ink balls (the picked text is judged)
+  //   dictation sentence → the same dictation, heard slowly (PLAY §4 「M4 慢速、逐词」)
   //   zh→en choice → a dictation of the right word (the typed text is mapped to its option index)
   //   stress / listen-choice rows → the same choice, options reshuffled (indices mapped back)
   _altPrompt(item) {
@@ -390,14 +371,14 @@ export class LearnFlow {
     if (base.type !== 'choice') {   // ('type' from A's engine, 'typed' from the stub: anything she types)
       // (题即玩法: a missed dictation sentence comes back as the same dictation, heard slowly — PLAY §4 「M4 慢速、逐词」; a
       // choice of four sentences would be four long planks, which no mechanic shows)
-      if (this.play && item.meta && item.meta.kind === 'dict') return { ...base, text: '换个问法：慢一点再听一遍，把听到的句子写下来。', _tip: { zh: '回炉：慢速再听一遍 — ' + (item.zh || ''), variant: 'slow', slow: true } };
+      if (item.meta && item.meta.kind === 'dict') return { ...base, text: '换个问法：慢一点再听一遍，把听到的句子写下来。', _tip: { zh: '回炉：慢速再听一遍 — ' + (item.zh || ''), variant: 'slow', slow: true } };
       const pool = this._wordPool(item);
       const opts = [{ text: item.en, zh: item.zh }];
       // (题即玩法: the choice is M1 ink balls — a long word makes planks, at most LEARN.m1.bannerMax of them; with a short
       // word every distractor stays a ball, so a long one is passed over)
       const long = (w) => isBanner([{ text: String(w.en ?? w.text ?? ''), zh: String(w.zh || '') }]);
-      const want = this.play && long(item) ? LEARN.m1.bannerMax : 4;
-      for (const w of pool) { if (opts.length >= want) break; if (norm(w.en) === norm(item.en)) continue; if (this.play && (!/[a-z]/i.test(w.en) || (!long(item) && long(w)))) continue; opts.push({ text: w.en, zh: w.zh }); }
+      const want = long(item) ? LEARN.m1.bannerMax : 4;
+      for (const w of pool) { if (opts.length >= want) break; if (norm(w.en) === norm(item.en)) continue; if (!/[a-z]/i.test(w.en) || (!long(item) && long(w))) continue; opts.push({ text: w.en, zh: w.zh }); }
       shuffle(opts);
       return { type: 'choice', text: /\s/.test(item.en) ? '换个问法：再听一遍，选出你听到的那句' : '换个问法：再听一遍，选出你听到的词', zh: item.zh, tts: item.en, options: opts, _alt: 'choice-of-typed' };
     }
@@ -408,13 +389,15 @@ export class LearnFlow {
     const perm = item.options.map((_, i) => i); shuffle(perm);
     return { ...base, text: `换个问法：${base.text}`, options: perm.map((i) => base.options[i]), _perm: perm };   // (the engine's own option texts, reshuffled: a word's options are its meanings)
   }
-  // single words of this level (other gates' items and option words) as distractors, sentences for a sentence
+  // single words of this level (other gates' items and option words) as distractors, sentences for a sentence (a word's
+  // distractors are words — WORD, as arena/alt.js has it: a 音标 item's options are symbols like /j/, never a word card's
+  // choice; play-8)
   _wordPool(item) {
     const sentence = /\s/.test(item.en);
     const out = [];
     for (const g of this.level.gates) for (const it of g.items) {
-      if (it.id !== item.id && /\s/.test(it.en) === sentence) out.push({ en: it.en, zh: it.zh });
-      if (!sentence) for (const o of it.options || []) if (!/-/.test(o.en)) out.push({ en: o.en, zh: o.zh });
+      if (it.id !== item.id && /\s/.test(it.en) === sentence && (sentence || WORD.test(it.en))) out.push({ en: it.en, zh: it.zh });
+      if (!sentence) for (const o of it.options || []) if (o.en && WORD.test(o.en)) out.push({ en: o.en, zh: o.zh });
     }
     if (sentence && out.length < 3) {
       // too few sentences to pick from: swap one word of this sentence for another single word of the level
@@ -442,7 +425,6 @@ export class LearnFlow {
     const next = this.gates[this.cur];
     if (next) { next.state = 'next'; this._trail(g, next); }
     this._styleGates();
-    this.match.paused = false;
     this.autoPath = null;   // a new target
     if (!next) {
       // 题即玩法 (play-wire): the day ends on the exit area's stations — the 回声亭, the 打卡垫 (踩上去 = 走完了) — when it has them

@@ -9,8 +9,8 @@
 //   retry / stars: relearnPlan(items, max) · starsOf(summary) · readStars(backend) · writeStars(dayKey, n, backend)
 //   level:  shortenLevel(level) · shortenBoss(plan) · fmtClock(s)
 import { LEARN } from '../../config.js';
-import { PROP_DROP, PROPS, PROPS_OF, BOT_ANSWER, EFFECTS, RETRY, MECHANICS, stars } from '../design.js';
-import { judge, daySteps } from '../api.js';
+import { PROP_DROP, PROPS, PROPS_OF, BOT_ANSWER, EFFECTS, RETRY, stars } from '../design.js';
+import { judge } from '../api.js';
 
 /* ───────────────────────────── route: A* with a penalty, a loop, checkpoints along it ───────────────────────────── */
 class Heap {
@@ -289,31 +289,6 @@ export function cardFor(g, item, base, alt) {
   if (item._form === 'alt') return alt();
   if (item._flipTyped || !isFlipGate(g)) return base();
   return flipPrompt(item);
-}
-
-// the board (展板) before a gate's questions (LEVELS §2 学习在前): the step's content — words with IPA and meaning,
-// sounds with their tip and examples, the grammar lesson's lines, the reading passage; null for gates without one
-const BOARDED = new Set(['word-board', 'symbol-door', 'grammar-board', 'pron-quiz', 'reading-room']);
-export function boardOf(gate, level) {
-  const mech = gate.design && gate.design.mechanic;
-  if (!mech || !BOARDED.has(mech)) return null;
-  const items = gate.items || [], zh = MECHANICS[mech] ? MECHANICS[mech].zh : '';
-  const head = { title: `看板 · ${zh}`, head: gate.title || '', rows: [] };
-  if (mech === 'word-board') head.rows = items.map((it) => ({ en: it.en, ipa: (it.meta && (it.meta.ipaUs || it.meta.ipa)) || '', zh: (it.meta && it.meta.zhFull) || it.zh, tts: it.en }));
-  else if (mech === 'symbol-door') head.rows = items.map((it) => { const m = it.meta || {}, ex = (m.examples || []).slice(0, 3); return { en: it.en, ipa: m.name || '', zh: [m.tip, ex.map((e) => e.en + '（' + e.zh + '）').join('、')].filter(Boolean).join(' · '), tts: ex[0] ? ex[0].en : '' }; });
-  else if (mech === 'reading-room') {
-    const it = items[0], P = (it && it.meta && it.meta.passage) || {};
-    let step = null; try { step = daySteps(level.weekRef, level.day).find((s) => s.id === gate.stepId); } catch (e) { step = null; }
-    const pas = (step && step.meta && step.meta.passage) || {};
-    head.rows = [{ en: pas.title || P.title || '', zh: pas.titleZh || P.titleZh || '', tts: pas.en || it.tts || '' }];
-    if (pas.en) head.rows.push({ text: pas.en });
-    if (pas.zh) head.rows.push({ text: pas.zh });
-  } else {
-    let step = null; try { step = daySteps(level.weekRef, level.day).find((s) => s.id === gate.stepId); } catch (e) { step = null; }
-    const lines = (step && step.meta && step.meta.lesson) || [];
-    head.rows = lines.length ? lines.map((l) => ({ text: typeof l === 'string' ? l : [l.en, l.zh].filter(Boolean).join('　') })) : [{ text: gate.title || '' }];
-  }
-  return head;
 }
 
 // the 回炉门's help for a missed item (RETRY.later): the tip and examples for a sound, the explanation for a grammar /

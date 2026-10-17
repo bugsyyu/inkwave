@@ -6,10 +6,9 @@
 // seconds; the rules are measured, not the renderer). It starts and stops its own relay, file server and browsers.
 //
 // usage: NODE_PATH=/opt/node22/lib/node_modules node tools/learn/net-duo-play.mjs --mode versus2|coop2
-//          [--view portrait|landscape] [--week 1] [--day 1] [--map tidewater] [--play 0] [--shots <dir>] [--budget 175]
+//          [--view portrait|landscape] [--week 1] [--day 1] [--map tidewater] [--shots <dir>] [--budget 175]
 //   one browser run at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/net-duo-play.mjs …
 //   --view portrait = 390 × 844 (?from=app, the App's WKWebView) · landscape = 844 × 390; both with touch
-//   --play 0: the flag off — the cards (the answers through the card's DOM, net-duo.mjs's script)
 //
 // Every question, on both screens: no .iw-learn__panel shown, match.paused false, learn.hold falsy, the strip up.
 //   versus2: the same mechanic, the same labels in the same order and the same right object on both; every object inside
@@ -36,7 +35,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const MODE = opt('mode', 'versus2'), WEEK = +opt('week', 1), DAY = +opt('day', 1), MAP = opt('map', 'tidewater');
-const VIEW = opt('view', 'portrait'), PLAY = opt('play', '1') !== '0', SHOTS = opt('shots', null), BUDGET = +opt('budget', 176) * 1000;
+const VIEW = opt('view', 'portrait'), PLAY = true, SHOTS = opt('shots', null), BUDGET = +opt('budget', 176) * 1000;
 const [W, H] = VIEW === 'landscape' ? [844, 390] : [390, 844];
 // coop2: the audit's hand puts each squidkid on its own pad at a gate (as the auto-walk ends there — B's walk is not what
 // is measured, and a 3-minute run has no room for it); --walk lets the auto-walk take them
@@ -110,7 +109,7 @@ try {
   say(`relay :${rport} · files :${hport} · ${W}×${H}`);
 
   // ---- two browsers, phones (touch), both on the match's own stage
-  const url = `http://127.0.0.1:${hport}/?skipTitle&quality=low&nofullscreen&noclips&map=${MAP}&relay=ws://127.0.0.1:${rport}${PLAY ? '' : '&play=0'}${VIEW === 'portrait' ? '&from=app' : ''}`;
+  const url = `http://127.0.0.1:${hport}/?skipTitle&quality=low&nofullscreen&noclips&map=${MAP}&relay=ws://127.0.0.1:${rport}${VIEW === 'portrait' ? '&from=app' : ''}`;
   const open = async (i) => {
     const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
     browsers[i] = b;
@@ -153,7 +152,7 @@ try {
   const info = await both(() => { const m = __inkwave.match, F = m.learn; return { kind: m.learnKind, mode: m.mode, host: __G.net.isHost, items: F.level.gates.map((g) => g.items.map((it) => it.id)), play: !!(F.arena || F.play), team: m.local ? m.local.team : null }; });
   R.level = info;
   check('both in the level: the same form, the same level from the same content', info.every((x) => x.kind === MODE) && JSON.stringify(info[0].items) === JSON.stringify(info[1].items), JSON.stringify(info.map((x) => [x.kind, x.team, x.play])));
-  check(PLAY ? 'the flag on: the play host on both screens' : 'the flag off: no play host (the cards)', info.every((x) => x.play === PLAY), JSON.stringify(info.map((x) => x.play)));
+  check('the play host on both screens', info.every((x) => x.play === true), JSON.stringify(info.map((x) => x.play)));
 
   // the stepper (net-duo.mjs's): the engine's largest step, a few frames per evaluate (each page's pings must reach the
   // relay), never much faster than 2 × real time (the relay cuts off a socket that sends far more than a real one)
@@ -180,8 +179,7 @@ try {
     R.shots = (R.shots || []).concat(file); say(`shot ${file} (${Date.now() - t} ms)`);
   };
   const helpers = { ev, both, step, pair, view: (i) => ev(i, VIEW_FN), store: (i) => ev(i, STORE_FN) };
-  if (PLAY) await (MODE === 'coop2' ? driveCoopPlay : driveVersusPlay)(helpers);
-  else await (MODE === 'coop2' ? driveCoopCards : driveVersusCards)(helpers);
+  await (MODE === 'coop2' ? driveCoopPlay : driveVersusPlay)(helpers);
 } catch (e) {
   say('ERROR', e && e.stack ? e.stack.split('\n').slice(0, 6).join('\n') : e);
   R.error = String(e && e.message || e);
@@ -304,9 +302,11 @@ async function answerOn(H, i, right) {
     const keyAt = (k) => ev(i, (k) => { const Hs = __inkwave.match.learn.arena || __inkwave.match.learn.play, el = Hs.type.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, k);
     for (const ch of text) { if (!/[a-z ' .,?-]/.test(ch)) continue; const at = await keyAt(ch); if (at) await pages[i].touchscreen.tap(Math.round(at[0]), Math.round(at[1])); }
     const typed = (await H.view(i)).type;
+    // (play-8: is the keyboard's ▶ there? — coop2's answering side hears nothing, so it must not be)
+    const replay = await ev(i, () => { const Hs = __inkwave.match.learn.arena || __inkwave.match.learn.play, b = Hs.type.keys.btnEls.get('replay'); return b ? b.style.display !== 'none' : null; });
     const fire = await keyAt('fire'); if (fire) await pages[i].touchscreen.tap(Math.round(fire[0]), Math.round(fire[1]));
     for (let n = 0; n < 50; n++) { await step(0.1); v = await H.view(i); if (!v.type || v.type.verdict) break; }
-    return { how: 'keys', text: typed && typed.text, verdict: v.type ? v.type.verdict : null };
+    return { how: 'keys', text: typed && typed.text, verdict: v.type ? v.type.verdict : null, replay };
   }
   return { how: 'none', mech: v.mech };
 }
@@ -413,6 +413,7 @@ async function driveCoopPlay(H) {
     const right = wrongDone;
     const a = await answerOn(H, hi, right);
     rec.answer = a;
+    if (a.how === 'keys') check(`${tag}: the answering side's game keyboard has no ▶ (the recording is the partner's — play-8)`, a.replay === false, a);
     say(`  ${tag}: c${hi} answers ${right ? 'right' : 'wrong'}: ${JSON.stringify(a)}`);
     if (!right) { wrongDone = true; retry = { id: qa.id, hands: hi }; }
     const Y = await Promise.all([H.view(0), H.view(1)]);
@@ -433,82 +434,3 @@ async function driveCoopPlay(H) {
   check('results: B\'s results card on both screens, with the pair\'s lines', V.every((v) => v.learnCard && /两个人/.test(v.learnCard)), JSON.stringify(V.map((v) => (v.learnCard || '').replace(/\s+/g, ' ').slice(0, 160))));
 }
 
-// ------------------------------------------------------------------------------------------------ the flag off: the cards
-// (net-duo.mjs's script, answered through the card's DOM)
-async function cardLive(i) {
-  return pages[i].evaluate(() => {
-    const m = __inkwave.match, F = m && m.learn, A = __G.hud.learn._ask;
-    if (!F || !A || A.answered) return null;
-    const q = F.q || null;
-    return { q: q ? q.q : null, id: (F.asking && F.asking.item.id) || (q && q.item && q.item.id) || null, type: A.p.type, opts: A.p.options ? A.p.options.length : 0, hasInput: !!document.querySelector('.iw-learn__input:not([disabled])'), role: q ? q.role || null : null, play: getComputedStyle(__G.hud.learn.playBtn).display !== 'none', panel: getComputedStyle(document.querySelector('.iw-learn__panel')).display !== 'none', paused: !!m.paused };
-  });
-}
-async function cardAnswer(i, right) {
-  return pages[i].evaluate((right) => {
-    const F = __inkwave.match.learn, A = __G.hud.learn._ask;
-    if (!A || A.answered) return 'none';
-    const want = F.rightAnswer ? F.rightAnswer() : null;
-    if (A.p.type === 'choice') {
-      const btns = [...document.querySelectorAll('.iw-learn__opt')];
-      let k = typeof want === 'number' ? want : 0; if (!right) k = k === 0 ? 1 : 0;
-      btns[k].click(); return 'choice ' + k;
-    }
-    const inp = document.querySelector('.iw-learn__input'); if (!inp) return 'no form';
-    inp.value = right ? String(want || '') : 'zzz qqq';
-    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
-    return 'typed ' + inp.value;
-  }, right);
-}
-async function driveVersusCards(H) {
-  const { step, both, pair } = H;
-  const plan = { 1: { order: [1, 0], right: [true, true] }, 2: { order: [0, 1], right: [true, false] } };
-  const done = new Set(); let lastSig = '', resultsAt = 0, shots = 0;
-  while (budgetLeft() > 4500) {
-    await step(0.5);
-    const L = await Promise.all([cardLive(0), cardLive(1)]);
-    if (L[0] && L[1] && L[0].q === L[1].q && !done.has(L[0].q)) {
-      const q = L[0].q; done.add(q);
-      check(`q${q}: the card on both screens (the flag off), the same item`, L.every((x) => x.panel) && L[0].id === L[1].id, JSON.stringify(L));
-      if (shots++ < 1) await pair('card', L.map((x, i) => `c${i} 卡片 · ${x.type}`));
-      const P = plan[q] || { order: [0, 1], right: [true, true] };
-      for (const [n, i] of P.order.entries()) { if (n) await sleep(1500); say(`  c${i}:`, await cardAnswer(i, P.right[i])); }
-    }
-    const V = await Promise.all([H.view(0), H.view(1)]);
-    const sig = V.map((v) => `${v.state}/${v.net} q${v.q ? v.q.q : '-'}`).join(' | ');
-    if (sig !== lastSig) { lastSig = sig; say(sig); }
-    if (V.some((v) => v.net !== 'match')) break;
-    if (V.some((v) => v.state === 'finish' || v.state === 'judge' || v.state === 'results') && !R.t.matchEnd) { mark('matchEnd'); await both(() => { __G.hud.timeScale = 25; }); }
-    if (V.every((v) => v.results && v.strip2)) break;
-    if (R.t.matchEnd && V.every((v) => v.state === 'results')) { resultsAt = resultsAt || Date.now(); if (Date.now() - resultsAt > 8000) break; }
-  }
-  const V = await Promise.all([H.view(0), H.view(1)]), ST = await Promise.all([H.store(0), H.store(1)]);
-  R.final = V.map((v, i) => ({ log: v.log, zone: v.zone, strip: v.strip2, store: ST[i] }));
-  const inks = V.map((v) => v.log.match(/ink@\d+:\S+/g) || []);
-  check('cards: the ink as before (q1 the guest, q2 the host), the same on both', JSON.stringify(inks[0]) === JSON.stringify(inks[1]) && inks[0][0] === 'ink@1:' + R.ids[1] && inks[0][1] === 'ink@2:' + R.ids[0], JSON.stringify(inks));
-  check('cards: each first answer in its own store; INKWAVE\'s results with the strip on both', ST.every((s) => s.length >= 1) && V.every((v) => v.results && /双人联机赛/.test(v.strip2 || '')), JSON.stringify({ ST, strip: V.map((v) => v.strip2) }));
-}
-async function driveCoopCards(H) {
-  const { ev, both, step, pair } = H;
-  if (WALK) await both(() => __inkwave.match.learn.autoWalk(true));
-  const seen = new Set(); let wrongDone = false, lastSig = '', shots = 0;
-  while (budgetLeft() > 4500) {
-    await step(0.5);
-    const V = await Promise.all([H.view(0), H.view(1)]);
-    for (const i of [0, 1]) if (V[i].phase === 'walk') await ev(i, onPad, WALK);
-    const sig = V.map((v) => `${v.phase} gate ${v.cur + 1}/${v.gates} q ${v.q ? v.q.q + v.q.role[0] : '-'}`).join(' | ');
-    if (sig !== lastSig) { lastSig = sig; say(sig); }
-    if (V.some((v) => v.net !== 'match')) break;
-    if (V.every((v) => v.learnCard)) { mark('results'); break; }
-    const L = await Promise.all([cardLive(0), cardLive(1)]);
-    if (!(L[0] && L[1] && L[0].q && L[0].q === L[1].q && !seen.has(L[0].q))) continue;
-    seen.add(L[0].q);
-    const hi = L[0].role === 'hands' ? 0 : 1;
-    check(`q${L[0].q}: the cards (the flag off): the clue card with no form on c${1 - hi}, the form on c${hi}`, L[1 - hi].type === 'clue' && !L[1 - hi].hasInput && !L[1 - hi].opts && !L[hi].play && L.every((x) => x.panel && x.paused === false), JSON.stringify(L));
-    if (shots++ < 1) await pair('cards', L.map((x, i) => `c${i} 卡片 · ${i === hi ? '作答' : '线索'}`));
-    say(`  c${hi}:`, await cardAnswer(hi, wrongDone)); wrongDone = true;
-    await step(0.2);
-    await both(() => { const b = document.querySelector('.iw-learn__next'); if (b && document.querySelector('.iw-learn__verdict.is-on')) b.click(); });
-  }
-  const V = await Promise.all([H.view(0), H.view(1)]);
-  check('cards: the gates opened on both, the results card on both', V[0].cur === V[0].gates && V[1].cur === V[1].gates && V.every((v) => v.learnCard && /两个人/.test(v.learnCard)), JSON.stringify(V.map((v) => [v.cur, v.gates, (v.learnCard || '').slice(0, 60)])));
-}

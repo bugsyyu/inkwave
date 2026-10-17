@@ -606,7 +606,8 @@ export const LEARN = {
     special: 15,              // special points a right answer adds
     askGap: 2.0,              // s between the verdict and the next question in a round
     roundMin: 60, roundMax: 300,   // s a round (= a gate) lasts: the gate's course minutes, clamped
-    prep: true,               // between rounds the board shows the next step (the clock stops)
+    prep: true,               // between rounds the boards show the next step (play-8: M6 boards, the match runs on)
+    prepWalk: 6,              // m she walks on from where the 备战 board came up: the round starts (as 「开始这一轮」 does)
   },
   boss: {
     phaseTime: { L: 840, R: 840, W: 600, S: 360 },   // s per phase (EXAM: 14 / 14 / 10 / 6 min)
@@ -748,10 +749,8 @@ export const LEARN = {
   streak: { three: 3, five: 5 },   // the two streak thresholds every form celebrates
   relearnMax: 12,             // 回炉门: at most this many items come back before the exit (the rest wait for tomorrow)
   starsKey: 'inkwave:learn:design:v1',   // stars + walked days (local only; never the evidence document)
-  // ---- 题即玩法 (docs/PLAY.md; play-1 = docs/LEARN.md §18): a question is a thing on the stage, an answer a game action.
-  // true: the puzzle's choice items (单词选义 / 语法小测 / 发音小测) are ink targets (M1) — no pause, no hold, no card; the
-  // other items keep the card until their phase. false: every item is the card, exactly as before. ?play=0 / ?play=1 override.
-  play: typeof location !== 'undefined' && /[?&]play=/.test(location.search) ? !/[?&]play=0(?:&|$)/.test(location.search) : true,
+  // ---- 题即玩法 (docs/PLAY.md; play-1 = docs/LEARN.md §18): a question is a thing on the stage, an answer a game action —
+  // the only way a level asks (play-8: the cards and their LEARN.play switch are gone)
   // the play layer's screen rules, shared by every play kind (the strip, the safe area, a tap on a question object)
   playUi: {
     side: 16,                 // px kept clear at the left / right edge (the safe area)

@@ -1,4 +1,4 @@
-// 题即玩法 play-4 (docs/PLAY.md §5.2, LEARN §23): the race is 墨浪跑酷 under LEARN.play — the flow pick, the names, and the
+// 题即玩法 play-4 (docs/PLAY.md §5.2, LEARN §23): the race is 墨浪跑酷 (play-8: the only race) — the flow pick, the names, and the
 // one label painter (play-1's atlas.js) drawing the runner's lane-wide plates: every curtain of the three weeks' race
 // days gets a readable plate, nothing cut, a row's plates in one small sheet.
 // 用法：node --test tests/learn/play4.test.mjs
@@ -20,13 +20,11 @@ const { PLATE } = await import('../../src/learn/play/runner/view.js');
 const R = LEARN.runner;
 const WEEKS = [await loadWeek(1), await loadWeek(2), await loadWeek(3)];
 
-test('the race form is the runner under LEARN.play and race.js\'s card race without it (the id stays race); the names follow', () => {
-  assert.equal(flowFor('race', true), RunnerFlow);
-  assert.equal(flowFor('race', false), RaceFlow);
-  assert.ok(RunnerFlow.prototype instanceof RaceFlow, 'the runner is built on the race (bots, props, standings)');
-  assert.equal(flowFor('puzzle', true), flowFor('puzzle', false));
-  // (Node has no location: LEARN.play is on here, as it is by default in the page)
-  assert.equal(LEARN.play, true);
+test('the race form is the runner (the id stays race; play-8: no card race, no LEARN.play switch); the names follow', () => {
+  assert.equal(flowFor('race'), RunnerFlow);
+  assert.ok(RunnerFlow.prototype instanceof RaceFlow, 'the runner is built on the race\'s base (bots, props, standings)');
+  for (const m of ['_answer', '_askNext', '_arrive', '_legStart', '_open', '_finishLine']) assert.ok(!Object.prototype.hasOwnProperty.call(RaceFlow.prototype, m), `race.js: no card race (${m})`);
+  assert.equal('play' in LEARN, false, 'the switch is gone');
   assert.equal(FORM_ZH.race, '墨浪跑酷');
   assert.match(t('main.learnSub'), /墨浪跑酷/); assert.doesNotMatch(t('main.learnSub'), /道具赛/);
   assert.match(t('desc.learn'), /墨浪跑酷/);
