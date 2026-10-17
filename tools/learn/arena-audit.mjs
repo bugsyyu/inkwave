@@ -102,6 +102,10 @@ for (const viewName of VIEWS_WANT) { try {
   for (let i = 0; i < 120; i++) { const st = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), go: !!document.querySelector('.iw-lf__board.is-on') })); if (st.state === 'playing' && (st.prep || FORM === 'boss')) break; await step(250); }
   const pre = await ev(() => ({ state: __inkwave.match.state, prep: !!(__inkwave.match.learn.prep && __inkwave.match.learn.prep()), board: !!document.querySelector('.iw-lf__board.is-on'), paused: __inkwave.match.paused }));
   say('pre', JSON.stringify(pre));
+  // --skip-to S (boss): the audit's hand clears the phases before it (BossFlow._phaseDone 'cleared': the boss falls to each
+  // band's floor, nothing written) — to reach the 回声亭 without eight questions first
+  const SKIP = opt('skip-to', null);
+  if (FORM === 'boss' && SKIP) { const r = await ev((ph) => { const F = __inkwave.match.learn; let n = 0; while (F.gates[F.pi] && F.gates[F.pi].phase !== ph && n++ < 6) F._phaseDone(F.gates[F.pi], 'cleared'); return { phase: F.gates[F.pi] && F.gates[F.pi].phase, skipped: n }; }, SKIP); say('skipped to', JSON.stringify(r)); }
   if (FORM !== 'boss') {
     check(pre.board && pre.prep, 'the prep board is up before the round (LEVELS §2.3 备战; the clock stops)');
     await shot('prep');

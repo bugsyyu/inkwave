@@ -776,7 +776,8 @@ export const LEARN = {
     near: 3, far: 8.5,        // m past the camera boom the cluster may float (the zone's centre when it is this close)
     frameFor: 0.9,            // s at most the camera eases towards the zone / the boss when a question comes (her look ends it)
     frameRate: 7,             // 1/s: that ease (dampAngle; reduced motion: none)
-    bossPx: 30,               // px: an option ball's radius on the screen at the socket's distance …
+    bossPx: 44,               // px: an option ball's radius on the screen at the socket's distance … (play-5: 30 left the
+                              // labels under the balls ~14 px tall on a landscape phone at 13–15 m; the balls spread apart)
     bossBall: 0.5, bossBallMax: 1.35,   // … within these metres
     bossLift: { eyeL: 0.55, eyeR: 0.55, belly: 0.1, cannon: 0.45, shellTop: 1.2 },   // m a ball hangs above its socket
     bossRow: 1.15,            // × a plank's height between stacked banners over the shell (a long-label choice)
