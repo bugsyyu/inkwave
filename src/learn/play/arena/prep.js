@@ -14,6 +14,7 @@ import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { BoardWalk } from '../board/walk.js';
 import { frontSpot, FRONT_W_UPRIGHT } from '../board/front.js';
+import { hudBand } from '../landscape.js';
 
 const BD = LEARN.board;
 
@@ -30,6 +31,7 @@ export class PrepStation {
     const B = (this.board = new BoardWalk({ scene: G.scene, camera: G.camera, color: G.teamHex?.[0] || '#ff8a14', reduced: this.host.reduced, root: (G.hud && G.hud.root) || document.body, max: 2 }));
     try { B.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     B.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
+    B.bandFor = hudBand;   // (framed under whatever the top row holds on a landscape phone — play-7's landscape.js, as the boss's booth board)
     return B;
   }
   warm() { this._board(); }

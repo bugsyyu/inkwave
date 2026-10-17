@@ -21,6 +21,7 @@ import { EchoBooth } from '../echo/booth.js';
 import { FlipStation } from '../wire/flip.js';
 import { PrepStation } from './prep.js';
 import { isFlipGate } from '../../forms/common.js';
+import { hudBand } from '../landscape.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3();
@@ -36,6 +37,7 @@ class EchoStation {
     if (this.echo) return;
     const hex = G.teamHex?.[0] || '#ff8a14', root = (G.hud && G.hud.root) || document.body;
     this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
+    this.echo.walk.bandFor = hudBand;   // (play-7: the board framed under the boss's HP bar and the clock, not behind them)
     try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
     this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); this.flow._echoDone?.(C.g, C.item, d); };
@@ -162,6 +164,14 @@ export class ArenaHost {
     this.type.gate(!menuUp);
     if (this._warmT > 0) { this._warmT -= dt; if (this._warmT <= 0) { try { this.type.warm(); this.echo?.warm(); } catch (e) { console.warn('[arena] warm', e); } } }
     this.m1.update(dt);
+    // play-7: the duel's objects up → the HUD's name tags over the bots step aside (hud.js markerYield; LEARN §24 已知坑 3);
+    // the same while the 打字蟹 is up (duel or boss: a tag sat on the typewriter) and while the boss's 回声亭 board is
+    // framed (the squad's tags sat on its buttons on a landscape phone)
+    const tags = (this.mode === 'zone' && this.kind === 'm1' && !!(this.m1.cur && this.m1.cur.placed && !this.m1.cur.answered))
+      || (this.kind === 'type' && !!this.type.cur) || (this.kind === 'echo' && !!(this.echo && this.echo.cur && this.echo.echo && this.echo.echo.walk.framed >= 0))
+      // (play-8: and while a flip card or a 备战 board stands in front of her — the bots' tags sat on them too)
+      || (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
+    if (tags !== !!this._tagsYield) { this._tagsYield = tags; G.hud?.markerYield?.(tags); }
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.echo?.update(dt); this.flip.update(dt); this.prepS.update(dt);
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
@@ -190,6 +200,7 @@ export class ArenaHost {
     return { mode: this.mode, mechanic: this.kind, item: this.cur && this.cur.item.id, cam: { on: this.cam.on, want: !!this.cam.want, fov: +this.cam.fov.toFixed(1), rigMode: G.rig && G.rig.mode }, still: !!(S && S.still), m1: this.m1.debug(), station: S ? S.debug() : null, log: this.log.slice(-12) };
   }
   dispose() {
+    if (this._tagsYield) { this._tagsYield = false; G.hud?.markerYield?.(false); }
     if (typeof window !== 'undefined') { window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
     this.cam.release(G.rig, this.match.local);

@@ -1898,6 +1898,11 @@ export class HUD {
     if (!ok) this._snd('ui_error', { volume: 0.5 });
   }
 
+  // play-7 (题即玩法, docs/LEARN.md §26): while a duel's question objects (or the 打字蟹, or the boss's booth board) are up,
+  // the name tags over the bots and the arrows to them step aside (a label and a tag overlapped). A switch only — the
+  // tags' own update is untouched; off brings them back
+  markerYield(on) { this.markerLayer.classList.toggle('is-yield', !!on); }
+
   _updMarkers(ms) {
     const L = this._L;
     ms = ms || [];

@@ -23,6 +23,9 @@
 // comes back HELD from flow._judgeRecord ({ hold: true } → { held }) — nothing written, the ink word stays grey — and the
 // strip offers 「我的写法也对 / 继续」 (the play-4 / play-5 convention); her tap decides (o.decided, o.claim), only then
 // does the word play a verdict. No time-out (PLAY §1.6).
+// play-7 — on a landscape screen the game keyboard is split (keys.js): the typing frame is type/split.js's, in the open
+// column between the two pads (landscape.js typingColumn: under the clock row, down to the bottom), and the strip moves
+// to the top-left corner over the left pad while she types (landscape.js: the clock keeps the top centre).
 import * as THREE from 'three';
 import { G, clamp } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
@@ -33,6 +36,8 @@ import { wordBox } from '../type/inkword.js';
 import { PlayKeys } from '../../../ui/play-keys.js';
 import { verdictLines } from '../m1.js';
 import { ieltsNow } from '../../ielts.js';
+import { splitFrame } from '../type/split.js';
+import { typingColumn, ensureLandscapeCss } from '../landscape.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _c = new THREE.Vector3();
 const TYPED = new Set(['type', 'typed', 'write']);
@@ -64,7 +69,7 @@ export class TypeStation {
 
   _ensure() {
     if (this.shot) return;
-    ensureCss();
+    ensureCss(); ensureLandscapeCss();
     const color = G.teamColors[0] || new THREE.Color('#ff8a14');
     this.shot = new TypeShot({ scene: G.scene, team: 0, color, quality: G.settings?.quality || 'high', reduced: this.host.reduced });
     try { this.shot.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* warmed on first use */ }
@@ -77,7 +82,8 @@ export class TypeStation {
     keys.onReplay = () => { if (this.cur) this.host.say(this.cur.p.tts, { slow: !!(this.cur.p._tip && this.cur.p._tip.slow) }); };
     keys.onSubmit = () => this._submit();
   }
-  warm() { this._ensure(); }
+  // (play-7: the split frame is a search — run it for this screen now, not on the first frame the keyboard is up)
+  warm() { this._ensure(); const col = typingColumn(this.keys); if (col) splitFrame(col); }
 
   // ---------------------------------------------------------------------------------------------- a question
   ask(g, item, p) {
@@ -140,7 +146,9 @@ export class TypeStation {
     const r = this.host.strip?.rect?.();
     const top = r ? +clamp(Math.ceil(((r.bottom + 6) / Hh) * 50) / 50, 0.06, 0.45).toFixed(2) : FRAME.topFrac;
     const kb = this.keys ? +clamp(Math.ceil(this.keys.frac * 50) / 50, 0, 0.6).toFixed(2) : (aspect < 1 ? 0.4 : 0.45);
-    return { aspect, top, kb, key: `${aspect.toFixed(2)}|${kb}|${top}` };
+    // play-7: the split keyboard's open column (the typing frame's; `top` stays the strip's for the ink word's frame)
+    const col = typingColumn(this.keys);
+    return { aspect, top, kb, split: col, key: `${aspect.toFixed(2)}|${kb}|${top}` + (col ? `|${col.top}|${col.x0}-${col.x1}|${col.shelf}` : '') };
   }
   // the typing frame (the rig's own frame: origin at her feet, +Z the hull, +X her left), kept per band: frame.js's search
   // with her head HEAD_MARGIN (NDC) below the keys' middle row (a wide screen: the far row) rather than just below it —
@@ -148,6 +156,7 @@ export class TypeStation {
   // hair and the seat sit higher than RIG_POINTS.head); no frame like that fits the band → frame.js's own
   _typeFrame(band) {
     let f = this._fc.get(band.key);
+    if (!f && band.split) { f = splitFrame(band.split); if (f) this._fc.set(band.key, f); }   // (play-7: the column between the pads)
     if (!f) {
       const m = FRAME.margin * 2, R = RIG_POINTS, row = band.aspect > 1.4 ? [0, 1.16, 1.12] : R.midRow;
       f = searchFrame([...R.plate, R.strike, ...R.textLines, R.typed10], [(P) => P(R.head) < P(row) - HEAD_MARGIN], { aspect: band.aspect, vfov: FRAME.vfov, yLo: -1 + 2 * band.kb + m, yHi: 1 - 2 * band.top - m, xLim: 1 - m, cz: 1.0 });
