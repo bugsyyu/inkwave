@@ -286,7 +286,15 @@
       rec.latT = +Fl.latT.toFixed(2);
       // swim through: until the row is done; measure her speed just before and just after
       const spd = () => { const a = M().local; return Math.hypot(a.vel.x, a.vel.z); };
-      let g = 0; while (row.state !== 'done' && g++ < 400) { if (row.s - Fl.sNow < 1.2 && rec.vBefore == null) rec.vBefore = +spd().toFixed(2); await step(50); }
+      // (window.__runTrace = [a, b]: rows whose place on the lap is in a … b m get a trace of her swim to them — s, d, latT, the
+      // lateral bounds, grounded, height: play-8, the halyard rows after the mid deck's stairs)
+      const TR = W.__runTrace, lapS = ((row.s % Fl.T.len) + Fl.T.len) % Fl.T.len, tracing = !!(TR && lapS >= TR[0] && lapS <= TR[1]);
+      if (tracing) rec.trace = [];
+      let g = 0; while (row.state !== 'done' && g++ < 400) {
+        if (row.s - Fl.sNow < 1.2 && rec.vBefore == null) rec.vBefore = +spd().toFixed(2);
+        if (tracing && rec.trace.length < 200) { const a = M().local, b = Fl._bounds(Fl.sNow + 2); rec.trace.push([+Fl.sNow.toFixed(2), +Fl.dNow.toFixed(2), +Fl.latT.toFixed(2), +b[0].toFixed(2), +b[1].toFixed(2), a.grounded ? 1 : 0, +a.pos.y.toFixed(2), +spd().toFixed(1)]); }
+        await step(50);
+      }
       const ans = [...Fl.log].reverse().find((e) => (e.name === 'learn:answer' || e.name === 'learn:noanswer') && e.itemId === row.item.id);
       rec.event = ans ? ans.name : null; rec.ok = ans ? ans.ok : null; rec.first = ans ? ans.first : null; rec.lane = ans ? ans.lane : null; rec.beat = ans ? ans.beat : null;
       rec.dCross = +Fl.dNow.toFixed(2);

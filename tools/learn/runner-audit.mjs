@@ -13,7 +13,8 @@
 // play-8 — a whole day in segments (PLAY §10): --query without short=1, --plan right --glidePlan right, --profile <dir>
 // (one Chromium profile for every segment: her store — the evidence — carries on), --segment (stop when --wallMs is out,
 // at a row boundary; the output's `resume` is the next segment's &gate= / &skip=), --gate N --skip K (where to start;
-// added to the query). The driver samples PLAY §1 rule 1 on every step (`invariants`).
+// added to the query). The driver samples PLAY §1 rule 1 on every step (`invariants`). --trace a,b: a per-step trace of
+// her swim to every row whose place on the lap is a … b m (rows[].trace: s, d, latT, bounds, grounded, y, speed).
 // usage (one browser at a time on a shared box):
 //   flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/runner-audit.mjs --scenario runner --w 390 --h 844 --touch \
 //     --query '?learn=w1d3&kind=runner&short=1' --shots /tmp/shots --out /tmp/run.json
@@ -76,7 +77,8 @@ async function scenarioRunner() {
   const { ctx, page, bootS } = await open(q);
   // the plan per row, a row cap, and which rows (1-based, in the order they come up) get a screenshot
   await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs, seg]) => {
-    if (seg) Object.assign(window, { __runSegment: true, __runGate: seg.gate || 1, __runSkip: seg.skip || 0 });
+    if (seg && seg.segment) Object.assign(window, { __runSegment: true, __runGate: seg.gate || 1, __runSkip: seg.skip || 0 });
+    if (seg && seg.trace) window.__runTrace = seg.trace;
     if (after) window.__runShotAfter = true;
     if (gplan) window.__glidePlan = gplan.split(',');
     if (gshots) window.__glideShots = true;
@@ -84,7 +86,7 @@ async function scenarioRunner() {
     if (plan) window.__runPlan = plan.split(',');
     if (maxRows) window.__runMaxRows = maxRows;
     const want = new Set(rows); let seen = 0; window.__runShots = () => want.has(++seen);
-  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000), SEGMENT ? { gate: GATE, skip: SKIP } : null]);
+  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000), SEGMENT || opt('trace', null) ? { segment: SEGMENT, gate: GATE, skip: SKIP, trace: opt('trace', null) ? opt('trace').split(',').map(Number) : null } : null]);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/runner-drive.js'), 'utf8');
   let res, k = 0;
   for (;;) {
