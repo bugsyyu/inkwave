@@ -262,10 +262,16 @@ export class RunnerFlow extends RaceFlow {
     if (this.phase === 'final' && this.finish && this.finish.s - this.sNow < 3 && this._stuckT >= 0.6) { this._stuckT = 0; this._emit('learn:unstick', { s: +this.sNow.toFixed(1), line: true }); this._finishDone(); return; }
     // a hop at 0.6 s and every second after it (one hop was all there was: a ledge she met off-centre held her for good
     // while the super jump was not ready)
-    if (this._stuckT >= 0.6 && Math.floor(was - 0.6) !== Math.floor(this._stuckT - 0.6)) { this._jumpQ = true; this.latT = 0; }
+    // (only a hop while a row of curtains is up: her lane is her answer — PLAY §1.5, nothing may move her into another
+    // one; play-4's halyard audit had a hop's latT = 0 judge a lane she never chose)
+    const row = this._shown(), curt = !!(row && row.centers);
+    if (this._stuckT >= 0.6 && Math.floor(was - 0.6) !== Math.floor(this._stuckT - 0.6)) { this._jumpQ = true; if (!curt) this.latT = 0; }
     if (this._stuckT >= 2 && a.canSuperJump()) {
       this._stuckT = 0;
       const s = this.sNow + 6;
+      // the leap would carry her over the row's line (a leap's landing is never a crossing): that row is no answer — it
+      // comes again, nothing written (as through the gap)
+      if (curt && row.s < s + 1) this._settle(row, 1e9);
       this._paintRange(Math.max(this.paintS, s - 3), s + 8);
       at(this.T, s, _p);
       a.superJump(new THREE.Vector3(_p.x, _p.y, _p.z), { instant: true });
