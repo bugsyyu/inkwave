@@ -24,6 +24,9 @@ export const SPLIT = {
   want: { h: 240, glyph: 17 },   // px: the typewriter's height on the screen, the typed letters' size (PLAY §2.2's 17 pt)
   cap: 1.6,                      // × want: no bigger than this (a wide column: the world stays in the picture)
   pad: 5,                        // px inside the column's edges and under its top
+  padBottom: 14,                 // px over the screen's bottom edge: the column's width binds, not its height — so the
+                                 // plate's front edge keeps this off the bottom (the boss's second sentence had the rig
+                                 // a few % bigger than framed, its front corner 2 px off the screen; the home indicator)
   minFov: 0.55,                  // × vfov: the most the frame zooms in
   headMargin: 0.05,              // NDC: her head this far under the middle row (play-fix's margin: the hair sits higher than RIG_POINTS.head)
 };
@@ -87,7 +90,7 @@ function better(a, b) {
 export function splitFrame({ W, H, top, bottom = H, x0, x1, shelf = bottom, pts = SPLIT_PTS, wide = SHEET_ENDS, vfov = FRAME.vfov, pad = SPLIT.pad } = {}) {
   const key = `${W}x${H}:${Math.round(top)}:${Math.round(bottom)}:${Math.round(x0)}-${Math.round(x1)}:${Math.round(shelf)}:${vfov}:${pad}:${pts.length}:${wide.length}`;
   const hit = _cache.get(key); if (hit) return hit;
-  const yLo = top + pad, yHi = bottom - pad, xLo = x0 + pad, xHi = x1 - pad;
+  const yLo = top + pad, yHi = bottom - Math.max(pad, SPLIT.padBottom), xLo = x0 + pad, xHi = x1 - pad;
   const o = { W, H, pts, wide, yLo, yHi, xLo, xHi, shelf: shelf - pad, side: 16,
     cy: (Math.min(...pts.map((p) => p[1])) + Math.max(...pts.map((p) => p[1]))) / 2,
     yMid: 1 - (yLo + yHi) / H, xShift: (xLo + xHi) / W - 1 };

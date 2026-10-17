@@ -42,7 +42,11 @@ export class ArenaType {
   get pose() { const C = this.cur; if (!C || !C.pose) return null; this._toWorld(C.pose); return C.pose; }
   _toWorld(P) {
     const a = this.match.local, C = this.cur; if (!a || !C) return P;
-    const sy = Math.sin(C.yaw), cy = Math.cos(C.yaw), q = P.f.pos, l = P.f.look;
+    // (play-7: the typing pose rides the 打字蟹's own hull, as the puzzle's does — a second typed question keeps a hull up
+    // to 0.4 rad off the new facing, and the frame (rig-frame numbers) then saw the rig turned: in the split column's
+    // tight fit the plate's front corner left the screen. The word's pose stays on the facing it was framed for.)
+    const yw = P.phase === 'type' && this.mounted && this.shot && this.shot.rig ? this.shot.rig.hullYaw : C.yaw;
+    const sy = Math.sin(yw), cy = Math.cos(yw), q = P.f.pos, l = P.f.look;
     P.pos.set(a.pos.x + cy * q[0] + sy * q[2], a.pos.y + q[1], a.pos.z - sy * q[0] + cy * q[2]);
     P.look.set(a.pos.x + cy * l[0] + sy * l[2], a.pos.y + l[1], a.pos.z - sy * l[0] + cy * l[2]);
     return P;

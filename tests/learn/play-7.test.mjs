@@ -105,8 +105,10 @@ test('the stations frame landscape typing in the column; the strip leaves it; th
   const hud = src('src/ui/hud.js');
   assert.match(hud, /markerYield\(on\) \{ this\.markerLayer\.classList\.toggle\('is-yield', !!on\); \}/);
   assert.ok(!/is-yield/.test(hud.slice(hud.indexOf('_updMarkers(ms) {'), hud.indexOf('_updPrompt('))), '_updMarkers does not know about it');
-  assert.match(src('styles/hud.css'), /\.iw-mks\.is-yield \.iw-mk:not\(\.is-off\) \{ opacity: 0;/);
+  assert.match(src('styles/hud.css'), /\.iw-mks\.is-yield \.iw-mk \{ opacity: 0;/);
   const host = src('src/learn/play/arena/host.js');
-  assert.match(host, /this\.mode === 'zone' && this\.kind === 'm1'/, 'only the duel / the quiz (zone) yields, only while its objects are up');
+  assert.match(host, /this\.mode === 'zone' && this\.kind === 'm1'/, 'the duel / the quiz (zone) yields only while its objects are up');
+  assert.match(host, /this\.kind === 'echo' && /, '… and the boss while its booth board is framed');
+  assert.match(host, /this\.kind === 'type' && !!this\.type\.cur/, '… and while the 打字蟹 is up');
   assert.match(host, /walk\.bandFor = hudBand/, 'the boss booth board is framed under the top row');
 });

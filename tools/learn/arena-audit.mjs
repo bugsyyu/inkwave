@@ -187,7 +187,7 @@ for (const viewName of VIEWS_WANT) { try {
     if (FORM !== 'boss') {
       const tg = await ev((boxes) => {
         const L = document.querySelector('.iw-mks'), out = [];
-        for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none' || el.classList.contains('is-off')) continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
+        for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none') continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, off: el.classList.contains('is-off'), op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
         return { yield: !!(L && L.classList.contains('is-yield')), tags: out };
       }, boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })));
       (report.tags = report.tags || []).push({ label, ...tg });
@@ -279,6 +279,7 @@ for (const viewName of VIEWS_WANT) { try {
       check(lc.overlaps.length === 0, `${label} landscape: strip / clock / boss bar / phase strip / typewriter clear of each other (${JSON.stringify(lc.rects)})`, lc.overlaps);
     } else check(clearOfStrip && fr.bottom <= fr.kbTop + 2 && fr.left >= -2 && fr.right <= fr.W + 2 && fr.top >= -2, `${label}: the whole typewriter and its paper clear of the strip (${fr.stripBottom}${fr.stripX ? ', x ' + fr.stripX.join('–') : ''}) and over the keyboard (${fr.kbTop}): ${fr.top}–${fr.bottom}, x ${fr.left}–${fr.right} (${fr.region})`, fr);
     check(fr.xh === 'hidden', `${label}: the crosshair hidden while she types`, fr.xh);
+    { const ty = await ev(() => { const L = document.querySelector('.iw-mks'); return !!(L && L.classList.contains('is-yield')); }); check(ty, `${label}: the name tags step aside while the 打字蟹 is up (play-7)`); }
     report.typeFrame = report.typeFrame || []; report.typeFrame.push(fr);
     if (FORM !== 'boss') check(s.shield > 0, `${label}: a shield on her while she types (${s.shield} s)`);
     check(!s.hold && s.paused === false, `${label}: still no hold, no pause while typing`);
@@ -336,6 +337,8 @@ for (const viewName of VIEWS_WANT) { try {
       return { framed: Wk.framed, board: r(board), rects: Object.fromEntries(Object.entries(R).map(([k, v]) => [k, r(v)])), over: Object.keys(R).filter((k) => hit(board, R[k])) };
     });
     report.booth = bo;
+    const tagsOff = await ev(() => { const L = document.querySelector('.iw-mks'); return { yield: !!(L && L.classList.contains('is-yield')), shown: [...document.querySelectorAll('.iw-mk')].filter((el) => el.style.display !== 'none' && +getComputedStyle(el).opacity > 0.05).length }; });
+    check(tagsOff.yield && tagsOff.shown === 0, `${label}: the squad's name tags (and the arrows to them) step aside while the booth's board is framed`, tagsOff);
     if (V.w > V.h || FORM === 'boss') check(bo.framed >= 0 && bo.over.length === 0, `${label}: the booth's board (${bo.board}) clear of the clock / the boss's bar / its phase strip (${JSON.stringify(bo.rects)})`, bo);
     await shot('m7-in');
     const hp0 = s.bossHp;

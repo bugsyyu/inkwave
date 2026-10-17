@@ -131,8 +131,11 @@ export class ArenaHost {
     this.type.gate(!menuUp);
     if (this._warmT > 0) { this._warmT -= dt; if (this._warmT <= 0) { try { this.type.warm(); this.echo?.warm(); } catch (e) { console.warn('[arena] warm', e); } } }
     this.m1.update(dt);
-    // play-7: the duel's objects up → the HUD's name tags over the bots step aside (hud.js markerYield; LEARN §24 已知坑 3)
-    const tags = this.mode === 'zone' && this.kind === 'm1' && !!(this.m1.cur && this.m1.cur.placed && !this.m1.cur.answered);
+    // play-7: the duel's objects up → the HUD's name tags over the bots step aside (hud.js markerYield; LEARN §24 已知坑 3);
+    // the same while the 打字蟹 is up (duel or boss: a tag sat on the typewriter) and while the boss's 回声亭 board is
+    // framed (the squad's tags sat on its buttons on a landscape phone)
+    const tags = (this.mode === 'zone' && this.kind === 'm1' && !!(this.m1.cur && this.m1.cur.placed && !this.m1.cur.answered))
+      || (this.kind === 'type' && !!this.type.cur) || (this.kind === 'echo' && !!(this.echo && this.echo.cur && this.echo.echo && this.echo.echo.walk.framed >= 0));
     if (tags !== !!this._tagsYield) { this._tagsYield = tags; G.hud?.markerYield?.(tags); }
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.echo?.update(dt);
