@@ -1,19 +1,23 @@
 // 墨浪跑酷 — the day's items as rows on the road, and the one answer path (docs/PLAY.md §1 rule 2, §3 M2 / M3 / M4, §4).
 // Pure (Node runs it on A's content): no DOM, no three.js.
 //
-//   entriesOf(gates)                 the run's queue: per checkpoint, a row per scored choice item ('lane'; 'beat' for the
+//   entriesOf(gates, signs, o)       the run's queue: per checkpoint, a row per scored choice item ('lane'; 'beat' for the
 //                                    听辨对子 pairs and the 音标 sym rows) and one 'glide' stretch for its typed items
-//                                    (单词卡 / 听写句 / 写句 — the typing weapon is the next workstream's; a stub here)
+//                                    (单词卡 / 听写句: play-type's rig on the 滑行段, glide.js); the 写句 of the write wall
+//                                    (a sign, PLAY §4 「M4（出口区）」) are one last glide after the checkpoints (o.short: two)
 //   rowPrompt(item, opts)            the engine's own prompt with the options the row shows, in lane order (left → right):
 //                                    all of them; reshuffled for the second try (「换个问法」); fewer when the road is
 //                                    narrow (the right one always stays). `_perm` maps a lane back to the item's option
-//                                    index — forms/common.js judgeAnswer honours it, the same as for B's reshuffled cards
+//                                    index — forms/common.js judgeAnswer honours it, the same as for B's reshuffled cards.
+//                                    opts.base: a ready prompt instead of the engine's (a typed word's 「选义」 retry,
+//                                    flow._altPrompt's choice-of-typed: the right option is the one whose text is the word)
 //   rowLabels(item, p) · isBanner(label) · rowLanes(item, p)
 //   rowAnswer(item, p, lane, opts)   entering a curtain: lane → judgeAnswer → store.recordFirst — exactly what a card's
 //                                    answer does (race.js _answer); lane −1 (the gap between curtains) = no answer, nothing
 //                                    written. Beat timing never comes in here (PLAY §1 rule 4: timing ≠ correctness)
 //   planCourse(entries, T, W, R)     where every row would stand on the lap (no retries): the checkpoints for the bots
-//                                    and how many laps the run needs
+//                                    and how many laps the run needs (a 'boards' entry — boards.js withBoards — takes
+//                                    its e.len of road)
 import { prompt, store } from '../../api.js';
 import { judgeAnswer } from '../../forms/common.js';
 import { readLead, leadDistance } from './lanes.js';
@@ -26,7 +30,7 @@ const enN = (s) => String(s || '').replace(CJK, '').replace(/\s+/g, ' ').trim().
 export const ROW_KINDS = { pair: 'beat', sym: 'beat' };   // M3 in the runner: lane changes on the beat (PLAY §4)
 
 // the run's queue, checkpoint by checkpoint (an unscored item or a 'read'-only one asks nothing and is left out)
-export function entriesOf(gates) {
+export function entriesOf(gates, signs = [], o = {}) {
   const out = [];
   gates.forEach((g, k) => {
     const typed = [];
@@ -38,7 +42,18 @@ export function entriesOf(gates) {
     }
     if (typed.length) out.push({ gate: k, kind: 'glide', items: typed });
   });
+  // the write wall's sentences (W): the last stretch before the line, after every checkpoint
+  for (const sg of signs || []) {
+    if (!(sg && sg.design && sg.design.mechanic === 'write-wall' && sg.items && sg.items.length)) continue;
+    const items = (o.short ? sg.items.slice(0, 2) : sg.items).filter((it) => it.meta && it.meta.scored && it.meta.input === 'write');
+    if (items.length) out.push({ gate: gates.length, kind: 'glide', items, exit: true, signId: sg.id });
+  }
   return out;
+}
+// the lane of the right answer among a prompt's options (the typed word's 「选义」 retry judges the picked text)
+export function rightIndex(item, p) {
+  if (p && p._alt === 'choice-of-typed') { const ref = String((item.meta && item.meta.ref) || item.en || ''); return (p.options || []).findIndex((o) => o.text === ref); }
+  return item.answer;
 }
 
 // a curtain's two lines: the option as the engine words it (a word's meaning is Chinese only) and its Chinese
@@ -63,22 +78,24 @@ function shuffled(n, rnd) {
 // 「换个问法」 in front of the question), order (an option order to keep — a row narrowed after it was drawn), rnd. The right option is always among the lanes; dropped ones are the last
 // distractors (the engine lists a word's neighbours nearest first).
 export function rowPrompt(item, opts = {}) {
-  const base = prompt(item), n = (base.options || []).length, rnd = opts.rnd || Math.random;
-  let idx = opts.order ? opts.order.slice() : opts.alt ? shuffled(n, rnd) : Array.from({ length: n }, (_, i) => i);
+  const base = opts.base || prompt(item), n = (base.options || []).length, rnd = opts.rnd || Math.random;
+  let idx = opts.order ? opts.order.slice() : opts.alt && !opts.base ? shuffled(n, rnd) : Array.from({ length: n }, (_, i) => i);
   const want = Math.max(2, Math.min(n, opts.lanes || n));
   if (want < n) {
-    const keep = new Set([item.answer]);
+    const keep = new Set([rightIndex(item, base)]);
     for (const i of idx) { if (keep.size >= want) break; keep.add(i); }
     idx = idx.filter((i) => keep.has(i));
   }
   const p = { ...base, options: idx.map((i) => base.options[i]) };
-  if (idx.length !== n || idx.some((v, i) => v !== i)) p._perm = idx;
-  if (opts.alt) p.text = '换个问法：' + base.text;
+  // (a choice-of-typed prompt is judged by the picked option's text: its lanes need no _perm, and a reorder of its
+  // options must not be mapped back through one)
+  if (!base._alt && (idx.length !== n || idx.some((v, i) => v !== i))) p._perm = idx;
+  if (opts.alt && !opts.base) p.text = '换个问法：' + base.text;
   return p;
 }
 
 // the lane of the right answer in a row's prompt (the audits and the 「差一点」 line)
-export function rightLane(item, p) { return p._perm ? p._perm.indexOf(item.answer) : item.answer; }
+export function rightLane(item, p) { if (p._alt === 'choice-of-typed') return rightIndex(item, p); return p._perm ? p._perm.indexOf(item.answer) : item.answer; }
 
 // Entering a curtain — the same judge and the same first-answer record as a card (race.js _answer: judgeAnswer, then
 // store.recordFirst({ itemId, item, ok, pct, hinted, at })). lane −1 / null: through the gap — no answer, no evidence.
@@ -97,6 +114,13 @@ export function planCourse(entries, T, W, R, opts = {}) {
   let cur = opts.start ?? R.firstRow;
   const rows = [], gateS = [];
   for (const e of entries) {
+    if (e.kind === 'boards') {   // a 看板段 (boards.js): its boards' stretch of road, the checkpoint starts with it
+      const s0 = cur + 4;
+      if (gateS[e.gate] == null) gateS[e.gate] = s0;
+      rows.push({ entry: e, s: s0 + e.len, s0, s1: s0 + e.len });
+      cur = s0 + e.len + R.after;
+      continue;
+    }
     if (e.kind === 'glide') {
       const s0 = cur + 4;
       if (gateS[e.gate] == null) gateS[e.gate] = s0;

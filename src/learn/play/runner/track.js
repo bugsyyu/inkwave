@@ -103,9 +103,11 @@ export function buildTrack(nodes, loop, opts = {}) {
     let dx = x[b] - x[a], dz = z[b] - z[a]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
     tx[i] = dx; tz[i] = dz;
   }
-  // the lap's jump-up edges (nav 'jump': 0.5–1.25 m up), as arc lengths on the smoothed line — she hops them
+  // the lap's jump-up edges (nav 'jump': 0.5–1.25 m up; and 'climb': an inkable wall 1.3–5.5 m up, which a prop's rail
+  // can turn a deck's jump edge into — play-4, halyard's start deck in the browser), as arc lengths on the smoothed line —
+  // she hops them (and swims up a climb), rows keep off their approach
   const jumps = [];
-  if (opts.edgeType) for (let r = 0; r < loop.length - 1; r++) if (opts.edgeType(loop[r], loop[r + 1]) === 'jump') jumps.push(r + 0.5);
+  if (opts.edgeType) for (let r = 0; r < loop.length - 1; r++) { const t = opts.edgeType(loop[r], loop[r + 1]); if (t === 'jump' || t === 'climb') jumps.push(r + 0.5); }
   const T = { n, step: st, len, x, y, z, tx, tz, raw, loopLen: loop.length, jumps: [] };
   for (const r of jumps) T.jumps.push(rawToS(T, r));
   T.jumps.sort((a, b) => a - b);

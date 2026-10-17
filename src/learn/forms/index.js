@@ -28,7 +28,13 @@ import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN 
 // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (?kind=runner: the race's plan
 // played by RunnerFlow; match.js sees a 'race' — her + 3 brainless racer bots — so nothing else changes)
 export const LEARN_KINDS = [...FORMS, 'quiz', 'runner'];
-const FLOWS = { puzzle: LearnFlow, race: RaceFlow, duel: DuelFlow, boss: BossFlow };
+// 题即玩法 (docs/PLAY.md §5.2, play-4): under LEARN.play the race IS the runner (墨浪跑酷 — the form id stays 'race');
+// flag off, the card race of race.js, word for word. flowFor(kind, play) is the pure pick (Node-tested).
+export function flowFor(kind, play = LEARN.play) {
+  if (kind === 'race') return play ? RunnerFlow : RaceFlow;
+  return { puzzle: LearnFlow, duel: DuelFlow, boss: BossFlow }[kind] || LearnFlow;
+}
+const FLOWS = { puzzle: LearnFlow, race: flowFor('race'), duel: DuelFlow, boss: BossFlow };
 
 export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);

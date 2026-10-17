@@ -689,12 +689,21 @@ export const LEARN = {
     beatBoost: [1.45, 1.4],   // … on the beat (a pair / sound row's lane change inside the window): more, and a dance
     slow: [0.4, 0.9],         // a wrong (coral) curtain: swim speed × 0.4 for 0.9 s, shed at PLAYER.enemyInkDecel
     verdictMs: 2400,          // the 「差一点：是 ___」 line stays this long (she is moving: longer than a card's)
-    glide: 34,                // m of the 滑行段 (typed items; the typing weapon is the next workstream's — a stub for now)
+    glide: 34,                // m of a 滑行段 at least (typed items on play-type's rig, runner/glide.js: it lasts until its last item is answered)
+    glideTide: 0.3,           // the tide on a 滑行段: × her swim speed — she rides the typing rig in kid form at about the crab special's pace (≈ 3.5 m/s); the racer bots slow by the same factor (fair)
+    glideAhead: [9, 16],      // m ahead of her the ink word forms on 射 (her pace × the shell's flight + the verdict's show, clamped): it stands just ahead while it plays, she swims through the burst
+    glideShow: 4.6,           // s from 射 to the end of the word's verdict (flight ≤ 1.25 + forming ≤ 2.2 + verdict 1.5; play-4): × her pace + 2 m is where the word lands, so she reaches it as the verdict ends
+    glideReach: 24,           // m: the farthest a word lands (glideShow at a boosted pace)
     banner: { en: 12, zh: 8, max: 3 },   // longer labels make banner curtains, at most three in a row
     road: 1.25,               // m: half-width of the ink road between rows (rows widen it to their lanes)
     paintAhead: 18,           // m of road painted ahead of her (the tide pours on as she swims)
     detour: { reach: [12, 18, 24, 30], away: 2.2, tide: 0.6 },   // 走远路: rejoin distances to try, m off the road, its tide
     bpm: 128,                 // the beat grid when no synth track is playing (a recording carries no tempo)
+    // 看板段 (play-4, src/learn/play/runner/boards.js; PLAY §5.2): a checkpoint's word boards / sounds / grammar lesson
+    // stand along the road before its first row; the tide (and the bots) slow there. The first board `lead` m in, the
+    // others `gap` apart, `tail` m after the last; `side` m off the road's middle; the board she is coming up to is framed
+    // from the board before it to `past` m beyond it (≈ gap / her pace — 2.7 s at 0.25 × 11.8 m/s)
+    boards: { lead: 7, gap: 8, tail: 3, side: 2.6, tide: 0.25, past: 0.5 },
   },
   // ---- the two-player online forms (docs/LEARN.md §10, §14; src/learn/forms/versus2.js, coop2.js, duo.js)
   // 双人联机赛: an online Zone Control match (5:00 + overtime, INKWAVE's own rules) where the host puts the same question

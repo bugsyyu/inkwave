@@ -6,6 +6,12 @@
 // window.__runPlan (an array of 'right' | 'wrong' | 'none', cycled; default: wrong, right, none, right…), the right lane
 // from the flow's own record (never read off the stage). window.__runShots(row, n) → true asks for a screenshot pause:
 // the driver resolves with { shot: n } and the harness calls it again to carry on (window.__runState keeps the place).
+// play-4: the 滑行段 (glide.js) — each typed item typed key by key on the game keyboard (pointer events on its keys on a
+// phone, keydown on a desktop), 射, the ink word, a held sentence decided on the strip's buttons; per item: the invariants,
+// the crosshair hidden, the type frame measured (the rig's points projected: her head below the keys' middle row, the
+// typewriter between the strip and the keyboard), the evidence leaf. The 看板段 (boards.js): the invariants, each board
+// framed as she comes, a tap on a word row (its own listeners). window.__glidePlan: 'right' | 'hint' | 'wrong' | 'near'
+// cycled per typed item; window.__glideShots: a shot of the first type frame / ink word / held strip / framed board.
 (async () => {
   const W = window, G = W.__G, I = W.__inkwave, M = () => I.match, F = () => M() && M().learn;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +52,149 @@
   };
   const evDoc = () => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}'); } catch (e) { return {}; } };
   const leaves = (id) => { const ev = (evDoc().ev) || {}; let n = 0; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) for (const d in it) n += Object.keys(it[d]).length; } return n; };
+  const leafOf = (id) => { const ev = (evDoc().ev) || {}; for (const k in ev) { const it = ev[k] && ev[k].it && ev[k].it[id]; if (it) { const d = Object.keys(it).sort().pop(); const day = it[d]; const t = Object.keys(day).sort().pop(); return day[t]; } } return null; };
+  const rect = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null; };
+  const xhShown = () => { const e = document.querySelector('.iw-xh'); if (!e) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+  const invariants = (what) => { const c = cardShown(); const chk = { what, paused: M().paused, hold: !!F().hold, cardAsk: c.ask, panelVisible: c.panelVisible, crosshair: xhShown(), camMode: G.rig && G.rig.mode }; S.checks.push(chk); if (chk.paused || chk.hold || chk.cardAsk || chk.panelVisible) S.errors.push('invariant broken (' + what + '): ' + JSON.stringify(chk)); return chk; };
+  // a press on the game keyboard: the key's own pointerdown on a phone (play-keys acts on it), keydown on a desktop
+  const press = (k) => {
+    const K = F().glide.keys;
+    if (touch) { const el = K.keyEls.get(k); if (!el || el.style.display === 'none') return false; const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, id = ++pid; el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true })); window.dispatchEvent(new PointerEvent('pointerup', { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true })); return true; }
+    const key = k === 'fire' ? 'Enter' : k === 'back' ? 'Backspace' : k;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+    return true;
+  };
+  const tapBtn = (sel) => { const K = F().glide.keys, el = K.btnEls.get(sel); if (!el) return false; const r = el.getBoundingClientRect(), id = ++pid; el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: r.left + 4, clientY: r.top + 4, bubbles: true, cancelable: true, isPrimary: true })); window.dispatchEvent(new PointerEvent('pointerup', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', bubbles: true })); return true; };
+  // the type frame on the screen: the rig's points (frame.js RIG_POINTS, in the rig's own frame) projected with the live camera
+  let FR = null;
+  const frameCheck = async () => {
+    FR = FR || await import('/src/learn/play/type/frame.js');
+    const Gl = F().glide, rig = Gl.shot && Gl.shot.rig; if (!rig || !rig.root) return null;
+    const R = FR.RIG_POINTS, root = rig.root, cam = G.camera, V3 = cam.position.constructor;
+    root.updateMatrixWorld(true); cam.updateMatrixWorld(true);
+    const P = (p) => { const v = new V3(p[0], p[1], p[2]).applyMatrix4(root.matrixWorld).project(cam); return [Math.round(((v.x + 1) / 2) * innerWidth), Math.round(((1 - v.y) / 2) * innerHeight)]; };
+    const st = rect('.iw-ps:not(.is-off) .iw-ps__box'), kb = document.querySelector('.iw-pk:not(.is-off) .iw-pk__panel'), kbTop = kb ? Math.round(kb.getBoundingClientRect().top) : innerHeight;
+    const top = st ? st.bottom : 0;
+    const rigPts = [...R.plate, R.strike, ...R.textLines].map(P), head = P(R.head), row = P(innerWidth / innerHeight > 1.4 ? [0, 1.16, 1.12] : R.midRow), paper = R.paperTop.map(P);
+    const inBand = rigPts.every(([x, y]) => y >= top - 2 && y <= kbTop + 2 && x >= -2 && x <= innerWidth + 2);
+    return { stripBottom: top, kbTop, ys: rigPts.map((q) => q[1]), xs: rigPts.map((q) => q[0]), head, row, paper, inBand, headBelowRow: head[1] > row[1], band: Gl._f ? { top: Gl._f.top, kb: Gl._f.kb, fits: Gl._f.fits } : null };
+  };
+  const textFor = (mode, right, kind) => {
+    const clean = (t) => String(t || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z ' .,?-]/g, '').replace(/\s+/g, ' ').trim();
+    const r = clean(right);
+    if (mode === 'wrong') { if (kind === 'word') return r.length > 2 ? r.slice(0, -2) + r.slice(-1) + r.slice(-2, -1) + (r.length < 4 ? 'x' : '') : r + 'x'; const w = r.split(' '); return w.slice(0, Math.max(1, Math.ceil(w.length / 2))).join(' ') + ' blah'; }
+    if (mode === 'near') { if (kind === 'word') return r.slice(0, -1) || r + 'x'; const w = r.replace(/[.?!]$/, '').split(' '); return w.slice(0, Math.max(1, w.length - 1)).join(' '); }
+    return r;
+  };
+  const gPlan = W.__glidePlan || ['right', 'hint', 'wrong', 'near'];
+  const gShot = (name) => { if (!W.__glideShots) return false; S.gShots = S.gShots || new Set(); if (S.gShots.has(name)) return false; S.gShots.add(name); return true; };
+  S.gDone = S.gDone || new Set(); S.gN = S.gN || 0; S.glides = S.glides || []; S.boardRecs = S.boardRecs || [];
+  // one typed item, resumable across the harness's screenshot pauses (S.g keeps the stage)
+  const onGlide = async () => {
+    const Fl = F(), Gl = Fl.glide, C = Gl.cur;
+    if (!C) return null;
+    const key = C.item.id + '#' + Gl.stats.asked;
+    if (S.gDone.has(key)) return null;
+    let g = S.g && S.g.key === key ? S.g : null;
+    if (!g) {
+      const mode = gPlan[S.gN % gPlan.length];
+      g = S.g = { key, n: ++S.gN, item: C.item.id, kind: C.item.meta && C.item.meta.kind, typeMode: C.mode, plan: mode, stage: 'new', leavesBefore: leaves(C.item.id), q: C.p.text, alt: !!(C.e.slow || C.e.why || C.e.retype), relearn: !!C.e.relearn };
+    }
+    for (let guard = 0; guard < 12; guard++) {
+      if (g.stage === 'new') {
+        g.inv = invariants('glide ' + g.item);
+        g.kbUp = !!Gl.keys.visible; if (!g.kbUp) S.errors.push('glide ' + g.item + ': the game keyboard is not up');
+        g.preRight = Fl.rightAnswer();   // (the flow's own record of the text to type; the rig has never seen it)
+        await step(1600);   // the lens springs into the type frame
+        if (g.plan === 'hint') { tapBtn('hint'); await step(60); g.hintStrip = ((document.querySelector('.iw-ps__zh') || {}).textContent || '').slice(0, 60); }
+        g.text = textFor(g.plan === 'hint' ? 'right' : g.plan, g.preRight, g.kind);
+        for (const ch of g.text) press(ch);
+        await step(400);
+        g.typed = Gl.shot.text;
+        g.frame = await frameCheck();
+        g.lensBlocked = (G.time || 0) < (Gl._blockUntil || 0);   // (the type pose was under a roof / past a wall: the chase camera has her — glide.js)
+        if (g.lensBlocked) S.blockedTypes = (S.blockedTypes || 0) + 1;
+        else if (g.frame && !g.frame.inBand) S.errors.push('glide ' + g.item + ': the rig is not between the strip and the keyboard ' + JSON.stringify(g.frame));
+        if (g.frame && !g.lensBlocked && !g.frame.headBelowRow) S.errors.push('glide ' + g.item + ': her head is not below the keys\' row ' + JSON.stringify(g.frame));
+        if (g.inv.crosshair) S.errors.push('glide ' + g.item + ': the crosshair shows while she types');
+        g.stage = 'fire';
+        if (gShot('type-' + g.typeMode)) { render(); return 'type-' + g.typeMode; }
+      }
+      if (g.stage === 'fire') {
+        press('fire');
+        await step(34);
+        // the shell flies, the word forms (grey): stop the moment it has formed — the first frame of its verdict, or
+        // (held) standing grey, waiting for her tap
+        // (TypeShot's own phase: firing → assembling → shown | resolving — the ink word's may still be the last item's 'done')
+        let k = 0; while (k++ < 300) { const ph = Gl.shot && Gl.shot.phase; if (ph === 'shown' || ph === 'resolving' || ph === 'done') break; await step(17); }
+        g.held = !!Gl.held; g.wordPhase = Gl.shot && Gl.shot.word ? Gl.shot.word.phase : null; g.shotPhase = Gl.shot ? Gl.shot.phase : null;
+        g.wordCam = { pose: !!(Gl.cur && Gl.cur.wpose), passed: !!(Gl.cur && Gl.cur.passed), frame: Gl._fw || null };
+        g.leavesHeld = g.held ? leaves(g.item) : null;
+        if (g.held && g.leavesHeld !== g.leavesBefore) S.errors.push('glide ' + g.item + ': evidence written while held');
+        g.stage = g.held ? 'decide' : g.plan === 'wrong' ? 'wrongShot' : 'wait';
+        if (gShot('word-' + g.typeMode)) { render(); return 'word-' + g.typeMode; }
+      }
+      if (g.stage === 'wrongShot') {   // a missed word plays its verdict: coral, sagging, the right spelling growing above it
+        g.stage = 'wait';
+        if (W.__glideShots && !(S.gShots && S.gShots.has('word-wrong'))) { await step(1100); if (gShot('word-wrong')) { render(); return 'word-wrong'; } }
+      }
+      if (g.stage === 'decide') {
+        g.acts = [...document.querySelectorAll('.iw-ps__act')].map((b) => b.textContent);
+        if (gShot('held')) { g.stage = 'decide2'; render(); return 'held'; }
+        g.stage = 'decide2';
+      }
+      if (g.stage === 'decide2') {
+        const btns = [...document.querySelectorAll('.iw-ps__act')];
+        const b = btns.find((x) => x.textContent === (g.plan === 'near' ? '我的写法也对' : '继续')) || btns[0];
+        g.decided = b ? b.textContent : null; if (b) b.click(); else S.errors.push('glide ' + g.item + ': held, but no buttons on the strip');
+        await step(60);
+        g.stage = 'wait';
+      }
+      if (g.stage === 'wait') {
+        const C0 = Gl.cur; let k = 0;
+        while (k++ < 200 && Gl.cur === C0 && Gl.active) await step(50);
+        const ans = [...Fl.log].reverse().find((e) => e.name === 'learn:answer' && e.itemId === g.item);
+        g.ok = ans ? ans.ok : null; g.first = ans ? ans.first : null; g.self = ans ? !!ans.self : null; g.hinted = ans ? !!ans.hinted : null;
+        g.leavesAfter = leaves(g.item); g.leaf = leafOf(g.item);
+        g.verdict = ((document.querySelector('.iw-ps.is-verdict:not(.is-off) .iw-ps__verdict') || document.querySelector('.iw-ps__note.is-on') || {}).textContent || '').trim().slice(0, 80);
+        S.glides.push(g); S.gDone.add(key); S.g = null;
+        return null;
+      }
+    }
+    return null;
+  };
+  // a 看板段: the invariants once, each board framed as she comes (the framing measured), one tap on a word row
+  const onBoards = async (row) => {
+    const Fl = F(), bw = Fl.bw, key = 'boards@' + row.s0.toFixed(1);
+    let b = S.b && S.b.key === key ? S.b : null;
+    if (!b) { b = S.b = { key, gate: row.gate, n: row.n, framed: [], inv: invariants('boards'), tide: null }; S.boardRecs.push(b); }
+    b.tide = +Fl.tideK.toFixed(2); b.fairK = +Fl.fairK.toFixed(2);
+    const W2 = bw.walk; if (!W2 || W2.framed < 0) return null;
+    const i = W2.framed;
+    if (b.framed.some((f) => f.i === i)) return null;
+    await step(1300);   // the lens comes round
+    if (W2.framed !== i) return null;
+    const d = bw.debug(), f = { i, fits: d.framing ? d.framing.fits : null, rect: d.framing ? d.framing.rect : null, read: W2.list[i] ? W2.list[i].read : null, cam: G.camera.position.toArray().map((v) => +v.toFixed(1)) };
+    // a tap on the first row hotspot (a word: it is spoken) — through the boards' own pointer listeners
+    if (!S.boardTapped) {
+      const hot = W2.set.project(W2.list[i].b, G.camera, innerWidth, innerHeight).find((h) => /^row:|^listen|^follow|^more/.test(h.id));
+      if (hot) {
+        S.boardTapped = true; let said = 0; const sp = Fl._speak; Fl._speak = function (...a) { said++; return sp.apply(this, a); };
+        const x = hot.rect.x + hot.rect.w / 2, y = hot.rect.y + hot.rect.h / 2, id = ++pid, tgt = document.elementFromPoint(x, y) || window;
+        tgt.dispatchEvent(new PointerEvent('pointerdown', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
+        tgt.dispatchEvent(new PointerEvent('pointerup', { pointerId: id, pointerType: touch ? 'touch' : 'mouse', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true }));
+        await step(60); Fl._speak = sp;
+        const opened = !!(W2.strip && W2.strip.isOpen);
+        f.tap = { id: hot.id, said, opened };
+        if (hot.id === 'more' ? !opened : !said) S.errors.push('boards: a tap on ' + hot.id + (hot.id === 'more' ? ' opened no reading strip' : ' said nothing'));
+        if (opened && gShot('board-more')) { render(); b.framed.push(f); return 'board-more'; }
+      }
+    }
+    b.framed.push(f);
+    if (f.fits === false) S.errors.push('boards: a framed board does not fit ' + JSON.stringify(f));
+    if (gShot('board')) { render(); return 'board'; }
+    return null;
+  };
   try {
     if (!S.frozen) {
       const t = Date.now(); while (!F() && Date.now() - t < 120000) await sleep(200);
@@ -58,7 +207,7 @@
       S.camHandover = { atFrame: at, maxJump: Math.max(...jumps), aroundSwitch: jumps.slice(Math.max(0, at - 3), at + 4), mode: G.rig && G.rig.mode };
       const Fl = F();
       console.log('[run] playing after', ((Date.now() - S.t0) / 1000).toFixed(1), 's wall');
-      S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode };
+      S.boot = { kind: M().learnKind, runner: !!Fl.runner, stage: I.mapDef && I.mapDef.id, actors: M().actors.length, touch, win: innerWidth + 'x' + innerHeight, lap: +Fl.T.len.toFixed(1), laps: Fl.laps, rowsPlanned: Fl.plan.rows.length, gates: Fl.gates.length, camMode: G.rig && G.rig.mode, loopEdges: Fl.loopEdges, jumps: (Fl.T.jumps || []).map((j) => +j.toFixed(1)) };
       // a reading board before the start (PLAY §4: M6 before the run): 出发
       let k = 0; while (Fl.prep && Fl.prep() && k++ < 6) { const go = document.querySelector('.iw-lf__go'); if (go) go.click(); await step(200); }
       await step(300);
@@ -71,7 +220,9 @@
       if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-lf__board.is-on .iw-lf__go'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
       if ((S.tick = (S.tick || 0) + 1) % 20 === 0) console.log('[run] t', ((Date.now() - S.t0) / 1000).toFixed(0), 's · s', Fl.sNow.toFixed(1), 'phase', Fl.phase, 'rows', S.rows.length, 'speed', Math.hypot(M().local.vel.x, M().local.vel.z).toFixed(1));
       const row = Fl._shown && Fl._shown();
-      if (!row || row.kind === 'glide') continue;
+      if (!row) continue;
+      if (row.kind === 'glide') { const sh = await onGlide(); if (sh) return JSON.stringify({ shot: sh, glide: S.g, dbg: Fl.debug() }); continue; }
+      if (row.kind === 'boards') { const sh = await onBoards(row); if (sh) return JSON.stringify({ shot: sh, boards: S.b, dbg: Fl.debug() }); continue; }
       const key = row.item.id + '@' + row.s.toFixed(1);
       let rec;
       if (S.shotPending && S.shotPending.key === key) { rec = S.shotPending; S.shotPending = null; }
@@ -87,12 +238,16 @@
         const right = Fl.rightAnswer();
         const want = mode === 'right' ? right : mode === 'wrong' ? (right === 0 ? 1 : right - 1) : null;
         rec = { key, n: S.n, item: row.item.id, kind: row.kind, lanes: row.lanes, mode, right, want, banner: row.banner, lead: row.lead, D: +row.D.toFixed(1), q: row.p.text, labels: row.labels.map((l) => [l.en, l.zh].filter(Boolean).join(' ')), leavesBefore: leaves(row.item.id) };
+        // (LEARN §20, re-checked in the browser by play-4: no row on a jump-up edge's approach — runIn + 8 m past one, 2 m before one)
+        { const T = Fl.T, R = Fl.RR; let past = Infinity, before = Infinity; for (const j of T.jumps || []) { const d = (((row.s - j) % T.len) + T.len) % T.len; past = Math.min(past, d); before = Math.min(before, T.len - d); }
+          rec.jumpPast = past === Infinity ? null : +past.toFixed(1); rec.jumpBefore = before === Infinity ? null : +before.toFixed(1);
+          if (past < R.runIn + 8 || before < R.runOut + 1) S.errors.push('a row on a jump edge\'s approach: ' + JSON.stringify({ item: rec.item, past, before })); }
         // a screenshot while the row is up and readable (the harness takes it and runs this script again)
         if (W.__runShots && W.__runShots(row, S.shotsTaken)) {
           let g = 0; while (row.s - Fl.sNow > (W.__runShotAt || 9) && g++ < 300) await step(50);
           if (rec.want != null) { const target = row.centers[rec.want]; let k = 0; while (Math.abs(Fl.latT - target) > 0.05 && k++ < 6) await swipe(target < Fl.latT ? 'left' : 'right'); rec.preSwiped = true; }
           await step(250); render(); S.shotsTaken++; S.shotPending = rec;
-          return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug() });
+          return JSON.stringify({ shot: 'row' + S.shotsTaken + '-' + rec.kind, row: rec, dbg: Fl.debug() });
         }
       }
       const want = rec.want;
@@ -113,18 +268,25 @@
       if (W.__runShotAfter && rec.ok && !S.afterShot) { await step(80); render(); rec.burstShot = true; S.burstPending = true; }
       if (!S.burstPending) { await step(450); rec.vAfter = +spd().toFixed(2); }
       rec.leavesAfter = leaves(row.item.id);
-      rec.verdict = (document.querySelector('.iw-run__verdict.is-on') || {}).textContent || '';
+      rec.verdict = ((document.querySelector('.iw-ps.is-verdict:not(.is-off) .iw-ps__verdict') || document.querySelector('.iw-ps__note.is-on') || {}).textContent || '').trim();
       S.rows.push(rec);
       // one shot just after the first right curtain: the burst into her ink (fx.explosion + paint.flood)
-      if (W.__runShotAfter && rec.ok && !S.afterShot && rec.burstShot) { S.afterShot = true; S.burstPending = false; S.shotsTaken++; return JSON.stringify({ shot: S.shotsTaken, row: rec, dbg: Fl.debug(), after: true }); }
+      if (W.__runShotAfter && rec.ok && !S.afterShot && rec.burstShot) { S.afterShot = true; S.burstPending = false; S.shotsTaken++; return JSON.stringify({ shot: 'row' + S.shotsTaken + '-burst', row: rec, dbg: Fl.debug(), after: true }); }
+      if (rec.mode === 'none' && rec.leavesAfter !== rec.leavesBefore) S.errors.push('through the gap wrote evidence: ' + rec.item);
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)
-    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && g++ < 900) await step(200); }
+    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
   } catch (e) { S.errors.push(String(e && e.stack || e)); }
   const Fl = F();
   S.done = true;
-  const out = { boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, checks: S.checks.length, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
+  // 首答只记一次: per item, at most one learn:answer with first = true
+  const firsts = {}; if (Fl) for (const e of Fl.log) if (e.name === 'learn:answer' && e.first) firsts[e.itemId] = (firsts[e.itemId] || 0) + 1;
+  const twice = Object.keys(firsts).filter((k) => firsts[k] > 1); if (twice.length) S.errors.push('first answer recorded twice: ' + twice.join(', '));
+  const xhAny = S.checks.filter((c) => c.crosshair).length;
+  const resultsShown = !!(Fl && Fl._hudOn && Fl.finishT < 0 && M().paused);   // (the results card: the run is over, the match held — as every form ends)
+  if (!W.__runMaxRows && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  const out = { resultsShown, boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
