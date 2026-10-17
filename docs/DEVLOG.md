@@ -6,6 +6,14 @@
 
 ## 2026-10-17
 
+### 05:23 play-6 交付：双人联机赛 / 双人合作赛 → 同样的题物，房主判（分支 `play-6`，LEARN §25；03:15 起）
+
+- **为什么**：PLAY §9 第 6 期、§5.5。versus2 / coop2 出题时还是 `learn.hold` + 卡片（coop2 两张：线索卡 + 作答卡），一局真的 Zone Control 停在半路、两个人站在墨垫上被定住。
+- **定了什么**：versus2 用 play-5 的 `ArenaHost`（对抗赛的题簇浮在争夺中的区域上空、打字蟹 + 墨圈 + 泡泡盾），每个屏幕按自己的相机放，两边一样的是题本身（同一个机制、标签、顺序、对的序号）——换问法的随机数按题号 + 条目 id 播种，`lq` 没加字段；答案照旧 `la → Referee → lr → lc`。coop2 写了一个和解谜宿主同契约的 `CoopPlay`（墨靶 = `ArenaRun`、打字 = `wire/type.js` 的 `TypeStation`、线索 = M6 `BoardWalk` 展板、镜头 = `PlayCam`）：没直接用 `PlayHost`，因为它把听辨 / 音标送去节拍台（会在小节线上放这个词，作答方不能听）、图集不画这两种的标签、还会在路上立展板。两个形式的判分都只剩 `_judgeRecord` 一条路，都覆盖 `_askNext`。
+- **路上踩到的**（两个浏览器、竖横、选择 / 打字都跑了一遍才看到的）：`ArenaRun` / 打字蟹写死 0 队——访客打字会给对面涂地盘（加 `team`）；横屏观景台上标签牌挂在石栏杆后面（视线只核到中心，加 `edges`）；打字题之后的墨靶在镜头的模式过渡里放、整排落到题条上面（加 `settle`）；线索展板按「她身后 1.4 m」找取景位，竖屏的取景其实在她身后 4 m（凉亭的梁挡住板），横屏又在她前面（访客那块一次都放不上）——按真实的 `frameBoard` 距离核、竖屏用 1.3 m 的窄板；作答方的打字蟹被身后的栏杆挡住（找取景位清楚的朝向）；`playMode(true)` 再 `hud.hide()` 把走路条放回来；FormsUi 的提示行在横屏压着题条（改写进题条的小标签）；`TypeStation` 的「提示」会把中文放上作答方的题条（合作赛里改成「提示在队友那边」）。实测脚本自己也踩了 `const` 的暂时性死区（顶层 await 早于后面的 `const`）。
+- **验证**：`npm run test:learn` 197 → 201（`duo.test.mjs` +4：三周 1680 道 versus2 题两块屏建出同样的题物、换问法不碰 `Math.random`；4200 道 coop2 题只有作答方有题物、线索展板没有可答的热区；两个 `_judgeRecord`；源码扫描），`npm run check` 280 个文件；新 `tools/learn/net-duo-play.mjs`（playwright：这台机器没有 `net-duo.mjs` 用的 puppeteer-core）跑了 16 轮（锁下一次一个、每轮 ≤ 3 分钟）：最后的代码上 versus2 竖屏 33 / 33、coop2 竖屏打字 53 / 53，横屏两种、打字题、`&play=0` 两种都过（表在 LEARN §25）。没动 `host.js / cam.js / wire/* / flow.js / weapons / main / actor / cameraRig / net/*`。
+- **没做的**：帧时间、真机；versus2 机器人填位 / 断线 / 房主迁移没在新题物下跑；题物被不在物理里的装饰挡（路灯杆、凉亭栏杆）的根治；对抗赛 / Boss 打开 `edges` / `settle`。
+
 ### 03:20 play-5 交付：对抗赛 + 今日小考 → 区域里的靶场；Boss 周考 → 弱点 M5（分支 `play-5`，LEARN §24；10-16 21:05 起）
 
 - **为什么**：PLAY §9 第 5 期。对抗赛和 Boss 出题时还是 `match.paused = true` + 卡片，区域和 Boss 都停。上一个子代理把 `src/learn/play/arena/` 写完但没进过浏览器就被打断（WIP `3b80c08`）。
