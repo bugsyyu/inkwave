@@ -870,9 +870,12 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - `src/learn/play/arena/host.js`：对抗赛没有回声亭，`S === this.echo` 成了 `null === null`，每帧读 `null.tapApi`——游戏一帧都走不了（第一次进浏览器就停在这）。
 - `src/learn/play/arena/m1.js`：`arenaTypeFrame({ W, H, top, bottom, strip, avoid })`（纯，按屏幕缓存）、`searchRegion`、`TYPE_PTS`（含纸在托架整段行程里的四角，±1.37 m）。
 - `src/learn/play/arena/type.js`：打字机位换成 `arenaTypeFrame`（先出题条、再取景；提示多一行后重取景；位姿每帧按她现在的位置换到世界）；'word' 机位传题条连判定（`VERDICT_H`）的高度；打字时藏准星；泡泡盾在原地续（原来每帧 `giveShield`，每帧放一遍 `shield_up`）。
-- `src/learn/play/arena/run.js`：`_placeZone` 加回 play-1 的三条视线（横屏里标签落在矮墙后面）；标签图集等 Rubik 加载完再画；Boss：`bossNear()`、近 → 挂插口（`C.cluster 'boss'`）/ 远 → 题簇（`'zone'`）；取景俯仰到 0.9 rad；`_track` 跟着球；`_fire` 记下点射墨弹、`passes(prev)`。
-- `src/learn/forms/duel.js`：一题最多等 `askWait` 让她走近区域（`_farFromZone`）。`src/learn/forms/boss.js`：一题最多等 `bossWait` 让她走近（`_farFromBoss`，说一次「走近 Boss——答案挂在它的弱点上」）；`_wrapDamage` 旁包 `Boss.segHit`（点射的那颗墨弹不被它自己的命中球挡）。
-- `src/config.js`：`LEARN.arena.bossNear / bossWait`（加法）。
+- `src/learn/play/arena/run.js`：`_placeZone` 加回 play-1 的三条视线（横屏里标签落在矮墙后面），拉到最近还挡就题带上收、再抬高（小考横屏的石栏杆）；标签图集等 Rubik 加载完再画；点射的墨弹只认它的目标（构造时给自己的 `ShotTargets` 包一层 `shotHit`：别的选项球不吃它）；Boss：`bossNear()`、近 → 挂插口（`C.cluster 'boss'`）/ 远 → 题簇（`'zone'`）；`spreadBalls`（挤在一起的球侧推到不叠）；壳顶横幅不比屏宽；取景俯仰到 0.9 rad；`_track` 跟着球；她被打倒、复活后重新放；`_fire` 记下点射墨弹、`passes(prev)`。
+- `src/learn/play/arena/targets.js`：`onTop(on)`——Boss 上的球 / 横幅 / 标签关深度测试、排在不透明物之后（光环照旧）。
+- `src/learn/play/arena/alt.js`：单词卡回炉的干扰项只收单词（音标题的 `/j/` 混进来过）。
+- `src/learn/play/arena/host.js`：回声亭上不出题条。
+- `src/learn/forms/duel.js`：一题最多等 `askWait` 让她走近区域（`_farFromZone`）。`src/learn/forms/boss.js`：一题最多等 `bossWait` 让她走近（`_farFromBoss`，说一次「走近 Boss——答案挂在它的弱点上」）；只在她活着时出题；出题那一帧就顶住大脑（`_holdBoss`：`match.update` 里学习层在 `bossMode` 之前，不顶住它同一帧就开招）；`_wrapDamage` 旁包 `Boss.segHit`（点射的那颗墨弹不被它自己的命中球挡）。
+- `src/config.js`：`LEARN.arena.bossNear`（10.5 m）`/ bossWait`（8 s）（加法）；`bossPx` 30 → 44（横屏标签太小）。
 - `tools/learn/arena-audit.mjs`：`--gate`、`--far`；每个方向一个 `try`；字靶按真实相机投影真实的键帽、纸和她的头；准星；Boss 出题前把她放到它前面 8 m；平射在 Boss 上只记一行；点之前重读投影；「在命中那一帧判」取最后一条日志。
 - `tests/learn/play-arena.test.mjs`：多一条——`arenaTypeFrame` 在 390 × 844 / 844 × 390（两种题条）/ 1280 × 720 / 375 × 667 / 667 × 375 上：头低于中间那排、`TYPE_PTS` 全在取景区里、取景区在题条下面或旁边、躲开 HUD 顶排；844 × 390 选左上角。
 - `docs/PLAY.md`：§3 M4 机位、§3 M5、§5.3 各一段「play-5 更正」。
@@ -888,9 +891,10 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 | 对抗赛 `w1d6` 门 1–2（音标 4 选 → M1 墨球） | r2 两题全过（宿主修好后第一次能走；审计自己一条红：取了上一题的答题日志）；r6 一题全过 | r2 两题全过，但截图里标签在矮墙后（`_placeZone` 没有视线检查）→ 加上；r6 一题全过，四块标签都在墙前 |
 | 对抗赛 `w1d6` 门 4–5（听写句 M4） | r2 两题判分 / 盾 / 打字全过，取景红（纸压在题条下，见先定的 5）；r3 一题全过：整台打字机和纸在题条（242）和键盘（548）之间、头低于中间那排、准星藏了、盾 4 s | r2 同；r3 一题判分全过，打字机在题条左边的角落（x 116–236、y 65–164；当时的审计只认「题条下面」，记了一条红，审计后来改成认角落） |
 | 对抗赛 `w1d6` 门 5–6（阅读题 M1 横幅） | r6 一题全过 | r6 一题全过 |
-| 今日小考 `w1d1`（音标、单词选义 M1） | r6 两题全过 | r6 两题全过；截图里四块标签在观景台的石栏杆后面 → 挡住时题带从下往上收、再抬高（`f0f923b`），r7 复跑 |
+| 今日小考 `w1d1`（音标、单词选义 M1） | r6 两题全过 | r6 两题全过；截图里四块标签在观景台的石栏杆后面 → 挡住时题带从下往上收、再抬高（`f0f923b`）；r7 复跑一题全过，四块标签都在栏杆前 |
 | Boss `w1` L / R / W | r4：出题时她在 47.7 m 外、球看不见也打不到 → 等她走近 / 远就题簇 / 镜头跟球 / 墨弹穿过 Boss；r5：L 两题 M5、R 单词卡 M4 全过，R 横幅题时她被 Boss 打倒；r6：**L 两题 M5、R 单词卡 M4、R 横幅（她倒下两次、复活后重放后答对）、W 两句 M4 全过，HP 1 → 0.83 → 0.66 → 0.495 → 0.33 → 0.215 → 0.1**；红：两次「出题时 Boss 在出招」（→ `_holdBoss`）、横幅比屏宽 4 px（→ 封宽）、她被打倒时的几条 | r5：L 第一题全过，第二题出在她被打倒时（→ 只在她活着时出题）；r6：L 第一题全过；第二题两只眼睛上的球从她枪口看一前一后，点后面那个墨弹撞上前面那个（→ 墨弹只认目标），之后跑到批次的时限 |
-| Boss S（回声亭，`--skip-to S`） | r7 | r7 |
+| Boss `w1` L（改完以后：出题那一帧顶住大脑、墨弹只认目标、`bossNear` 10.5 m、球 44 px） | r7 三题：L 第一题 M5 全过（HP 1 → 0.83）；第二题（两只眼睛）第一发点射发出后没有命中记录、题还在，审计的下一轮再点就中了（HP 0.83 → 0.66）——见拿不准的 11 | — |
+| Boss S（回声亭，`--skip-to S`：审计的手把 L / R / W 清掉） | r7：亭子升起、站上去放范例、走出来 = 说完了、Boss 掉血（0.1 → 0.05）、不记证据，全过；但她被 Boss 打倒在亭子前（审计把她送到了 Boss 跟前）、截图是倒下的画面；r8 复跑 | r7 两张卡全过（同上一条红）；截图里题条压住了亭子板的头两行 → 亭子上不出题条（和解谜出口的亭子一样）；r8 复跑 |
 | 开关关掉 `&play=0`（`play-audit.mjs --script play-forms.json`） | 对抗赛 `w1d6`、Boss `w1` 卡片全过（第一题故意错、其余对；卡片停住比赛照旧；4xx 0、控制台错误 0） | — |
 
 截图在主会话的草稿目录 `play5-shots/` 下按轮次分（`r2`–`r7`；早几轮的截图正是上面那些毛病的样子）。
@@ -905,7 +909,9 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 7. **泡泡盾在 Boss 的字弹上也给**（任务书只说对抗赛）：Boss 出题时不出招，但小蟹 / 地上的危险还在。
 8. `arenaTypeFrame` 每种屏第一次算约 10–40 ms（Node），之后按屏幕缓存；真机可能翻倍，可以在 `warm()` 时先算一次。
 9. 「我的写法也对」（扣住）只在 Node 里测过：审计打的都是标准答案，浏览器里没点过题条上的两个按钮。`.iw-ps__act` / 对抗赛题条的 ▶ 不在 `touch.js` 的跳过列表里：点击照常触发（触屏层在捕获阶段 `preventDefault`，不抢 click、不 `setPointerCapture`），但手指落在左 44 % 屏、`topGuard` 以下时摇杆也会冒出来一下——题条在顶上，多半碰不到。没改 touch.js。
-10. Boss 的 S 段回声亭放在她面前 2.6 m 的可走节点上（不是 Boss 的甲板——HULLBREAKER 背上没有可走的面）。
+10. Boss 的 S 段回声亭放在她面前 2.6 m 的可走节点上（舞台的码头面，不是 HULLBREAKER 背上——它背上没有可走的面）。
+11. **Boss 弱点上偶尔第一发点射没有命中**（r7 竖屏两只眼睛那题：墨弹带标记发出、没有任何命中记录，1.4 s 后再点就中了）。查过的：Boss 自己的命中球（已放过）、别的选项球（已放过）、场景（`through` 本来就放过）；剩下的嫌疑是插口在待机动画里晃 + 侧推随镜头转、墨弹飞到时球已经挪开，或者 shooter 的弹道在 10 m / 4.5 m 高处落短。没查到底；她可以再点。
+12. **Boss 在两题之间照常打她**：审计把她放到它跟前，好几次在出题前后被打倒（出题时不出招，但之前开的招、阶段 3 的危险还在）。问题还在时她倒下，复活后题物重新放（近 → 弱点、远 → 题簇）。
 
 **没做的**：
 1. 双人联机赛 / 合作赛（PLAY §9 第 6 期）、横屏进 App、删卡片。
