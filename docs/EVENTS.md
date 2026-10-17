@@ -82,8 +82,9 @@ A learning level (`match.mode === 'learn'`) emits these; `match.learn.log` keeps
 
 | event | payload | where |
 |---|---|---|
-| `learn:gate` | `{ id, index, total, locks, opened }` — she reached a gate (`opened: false`, the match is now held for its questions) / the gate opened (`opened: true`, the ink trail runs on to the next one) | learn/flow.js |
-| `learn:question` | `{ itemId, gate, type: 'typed' \| 'choice', form: 'normal' \| 'alt' }` — a question is up in the learn layer (`alt`: the same item re-asked in its other form after a miss) | learn/flow.js |
+| `learn:gate` | `{ id, index, total, locks, opened }` — she reached a gate (`opened: false`: its questions come up as things in front of it — the match runs on, nothing is held: docs/PLAY.md §1; play-8, the cards are gone) / the gate opened (`opened: true`, the ink trail runs on to the next one) | learn/flow.js |
+| `learn:question` | `{ itemId, gate, type: 'typed' \| 'choice', form: 'normal' \| 'alt' }` — a question is up: its things on the stage and the strip at the top (`alt`: the same item re-asked in its other form after a miss) | learn/flow.js |
+| `learn:skip` | `{ itemId, gate, type }` — play-8: no mechanic could take this item here (there is no card to fall back on): it is passed over, nothing recorded — never on the three weeks (`design.test` checks every item has a play) | learn/flow.js |
 | `learn:answer` | `{ itemId, ok, first, gate }` — judged; `first` = this was the day's first answer for the item (the one the store / memory model counts) | learn/flow.js |
 | `learn:done` | `{ done, total, due, firsts, locks, week, day }` — the last gate opened; `due` = `[{ en, zh }]` of the words the store says are due | learn/flow.js |
 
