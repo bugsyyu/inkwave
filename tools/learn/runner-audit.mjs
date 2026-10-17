@@ -101,7 +101,7 @@ async function scenarioRunner() {
     const file = path.join(SHOTS, `runner-${Wd}x${Ht}-end.png`);
     await page.screenshot({ path: file }); console.log('shot', file);
   }
-  out.runs.push({ query: q, bootS, ...res });
+  out.runs.push({ query: q, gate: GATE, skip: SKIP, bootS, ...res });
   await ctx.close();
 }
 

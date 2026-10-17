@@ -70,7 +70,7 @@ const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finish(2)
 const ctx = PROFILE ? await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CTXO }) : await browser.newContext(CTXO);
 await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
 const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
-const bad = [], errs = [], fails = [], report = { view: VIEW, size: `${V.w}x${V.h}`, learn: LEARN_Q, gate: GATE, questions: [], boards: [] };
+const bad = [], errs = [], fails = [], report = { view: VIEW, size: `${V.w}x${V.h}`, learn: LEARN_Q, gate: GATE, skip: SKIP, full: FULL, questions: [], boards: [] };
 page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });
 page.on('requestfailed', (r) => { const u = r.url(); if (!/^blob:|^data:/.test(u)) bad.push('FAILED ' + u.replace(base, '/game/') + ' ' + ((r.failure() || {}).errorText || '')); });
 page.on('console', (m) => { if (m.type() === 'error') errs.push('[console] ' + m.text().slice(0, 400)); });
@@ -85,7 +85,7 @@ const step = async (ms = 16.7) => {
     __inkwave.debug.step(m);
     const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || document.querySelector('.iw-learn.is-done')) return null;
     const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
-    return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, cur: F.cur } : 0;
+    return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, cur: F.cur, state: M.state } : 0;
   }, ms);
   if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
 };
@@ -410,6 +410,9 @@ async function answerFlip(s) {
   return v;
 }
 
+// has the store a leaf for this item today? (its first answer of the day is already written)
+const hadLeaf = (id) => ev((id) => { try { const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; const E = JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; return Object.values(E).some((doc) => doc && doc.it && doc.it[id] && doc.it[id][day]); } catch (e) { return false; } }, id);
+
 // ------------------------------------------------------------------------------------------------ the level
 let n = 0, guard = 0;
 const seen = {};
@@ -428,6 +431,9 @@ try { while (guard++ < MAXQ + 8) {
   check(!s.hold, `${label}: learn.hold falsy`);
   check(!!s.strip && s.strip.rect[3] > 0, `${label}: the strip: 「${s.strip && s.strip.text}」`);
   const before = s.answers.length;
+  // (a whole day asks some items twice — a word in its word board and again in 单词第二遍: the second is practice, not a
+  // first answer; so: first === true exactly when the store had no leaf for it today — play-8)
+  const had = await hadLeaf(s.item);
   let v = null;
   if (s.mechanic === 'm1') v = await answerM1(s, right);
   else if (s.mechanic === 'type') v = await answerType(s, right);
@@ -437,7 +443,7 @@ try { while (guard++ < MAXQ + 8) {
   const s2 = await state();
   check(!!v && v.ok === true, `${label}: answered right`, v || s2.dbg);
   const na = s2.answers.slice(before);
-  check(na.length === 1 && na[0].first === true, `${label}: learn:answer once, first of the day`, na);
+  check(na.length === 1 && na[0].first === !had, had ? `${label}: learn:answer once, practice (its first answer of the day was earlier)` : `${label}: learn:answer once, first of the day`, na);
   check(!s2.paused && !s2.panelShown, `${label}: still no pause, no card`);
   report.questions.push({ label, mechanic: s.mechanic, item: s.item, strip: s.strip && s.strip.text, verdict: v, first: na[0] && na[0].first, cam: s.cam, fov: s.fov });
   seen[s.mechanic] = (seen[s.mechanic] || 0) + 1;
@@ -447,7 +453,7 @@ try { while (guard++ < MAXQ + 8) {
   // at this gate, after its first items already answered right, in order (one answered wrong and not yet again is asked
   // again: practice, never skipped); never in the exit area: that runs to the end)
   if (SEGMENT && Date.now() - T0 > SEGMENT) {
-    const r = await ev(([G0, K0]) => { const F = __inkwave.match.learn, g = F.gates[F.cur]; if (!g || F.phase === 'exit' || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; return { gate: G0 + F.cur, skip: (F.cur === 0 ? K0 : 0) + done, of: (F.cur === 0 ? K0 : 0) + g.items.length, title: g.title }; }, [GATE, SKIP]);
+    const r = await ev(([G0, K0]) => { const F = __inkwave.match.learn, g = F.gates[F.cur]; if (!g || F.phase === 'exit' || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; if (done >= g.items.length || g.state === 'open') return null; return { gate: G0 + F.cur, skip: (F.cur === 0 ? K0 : 0) + done, of: (F.cur === 0 ? K0 : 0) + g.items.length, title: g.title }; }, [GATE, SKIP]);
     if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
   }
 } } catch (e) { check(false, 'driver error', String(e && e.message || e)); }

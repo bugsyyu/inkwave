@@ -83,7 +83,7 @@ for (const viewName of VIEWS_WANT) { try {
   const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
   const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
-  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, query: QUERY, questions: [] };
+  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, query: QUERY, learn: LEARN_Q, gate: GATE, skip: SKIPN, full: FULL, questions: [] };
   reports[VIEW] = report;
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!/^blob:|^data:/.test(u)) bad.push('FAILED ' + u.replace(base, '/game/') + ' ' + ((r.failure() || {}).errorText || '')); });
@@ -99,7 +99,7 @@ for (const viewName of VIEWS_WANT) { try {
       __inkwave.debug.step(m);
       const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || F.finishT >= 0 || document.querySelector('.iw-learn.is-done')) return null;
       const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
-      return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase } : 0;
+      return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, state: M.state } : 0;
     }, ms);
     if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
   };
@@ -357,6 +357,9 @@ for (const viewName of VIEWS_WANT) { try {
     else check(!!s.strip && s.strip.rect[3] > 0, `${label}: the strip: 「${s.strip && s.strip.text}」`);
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
+    // (a whole day asks some items twice — a word in its round and again in 单词第二遍: the second is practice; first ===
+    // true exactly when the store had no leaf for it today — play-8)
+    const had = await ev((id) => { try { const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; const E = JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; return Object.values(E).some((doc) => doc && doc.it && doc.it[id] && doc.it[id][day]); } catch (e) { return false; } }, s.item || '');
     let v = null;
     if (s.mechanic === 'm1') v = await answerM1(s, right, label);
     else if (s.mechanic === 'type') v = await answerType(s, right, label);
@@ -366,7 +369,7 @@ for (const viewName of VIEWS_WANT) { try {
     check(!!v && v.ok === true, `${label}: answered right`, v || s2.dbg);
     if (s.mechanic !== 'echo') {
       const na = s2.answers.slice(before);
-      check(na.length === 1 && na[0].first === true, `${label}: learn:answer once, first of the day`, na);
+      check(na.length === 1 && na[0].first === !had, had ? `${label}: learn:answer once, practice (its first answer of the day was earlier)` : `${label}: learn:answer once, first of the day`, na);
       if (FORM !== 'boss') check(s2.inks > inks, `${label}: the zone flooded with her ink (learn:ink)`);
       else check(s2.hps > hps && s2.bossHp < s.bossHp, `${label}: the weak-point hit: HP ${s.bossHp} → ${s2.bossHp}`);
     }
@@ -378,7 +381,9 @@ for (const viewName of VIEWS_WANT) { try {
     // (a whole match in segments: past the segment's wall clock, stop at this question boundary — the next segment
     // starts at this round / phase, after its first items already answered right, in order; never in the last round)
     if (SEGMENT && Date.now() - T0 > SEGMENT) {
-      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || k >= F.gates.length - 1 || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; return { gate: Math.max(1, G0) + k, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
+      // (a round that is over — its gate open, the pause after it, every item of it answered — resumes at the next one:
+      // never a finished round replayed, never a gate with nothing in it)
+      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || k >= F.gates.length - 1 || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; const base = Math.max(1, G0) + k; if (g.state === 'open' || F.phase === 'between' || done >= g.items.length) { const n = F.gates[k + 1]; return n && !n._relearnGate ? { gate: base + 1, skip: 0, of: n.items.length, title: n.title || n.phase } : null; } return { gate: base, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
       if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
     }
   } } catch (e) { check(false, 'driver error', String(e && e.message || e) + ' ' + String(e && e.stack || '').split('\n').slice(1, 3).join(' | ')); }

@@ -36,7 +36,7 @@
     const Fl = F(); if (!Fl || Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) return;
     const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
     S.inv.samples++;
-    if ((M().paused || Fl.hold || shown) && S.inv.breaks.length < 20) S.inv.breaks.push({ paused: M().paused, hold: !!Fl.hold, panel: shown, phase: Fl.phase, s: +Fl.sNow.toFixed(1) });
+    if ((M().paused || Fl.hold || shown) && S.inv.breaks.length < 20) S.inv.breaks.push({ paused: M().paused, hold: !!Fl.hold, panel: shown, phase: Fl.phase, state: M().state, s: Fl.sNow != null ? +(+Fl.sNow).toFixed(1) : null });
   }
   const render = () => { I._frame(1 / 60); };
   const touch = !!(I.input && I.input.touch && I.input.touch.active);
@@ -238,8 +238,9 @@
         if (g && Fl.phase !== 'final') {
           const base = k === 0 ? (W.__runSkip || 0) : 0; let done = 0;
           while (done < g.items.length && (Fl.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++;
-          S.resume = { gate: (W.__runGate || 1) + k, skip: base + done, of: base + g.items.length, title: g.title };
-          break;
+          // (every item of this checkpoint answered: the next segment starts at the next one — never a gate with nothing in it)
+          if (done >= g.items.length) { if (k + 1 < Fl.gates.length) { S.resume = { gate: (W.__runGate || 1) + k + 1, skip: 0, of: Fl.gates[k + 1].items.length, title: Fl.gates[k + 1].title }; break; } }
+          else { S.resume = { gate: (W.__runGate || 1) + k, skip: base + done, of: base + g.items.length, title: g.title }; break; }
         }
       }
       await step(100);
