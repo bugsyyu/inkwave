@@ -134,7 +134,7 @@ for (const viewName of VIEWS_WANT) { try {
   // the intro / the prep board: step until the level plays and the board (duel / quiz) can be started
   for (let i = 0; i < 120; i++) { const st = await ev(() => { const F = __inkwave.match.learn; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep') }; }); if (st.state === 'playing' && (st.up || FORM === 'boss')) break; await step(250); }
   await step(30);   // (the board rises and the lens frames it)
-  const pre = await ev(() => { const F = __inkwave.match.learn, P = F.arena && F.arena.prepS; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep'), board: P ? P.debug() : null, go: !!document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'), paused: __inkwave.match.paused, hold: !!F.hold, panel: !!document.querySelector('.iw-learn__panel, .iw-lf__board.is-on'), bots: __inkwave.match.actors.filter((a) => a.bot).every((a) => a._learnIdle) }; });
+  const pre = await ev(() => { const F = __inkwave.match.learn, P = F.arena && F.arena.prepS; return { state: __inkwave.match.state, prep: !!(F.prep && F.prep()), up: !!(F.arena && F.arena.kind === 'prep'), board: P ? P.debug() : null, go: !!document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'), paused: __inkwave.match.paused, hold: !!F.hold, panel: !!document.querySelector('.iw-learn__panel, .iw-lf__board.is-on'), bots: __inkwave.match.actors.filter((a) => a.bot).every((a) => a._learnIdle), xh: __G.hud && __G.hud.xh ? getComputedStyle(__G.hud.xh).visibility : null }; });
   say('pre', JSON.stringify(pre));
   // --skip-to S (boss): the audit's hand clears the phases before it (BossFlow._phaseDone 'cleared': the boss falls to each
   // band's floor, nothing written) — to reach the 回声亭 without eight questions first
@@ -144,6 +144,8 @@ for (const viewName of VIEWS_WANT) { try {
     check(pre.up && pre.prep && pre.go, 'the 备战 is up before the round: an M6 board in front of her and 「开始」 on the strip (PLAY §4)', pre);
     check(pre.paused === false && !pre.hold && !pre.panel, 'the 备战 does not stop the match (no pause, no hold, no card panel — play-8)', pre);
     check(pre.bots, 'the bots stand while she reads (their brains off, not the match)', pre);
+    check(pre.xh === 'hidden', 'no crosshair on the 备战 board (play-8)', pre.xh);
+    if (SHOTS && !shotDone.has('prep')) { for (let i = 0; i < 16; i++) await step(100); const P2 = await ev(() => __inkwave.match.learn.arena.prepS.debug()); say('prep board before the picture', JSON.stringify(P2)); }   // (the board rises and the lens springs to it: the picture after that)
     await shot('prep');
     await ev(() => document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary').click());
     await step(50);

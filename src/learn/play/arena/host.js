@@ -172,6 +172,10 @@ export class ArenaHost {
       // (play-8: and while a flip card or a 备战 board stands in front of her — the bots' tags sat on them too)
       || (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
     if (tags !== !!this._tagsYield) { this._tagsYield = tags; G.hud?.markerYield?.(tags); }
+    // (play-8: no crosshair while a flip card or a 备战 board stands in front of her — nothing is aimed there, it sat on the
+    // board's text; the typing station hides it itself, the objects keep it)
+    const xhOff = (this.kind === 'flip' && !!this.flip.cur) || (this.kind === 'prep' && !!this.prepS.cur);
+    if (xhOff !== !!this._xhOff) { this._xhOff = xhOff; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = xhOff ? 'hidden' : ''; }
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.echo?.update(dt); this.flip.update(dt); this.prepS.update(dt);
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
@@ -201,6 +205,7 @@ export class ArenaHost {
   }
   dispose() {
     if (this._tagsYield) { this._tagsYield = false; G.hud?.markerYield?.(false); }
+    if (this._xhOff) { this._xhOff = false; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = ''; }
     if (typeof window !== 'undefined') { window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
     this.cam.release(G.rig, this.match.local);
