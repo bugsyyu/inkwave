@@ -1,11 +1,11 @@
 // 关卡学习 · two players online (docs/LEARN.md §14): the Node relay + the game's file server + two headless browsers,
 // one room — the lobby screen of versus2 (双人联机赛) / coop2 (双人成形合作赛): net-duo-lobby.mjs (MODE arrows, the 课 row,
-// coop2's locks and start rule). Starts and stops its own relay and file server (free ports; nothing left running).
+// coop2's locks and start rule; then the guest back in through the join card by the code, 准备, the host's 开始 — driveJoinUi). Starts and stops its own relay and file server (free ports; nothing left running).
 // (play-8: the match itself — the questions as things on both screens — is tools/learn/net-duo-play.mjs; the card-era
 // match drive that stood here is gone with the cards.)
 //
 // usage: node tools/learn/net-duo.mjs --lobby [--mode versus2|coop2] [--week 1] [--day 1] [--map tidewater] [--bots]
-//                                      [--budget 170] [--shots <dir>] [--w 400 --h 225]
+//                                      [--budget 300] [--shots <dir>] [--w 400 --h 225]
 //   needs puppeteer-core (npm install, or a node_modules linked from a checkout that has it) and Chrome (CHROME_PATH).
 import puppeteer from 'puppeteer-core';
 import { spawn } from 'node:child_process';
@@ -19,7 +19,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const MODE = opt('mode', 'versus2'), WEEK = +opt('week', 1), DAY = +opt('day', 1), MAP = opt('map', 'tidewater');
-const BOTS = args.includes('--bots'), BUDGET = +opt('budget', 170) * 1000, SHOTS = opt('shots', null), SHOT_Q = args.includes('--shot-question');
+const BOTS = args.includes('--bots'), BUDGET = +opt('budget', 300) * 1000, SHOTS = opt('shots', null), SHOT_Q = args.includes('--shot-question');
 const W = +opt('w', 400), H = +opt('h', 225);
 const T0 = Date.now();
 const ts = () => ((Date.now() - T0) / 1000).toFixed(1).padStart(5);
@@ -108,7 +108,9 @@ try {
   {
     const step = (sec) => Promise.all([0, 1].map((i) => ev(i, (n) => { const I = __inkwave; I._skipRender = true; try { for (let j = 0; j < n; j++) I._frame(1 / 24); } finally { I._skipRender = false; } }, Math.max(1, Math.round(sec * 24)))));
     const shot = async (i, name) => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); await ev(i, () => __inkwave.debug.step(16.7)); await pages[i].screenshot({ path: `${SHOTS}/${name}-c${i}.png` }); say('shot', `${SHOTS}/${name}-c${i}.png`); };
-    await (await import('./net-duo-lobby.mjs')).driveLobby({ step, ev, check, mark, say, shot });
+    const L = await import('./net-duo-lobby.mjs');
+    await L.driveLobby({ step, ev, check, mark, say, shot });
+    await L.driveJoinUi({ step, ev, check, mark, say, shot }, code);   // the guest back in through the screens, ready, the host's 开始
     throw Object.assign(new Error('lobby check done'), { done: true });
   }
 } catch (e) {
