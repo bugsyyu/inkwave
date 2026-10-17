@@ -235,7 +235,8 @@ test('the sources: the arena never pauses the match nor holds her (no match.paus
   }
   for (const f of ['forms/duel.js', 'forms/boss.js']) {
     const src = readFileSync(new URL(f, root), 'utf8');
-    assert.equal((src.match(/recordFirst\(/g) || []).length, 1, `${f}: recordFirst once (in _judgeRecord)`);
+    assert.equal((src.match(/recordFirst\(/g) || []).length, 0, `${f}: no recordFirst of its own (play-8: play/judge.js)`);
+    assert.equal((src.match(/judgeRecord\(\{/g) || []).length, 1, `${f}: the one judging path, once (in _judgeRecord)`);
     assert.ok(/_judgeRecord\(g, item, p, ans, o = \{\}\)/.test(src), `${f}: the override's signature`);
   }
 });

@@ -88,7 +88,7 @@ test('the typed answer: one path, the evidence a station knows — T, H after a 
   const D = run(dict, dict.en); assert.equal(D.r.r.ok, true); assert.deepEqual(D.leaf, [100, 'L']);
   const Dp = run(dict, dict.en.split(' ').slice(0, -1).join(' ')); assert.equal(Dp.r.r.pct > 0 && Dp.r.r.pct < 100, true); assert.deepEqual(Dp.leaf, [Dp.r.r.pct, 'L'], 'the dictation percent is the leaf');
   const W = run(write, write.en); assert.equal(W.r.r.ok, true); assert.deepEqual(W.leaf, [1, 'W']);
-  const S = run(write, write.en, { self: true }); assert.deepEqual(S.leaf, [1, 'S']);
+  const S = run(write, write.en, { decided: true, claim: true }); assert.deepEqual(S.leaf, [1, 'S'], 'her claim that stands → S');
 });
 
 test('the beat items of the three weeks: 听辨对子 174 (2 pads) · 音标 96 (4 pads), labels in option order, the reshuffled retry still 2 / 4', () => {

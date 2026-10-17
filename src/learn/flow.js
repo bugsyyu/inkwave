@@ -24,9 +24,9 @@
 import * as THREE from 'three';
 import { G, emit } from '../core/ctx.js';
 import { LEARN } from '../config.js';
-import { puzzleLevel, prompt, judge, store } from './api.js';
-import { cardFor, flipJudge } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
-import { canClaim, claimJudge } from './forms/common.js';   // 「我的写法也对」 on a typed sentence (题即玩法 play-fix: S, held until she decides)
+import { puzzleLevel, prompt, store } from './api.js';
+import { cardFor } from './forms/common.js';   // the review day's flip cards (快闪翻牌, F)
+import { judgeRecord } from './play/judge.js';   // the one judging path (题即玩法 play-8)
 import { MECHANICS } from './design.js';   // the signs' names (写字墙 · 回声亭 · 打卡垫 …)
 import { PlayHost } from './play/host.js';
 import { isBanner } from './play/layout.js';   // (a word's 回炉 choice: which distractors stay ink balls)   // 题即玩法 (docs/PLAY.md): every item is a thing on the stage, the world runs on (play-wire, LEARN §22)
@@ -352,22 +352,14 @@ export class LearnFlow {
     this.hud?.verdict({ ok: r.ok, why: r.why, canonical: r.canonical, locks: g.locks, again, text: r.text }, () => this._askNext(g));
   }
 
-  // The one judging path (PLAY §1 rule 2), whatever asked: the card's answer and an ink target's index (题即玩法 M1,
-  // src/learn/play/) both come here — judge → the day's first answer into the store → the lock and the retry.
+  // The puzzle's side of the one judging path (PLAY §1 rule 2; the path itself is play/judge.js judgeRecord: judge → the
+  // day's first answer into the store, a hint → H, a flip card's rating → F, a held sentence → 我的写法也对 S / 继续 W).
+  // Every station hands its answer here (an ink target's / a pad's index, the 字弹's text with o.hinted / o.hold, her
+  // rating on a flip card); what is the puzzle's own stays here: the tallies, learn:answer, the lock and the retry.
   _judgeRecord(g, item, p, ans, o = {}) {
-    let r;
-    if (p._flip) r = flipJudge(item, ans);                                                                 // her own rating (F)
-    else if (p._alt === 'choice-of-typed') r = judge(item, p.options[ans] ? p.options[ans].text : '');     // the picked word, judged as a dictation
-    else if (p._alt === 'typed-of-choice') r = judge(item, item.options.findIndex((o) => norm(o.en) === norm(ans)));   // typed → option index
-    else if (p._perm) r = judge(item, typeof ans === 'number' ? p._perm[ans] : ans);                  // reshuffled choice → original index
-    else r = judge(item, ans);
-    // 题即玩法 play-fix — 「我的写法也对」 the way play-4 / play-5 do it (runner.js / boss.js _judgeRecord): a station that
-    // can wait for her (o.hold: the 字弹's typed sentence) gets a near miss canClaim allows back HELD — nothing written, no
-    // lock, { held: true }; her tap decides: o.decided + o.claim → claimJudge re-checks it, standing → S; o.decided alone
-    // → the miss as it was (W). Without o.hold / o.decided: exactly the call it always was
-    if (o.hold && !o.decided && canClaim(item, p, r)) return { r, first: false, again: false, held: true };
-    if (o.decided && o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; o = { ...o, self: true }; } }
-    const { first } = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.hinted ? { hinted: true } : {}), ...(o.self ? { self: true } : {}) });   // (A's store: the dictation percent is the leaf; the day is today's date; 题即玩法: a hint used → H, her own claim → S)
+    const out = judgeRecord({ item, p, ans, o, store });
+    const { r, first } = out;
+    if (out.held) return { r, first: false, again: false, held: true };
     if (first) this.firsts++;
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id });

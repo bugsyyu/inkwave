@@ -320,7 +320,8 @@ test('play-6 the sources: versus2 / coop2 judge only through _judgeRecord (the c
   const root = new URL('../../src/learn/', import.meta.url);
   for (const f of ['forms/versus2.js', 'forms/coop2.js']) {
     const src = readFileSync(new URL(f, root), 'utf8');
-    assert.equal((src.match(/recordFirst\(/g) || []).length, 1, `${f}: recordFirst once (in _judgeRecord)`);
+    assert.equal((src.match(/recordFirst\(/g) || []).length, 0, `${f}: no recordFirst of its own (play-8: play/judge.js)`);
+    assert.equal((src.match(/judgeRecord\(\{/g) || []).length, 1, `${f}: the one judging path, once (in _judgeRecord)`);
     assert.ok(/_judgeRecord\(g, item, p, ans, o = \{\}\)/.test(src), `${f}: the one path's signature`);
     assert.ok(/_askNext\(/.test(src), `${f}: _askNext is the form's (B's would ask its own queue)`);
   }

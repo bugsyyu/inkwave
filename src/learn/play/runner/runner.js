@@ -2,7 +2,7 @@
 // (common.js loopRoute) on her own ink, lap after lap, at INKWAVE's real swim speed (PLAYER.swimSpeed 11.8, the actor's
 // own physics: the road ahead is painted with `paint` so she is submerged; nothing fakes a speed). Every question is a
 // row of 2–4 curtains across the road, one option on each; swimming into a curtain is the answer:
-//   lane → rowAnswer (rows.js: judgeAnswer → store.recordFirst — the card's own path) → right: the curtain bursts into
+//   lane → _judgeRecord (play/judge.js judgeRecord: the one judging path) → right: the curtain bursts into
 //   her ink (fx.explosion + paint.flood), a short boost (her swim speed × LEARN.runner.boost); wrong: a soft coral
 //   curtain that slows her like enemy ink (enemyInkDecel, no damage), 「差一点：是 ___」, the item comes back reshuffled;
 //   a second miss: the answer, the 回炉 queue, and 走远路 — a side branch of the stage for ≈ detour seconds (detour.js).
@@ -27,7 +27,8 @@ import * as THREE from 'three';
 import { G, on, clamp, damp } from '../../../core/ctx.js';
 import { LEARN, PLAYER } from '../../../config.js';
 import { RaceFlow } from '../../forms/race.js';
-import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf, judgeAnswer, canClaim, claimJudge } from '../../forms/common.js';
+import { cumulative, relearnPlan, starsOf, writeStars, fmtClock, relearnTip, boardOf, useProp as propOf, rightAnswerOf } from '../../forms/common.js';
+import { judgeRecord } from '../judge.js';   // the one judging path (play-8)
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { laneCenters, dividerStart, laneOf, nextLane, readLead, leadDistance, beatGrid, onBeat, beatPulse, syncTide } from './lanes.js';
@@ -532,20 +533,17 @@ export class RunnerFlow extends RaceFlow {
 
   // ---------------------------------------------------------------------------------------------- the one judging path
   // Every answer of the run comes here (PLAY §1 rule 2) — a curtain's lane (_settle) and a typed text on the 滑行段
-  // (glide.js): the race card's own lines (race.js _answer: judgeAnswer → store.recordFirst; a hint → H, her own claim
-  // → S; the same leaf as rows.js rowAnswer, tests/learn/runner-glide.test.mjs) + the tallies + learn:answer once. Not
-  // LearnFlow's: that one locks a gate and queues the item on it for its retry — the runner keeps its own queue (a row
-  // and a glide each decide their other try). 「我的写法也对」 the way play-5's arena does it (forms/boss.js
-  // _judgeRecord): a near-miss written sentence (forms/common.js canClaim) is HELD — nothing written, { held: true } —
-  // until she decides: o.decided + o.claim → claimJudge re-checks it, standing → [1, S]; o.decided alone → the miss [0, W].
-  // o.hinted: the keyboard's 提示 (→ H); o.emit: more fields for learn:answer (lane, beat, kind).
+  // (glide.js) — and goes on to the one judging path (play/judge.js judgeRecord: judge → the day's first answer, a hint →
+  // H, 「我的写法也对」 → S). What stays here is the runner's own: the tallies, learn:answer once, the held sentence's
+  // marker. The runner keeps its own queue (a row and a glide each decide their other try), so nothing is locked or
+  // re-queued here. A near-miss written sentence (canClaim) is always held (hold: the 滑行段 waits for her) until she
+  // decides (o.decided + o.claim). o.hinted: the keyboard's 提示; o.at: the answer's time; o.emit: more fields for
+  // learn:answer (lane, beat, kind).
   _judgeRecord(g, item, p, ans, o = {}) {
-    let r = judgeAnswer(item, p, ans), self = false;
-    if (!o.decided && canClaim(item, p, r)) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
-    if (o.decided) { this._claimHeld = null; if (o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; self = true; } } }
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: o.at ?? Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(self ? { self: true } : {}) });
-    const first = !!rec.first;
+    const out = judgeRecord({ item, p, ans, o: { hinted: o.hinted, hold: true, decided: o.decided, claim: o.claim, at: o.at }, store });
+    const { r, first, self, hinted } = out;
+    if (out.held) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
+    if (o.decided) this._claimHeld = null;
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g ? g.id : 'gate:relearn', hinted, relearn: !!item._relearn, ...(self ? { self: true } : {}), ...(o.emit || {}) });

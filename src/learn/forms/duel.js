@@ -21,7 +21,8 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
+import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
@@ -232,10 +233,8 @@ export class DuelFlow extends LearnFlow {
   // keyboard's 提示 → H) → the duel's consequences (the flood, the streak, the retry / 回炉, the shield). Same shape as
   // flow.js's: { r, first, again }. (After play-wire's _judgeRecord(…, o) merges, the first three lines can be super's.)
   _judgeRecord(g, item, p, ans, o = {}) {
-    const r = o.judged || judgeAnswer(item, p, ans);
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}), ...(o.self ? { self: true } : {}) });
-    const first = !!rec.first;
+    // (nothing waits in a round: no held sentence here — a typed sentence is judged as it is shot)
+    const { r, first, hinted } = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted }, store });
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, flip: !!p._flip });

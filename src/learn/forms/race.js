@@ -16,7 +16,8 @@ import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, propOnRight, useProp, streakKind, relearnPlan, starsOf, writeStars, fmtClock, judgeAnswer, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
+import { loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, propOnRight, useProp, streakKind, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, boardOf, relearnTip, cardFor } from './common.js';
+import { judgeRecord } from '../play/judge.js';
 import { FormsUi } from './ui.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -225,9 +226,7 @@ export class RaceFlow extends LearnFlow {
   rightAnswer() { return this.asking ? rightAnswerOf(this.asking.item, this.asking.p) : null; }
 
   _answer(g, item, p, ans) {
-    const r = judgeAnswer(item, p, ans);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted: !!p._hinted, at: Date.now(), ...(p._flip ? { how: 'F' } : {}) });
-    const first = !!rec.first;
+    const { r, first } = judgeRecord({ item, p, ans, o: {}, store });   // (the one path, play-8)
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted: !!p._hinted, relearn: !!item._relearn, flip: !!p._flip });

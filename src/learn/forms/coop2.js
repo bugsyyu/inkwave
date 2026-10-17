@@ -26,6 +26,7 @@ import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { judgeAnswer, rightAnswerOf } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
 import { rolesFor, splitPrompt, padNodes, padsHeld, validQ, duoAltPrompt, seedOf } from './duo.js';
 import { CoopPlay } from '../play/duo/coop.js';
@@ -235,8 +236,7 @@ export class Coop2Flow extends LearnFlow {
     const r = o.judged || judgeAnswer(item, p, ans);
     if (!q || q.answered) return { r, first: false, again: false };
     q.answered = true;
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(hinted ? { hinted: true } : {}) });
+    const rec = judgeRecord({ item, p, ans, o: { judged: r, hinted: o.hinted }, store });   // (the one path; the verdict above is its own)
     if (rec.first) { this.mine.firsts++; this.firsts++; if (r.ok) this.mine.firstRight++; }
     if (r.ok) this.mine.right++;
     const again = !r.ok && item._tries < this.P.retries;

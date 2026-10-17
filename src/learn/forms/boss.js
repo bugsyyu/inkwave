@@ -22,7 +22,8 @@ import { LEARN } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store, bossLevel, daySteps } from '../api.js';
 import { EFFECTS } from '../design.js';
-import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, judgeAnswer, rightAnswerOf, relearnTip, canClaim, claimJudge } from './common.js';
+import { bossDamage, phaseBudget, streakKind, propOnRight, useProp, relearnPlan, writeStars, fmtClock, rightAnswerOf, relearnTip, claimJudge } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
@@ -224,12 +225,11 @@ export class BossFlow extends LearnFlow {
   // flow.js's: { r, first, again }. (After play-wire's _judgeRecord(…, o) merges, the recording lines can be super's.)
   _judgeRecord(g, item, p, ans, o = {}) {
     const P = this.perPhase[g.phase] || (this.perPhase[g.phase] = { zh: '', asked: 0, right: 0, firstRight: 0, total: 0, skipped: 0, timeUp: false });
-    let r = o.judged || judgeAnswer(item, p, ans), self = false;
-    if (!o.decided && canClaim(item, p, r)) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
-    if (o.decided) { this._claimHeld = null; if (o.claim) { const c = claimJudge(item, p, ans); if (c.ok) { r = c; self = true; } } }
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, hinted, at: Date.now(), ...(self ? { self: true } : {}) });
-    const first = !!rec.first;
+    // (a near-miss sentence is always held: the W phase waits for her — the boss does not move until she decides)
+    const out = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted, hold: true, decided: o.decided, claim: o.claim }, store });
+    const { r, first, self, hinted } = out;
+    if (out.held) { this._claimHeld = { itemId: item.id }; return { r, first: false, again: false, held: true }; }
+    if (o.decided) this._claimHeld = null;
     if (first) { this.firsts++; if (r.ok) { this.firstRight++; P.firstRight++; } }
     if (r.ok) { this.right.add(item.id); P.right++; }
     this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, phase: g.phase, ...(self ? { self: true } : {}) });

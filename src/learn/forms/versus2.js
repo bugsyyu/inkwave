@@ -26,7 +26,8 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, judgeAnswer, rightAnswerOf } from './common.js';
+import { duelFlood, streakKind, rightAnswerOf } from './common.js';
+import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { zoneCellsXYZ } from './duel.js';
 import { FormsUi } from './ui.js';
 import { Referee, buildQueue, mergeDue, canRequeue, answerTime, tally, validQ, duoAltPrompt, seedOf } from './duo.js';
@@ -270,10 +271,7 @@ export class Versus2Flow extends LearnFlow {
     const q = this.q && this.q.item === item ? this.q : null;
     if (q) q.answered = true;
     const ms = q ? Math.round((now() - q.t0) * 1000) : 0;
-    const r = o.judged || judgeAnswer(item, p, ans);
-    const hinted = !!(p._hinted || o.hinted);
-    const rec = store.recordFirst({ itemId: item.id, item, ok: r.ok, pct: r.pct, at: Date.now(), ...(hinted ? { hinted: true } : {}) });
-    const first = !!rec.first;
+    const { r, first, hinted } = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted }, store });   // (the one path; nothing is held in a timed question)
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) { this.right.add(item.id); this.rightN++; this.streak++; } else this.streak = 0;
     if (q) this._toHost({ k: 'la', q: q.q, ok: r.ok ? 1 : 0, ms });

@@ -124,7 +124,8 @@ function itemCases(form, Form, level, tag, g, item) {
     runCase(`${key0}\tfirst:${k}`, form, Form, level, g, item, [{ p: P, ans }]);
     if (TYPED.has(p0.type)) {
       runCase(`${key0}\tfirst:${k}:hinted`, form, Form, level, g, item, [{ p: P, ans, o: { hinted: true } }]);
-      runCase(`${key0}\tfirst:${k}:p-hinted`, form, Form, level, g, item, [{ p: (it, F) => ({ ...P(it, F), _hinted: true }), ans }]);
+      // (a prop's hint on the prompt — 墨雨, hintNext: p._hinted — exists in the forms with props; the puzzle has none)
+      if (form !== 'puzzle') runCase(`${key0}\tfirst:${k}:p-hinted`, form, Form, level, g, item, [{ p: (it, F) => ({ ...P(it, F), _hinted: true }), ans }]);
       // a station that can wait for her (the puzzle's 字弹 passes o.hold) — held, then her decision
       runCase(`${key0}\tfirst:${k}:hold-claim`, form, Form, level, g, item, [{ p: P, ans, o: { hold: true } }, { p: P, ans, o: { decided: true, claim: true } }]);
       runCase(`${key0}\tfirst:${k}:hold-goon`, form, Form, level, g, item, [{ p: P, ans, o: { hold: true, hinted: true } }, { p: P, ans, o: { decided: true, claim: false, hinted: true } }]);
