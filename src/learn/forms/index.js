@@ -10,8 +10,9 @@
 //     world     the stage variant to build: 'zones' for a duel (its ramps), 'turf' otherwise
 //     short     the audits' shortened level (?short=1): two gates, two items each, a 60 s clock
 //     gate      the audits' start (?gate=N): a short level from its N-th gate; a whole one (play-8: a whole day run in
-//               segments, each picking up after the last gate the one before finished — the store keeps her answers)
-//               from its N-th gate / round / phase on, every item of them
+//               segments, each picking up where the one before stopped — the store keeps her answers) from its N-th gate
+//               / round / phase on, every item of them — and with ?skip=K, its first gate from its K-th item (the ones
+//               before it were answered in the segment before; the write wall's sentences when the gates are done)
 // main.js calls this and nothing else of the forms; match.js only reads .kind and .Flow.
 import { G, on } from '../../core/ctx.js';
 import { h } from '../../ui/ui-util.js';
@@ -37,6 +38,15 @@ export function flowFor(kind) {
 }
 const FLOWS = { puzzle: LearnFlow, race: RunnerFlow, duel: DuelFlow, boss: BossFlow };
 
+// (?skip=K, the audits' mid-gate save point: read here, not threaded through main.js)
+const skipOf = () => { try { return typeof location !== 'undefined' ? Math.max(0, +(new URLSearchParams(location.search).get('skip') || 0) | 0) : 0; } catch (e) { return 0; } };
+function resumeAt(level, gate, skip) {
+  const gates = level.gates.slice(gate - 1);
+  if (skip > 0 && gates.length) gates[0] = { ...gates[0], items: gates[0].items.slice(skip) };
+  const signs = !gates.length && skip > 0 ? (level.signs || []).map((sg) => (sg.design && sg.design.mechanic === 'write-wall' ? { ...sg, items: (sg.items || []).slice(skip) } : sg)) : level.signs;
+  return { ...level, gates, signs };
+}
+
 export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);
   if (kind === 'quiz') return buildQuiz(w, week, day, short);
@@ -44,14 +54,14 @@ export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   if (kind === 'boss') {
     let plan = bossPlan(w);
     if (short) plan = shortenBoss(plan);
-    else if (gate > 1) plan = { ...plan, phases: plan.phases.slice(gate - 1) };   // (a whole 周考 in segments: from its N-th phase)
+    else if (gate > 1 || skipOf()) { const ph = plan.phases.slice(Math.max(1, gate) - 1), k = skipOf(); if (k && ph[0]) ph[0] = { ...ph[0], items: ph[0].items.slice(k) }; plan = { ...plan, phases: ph }; }   // (a whole 周考 in segments: from its N-th phase, its K-th item)
     const level = { ...plan, week, day: 0, weekRef: w, gates: [], title: String(w.title || '') };
     return { kind, level, Flow: FLOWS.boss, time: plan.time || 'dusk', duration: short ? 60 * plan.phases.length : phaseTimeTotal(plan), world: 'turf', short, weekRef: w };
   }
   let level = planDay(w, day, kind);   // (a kind outside the four forms — 'plan', none given — is the day's planned form)
   if (!FORMS.includes(kind)) kind = level.kind || 'puzzle';
   if (short) level = shortenLevel(level, 2, 2, gate > 0 ? gate - 1 : 0);
-  else if (gate > 1) level = { ...level, gates: level.gates.slice(gate - 1) };   // (a whole day in segments: from its N-th gate)
+  else if (gate > 1 || skipOf()) level = resumeAt(level, Math.max(1, gate), skipOf());   // (a whole day in segments: from its N-th gate, its K-th item)
   // the numeric week / day the flows and the HUD read (A's head() writes week: 'w1'); the week object for store.due
   Object.assign(level, { week, day, weekRef: w });
   return { kind, level, Flow: FLOWS[kind] || LearnFlow, time: level.time || 'day', duration: kind === 'duel' ? (short ? 60 : undefined) : undefined, world: kind === 'duel' ? 'zones' : 'turf', short, weekRef: w };

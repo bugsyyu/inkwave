@@ -12,6 +12,10 @@
 // typewriter between the strip and the keyboard), the evidence leaf. The 看板段 (boards.js): the invariants, each board
 // framed as she comes, a tap on a word row (its own listeners). window.__glidePlan: 'right' | 'hint' | 'wrong' | 'near'
 // cycled per typed item; window.__glideShots: a shot of the first type frame / ink word / held strip / framed board.
+// play-8 — a whole day (PLAY §10): every stepped frame samples PLAY §1 rule 1 (match.paused false, no learn.hold, no
+// .iw-learn__panel shown) from the start line to the results card; window.__runSegment: when the wall clock
+// (__runWallMs) is out, stop at the next row / item boundary inside the checkpoints and report `resume` — the next
+// segment's ?gate= / ?skip= (the gate she is on, after its first items already answered right, in order)
 (async () => {
   const W = window, G = W.__G, I = W.__inkwave, M = () => I.match, F = () => M() && M().learn;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -23,8 +27,17 @@
     const fdt = W.__runDt || 1 / 30, n = Math.max(1, Math.round(ms / 1000 / fdt));
     I._skipRender = true;
     try { for (let i = 0; i < n; i++) I._frame(fdt); } finally { I._skipRender = false; }
+    sample();
     await sleep(0);
   };
+  // (play-8) PLAY §1 rule 1 on every step, until the results card
+  S.inv = S.inv || { samples: 0, breaks: [] };
+  function sample() {
+    const Fl = F(); if (!Fl || Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) return;
+    const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
+    S.inv.samples++;
+    if ((M().paused || Fl.hold || shown) && S.inv.breaks.length < 20) S.inv.breaks.push({ paused: M().paused, hold: !!Fl.hold, panel: shown, phase: Fl.phase, s: +Fl.sNow.toFixed(1) });
+  }
   const render = () => { I._frame(1 / 60); };
   const touch = !!(I.input && I.input.touch && I.input.touch.active);
   // one swipe through the real input path: pointer events on a phone (the touch layer's swipe hook), keys otherwise
@@ -217,8 +230,18 @@
     }
     const Fl = F();
     const until = Date.now() + (W.__runWallMs || 240000);
-    while (Date.now() < until) {
+    while (Date.now() < until || (W.__runSegment && !S.resume)) {
       if (Fl.phase === 'done' || document.querySelector('.iw-learn.is-done')) break;
+      // (a segment's wall clock is out: stop here — between rows — unless she is past the last checkpoint)
+      if (W.__runSegment && Date.now() >= until) {
+        const k = Fl.cur, g = Fl.gates[k];
+        if (g && Fl.phase !== 'final') {
+          const base = k === 0 ? (W.__runSkip || 0) : 0; let done = 0;
+          while (done < g.items.length && (Fl.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++;
+          S.resume = { gate: (W.__runGate || 1) + k, skip: base + done, of: base + g.items.length, title: g.title };
+          break;
+        }
+      }
       await step(100);
       if (Fl.prep && Fl.prep()) { const go = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (go) { S.boards = (S.boards || 0) + 1; go.click(); } continue; }   // a reading board before the start: 出发
       if ((S.tick = (S.tick || 0) + 1) % 20 === 0) console.log('[run] t', ((Date.now() - S.t0) / 1000).toFixed(0), 's · s', Fl.sNow.toFixed(1), 'phase', Fl.phase, 'rows', S.rows.length, 'speed', Math.hypot(M().local.vel.x, M().local.vel.z).toFixed(1));
@@ -279,7 +302,7 @@
       if (W.__runMaxRows && S.rows.length >= W.__runMaxRows) break;
     }
     // to the finish and the results card (simulated seconds)
-    if (!W.__runMaxRows) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
+    if (!W.__runMaxRows && !S.resume) { let g = 0; while (!document.querySelector('.iw-learn.is-done') && !(Fl._hudOn && Fl.finishT < 0) && g++ < 900) await step(200); }
   } catch (e) { S.errors.push(String(e && e.stack || e)); }
   const Fl = F();
   S.done = true;
@@ -288,13 +311,17 @@
   const twice = Object.keys(firsts).filter((k) => firsts[k] > 1); if (twice.length) S.errors.push('first answer recorded twice: ' + twice.join(', '));
   const xhAny = S.checks.filter((c) => c.crosshair).length;
   const resultsShown = !!(Fl && Fl._hudOn && Fl.finishT < 0 && M().paused);   // (the results card: the run is over, the match held — as every form ends)
-  if (!W.__runMaxRows && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  if (!W.__runMaxRows && !S.resume && !resultsShown) S.errors.push('no results card at the end (phase ' + (Fl && Fl.phase) + ')');
+  if (S.inv.breaks.length) S.errors.push('PLAY §1 rule 1 broken while she played: ' + JSON.stringify(S.inv.breaks.slice(0, 3)));
   const out = { resultsShown, boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
   out.cov = G.paint ? G.paint.coverage().map((c) => +c.toFixed(4)) : null;
   out.evDocs = Object.keys(evDoc().ev || {});
+  out.resume = S.resume || null; out.invariants = S.inv;
+  out.answers = Fl ? Fl.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]) : [];
+  out.evidence = evDoc().ev || {};
   render();
   return JSON.stringify(out);
 })()

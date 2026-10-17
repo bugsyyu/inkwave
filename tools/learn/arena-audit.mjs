@@ -18,6 +18,12 @@
 //              (duel), the text typed key by key on the game keyboard, 射 → judged, the word forms at the target
 //     S (boss): the booth rises in front of her; walking onto its pad plays the sample; walking off = 说完了 → the hit
 //   Screenshots: <dir>/<form>-<view>-<what>.png (one per mechanic per view).
+//   play-8 — a whole match in segments (PLAY §10「整天从头跑到尾」): --full (no ?short: every round / phase, every item)
+//   [--gate N --skip K] (start at the N-th round / phase, its K-th item: where the segment before stopped) --profile <dir>
+//   (one Chromium profile for every segment: her store carries on) --segment <s> (stop at the first question boundary
+//   after s s of wall clock; the report's `resume` is the next segment's --gate / --skip) --out <file>; one view. Every
+//   step samples PLAY §1 rule 1 (match.paused false, no learn.hold, no .iw-learn__panel shown); a whole run ends on the
+//   results card. (With --full the plain-round check runs on the first two M1 questions only: it costs a second each.)
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/arena-audit.mjs …
 import http from 'node:http';
 import fs from 'node:fs';
@@ -29,11 +35,12 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', 3), BUDGET = +opt('budget', 1500) * 1000;
+const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
+const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
 const LEARN_Q = opt('learn', FORM === 'boss' ? 'w1d7' : FORM === 'quiz' ? 'w1d1' : 'w1d6');
 const GATE = +opt('gate', 0);   // (a duel day's gate N and N+1: ?short=1&gate=N — a typed gate is w1d6 --gate 4)
-const QUERY = `?learn=${LEARN_Q}&kind=${FORM}&short=1&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '');
+const QUERY = `?learn=${LEARN_Q}&kind=${FORM}${FULL ? '' : '&short=1'}&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '') + (SKIPN > 0 ? `&skip=${SKIPN}` : '');
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const T0 = Date.now();
 let VIEW = '';
@@ -51,15 +58,19 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/game/`;
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const LAUNCH = { executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+// (--profile: a persistent context — the segments of a whole match share her localStorage, so the store carries on)
+const browser = PROFILE ? null : await chromium.launch(LAUNCH);
+let live = null;
 const reports = {}, allFails = [];
 const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finishAll(2); }, BUDGET);
 async function finishAll(code) {
   clearTimeout(watchdog);
   console.log('\n[arena-audit] REPORT ' + JSON.stringify(reports));
+  if (OUT) try { fs.writeFileSync(OUT, JSON.stringify(reports, null, 1)); } catch (e) { say('could not write', OUT); }
   console.log(`[arena-audit] ${FORM}: ${allFails.length ? allFails.length + ' FAILED' : 'all checks passed'}`);
   for (const f of allFails) console.log('  FAIL ' + f);
-  try { await browser.close(); } catch (e) { /* gone */ }
+  try { await (browser || live).close(); } catch (e) { /* gone */ }
   srv.close();
   process.exit(code != null ? code : (allFails.length ? 1 : 0));
 }
@@ -68,10 +79,11 @@ process.on('unhandledRejection', (e) => { allFails.push('driver error ' + String
 for (const viewName of VIEWS_WANT) { try {
   VIEW = viewName;
   const V = VIEWS[viewName] || VIEWS.portrait;
-  const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch });
+  const CO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch };
+  const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
-  const page = await ctx.newPage();
-  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, questions: [] };
+  const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
+  const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, query: QUERY, questions: [] };
   reports[VIEW] = report;
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!/^blob:|^data:/.test(u)) bad.push('FAILED ' + u.replace(base, '/game/') + ' ' + ((r.failure() || {}).errorText || '')); });
@@ -79,7 +91,18 @@ for (const viewName of VIEWS_WANT) { try {
   page.on('pageerror', (e) => errs.push('[pageerror] ' + e.message + ' ' + String(e.stack || '').split('\n').slice(1, 3).join(' | ')));
   const check = (ok, what, detail) => { if (!ok) { fails.push(what + (detail ? ' — ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)).slice(0, 600) : '')); allFails.push(`${VIEW}: ${what}`); } say((ok ? 'ok   ' : 'FAIL ') + what + (detail && !ok ? ' ' + JSON.stringify(detail).slice(0, 500) : '')); return ok; };
   const ev = (fn, ...a) => page.evaluate(fn, ...a);
-  const step = (ms = 16.7) => ev((m) => __inkwave.debug.step(m), ms);
+  // every step also samples PLAY §1 rule 1 (play-8): match.paused false, no learn.hold, no .iw-learn__panel shown — from
+  // the first frame to the results card
+  const inv = { samples: 0, breaks: [] }; report.invariants = inv;
+  const step = async (ms = 16.7) => {
+    const r = await ev((m) => {
+      __inkwave.debug.step(m);
+      const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || F.finishT >= 0 || document.querySelector('.iw-learn.is-done')) return null;
+      const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
+      return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase } : 0;
+    }, ms);
+    if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
+  };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const shotDone = new Set();
   const shot = async (name) => {
@@ -189,6 +212,7 @@ for (const viewName of VIEWS_WANT) { try {
     await shot(d.banner ? 'm1-banners' : 'm1-balls');
     // a PLAIN round at the right object: her own weapon, aimed at it, no tap — it splats and answers nothing (PLAY §1.5)
     const before = st.answers.length, hitsBefore = ((d.log || []).filter((e) => e.ev === 'hit')).length;
+    if (!FULL || n <= 2) {
     await ev((k) => { const P = __inkwave.match.learn.arena.m1, a = __inkwave.match.local, W = __G.projectiles; const c = P.T.slots[k].pos; a.aimPoint.copy(c); a.aimDir.copy(c).sub(a.pos).setY(c.y - a.pos.y - 1.05).normalize(); const w = a.weapon && a.weapon.kind === 'shooter' ? a.weapon : null; if (w) W.fireShooter(a, w, 0); else W.fireShooter(a, { ...a.weapon, kind: 'shooter', projSpeed: 26, straightTime: 0.2, impactRadius: 0.5, damage: 20, trailEvery: 1.5, trailRadius: 0.5, range: 14 }, 0); }, right);
     let plainHit = null;
     for (let i = 0; i < 70; i++) { await step(16.7); const r = await ev((h0) => { const d = __inkwave.match.learn.arena.m1.debug(); const hits = (d.log || []).filter((e) => e.ev === 'hit'); return hits.length > h0 ? hits[hits.length - 1] : null; }, hitsBefore); if (r) { plainHit = r; break; } }
@@ -197,6 +221,7 @@ for (const viewName of VIEWS_WANT) { try {
     if (FORM === 'boss' && !plainHit) say(`info ${label}: the plain round met the boss (or fell short) before the ball — no answer either way`);
     else check(!!plainHit && plainHit.deliberate === false, `${label}: a plain round of hers met the object (deliberate: false)`, plainHit || 'no hit logged');
     check(s2.answers.length === before && !s2.dbg.m1.answered, `${label}: … and answered nothing (learn:answer unchanged, the question still up)`, { answers: s2.answers.length, before });
+    }
     // the tap on the right object → the round, the hit on it, the answer
     // (where it is NOW: the boss's balls ride a walking boss, the lens follows them)
     const dNow = await ev(() => __inkwave.match.learn.arena.m1.debug());
@@ -350,11 +375,21 @@ for (const viewName of VIEWS_WANT) { try {
     seen[s.mechanic] = (seen[s.mechanic] || 0) + 1;
     for (let i = 0; i < 8; i++) await step(100);
     if (n >= MAXQ) break;
+    // (a whole match in segments: past the segment's wall clock, stop at this question boundary — the next segment
+    // starts at this round / phase, after its first items already answered right, in order; never in the last round)
+    if (SEGMENT && Date.now() - T0 > SEGMENT) {
+      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || k >= F.gates.length - 1 || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; return { gate: Math.max(1, G0) + k, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
+      if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
+    }
   } } catch (e) { check(false, 'driver error', String(e && e.message || e) + ' ' + String(e && e.stack || '').split('\n').slice(1, 3).join(' | ')); }
-  const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
+  // (a whole match: on to the results card — the clock of a last round may still run)
+  if (FULL && !report.resume) for (let i = 0; i < 400; i++) { const done = await ev(() => !!document.querySelector('.iw-learn.is-done')); if (done) break; await step(250); }
+  const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, results: !!document.querySelector('.iw-learn.is-done'), resultsText: ((document.querySelector('.iw-learn__results') || {}).innerText || '').slice(0, 400), answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
   report.end = end; report.seen = seen; report.fails = fails; report.badResponses = bad; report.errors = errs;
-  say('end', JSON.stringify({ seen, end }));
+  say('end', JSON.stringify({ seen, end: { ...end, evidence: undefined, answers: end.answers.length } }));
   check(n >= 1, `questions answered: ${n}`);
+  if (FULL && !report.resume) check(end.results, 'the whole match ran to the results card', end.phase);
+  if (inv.breaks.length) check(false, 'PLAY §1 rule 1 held on every step', inv.breaks.slice(0, 3)); else say(`invariants: ${inv.samples} steps sampled, none broken`);
   say(`${fails.length ? fails.length + ' FAILED' : 'all checks passed'} · 4xx ${bad.length} · console errors ${errs.length}`);
   for (const e of errs.slice(0, 5)) say('  ' + e);
   for (const b of bad.slice(0, 5)) say('  ' + b);

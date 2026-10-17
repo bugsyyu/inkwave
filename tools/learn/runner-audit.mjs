@@ -10,6 +10,10 @@
 //                      cost of each _frame call (sim + render) → p50 / p95 / max, after `state === 'playing'` for 3 s
 // Every run fails on a console error, a page error or a 4xx / failed request (the dev error beacon /__inkwave_error/… is
 // answered 204 and its message reported).
+// play-8 — a whole day in segments (PLAY §10): --query without short=1, --plan right --glidePlan right, --profile <dir>
+// (one Chromium profile for every segment: her store — the evidence — carries on), --segment (stop when --wallMs is out,
+// at a row boundary; the output's `resume` is the next segment's &gate= / &skip=), --gate N --skip K (where to start;
+// added to the query). The driver samples PLAY §1 rule 1 on every step (`invariants`).
 // usage (one browser at a time on a shared box):
 //   flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/runner-audit.mjs --scenario runner --w 390 --h 844 --touch \
 //     --query '?learn=w1d3&kind=runner&short=1' --shots /tmp/shots --out /tmp/run.json
@@ -24,6 +28,7 @@ const flag = (k) => args.includes('--' + k);
 const SCEN = opt('scenario', 'runner'), Wd = +opt('w', 1280), Ht = +opt('h', 720), TOUCH = flag('touch'), DPR = +opt('dpr', 1);
 const SHOTS = opt('shots', null), OUT = opt('out', null), SHOT_ROWS = (opt('shotRows', '1') || '').split(',').filter(Boolean).map(Number);
 const PLAN = opt('plan', null), MAXROWS = +opt('maxRows', 0), PERF_S = +opt('perfSeconds', 40), GPLAN = opt('glidePlan', null);
+const PROFILE = opt('profile', null), SEGMENT = flag('segment'), GATE = +opt('gate', 0), SKIP = +opt('skip', 0);
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', wasm: 'application/wasm', txt: 'text/plain; charset=utf-8', ico: 'image/x-icon', mp3: 'audio/mpeg', ogg: 'audio/ogg', glb: 'model/gltf-binary', bin: 'application/octet-stream' };
 const beacons = [];
 const srv = http.createServer((q, r) => {
@@ -39,16 +44,20 @@ const srv = http.createServer((q, r) => {
 await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/`;
 const { chromium } = createRequire(import.meta.url)('playwright');
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
-const kill = () => { try { browser.close(); } catch (e) { /* gone */ } try { srv.close(); } catch (e) { /* gone */ } };
+const LAUNCH = { executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+// (--profile: a persistent context instead of a fresh one — the segments of a whole day share her localStorage)
+const browser = PROFILE ? null : await chromium.launch(LAUNCH);
+let live = null;
+const kill = () => { try { (browser || live)?.close(); } catch (e) { /* gone */ } try { srv.close(); } catch (e) { /* gone */ } };
 const watchdog = setTimeout(() => { console.log('runner-audit WATCHDOG'); kill(); process.exit(2); }, +opt('timeout', 1500) * 1000); watchdog.unref?.();
 const out = { scenario: SCEN, viewport: `${Wd}x${Ht}${TOUCH ? ' touch' : ''}`, runs: [] };
 const bad = [], errs = [];
 
 async function open(query, learn = true) {
-  const ctx = await browser.newContext({ viewport: { width: Wd, height: Ht }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH });
+  const CO = { viewport: { width: Wd, height: Ht }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH };
+  const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript(([touch]) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off', quality: 'low', qualityChosen: true, shadowsChosen: true }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, [TOUCH]);
-  const page = await ctx.newPage();
+  const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!u.includes('/__inkwave_error/')) bad.push('FAILED ' + u.replace(base, '/') + ' ' + ((r.failure() || {}).errorText || '')); });
   page.on('console', (m) => { if (m.type() === 'error') errs.push('[console] ' + m.text().slice(0, 300)); else if (process.env.RUNLOG && m.text().startsWith('[run]')) console.log(m.text()); });
@@ -63,10 +72,11 @@ async function open(query, learn = true) {
 }
 
 async function scenarioRunner() {
-  const q = opt('query', '?learn=w1d3&kind=race&short=1&gate=6') + '&quality=low&nofullscreen&noclips';
+  const q = opt('query', '?learn=w1d3&kind=race&short=1&gate=6') + (GATE ? '&gate=' + GATE : '') + (SKIP ? '&skip=' + SKIP : '') + '&quality=low&nofullscreen&noclips';
   const { ctx, page, bootS } = await open(q);
   // the plan per row, a row cap, and which rows (1-based, in the order they come up) get a screenshot
-  await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs]) => {
+  await page.evaluate(([plan, maxRows, rows, after, gplan, gshots, wallMs, seg]) => {
+    if (seg) Object.assign(window, { __runSegment: true, __runGate: seg.gate || 1, __runSkip: seg.skip || 0 });
     if (after) window.__runShotAfter = true;
     if (gplan) window.__glidePlan = gplan.split(',');
     if (gshots) window.__glideShots = true;
@@ -74,7 +84,7 @@ async function scenarioRunner() {
     if (plan) window.__runPlan = plan.split(',');
     if (maxRows) window.__runMaxRows = maxRows;
     const want = new Set(rows); let seen = 0; window.__runShots = () => want.has(++seen);
-  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000)]);
+  }, [PLAN, MAXROWS, SHOTS ? SHOT_ROWS : [], SHOTS && flag('shotAfter'), GPLAN, !!SHOTS, +opt('wallMs', 900000), SEGMENT ? { gate: GATE, skip: SKIP } : null]);
   const drive = fs.readFileSync(path.join(ROOT, 'tools/learn/runner-drive.js'), 'utf8');
   let res, k = 0;
   for (;;) {

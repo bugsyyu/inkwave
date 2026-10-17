@@ -14,6 +14,12 @@
 //         M8 翻牌靶    a tap on the card → the back; a tap on 认识 → F, the burst
 //       and: learn:answer once per item with first = true (recordFirst wrote it), no console errors, no 4xx.
 //       --shots: one screenshot per mechanic (the first time it is up) and per board stop.
+//   play-8 — a whole day, in segments (PLAY §10「整天从头跑到尾」): --full (no ?short: every item of every gate, then the
+//       write wall and the exit area) [--gate N --skip K] (start at the N-th gate, its K-th item: where the segment before
+//       stopped) --profile <dir> (one Chromium profile for every segment: her store — the evidence — carries on)
+//       --segment <s> (stop at the first question boundary after s s of wall clock; the report's `resume` is the next
+//       segment's --gate / --skip) --out <file> (the report). Every few steps the PLAY §1 invariants are sampled
+//       (match.paused false, no learn.hold, no .iw-learn__panel shown): any break is a failure.
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/wire-audit.mjs …
 // (NODE_PATH must reach playwright; Chromium at /opt/pw-browsers/chromium or CHROME_PATH)
 import http from 'node:http';
@@ -36,11 +42,12 @@ const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
 // --exit-only (play-fix): every gate opened at once (flow._open, nothing answered, nothing recorded) — the walk from the
 // spawn to the exit area and its stops, for a stage whose exit walk needs a look
 const EXIT_ONLY = args.includes('--exit-only');
-const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', 12);
+const FULL = args.includes('--full'), SKIP = +opt('skip', 0), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null);
+const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', FULL ? 999 : 12);
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const V = VIEWS[VIEW] || VIEWS.portrait;
 const T0 = Date.now();
-const tag = `${LEARN_Q}g${GATE}`;
+const tag = `${LEARN_Q}g${GATE}${SKIP ? 's' + SKIP : ''}${FULL ? '-full' : ''}`;
 const say = (...a) => console.log(`[wire-audit ${VIEW} ${tag} ${((Date.now() - T0) / 1000).toFixed(1).padStart(5)}]`, ...a);
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', mp3: 'audio/mpeg', ogg: 'audio/ogg', wasm: 'application/wasm', txt: 'text/plain; charset=utf-8' };
 const srv = http.createServer((q, r) => {
@@ -55,11 +62,14 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${srv.address().port}/game/`;
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const LAUNCH = { executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+const CTXO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch };
+// (--profile: a persistent profile — the segments of a whole day share her localStorage, so the store carries on)
+const browser = PROFILE ? null : await chromium.launch(LAUNCH);
 const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finish(2); }, BUDGET);
-const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: 1, isMobile: V.touch, hasTouch: V.touch });
+const ctx = PROFILE ? await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CTXO }) : await browser.newContext(CTXO);
 await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
-const page = await ctx.newPage();
+const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
 const bad = [], errs = [], fails = [], report = { view: VIEW, size: `${V.w}x${V.h}`, learn: LEARN_Q, gate: GATE, questions: [], boards: [] };
 page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });
 page.on('requestfailed', (r) => { const u = r.url(); if (!/^blob:|^data:/.test(u)) bad.push('FAILED ' + u.replace(base, '/game/') + ' ' + ((r.failure() || {}).errorText || '')); });
@@ -67,7 +77,18 @@ page.on('console', (m) => { if (m.type() === 'error') errs.push('[console] ' + m
 page.on('pageerror', (e) => errs.push('[pageerror] ' + e.message + ' ' + String(e.stack || '').split('\n').slice(1, 3).join(' | ')));
 const check = (ok, what, detail) => { if (!ok) fails.push(what + (detail ? ' — ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)).slice(0, 600) : '')); say((ok ? 'ok   ' : 'FAIL ') + what + (detail && !ok ? ' ' + JSON.stringify(detail).slice(0, 500) : '')); return ok; };
 const ev = (fn, ...a) => page.evaluate(fn, ...a);
-const step = (ms = 16.7) => ev((m) => __inkwave.debug.step(m), ms);
+// every step also samples PLAY §1 rule 1 in the page (match.paused false, no learn.hold, no .iw-learn__panel shown) — a
+// whole day is held to it from the first frame to the results card (play-8)
+const inv = { samples: 0, breaks: [] };
+const step = async (ms = 16.7) => {
+  const r = await ev((m) => {
+    __inkwave.debug.step(m);
+    const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || document.querySelector('.iw-learn.is-done')) return null;
+    const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
+    return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, cur: F.cur } : 0;
+  }, ms);
+  if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
+};
 const shotDone = new Set();
 async function shot(name, once = true) {
   if (!SHOTS || (once && shotDone.has(name))) return;
@@ -79,16 +100,19 @@ async function shot(name, once = true) {
 }
 async function finish(code) {
   clearTimeout(watchdog);
+  report.invariants = inv;
+  if (inv.breaks.length) fails.push('PLAY §1 rule 1 broken while she played: ' + JSON.stringify(inv.breaks.slice(0, 3)));
   report.fails = fails; report.badResponses = bad; report.errors = errs;
+  if (OUT) try { fs.writeFileSync(OUT, JSON.stringify(report, null, 1)); } catch (e) { say('could not write', OUT); }
   console.log('\n[wire-audit] REPORT ' + JSON.stringify(report));
   console.log(`[wire-audit] ${VIEW} ${tag}: ${fails.length ? fails.length + ' FAILED' : 'all checks passed'} · 4xx ${bad.length} · console errors ${errs.length}`);
-  try { await browser.close(); } catch (e) { /* gone */ }
+  try { await (browser || ctx).close(); } catch (e) { /* gone */ }
   srv.close();
   process.exit(code != null ? code : (fails.length || bad.length || errs.length ? 1 : 0));
 }
 
 // ------------------------------------------------------------------------------------------------ boot
-const query = `?learn=${LEARN_Q}&kind=puzzle&short=1&gate=${GATE}&quality=low&nofullscreen&noclips` + (V.app ? '&from=app' : '');
+const query = `?learn=${LEARN_Q}&kind=puzzle${FULL ? '' : '&short=1'}&gate=${GATE}${SKIP ? '&skip=' + SKIP : ''}&quality=low&nofullscreen&noclips` + (V.app ? '&from=app' : '');
 say('open', query);
 await page.goto(base + 'index.html' + query, { waitUntil: 'load', timeout: 180000 });
 await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.state === 'playing' && __inkwave.match.learn, null, { timeout: 420000, polling: 250 });
@@ -241,13 +265,15 @@ async function answerM1(s, right) {
   // (play-fix: the follow camera's own framing — dampAngle — may still be turning when the objects come up, after a stage
   // or a typing frame let go of the lens; measure where it comes to rest, and say how long that took)
   const m1Settle = await settle(30, 100);
+  for (let i = 0; i < 6; i++) await step(100);   // (play-8: at rest 0.3 s away from where they were laid out from, they are laid out again — run.js _drift)
   const d = await ev(() => __inkwave.match.learn.play.m1.debug());
   if (m1Settle >= 5) say('M1: the lens settled after', m1Settle, 'steps');
   check(!!placed && d.projected.length === d.n, `M1: ${d.n} objects placed (${d.banner ? 'banners' : 'balls'})`, d.log && d.log.slice(-4));
   const st = await state();
   const safe = { x: 16, y: st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0, w: st.W - 32, h: st.H - (st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0) };
   const boxes = d.projected.map((q) => (q.kind === 'ball' ? { x: Math.min(q.cx - q.r, q.label.x), y: q.cy - q.r, w: Math.max(q.cx + q.r, q.label.x + q.label.w) - Math.min(q.cx - q.r, q.label.x), h: q.label.y + q.label.h - (q.cy - q.r) } : { x: q.x, y: q.y, w: q.w, h: q.h }));
-  check(boxes.every((b) => inside(b, safe)), 'M1: every object inside the safe area', { safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)) });
+  check(boxes.every((b) => inside(b, safe)), 'M1: every object inside the safe area', { safe, boxes: boxes.map((b) => [b.x, b.y, b.w, b.h].map(Math.round)), relaid: d.relaid, camDrift: d.camDrift, layout: d.layout && d.layout.map((r) => [r.x, r.y, r.w, r.h].map(Math.round)) });
+  if (d.relaid) say('M1: laid out again from where the lens came to rest', JSON.stringify((d.log || []).filter((l) => l.ev === 'relaid')));
   await shot(d.banner ? 'm1-banners' : 'm1-balls');
   const q = d.projected.find((x) => x.i === right);
   if (V.touch) await tapAt(q.kind === 'ball' ? q.cx : q.x + q.w / 2, q.kind === 'ball' ? q.cy : q.y + q.h / 2);
@@ -417,12 +443,19 @@ try { while (guard++ < MAXQ + 8) {
   seen[s.mechanic] = (seen[s.mechanic] || 0) + 1;
   for (let i = 0; i < 8; i++) await step(100);
   if (n >= MAXQ) break;
+  // (a whole day in segments: past the segment's wall clock, stop at this question boundary — the next segment starts
+  // at this gate, after its first items already answered right, in order (one answered wrong and not yet again is asked
+  // again: practice, never skipped); never in the exit area: that runs to the end)
+  if (SEGMENT && Date.now() - T0 > SEGMENT) {
+    const r = await ev(([G0, K0]) => { const F = __inkwave.match.learn, g = F.gates[F.cur]; if (!g || F.phase === 'exit' || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; return { gate: G0 + F.cur, skip: (F.cur === 0 ? K0 : 0) + done, of: (F.cur === 0 ? K0 : 0) + g.items.length, title: g.title }; }, [GATE, SKIP]);
+    if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
+  }
 } } catch (e) { check(false, 'driver error', String(e && e.message || e)); }
-const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, log: F.log.map((e) => e.name.replace('learn:', '') + (e.kind ? ':' + e.kind : '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
+const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), results: !!document.querySelector('.iw-learn.is-done'), log: F.log.map((e) => e.name.replace('learn:', '') + (e.kind ? ':' + e.kind : '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
 report.end = end; report.seen = seen;
-say('end', JSON.stringify({ ...end, host: undefined }));
-check(end.opened >= 1, `gates opened: ${end.opened} / ${end.gates}`);
-if (report.exit) { const x = await ev(() => __inkwave.match.learn.play.exit.debug()); report.exit = x; check(x.done && (!x.spots.some((s) => s.kind === 'checkin') || x.checked), `exit: walked (spoke ${x.spoke}, checked ${x.checked})`, x); const signs = end.log.includes('sign'); check(signs, 'learn:sign in the log');
+say('end', JSON.stringify({ ...end, host: undefined, evidence: undefined, answers: end.answers.length }));
+if (!report.resume) check(end.opened >= 1, `gates opened: ${end.opened} / ${end.gates}`);
+if (report.exit && !report.resume) { const x = await ev(() => __inkwave.match.learn.play.exit.debug()); report.exit = x; check(x.done && (!x.spots.some((s) => s.kind === 'checkin') || x.checked), `exit: walked (spoke ${x.spoke}, checked ${x.checked})`, x); const signs = end.log.includes('sign'); check(signs, 'learn:sign in the log');
   // (play-fix) every stop of the exit area reached — the booth spoken, the weekly / placement boards read or stood at, the
   // pad stepped on — none given up on by the walk's timer
   check(x.spots.every((s) => !s.skipped), 'exit: no stop passed over by the walk\'s timer', x.spots);
