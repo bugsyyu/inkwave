@@ -22,9 +22,11 @@ function stepRound(p) {
   p.pos.x += p.vel.x * DT; p.pos.y += p.vel.y * DT; p.pos.z += p.vel.z * DT;
 }
 // the launch fireShooter gives a round aimed at `at` from `m`: the straight line, its pitch lifted until the arc (the same
-// integrator) passes through the point (weapons.js _ballistic, by bisection here)
+// integrator) passes through the point (weapons.js _ballistic, by bisection here) — and past the shooter's range (12.5 m
+// flat) _ballistic gives up: the straight line, which drops short (the baseline probe's other miss: 4 of 4 past it)
 function launch(m, at) {
   const hd = Math.hypot(at.x - m.x, at.z - m.z), hx = (at.x - m.x) / hd, hz = (at.z - m.z) / hd;
+  if (hd > W.range) { const p0 = Math.atan2(at.y - m.y, hd); return { pos: v3(m.x, m.y, m.z), prev: v3(m.x, m.y, m.z), vel: v3(hx * Math.cos(p0) * W.projSpeed, Math.sin(p0) * W.projSpeed, hz * Math.cos(p0) * W.projSpeed), age: 0, straight: W.straightTime, grav: GRAV, playTag: 1 }; }
   const yAt = (pitch) => {
     const p = { pos: v3(0, 0, 0), prev: v3(), vel: v3(Math.cos(pitch) * W.projSpeed, Math.sin(pitch) * W.projSpeed, 0), age: 0, straight: W.straightTime, grav: GRAV };
     for (let i = 0; i < 90; i++) { const x0 = p.pos.x, y0 = p.pos.y; stepRound(p); if (p.pos.x >= hd) return y0 + (p.pos.y - y0) * ((hd - x0) / (p.pos.x - x0)); }
@@ -66,8 +68,8 @@ test('a tap-shot meets its weak-point ball while the boss walks and turns (steer
   // smallest: bossBall); her muzzle 4–11 m in front of it and off to its sides; the boss still, walking (2.9 m/s, its
   // phase-1 pace) every way, turning both ways (1.25 rad/s) and both at once
   const socks = [{ x: 0.65, y: 4.6, z: 2.3 }, { x: -0.65, y: 4.6, z: 2.3 }, { x: 0, y: 2.6, z: 2.6 }, { x: 0, y: 4.2, z: 2.9 }];
-  let n = 0, missOld = 0, missNew = 0, worst = null;
-  for (const dist of [4, 6, 8, 9.5, 11]) for (const side of [-0.6, 0, 0.6]) for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const speed of [0, 2.9]) for (const turn of [0, 1.25, -1.25]) for (const off of socks) {
+  let n = 0, missOld = 0, missNew = 0, worst = null, far = 0, farOld = 0;
+  for (const dist of [4, 6, 8, 9.5, 11, 12.5]) for (const side of [-0.6, 0, 0.6]) for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const speed of [0, 2.9]) for (const turn of [0, 1.25, -1.25]) for (const off of socks) {
     const B = { x: 0, y: 0, z: 0, yaw: heading, speed, turn };
     const m = { x: Math.sin(side) * dist, y: 1.05, z: Math.cos(side) * dist };
     // (the boss's front is its heading — the sockets are in its own frame; she never stands under a ball: its body is
@@ -76,9 +78,12 @@ test('a tap-shot meets its weak-point ball while the boss walks and turns (steer
     const old = fly(B, off, 0.5, m, false), now = fly(B, off, 0.5, m, true);
     n++; if (!old.hit) missOld++;
     if (!now.hit) { missNew++; if (!worst || now.gap > worst.gap) worst = { dist, side, heading, speed, turn, off, gap: now.gap }; }
-    if (speed === 0 && turn === 0) assert.ok(old.hit, `a still boss: the aimed round meets the ball without any steering (${dist} m, ${JSON.stringify(off)})`);
+    const flat = (() => { const c0 = v3(); bossAt(B, 0, off, c0); return Math.hypot(c0.x - m.x, c0.z - m.z); })();
+    if (speed === 0 && turn === 0 && flat <= W.range) assert.ok(old.hit, `a still boss within the shooter's range: the aimed round meets the ball without any steering (${dist} m, ${JSON.stringify(off)})`);
+    if (speed === 0 && turn === 0 && flat > W.range + 0.4) farOld += old.hit ? 0 : 1, far++;
   }
   assert.equal(missNew, 0, `steered: every one of ${n} shots meets its ball (worst ${JSON.stringify(worst)})`);
+  assert.ok(far > 0 && farOld === far, `a still boss past the shooter's range: the unlifted round drops short every time (${farOld} / ${far})`);
   assert.ok(missOld > n * 0.05, `unsteered, a walking / turning boss carries the ball off the round's line (${missOld} / ${n} missed) — the play-8 whole 周考's first-shot misses`);
 });
 

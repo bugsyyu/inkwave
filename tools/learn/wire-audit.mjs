@@ -247,7 +247,15 @@ async function walkOn() {
       const x = await ev(() => __inkwave.match.learn.play.exit.debug());
       const st = await state();
       check(!st.paused && !st.panelShown, 'exit: the world runs on, no card');
-      if (x.echo && x.echo.framed >= 0 && !report.echoSeen) { report.echoSeen = true; check(x.echo.state === 'in' || x.echo.state === 'done', `M7: in the booth (${x.echo.state}), its board framed`, x); await shot('m7-booth'); }
+      if (x.echo && x.echo.framed >= 0 && !report.echoSeen) {
+        report.echoSeen = true; check(x.echo.state === 'in' || x.echo.state === 'done', `M7: in the booth (${x.echo.state}), its board framed`, x);
+        // play-9: the booth's board with the live camera (once the lens has sprung round): its smallest text ≥ 17 px
+        for (let k = 0; k < 6; k++) await step(200);
+        const bf = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); return M.boardFont({ walk: __inkwave.match.learn.play.exit.echo.walk, camera: __G.camera }); });
+        report.boardFont = bf;
+        check(bf.framed >= 0 && bf.font >= 17, `M7: the booth's board reads at ${bf.font} px (≥ 17; face ${bf.face}, band top ${bf.band && bf.band.top})`, bf);
+        await shot('m7-booth');
+      }
       if (x.signs && x.signs.framed >= 0 && !report.signSeen) { report.signSeen = true; await shot('signs-board'); }
       report.exit = x;
       await ev(() => __inkwave.match.learn.autoWalk(true));

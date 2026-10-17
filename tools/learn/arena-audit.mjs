@@ -377,6 +377,10 @@ for (const viewName of VIEWS_WANT) { try {
       return { framed: Wk.framed, board: r(board), rects: Object.fromEntries(Object.entries(R).map(([k, v]) => [k, r(v)])), over: Object.keys(R).filter((k) => hit(board, R[k])) };
     });
     report.booth = bo;
+    // play-9: the board's smallest text with the live camera — ≥ 17 px on a landscape phone too (the band under the top row)
+    const bf = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); return M.boardFont({ walk: __inkwave.match.learn.arena.echo.echo.walk, camera: __G.camera }); });
+    (report.boardFonts = report.boardFonts || []).push({ label, ...bf });
+    check(bf.framed >= 0 && bf.font >= 17, `${label}: the booth's board reads at ${bf.font} px (≥ 17; face ${bf.face}, band top ${bf.band && bf.band.top})`, bf);
     const tagsOff = await ev(() => { const L = document.querySelector('.iw-mks'); return { yield: !!(L && L.classList.contains('is-yield')), shown: [...document.querySelectorAll('.iw-mk')].filter((el) => el.style.display !== 'none' && +getComputedStyle(el).opacity > 0.05).length }; });
     check(tagsOff.yield && tagsOff.shown === 0, `${label}: the squad's name tags (and the arrows to them) step aside while the booth's board is framed`, tagsOff);
     if (V.w > V.h || FORM === 'boss') check(bo.framed >= 0 && bo.over.length === 0, `${label}: the booth's board (${bo.board}) clear of the clock / the boss's bar / its phase strip (${JSON.stringify(bo.rects)})`, bo);
@@ -461,6 +465,11 @@ for (const viewName of VIEWS_WANT) { try {
   if (FULL && !report.resume) for (let i = 0; i < 400; i++) { const done = await ev(() => !!document.querySelector('.iw-learn.is-done')); if (done) break; await step(250); }
   const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, results: !!document.querySelector('.iw-learn.is-done'), resultsText: ((document.querySelector('.iw-learn__results') || {}).innerText || '').slice(0, 400), answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
   report.end = end; report.seen = seen; report.fails = fails; report.badResponses = bad; report.errors = errs;
+  // play-9 (LEARN §27 已知坑 ⑥): every tap-shot of the run — the rounds that left her muzzle for each answered M1 / M5
+  // question (one = the first landed; the audit taps again after 1.8 s, so a miss shows as a second round)
+  const shots = await ev(() => { const H = __inkwave.match.learn.arena, L = (H && H.m1 && H.m1.log) || [], out = { asks: 0, answers: 0, fires: 0, extra: 0, misses: [] }; let cur = null; for (const e of L) { if (e.ev === 'ask') { out.asks++; cur = { item: e.item, fires: 0 }; } else if (e.ev === 'fire' && e.tagged && cur) { cur.fires++; out.fires++; } else if (e.ev === 'answer' && cur) { out.answers++; if (cur.fires > 1) { out.extra += cur.fires - 1; out.misses.push([cur.item, cur.fires]); } cur = null; } } return out; });
+  report.shots = shots;
+  if (shots.answers) check(shots.extra === 0, `every tap-shot landed with its first round (${shots.answers} answered with ${shots.fires} rounds)`, shots.misses);
   say('end', JSON.stringify({ seen, end: { ...end, evidence: undefined, answers: end.answers.length } }));
   check(n >= 1, `questions answered: ${n}`);
   if (FULL && !report.resume) check(end.results, 'the whole match ran to the results card', end.phase);

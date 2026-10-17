@@ -46,3 +46,23 @@ export async function typeCheck({ root, camera, keys }) {
     onPads, pads: split ? kr.halves : null, mid: split ? kr.mid : null, rects, overlaps,
   };
 }
+
+// play-9 — a framed board (展板 / 回声亭 / 路标: board/walk.js BoardWalk) as the live camera sees it: its face on the
+// screen and the smallest text on it (the layout's minFont canvas px × the face's screen px per canvas px), the band it
+// was framed into (frame.js / landscape.js hudBand) and what stood at the top of the screen then (for a band pushed down)
+//   boardFont({ walk, camera }) → { framed, face: [x, y, w, h], font, band, plan: [x, y, w, h], tops: [[sel, x, y, w, h]] } | { framed: -1 }
+export function boardFont({ walk, camera }) {
+  if (!walk || walk.framed < 0) return { framed: -1 };
+  const b = walk.list[walk.framed].b, L = b.entry.layout, W = innerWidth, H = innerHeight, V3 = camera.position.constructor;
+  b.group.updateMatrixWorld(true); camera.updateMatrixWorld(true);
+  const c = [[-1, 0], [1, 0], [-1, 1], [1, 1]].map(([sx, sy]) => { const v = new V3(sx * b.w / 2, b.bottom + sy * b.h, 0.07).applyMatrix4(b.group.matrixWorld).project(camera); return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H]; });
+  const x0 = Math.min(...c.map((q) => q[0])), x1 = Math.max(...c.map((q) => q[0])), y0 = Math.min(...c.map((q) => q[1])), y1 = Math.max(...c.map((q) => q[1]));
+  const f = walk.framing && walk.framing.frame;
+  const tops = [];
+  for (const sel of ['.iw-ps:not(.is-off) .iw-ps__box', '.iw-hud__top', '.iw-hud__top .iw-timer', '.iw-bb:not(.is-off)', '.iw-lf:not(.is-off) .iw-lf__phase', '.iw-lf:not(.is-off) .iw-lf__rank', '.iw-touch__btn']) for (const el of document.querySelectorAll(sel)) {
+    const r = el.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0) || r.top > H * 0.45) continue;
+    const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || +cs.opacity < 0.05) continue;
+    tops.push([sel, Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]);
+  }
+  return { framed: walk.framed, face: [x0, y0, x1 - x0, y1 - y0].map(Math.round), font: +(L.minFont * (x1 - x0) / L.W).toFixed(1), band: f && f.band ? { top: f.band.top, bottom: f.band.bottom, side: f.band.side } : null, plan: f && f.rect ? [f.rect.x, f.rect.y, f.rect.w, f.rect.h].map(Math.round) : null, tops };
+}
