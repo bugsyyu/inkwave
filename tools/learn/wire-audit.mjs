@@ -42,6 +42,10 @@ const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
 // --exit-only (play-fix): every gate opened at once (flow._open, nothing answered, nothing recorded) — the walk from the
 // spawn to the exit area and its stops, for a stage whose exit walk needs a look
 const EXIT_ONLY = args.includes('--exit-only');
+// (--full steps without drawing — a SwiftShader frame costs far more than the simulation; the scene graph and the camera
+// are brought up to date after each step so every projection is current, and a screenshot draws one frame first;
+// --render: draw every step as the short runs do)
+const FAST = args.includes('--full') && !args.includes('--render');
 const FULL = args.includes('--full'), SKIP = +opt('skip', 0), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null);
 const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', FULL ? 999 : 12);
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
@@ -81,12 +85,13 @@ const ev = (fn, ...a) => page.evaluate(fn, ...a);
 // whole day is held to it from the first frame to the results card (play-8)
 const inv = { samples: 0, breaks: [] };
 const step = async (ms = 16.7) => {
-  const r = await ev((m) => {
-    __inkwave.debug.step(m);
+  const r = await ev(([m, fast]) => {
+    if (fast) { const I = __inkwave, n = Math.max(1, Math.round(m / (1000 / 60))); I._skipRender = true; try { for (let i = 0; i < n; i++) I._frame(1 / 60); } finally { I._skipRender = false; } __G.scene.updateMatrixWorld(); __G.camera.updateMatrixWorld(true); }
+    else __inkwave.debug.step(m);
     const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || document.querySelector('.iw-learn.is-done')) return null;
     const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
     return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, cur: F.cur, state: M.state } : 0;
-  }, ms);
+  }, [ms, FAST]);
   if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
 };
 const shotDone = new Set();
@@ -95,6 +100,7 @@ async function shot(name, once = true) {
   shotDone.add(name);
   fs.mkdirSync(SHOTS, { recursive: true });
   const f = path.join(SHOTS, `${VIEW}-${tag}-${name}.png`);
+  if (FAST) await ev(() => __inkwave._frame(1 / 60));   // (fast stepping draws nothing: one drawn frame for the picture)
   await page.screenshot({ path: f, timeout: 180000 });
   say('shot', f);
 }
@@ -457,6 +463,8 @@ try { while (guard++ < MAXQ + 8) {
     if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
   }
 } } catch (e) { check(false, 'driver error', String(e && e.message || e)); }
+// (a whole day: the last stop ends the day — on to the results card, a moment later; its picture)
+if (FULL && !report.resume) { for (let i = 0; i < 120; i++) { if (await ev(() => !!document.querySelector('.iw-learn.is-done'))) break; await step(250); } await shot('results'); }
 const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), results: !!document.querySelector('.iw-learn.is-done'), log: F.log.map((e) => e.name.replace('learn:', '') + (e.kind ? ':' + e.kind : '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
 report.end = end; report.seen = seen;
 say('end', JSON.stringify({ ...end, host: undefined, evidence: undefined, answers: end.answers.length }));

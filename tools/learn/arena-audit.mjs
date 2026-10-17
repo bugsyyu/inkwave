@@ -35,6 +35,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
+// (--full steps without drawing — see wire-audit.mjs; --render draws every step)
+const FAST = args.includes('--full') && !args.includes('--render');
 const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
 const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
@@ -95,12 +97,13 @@ for (const viewName of VIEWS_WANT) { try {
   // the first frame to the results card
   const inv = { samples: 0, breaks: [] }; report.invariants = inv;
   const step = async (ms = 16.7) => {
-    const r = await ev((m) => {
-      __inkwave.debug.step(m);
+    const r = await ev(([m, fast]) => {
+      if (fast) { const I = __inkwave, n = Math.max(1, Math.round(m / (1000 / 60))); I._skipRender = true; try { for (let i = 0; i < n; i++) I._frame(1 / 60); } finally { I._skipRender = false; } __G.scene.updateMatrixWorld(); __G.camera.updateMatrixWorld(true); }
+      else __inkwave.debug.step(m);
       const M = __inkwave.match, F = M && M.learn; if (!F || F.phase === 'done' || F.finishT >= 0 || document.querySelector('.iw-learn.is-done')) return null;
       const p = document.querySelector('.iw-learn__panel'), b = p && p.getBoundingClientRect(), shown = !!(b && b.width > 0 && b.height > 0 && getComputedStyle(p).display !== 'none');
       return M.paused || F.hold || shown ? { paused: M.paused, hold: !!F.hold, panel: shown, phase: F.phase, state: M.state } : 0;
-    }, ms);
+    }, [ms, FAST]);
     if (r !== null) { inv.samples++; if (r && inv.breaks.length < 20) inv.breaks.push(r); }
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -110,6 +113,7 @@ for (const viewName of VIEWS_WANT) { try {
     shotDone.add(name);
     fs.mkdirSync(SHOTS, { recursive: true });
     const f = path.join(SHOTS, `${FORM}${GATE ? '-g' + GATE : ''}-${VIEW}-${name}.png`);
+    if (FAST) await ev(() => __inkwave._frame(1 / 60));   // (fast stepping draws nothing: one drawn frame for the picture)
     await page.screenshot({ path: f, timeout: 180000 });
     say('shot', f);
   };

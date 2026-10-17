@@ -302,9 +302,11 @@ async function answerOn(H, i, right) {
     const keyAt = (k) => ev(i, (k) => { const Hs = __inkwave.match.learn.arena || __inkwave.match.learn.play, el = Hs.type.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, k);
     for (const ch of text) { if (!/[a-z ' .,?-]/.test(ch)) continue; const at = await keyAt(ch); if (at) await pages[i].touchscreen.tap(Math.round(at[0]), Math.round(at[1])); }
     const typed = (await H.view(i)).type;
+    // (play-8: is the keyboard's ▶ there? — coop2's answering side hears nothing, so it must not be)
+    const replay = await ev(i, () => { const Hs = __inkwave.match.learn.arena || __inkwave.match.learn.play, b = Hs.type.keys.btnEls.get('replay'); return b ? b.style.display !== 'none' : null; });
     const fire = await keyAt('fire'); if (fire) await pages[i].touchscreen.tap(Math.round(fire[0]), Math.round(fire[1]));
     for (let n = 0; n < 50; n++) { await step(0.1); v = await H.view(i); if (!v.type || v.type.verdict) break; }
-    return { how: 'keys', text: typed && typed.text, verdict: v.type ? v.type.verdict : null };
+    return { how: 'keys', text: typed && typed.text, verdict: v.type ? v.type.verdict : null, replay };
   }
   return { how: 'none', mech: v.mech };
 }
@@ -411,6 +413,7 @@ async function driveCoopPlay(H) {
     const right = wrongDone;
     const a = await answerOn(H, hi, right);
     rec.answer = a;
+    if (a.how === 'keys') check(`${tag}: the answering side's game keyboard has no ▶ (the recording is the partner's — play-8)`, a.replay === false, a);
     say(`  ${tag}: c${hi} answers ${right ? 'right' : 'wrong'}: ${JSON.stringify(a)}`);
     if (!right) { wrongDone = true; retry = { id: qa.id, hands: hi }; }
     const Y = await Promise.all([H.view(0), H.view(1)]);

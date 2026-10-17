@@ -40,7 +40,7 @@ const segs = files.map((f) => {
   return { file: f, gate: r.gate || 1, skip: r.skip || 0, answers: end.answers || [], evidence: end.evidence || {}, resume: r.resume, fails: [...(r.end ? [] : ['no end report: the segment was cut off (its watchdog)']), ...(r.fails || [])], errors: r.errors || [], bad: r.badResponses || [], inv: r.invariants, results: !!end.results, results2: end.resultsText };
 });
 const out = [], bad = (m) => out.push('FAIL ' + m), ok = (m) => out.push('ok   ' + m);
-const leaves = (ev) => { const L = []; for (const [doc, d] of Object.entries(ev || {})) for (const [id, days] of Object.entries(d.it || {})) for (const [day, at] of Object.entries(days)) for (const [t, leaf] of Object.entries(at)) L.push(`${doc}|${id}|${day}|${t}|${JSON.stringify(leaf)}`); return L; };
+const leaves = (ev) => { const L = []; for (const [doc, d] of Object.entries(ev || {})) for (const [id, days] of Object.entries(d.it || {})) for (const [day, at] of Object.entries(days)) for (const [t, leaf] of Object.entries(at)) L.push([doc, id, day, t, JSON.stringify(leaf)].join('\u0001')); return L; };
 const firsts = new Map();
 segs.forEach((s, k) => {
   const tag = `segment ${k + 1} (${s.file.split('/').pop()}: gate ${s.gate} skip ${s.skip})`;
@@ -51,7 +51,7 @@ segs.forEach((s, k) => {
     else ok(`${tag}: starts where the one before stopped`);
     const before = new Set(leaves(segs[k - 1].evidence)), now = new Set(leaves(s.evidence));
     const lost = [...before].filter((l) => !now.has(l));
-    if (lost.length) bad(`${tag}: ${lost.length} evidence leaves of the segment before are gone (the profile did not carry the store): ${lost.slice(0, 3).join(', ')}`);
+    if (lost.length) bad(`${tag}: ${lost.length} evidence leaves of the segment before are gone (the profile did not carry the store): ${lost.slice(0, 3).map((l) => l.split('\u0001').join(' ')).join(', ')}`);
     else ok(`${tag}: her store carried on (${before.size} leaves before, ${now.size} after)`);
   }
   // the first answer of the segment: an item of its gate at or after its skip
@@ -67,7 +67,7 @@ if (last && !last.resume && last.results) ok(`the day ends on the results card: 
 const twice = [...firsts].filter(([, n]) => n > 1);
 if (twice.length) bad(`first answer recorded more than once: ${twice.map(([id, n]) => id + ' ×' + n).join(', ')}`); else ok(`首答只记一次: ${firsts.size} items, each once`);
 // every first answer left one leaf (the final store)
-const fin = leaves(last ? last.evidence : {}), leafIds = new Map(); for (const l of fin) { const id = l.split('|')[1]; leafIds.set(id, (leafIds.get(id) || 0) + 1); }
+const fin = leaves(last ? last.evidence : {}), leafIds = new Map(); for (const l of fin) { const id = l.split('\u0001')[1]; leafIds.set(id, (leafIds.get(id) || 0) + 1); }
 const noLeaf = [...firsts.keys()].filter((id) => !leafIds.has(id)), extra = [...leafIds].filter(([, n]) => n > 1);
 if (noLeaf.length || extra.length) bad(`leaves: ${noLeaf.length} first answers without a leaf, ${extra.length} items with two: ${[...noLeaf, ...extra.map((e) => e[0])].slice(0, 5).join(', ')}`); else ok(`every first answer left exactly one leaf (${fin.length})`);
 const missing = [...want].filter((id) => !firsts.has(id));
