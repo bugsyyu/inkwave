@@ -19,6 +19,9 @@
 //   S.verdict(v, { ms })           a timed verdict: the strip hides itself after ms — unless the next question comes
 //                                  first, then the verdict moves to a note line under the box for the rest of its time
 //                                  (she is still moving: the next row's reading lead must not wait). S.update(dt) counts.
+// 双人 (play-6, docs/LEARN.md §25):
+//   S.chip(text, kind)             the chip before the question, changed in place while it is up (versus2's 「8 秒」 →
+//                                  「等对面」): a DOM write only when the text changes; '' hides it
 import { h, prefersReducedMotion, restartAnim, colorVars } from './ui-util.js';
 import { GLYPHS } from './ui-icons.js';
 
@@ -159,6 +162,11 @@ export class PlayStrip {
     this._acts(null);
     this.on = true;
     if (!prefersReducedMotion()) restartAnim(this.box, 'is-enter');
+  }
+  chip(text, kind = '') {
+    const t = String(text || ''), cls = 'iw-ps__tag' + (t ? ' is-on' + (kind ? ' is-' + kind : '') : '');
+    if (this.tag.textContent !== t) this.tag.textContent = t;
+    if (this.tag.className !== cls) this.tag.className = cls;
   }
   here(i) { const c = this.lanes.children; for (let k = 0; k < c.length; k++) c[k].classList.toggle('is-here', k === i); }
   question() { this.el.classList.remove('is-verdict', 'is-ok', 'is-bad'); this._acts(null); }

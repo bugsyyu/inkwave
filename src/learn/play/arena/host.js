@@ -64,7 +64,8 @@ class EchoStation {
 }
 
 export class ArenaHost {
-  // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre), boss() → the Boss }
+  // opts: { mode: 'zone' | 'boss', anchor(out) → Vector3 (the zone's centre), boss() → the Boss, team (play-6: her side,
+  //         default 0 — versus2's guest is on team 1: the objects' ink, the rig, the ring and the ink word are hers) }
   constructor(flow, opts = {}) {
     this.flow = flow; this.match = flow.match; this.hud = flow.hud; this.mode = opts.mode || 'zone';
     this.m1 = new ArenaRun(flow, opts);
@@ -119,6 +120,13 @@ export class ArenaHost {
   // mounted until another kind comes — the next typed item types again at once)
   clear() { this._clearStation(); this.kind = null; this.cur = null; this.cam.release(G.rig, this.match.local); this.flow.hud?.playMode?.(false); }
   prep(g) { this.m1.prep(g); }
+  // play-6 (versus2): the question closed before she answered — the live station shows v ({ head, why }) and hands on to
+  // the form's _askNext after ms; false when nothing was live (the form then goes on itself)
+  expire(v, ms) {
+    if (this.kind === 'm1') return this.m1.expire(v, ms);
+    if (this.kind === 'type') return this.type.expire(v, ms);
+    return false;
+  }
   gateOpened(g) { this._clearStation(); this.kind = null; this.cur = null; this.m1.gateOpened(g); this.cam.release(G.rig, this.match.local); }
 
   // ---------------------------------------------------------------------------------------------- per frame

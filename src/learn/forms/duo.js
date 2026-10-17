@@ -7,8 +7,14 @@
 //   coop2:    rolesFor(players, k, hands) · splitPrompt(p, role) · padSpots(nodes, path, i, gap) · padNodes(nav, path, i) ·
 //             padsHeld(pads, people, r)
 //   wire:     LEARN_WIRE (the payload kinds on the room's envelope) · validQ(d)
+//   题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): seeded(seed) · seedOf(q, id) · duoAltPrompt(gates, item, seed, typedOf)
+//             (both screens build the same reworded question) · duoMechanic(view) (what a screen answers with) ·
+//             clueSpec(view, partner) (the clue side's board: the stem, its Chinese, ▶ — nothing to answer with)
 import { LEARN } from '../../config.js';
 import { botRoll } from './common.js';
+import { prompt } from '../api.js';
+import { arenaAltPrompt } from '../play/arena/alt.js';
+import { canPlayArena } from '../play/arena/m1.js';
 
 // The learning payloads ride the room's own envelope ("b|" / "s|to|", docs/NET.md) next to the match's: { k: 'l…', … }.
 //   ls  host → all    { ids: [[id, alt]…] }                    the match's question queue (a migrated host carries on from it)
@@ -187,4 +193,53 @@ export function padsHeld(pads, people, r = LEARN.coop2.padRadius) {
   const used = new Set();
   for (const [, i, id] of pairs) if (on[i] == null && !used.has(id)) { on[i] = id; used.add(id); }
   return { on, held: on.length > 0 && on.every((x) => x != null) };
+}
+
+/* ───────────────────────────── 题即玩法 play-6: the same question objects on both screens ───────────────────────────── */
+// A question's objects are laid out from its prompt: engine.prompt is pure (the same options in the same order on every
+// screen), but a reworded question draws its distractors and its order at random — so the two-player forms draw them
+// from a random seeded by what every screen of the room already has for the question: its number and its item's id
+// (no field added to 'lq').
+export function seeded(seed) {   // mulberry32: [0, 1)
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+export function seedOf(q, id) {   // FNV-1a over "q:id"
+  const s = `${q | 0}:${id}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+// the reworded question of an 'lq' with alt, the same on every screen: a typed item → the arena's rewording (a 单词卡's
+// 回炉 choice among near words — all ink balls; a 听写句 heard slowly; a 写句 with its reference, play-5 arena/alt.js);
+// a choice → the same choice, its options reshuffled (judgeAnswer maps the pick back through _perm). typedOf(item): the
+// form's own rewording of a choice whose stem starts 「哪一个是」 (typed-of-choice, no randomness in it; none of the three
+// weeks has one — LEARN §18)
+export function duoAltPrompt(gates, item, seed, typedOf = null) {
+  const rnd = seeded(seed), base = prompt(item);
+  if (!base) return null;
+  if (base.type !== 'choice') return arenaAltPrompt(gates, item, rnd) || base;
+  if (typedOf && String(base.text || '').startsWith('哪一个是')) { const t = typedOf(item); if (t) return t; }
+  const perm = (item.options || []).map((_, i) => i);
+  for (let i = perm.length - 1; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  return { ...base, text: `换个问法：${base.text}`, options: perm.map((i) => base.options[i]), _perm: perm };
+}
+// what a screen answers a question with: 'm1' — ink targets, for every plain choice of 2–4 (the 听辨 / 音标 kinds too: the
+// beat pads play the word on the bar line, and coop2's answering side must hear nothing) — 'type' — the 打字蟹 (M4), for
+// anything typed — or null: nothing to answer with (coop2's clue side: its view is type 'clue'; a flip card)
+const TYPED = new Set(['type', 'typed', 'write']);
+export function duoMechanic(view) {
+  if (!view || view.type === 'clue' || view._flip) return null;
+  if (canPlayArena(null, view)) return 'm1';
+  return TYPED.has(view.type) ? 'type' : null;
+}
+// coop2's clue side (PLAY §5.5): a board in front of her (M6 BoardWalk, src/learn/play/board/) with the stem, its Chinese,
+// what to do — and ▶ when there is a recording (played as the board comes up; the board's 「再听」 replays it). No
+// options, no input: its only hotspot is 'listen' (and 读全文 when the text runs over)
+export function clueSpec(view, partner = '队友') {
+  const v = view || {}, blocks = [];
+  if (v.text) blocks.push({ t: 'q', en: v.text, zh: v.zh && v.zh !== v.text ? v.zh : '' });
+  else if (v.zh) blocks.push({ t: 'p', text: v.zh });
+  if (v.hint) blocks.push({ t: 'tip', text: v.hint.replace(/队友/g, partner) });
+  return { kind: 'clue', kicker: `线索 · 讲给${partner}听（${partner}来答）`, title: '', blocks, full: blocks.slice(), tts: v.tts || '', buttons: v.tts ? [{ id: 'listen', label: '再听', icon: 'play', primary: true }] : [] };
 }
