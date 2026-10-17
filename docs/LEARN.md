@@ -1374,3 +1374,88 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - **接口**：`judgeRecord({ item, p, ans, o: { judged, hinted, hold, decided, claim, at }, store }) → { r, first, held, self, hinted, evidence }`；`ArenaHost.showPrep(specs, { head, go, onGo })`、`ArenaHost.facingYaw(g, a)`；`PrepStation(host)`（`show / update / pose / tapApi / clear / debug / dispose`，宿主要 `flow / match / strip / reduced / say / facingYaw / m1._topKeys`）；`frontSpot({ a, base, spec, bw, W, H })`；`LEARN.duel.prepWalk`；事件 `learn:skip`；审计 `?skip=K`（`forms/index.js`）。
 - **怎么再跑整天**：`node tools/learn/day-run.mjs --name <n> --dir <dir> --form puzzle|race|duel|boss --learn w1d1 [--shots <dir>] -- tools/learn/wire-audit.mjs --view portrait --learn w1d1 --full --segment 780 --budget 870`（对抗赛 / Boss：`arena-audit.mjs --form duel|boss --learn … --views portrait --full --segment 780 --budget 870`；跑酷：`runner-audit.mjs --scenario runner --w 390 --h 844 --touch --query '?learn=w1d3&kind=race' --plan right --glidePlan right --segment --wallMs 660000 --timeout 870`）——它自己一段一段进锁；中途断了用 `--from k --gate N --skip K` 接着。改了判分相关的东西就跑 `node tools/learn/evidence-snapshot.mjs --out <f>`，和基线 `cmp`（基线要在改之前的提交上用同一个工具跑）。
 - **已知坑**：① 整天审计不画帧（拿不准的 16），只看「画出来」的东西用短关；Boss 照旧每步画（横屏太慢时用 `--fast`）。② 同一天里同一个词问两次，第二次是练习——审计按「之前今天有没有叶子」核，别改回「每题都要 first」。③ halyard 中间高台下来那一行（拿不准的 17）。④ 跑酷竖屏写字墙的打字取景（没做的 3）。⑤ 分段跑一定要同一个端口（`day-run` 管；自己手起审计时给 `--port`），否则每段一个空存储、证据接不上，每段自己的检查也看不出来。⑥ Boss 弱点上第一发点射常常打空（§24 拿不准的 11；整局 56 次出题里 7 次）——不写证据、再出一次就中，没查到根。⑦ 横屏 Boss（实测 B4）：钟写着段名时（213 px 宽）压到两侧的 HP 条和阶段牌；W 段长句的纸伸到右半块键盘上——都是 play-7 的横屏 HUD / 取景，没动。
+
+## 28. play-9 交付（2026-10-17，分支 `play-9`：发布后的第一轮修补——Boss 弱点第一发打空、横屏 Boss 顶上一排 / 回声亭板、跑酷写字墙的提示取景、halyard 掉海、双人整局、小考按钮、帧时间）
+
+**先读了什么**：本文 §27 的「拿不准的」（11、16、17、18）「没做的」（1、3、4）「已知坑」（③ ④ ⑥ ⑦）、§24 拿不准的 11（Boss 弱点上第一发点射没有命中）、§26 的横屏取景（`landscape.js`、`split.js`、`hudBand`）；PLAY §1（12 条）、§3 M5、§5.2、§7、§8；代码：`arena/run.js`、`play/run.js` 的点射、`weapons.js` 的 `fireShooter / _aimFrom / _ballistic / _step`（只读）、`boss/bossBrain.js` 的 `_idle / _walk`（只读）、`runner/runner.js _bounds / _steer`、`runner/track.js`、`runner/glide.js`、`runner/cam.js`、`board/walk.js`、`board/frame.js`、`echo/booth.js`、`arena/host.js`、`touch.js` 的按钮排布（只读）。第 1 项（对抗赛区域倒数在一题正问着时数完）主会话在 `play-9b` 做，这边没碰 `duel.js` 的轮结束 / 倒数和 `LEARN.duel`。
+
+**先定的**：
+1. **先找根、再改**：Boss 打空在浏览器里做对照——草稿里的探针（不进仓库）在每道题上发 8–12 颗带标记的墨弹（`onHit` 只记不答）、逐帧记那颗墨弹离它那个球最近多少、怎么死的，同时记发出那一帧 Boss 的速度 / 转速、平距、弹道有没有抬枪、她朝向差多少。在 `741bfee` 的拷贝上和改完的代码上各跑一次（结果见实测 P1 / P2）。
+2. **修墨弹、不修 Boss**：出题时让 Boss 站住也能修，但那是改 Boss 的行为（`boss*.js` 不是学习层的）；墨弹是她点的、只有这一颗带标记，按它自己的球每帧修正最局部（`arena/run.js`），命中照旧是 `hit.js` 的精确球体检测，判分一字不动。
+3. **跑酷掉海修放行 / 转向、不修放法**：§27 拿不准的 17 说把 `rowFit` 的读题区检查拉长能挡住，但七张舞台的四道行会少很多；改成转向时不越过「外面是海」的坡边（行一行没少）。
+4. **板的取景带只在键压到字时才躲键**（见拿不准的 3）。
+
+**改了什么**（提交见 `git log 741bfee..play-9`）：
+1. **Boss 弱点第一发打空**（`84d8757`、`8a24e66`）：根有两个——① 出题时 `BossFlow` 只顶住 Boss 的出招（`bossHold`），它的大脑照样走路、转身（`bossBrain._idle → _walk`：2.9 m/s、1.25 rad/s），球挂在离它中心 2–3 m 的插口上，每秒走 3–5 m；墨弹按离膛那一帧球在哪儿瞄，飞 0.3–0.5 s。② 球离枪口超过 12.5 m（平距）时 `weapons.js _ballistic` 不抬枪（`maxDist` 就是 shooter 的射程），墨弹直飞后往下掉（`bossNear` 10.5 m + 1.5 m 余量 + 侧推，平距最远到 13 m 左右）。不是命中球、不是 `_aimFrom` 的 2 m 规则（`_fire` 先把 `aimDir` 设成从枪口指向球）、不是一帧延迟（球和命中球都按上一帧画出的骨骼，自洽）。改：`ArenaRun` 记下点射发出的那颗带标记的墨弹，每帧（学习层在弹道步进之前）用新纯函数 `steerRound(p, c, v)` 把它的速度改成「剩下的路程 ÷ 它现在的速度 = 还要飞多久，按 Boss 的走路和转身（`b.vel`、`b.turn`）把球的位置往前推这么久，重力还要掉的那截补回来」正好碰到；只修它自己那颗、只朝它自己的球，答了 / 换题 / 重放（新 serial，`reg.through`）/ 墨弹没了（池子复用时 `playTag` 清零）就停；对抗赛的题簇同样修（没有提前量）。
+2. **横屏 Boss 顶上一排**（`ff0b365`）：`landscape.js` 的横屏 CSS 里 HP 条和阶段牌离中线 `max(52px, 钟宽一半 + 8px)`，钟宽一半由钟上的 ResizeObserver 写到根元素的 `--iw-clock-half`（只在钟变宽变窄时回调）；横屏手机上 Boss 的钟只写段名的第一个词（`landscapePhone()`，一个缓存的 MediaQueryList；短名按门缓存）——667 宽的手机上全名的钟 + HP 条放不下。
+3. **跑酷竖屏写字墙的提示取景**（`ba0b65d`）：s4 那次的轨迹是镜头还在两个取景之间过渡——① 题条底边每 0.4 s 才读一次，提示以后要等下一次才重新取景（`glide._hint` 现在马上重读，`RunnerFlow.stripBottom(true)`）；② `runner/cam.js` 两个取景之间 0.8 s 的过渡是从「旧取景在世界里的那个点」插过去，她一直往前游，旧点留在身后，镜头落后、偏到一边——现在旧取景跟着她平移（记下过渡开始时她的位置）；取景带的顶边向上取整到 0.02（四舍五入时能高过题条底边最多 8 px）。
+4. **halyard 掉海**（`46fe899`）：`track.js clearWidths` 多记每个采样两边边外一格的地面高度（`edgeL / edgeR`，没地面是 NaN）；新纯函数 `fallRoom`：从她现在的位置到瞄的点，凡是路比瞄的那块地面高 / 低 0.3 m 以上（坡、台阶）而且那一边外面是「掉下去」（没地面，或比瞄的地面低 0.5 m 以上），那一边只许在路自己的宽度里；平地、外面是同一层或更高的地面（墙、栏杆、她要去的那一层）照旧斜着走。halyard 那一行在这一圈的 68.8 m（§27 写的 75.1 m 是另一种量法），坡在 59–63 m、3.8 m 高、右边外面什么都没有。
+5. **横屏回声亭板**（`f7c9297`）：见拿不准的 3。
+6. **审计**（`8a24e66`、`2f17b99`）：`arena-audit` 整局结束时数每道答过的选择题发了几颗带标记的墨弹（「每题第一发就中」），S 段量回声亭板的最小字（≥ 17 px），横屏打字核多记取景时的列 / 现在的列 / 船体朝向 / 镜头离取景位 / 焦距；`land-measure.js boardFont`；`wire-audit` 出口区量回声亭板的字、`--quiz`（结果卡「今日小考」→ 小考第一题）；`net-duo-play --full`（整课）；新 `perf-forms.mjs`（帧时间分两桶）；`runner-drive` 报告带 `sea`（`RunnerFlow.seaN`，掉海一次计一次）。
+
+**动了别人地盘的**：
+- `weapons.js`、`main.js`、`actor.js`、`cameraRig.js`、`touch.js`、`boss*.js`、`hud*.js`：**一行没动**（只读了）。
+- `src/learn/play/runner/cam.js`（play-4）：过渡的起点跟着她走（3 行 + 注释）。
+- `src/learn/play/runner/track.js`（play-4 / play-8）：`clearWidths` 多两个数组、新 `fallRoom`；`runner.js`：`_bounds` 一段、`stripBottom(fresh)`、`seaN`。
+- `src/learn/play/board/walk.js`（play-3）：`bandFor` 多传一个参数（框的那块板），默认的调用不变。
+- `src/learn/play/landscape.js`（play-7）：HP 条 / 阶段牌的偏移、`watchClock`、`landscapePhone`、`hudBand(…, board)`。
+- `src/learn/forms/boss.js`：钟的文字一行。
+- `tools/learn/arena-audit.mjs`：主会话在 `play-9b` 也改了这个文件的「名牌让位」那几行——这边没碰那几行，只在别处加。
+
+**测试**：`npm run test:learn` 243 → 247（新 `play9.test.mjs` 4 条），`npm run check` 285 → 286 个文件（多了 `perf-forms.mjs`）。
+- `play9.test`：① 用 `weapons.js` 同样的积分（直飞 0.13 s、重力 28、阻力 0.8、60 步 / 秒）和 `hit.js` 的球体检测飞 1 656 发（枪口在 Boss 前 4–12.5 m、正前和两侧，Boss 不动 / 走 2.9 m/s 四个方向 / 两个方向转 1.25 rad/s / 又走又转，四个插口，0.5 m 的球）：不修正 864 发打空（Boss 不动而在射程——12.5 m 平距——外的 34 发全掉短），修正后 0 发；Boss 不动、在射程内不修正也全中。② `steerRound` 过了球 / 不动的墨弹不修，正前方的球不改速度。③ halyard 真实导航网格上每一行「坡下来就是行」：她在坡上的每个位置、三种前瞄距离，瞄的范围不越过外面是海的坡边（旧代码在这一圈 59.5 m 越过）、读题区起点前两个外道都瞄得到；`fallRoom` 平地不改、坡上只收窄。④ 三周 21 块回声亭板 × 844 × 390 / 852 × 393 / 667 × 375，取景带顶边在 Boss 那一排下面（47 px）时最小字都 ≥ 17 px（最小 19.1 px）。
+- 七张舞台全部行对照（草稿脚本，同 `runner-track.test` 的建法）：外道最晚能瞄到的位置，改前每行都在读题区起点前 2 m 以上；改后只有 lockgate 每圈一行变成 1.5–1.75 m（那段 1 格宽的坡外侧没有地面）。
+- **证据快照**：`node tools/learn/evidence-snapshot.mjs` 在 `741bfee`（改之前）和改完以后各跑一次，128 270 个用例 `cmp` 逐字节相同（sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`，同 play-8）。
+
+**实测**（浏览器：一次一个 `flock -w 9000 /tmp/ielts-browser.lock nice -n 10`，Chromium + SwiftShader、`?quality=low`、阴影 / 泛光关、冻时钟步进；竖屏 390 × 844 触屏（`&from=app`）、横屏 844 × 390；报告在主会话草稿目录的 `play9-out/`、截图在 `play9-shots/`，不进仓库；2026-10-17 UTC）：
+
+| 轮 | 跑的什么 | 结果 | 看到的 / 改的 |
+|---|---|---|---|
+| P1 | 探针（草稿脚本）：Boss w1 整局的 L 段 10 题，每题 8 发点射（`onHit` 只记不答），**`741bfee` 的拷贝** | 80 发打空 6 发 | Boss 在走 / 转时发的 4 发里 3 发空（转身 1.25 rad/s 两次、走 2.9 m/s 一次）；球离枪口平距 > 12.5 m 的 4 发全空（`_ballistic` 不抬枪：发射仰角 = 直线仰角，直飞后掉短 0.6–1.1 m）；其余 70 发全中；她朝向差 0.03–0.18 rad、和打不打空无关 |
+| P2 | 同上，改完的代码（`steerRound`），3 题 × 12 发 | **36 发全中** | 其中 32 发 Boss 在走 / 转、2 发平距 > 12.5 m |
+| B1 | Boss w1 **整局**竖屏（`arena-audit --full --fast`） | 一段 832 s 打完：结果卡「第 1 周周考打完了 · 43 / 43 题做对 · 一道锁都没有」（L 20 / 20、R 20 / 20、W 3 / 3、S 6 / 6）；**每题第一发就中：23 道选择题 23 颗墨弹，打空 0**（play-8 整局 56 次出题里 7 次）；采样 5 190 步没破；控制台 0、4xx 0 | 12 条失败都不是这一期的：5 次「墨球框出安全区」（play-8 B1 有 4 次、更早的整局 35 题里 8 次——不画帧时球落后走动的 Boss 一步，见已知坑）；q22 那一题她正被 Boss 打倒（镜头是 spectate），横幅没投上屏、点不到，复活后 q23 照样答对——那 7 条随它。截图 `play9-shots/boss-w1-portrait/` |
+| B2 | Boss w1 **横屏** W + S 段整段（`--full --fast --skip-to W`） | **全过** | W 段 3 句长句：打字机 274–556 px（列 270–574，不压垫子）、288–291 px 高、字 17.8–17.9 px；取景时的列和现在的列、船体和题的朝向、镜头离取景位 0.03 m、焦距 35°——和取景一致（play-8 B4 那一次纸伸到 589 px 没复现，见拿不准的 6）。S 段 6 个回声亭：板的最小字 **20.6–37.2 px**（取景带顶边 46 px；改之前 ⏸ / 加油把它压到约 88 px），板和钟 / HP 条 / 阶段牌不相交。截图 `play9-shots/boss-w1-landscape/`（`boss-landscape-m7-in.png`：板在 ⏸ 左边） |
+| B3 | Boss w1 横屏短关 2 题（新核：钟写到最宽） | 1 条失败 | 钟换成全名 217 px（314–531），HP 条 76–305、阶段牌 539–758：不压、都在屏上。失败的是 q1 一颗球的标签框高出题条底边 15 px（同 B1 的「框出安全区」）；两题都第一发就中 |
+| X1 | 解谜 w1d1 出口区**横屏**（`wire-audit --exit-only`） | **全过** | 出口区的回声亭板最小字 **21 px**（取景带顶边 40 px，解谜不走 `hudBand`）——解谜这边本来就 ≥ 17 px，没改 |
+| X2 | 解谜 w1d1 出口区竖屏 → 结果卡 →「今日小考」（`wire-audit --exit-only --quiz`） | **全过** | 结果卡上的按钮「今日小考 · 8 题 · 傍晚一轮对抗赛」点下去 → 页面里开小考（`level.quiz`，8 题）→ 备战展板「开始」→ 第一题 `s:e`（墨靶 M1，「哪个词里有 /e/ 这个音？」），没暂停 / hold / 卡片；控制台 0、4xx 0。截图 `play9-shots/quiz-chain/`（`results-quiz`、`quiz-first`）|
+| R1 | 跑酷 w1d3 短关竖屏（默认的对 / 提示 / 错 / 差一点） | 没有报错 | 写字墙第二句按「提示」以后（s4 那一题 `x:w1d3:c1:7dg6q5`，同样在提示后 0.46 s 量）：题条底 239 px、打字机最高的点 295 px、她的头 463 低于中间那排 459——s4 是 230 px、头高过那排；`sea` 0 |
+| R2 | 跑酷 w1d3 **整天**（halyard，`day-run`，对 / 对） | **一段 435 s 跑完，day-check 全过** | **掉海 0 次、`learn:noanswer` 0**（play-8 D7：中间高台那一行 2 次掉海、2 次「没答」再来）；结果卡「60 / 85 题做对 · 一道锁都没有 · ★★★ · 第 1 名 · 8:25 · 60 / 60 首答答对 · 35 / 35 滑行段打字答对」（D7 是 8:58）；50 行 + 35 题打字；采样 7 611 步没破；首答 60 个各一次、60 片叶子；控制台 0、4xx 0 |
+| F1 | 帧时间（`perf-forms.mjs`，竖屏，每帧都画，600 帧） | 见下表 | |
+| V1 | versus2 w1d1 **整局**竖屏（`net-duo-play --full`：两个页面 + 中继，不是短关） | **147 / 147 全过** | 12 题（10 道墨靶、2 道打字）问完，房主按区域判（`answered`）→ 两边都是 INKWAVE 的结果页带答题条；每题两边同一题物、同一顺序、同一个对的，题物在安全区里，点射答，各自的首答在各自的存储里一片叶子；控制台 0。截图 `play9-shots/versus2-full/` |
+| V2 | coop2 w1d1 **整局**竖屏（`net-duo-play --full`） | **745 / 745 全过** | 7 道门、81 题：一个人看线索一个人作答、轮流；作答方的题条没有 ▶ 和中文、键盘没有 ▶；第一题答错 → 两边都看到「差一点」、换个问法回到另一个人手里；两边的门一起开；两边各只记自己答的；结果卡两边都有。截图 `play9-shots/coop2-full/` |
+
+**帧时间**（PLAY §7；`perf-forms.mjs`：`main.js _frame` 的毫秒数按这一帧台上有没有题分桶——「有题」= 区域上空的题簇 / Boss 弱点上的球放好没答、跑酷一行幕或滑行段在；「走」= 没有题、她在跑 / 游（对抗赛和 Boss 是审计的手按住 W 往前跑）；每帧都画；SwiftShader，只能互相比）：
+
+| 形式（短关） | 有题 p50 / p95 / 最大（ms，帧数） | 走 p50 / p95 / 最大（ms，帧数） | p95 之比 | 绘制调用 |
+|---|---|---|---|---|
+| 跑酷 w1d3（halyard） | 4.2 / 8.3 / 9 571（406） | 4.4 / 7.4 / 11（194） | **1.12** | 67 |
+| 跑酷 w1d3，先跑 300 帧再采 1 200 帧（`--warm 300`） | 4.5 / 8.7 / 8 897（648） | 4.3 / 8.7 / 26（552） | **1.00** | 71 |
+| 对抗赛 w1d6（区域题簇） | 10.2 / 16.2 / 1 585（63） | 10.3 / 18.7 / 1 646（531） | 0.87 | 111 |
+| Boss w1（弱点上的球） | 7.4 / 12.7 / 3 539（61） | 6.9 / 14.1 / 5 436（529） | 0.90 | 61 |
+
+对抗赛和 Boss 出题时 p95 比走路低（她站着答、没有脚步和跟随镜头），PLAY §7 满足；最大值都是第一次画出来的东西在 SwiftShader 上编着色器 / 传贴图的那一帧。跑酷第一次量（600 帧、不预热）有题那一桶高 12 %：那一桶里有头几行第一次出来时编着色器 / 传标签贴图的帧，游的那一桶只有 194 帧；先跑 300 帧再采 1 200 帧，两桶的 p95 都是 8.7 ms（之比 1.00），满足。
+
+**PLAY §1 的 12 条**：① 不暂停 / 不定身 / 不弹面板 ✓——没碰流程；审计每步采样（Boss 整局 5 190 步、跑酷整天 7 611 步、Boss 横屏 W + S 848 步，一次没破）。② 判分一条路 ✓——没碰 `judge.js` 和各形式的 `_judgeRecord`；证据快照逐字节相同。③ 证据如实 ✓——修正只改那颗墨弹的速度，答不答照旧看它碰没碰到自己的球；跑酷不再因为掉海把一行记成「没答」再问（整天 0 次）。④ 节奏——没碰。⑤ 没有误答 ✓——只有她点的那一颗带标记的墨弹被修正、只朝它自己那个球；平射、溅射、机器人的墨照旧（Boss 整局前两道墨球题的「普通一枪不算答」照旧核）；跑酷换道的判法没改，只是瞄的时候不越过坡边。⑥ 不惩罚——没碰。⑦ 中文 ✓——横屏手机上钟的段名缩成第一个词（「R 阅读」），中文照旧。⑧ 不加素材 ✓——没有新文件以外的东西（代码、测试、审计）。⑨ 画风流畅 ✓——没有新的绘制；镜头的过渡跟着她走（更顺）；每帧不分配：`steerRound` / `_steer` 用模块级向量、`fallRoom` 不建对象、钟的短名按门缓存、钟宽只在 ResizeObserver 回调时量；帧时间见上表。⑩ 竖横 ✓——Boss 竖屏整局、横屏 W + S、跑酷竖屏、解谜出口区横屏和竖屏。⑪ 内容不少 ✓——`design.test` 照过；跑酷七张舞台的行一行没少（`rowFit` 没改）。⑫ 开关——play-8 起没有（PLAY §1 第 12 条的 play-8 更正）。
+
+**拿不准的（自己定了，请主会话过目）**：
+1. **点射的墨弹会拐一点弯**：`steerRound` 每帧把速度对准球「还要飞多久以后在哪儿」，Boss 走得快、转得快时墨弹的轨迹会弯几度，射程外它会往上爬一截（等于点射在 Boss 身上能打到 13 m 左右）。我认为这是「点射」该有的样子（她点的是那个球，PLAY §6.1），没有做成「看起来笔直」。只修她点的那一颗；桌面上「准星压在题物上开的火」也走点射（同一个 `shoot`），一起修。versus2 里对面屏幕上看到的是她这颗墨弹的回放（`ghost`，按发射时的速度飞，不修），回放里可能看起来偏了——回放不判、不碰题物，只是画面。
+2. **Boss 不站住**：也可以出题时让 Boss 停下不走不转（球就不动了），那是改 Boss 的行为（`bossBrain` 不是学习层的），而且 LEVELS §2.5 只说「出题时不出招」；没这么做。
+3. **667 × 375 的横屏手机上 ⏸ 压着回声亭板右上角的板框**（伸进板的字边距 5 px，不压字）：躲开它板就小到 16.8 px，我取了字大。844 / 852 宽的屏上碰不到。
+4. **跑酷「坡边外面是海」的判法**：坡 / 台阶 = 比瞄的地面高低 0.3 m 以上；「掉下去」= 边外一格没有导航节点，或节点低于瞄的地面 0.5 m 以上。墙的格子也没有节点，所以 1 格宽、两边是墙的坡也按「掉下去」处理——只是让她顺着坡走，不往墙上蹭；七张舞台里这样让外道晚一点才瞄得到的只有 lockgate 每圈一行（读题区起点前 1.5–1.75 m，原来 2 m 以上；读题区本身 3 m，够她换到外道——没在浏览器里跑 lockgate 的一天）。边外的地面比瞄的地面高（墙顶、上一层）或差不多（她要去的那一层）照旧斜着走（terraces 那一处就是这样，原样）。
+5. **横屏手机上 Boss 的钟只写段名的第一个词**：HP 条 / 阶段牌按钟宽让开以后，844 宽的屏上全名也放得下（实测 B3），但 667 宽的放不下，所以缩；缩的只在横屏手机（`(max-height: 460px) and (orientation: landscape)`，和 play-7 的横屏 CSS 同一个条件），竖屏和桌面照旧全名。另外钟多数时候只写时间（HUD 自己每秒写），写段名是 `BossFlow` 在两题之间写的那几帧。
+6. **W 段长句的纸伸到右半块键盘上（play-8 B4）没复现**：这一轮横屏 W 段 3 句（含 B4 出事的 `x:w1d3:c1:7dg6q5`）打字机都在 274–556 px、取景的列和现在的列一样、船体和题的朝向一样、镜头到了取景位。B4 那一次是 R 段整段打完接着 W 段（这一轮是 `--skip-to W`），也许和船体朝向的弹簧有关（`ask` 时题的朝向和她的朝向差 0.4 以内就不重设船体）；审计的横屏打字核留了这几样诊断，再碰上就看得出是哪一样。
+7. **跑酷取景的过渡跟着她走**：改的是 `runner/cam.js` 两个取景之间的过渡（打字 ↔ 墨字、一块看板 ↔ 下一块），不只是提示那一下；墨字取景本身是世界里钉死的点，从「跟着她」的旧取景过渡到它，前 0.8 s 镜头会比原来更贴她一点。
+8. **帧时间**：跑酷有题那一桶的 p95 比游的一桶高（见上表），预热以后两桶一样；不预热时差的是头几行第一次出现的那几帧（最大一帧 9.6 s，软件 GL 上传标签贴图——§20 的 `RowView.prepare` 已经把它分到几帧里），真机上要看出第一行时有没有一顿。
+
+**没做的**：
+1. Boss 的「墨球框出安全区」（不画帧时球落后走动的 Boss 一步、离得近时球大）：B1 5 次、B3 1 次——play-8 起就有、不是这一期的地盘，没动；画帧跑（不加 `--fast`）时少得多（play-8 B2）。
+2. lockgate 的跑酷一天没在浏览器里跑（拿不准的 4）。
+3. 真机、TestFlight：没有。
+4. 第 1 项（对抗赛区域倒数在一题正问着时数完）是主会话在 `play-9b` 做的，这边没碰。
+
+**交接**（分支 `play-9`，没推；从 dev `741bfee` 建出，没有合过别的）：
+- **做到哪**：任务书第 2–9 项都做了：Boss 第一发打空找到两个根、修了、整局 0 次；横屏 Boss 顶上一排按钟宽让开 + 横屏手机上钟写短名；横屏回声亭板的取景不再被 ⏸ / 加油压下去（Boss 20.6–37.2 px；解谜出口区本来就 21 px）；跑酷写字墙提示以后的取景（R1 复测 s4 那一题）；halyard 不掉海（整天 0 次）；versus2 / coop2 整局各跑一次（147 / 147、745 / 745）；小考按钮一条链；帧时间三种形式各量一次；文档。
+- **先看哪些文件**：`src/learn/play/arena/run.js`（`_fire` / `_steer` / `steerRound`）→ `src/learn/play/landscape.js`（`hudBand(…, board)`、`watchClock`、`landscapePhone`）→ `src/learn/play/runner/track.js`（`clearWidths` 的 `edgeL / edgeR`、`fallRoom`）→ `runner/runner.js _bounds` → `runner/cam.js` 的过渡 → `tests/learn/play9.test.mjs`；审计 `tools/learn/perf-forms.mjs`、`arena-audit`（每题第一发、回声亭板字号、钟最宽、横屏打字的诊断）、`wire-audit --quiz`、`net-duo-play --full`、`land-measure.js boardFont`。
+- **接口**：`steerRound(p, c, v?) → bool`（写 `p.vel`）；`fallRoom(T, W, s0, s1, yRef, drop, margin, out)`；`clearWidths` 多回 `edgeL / edgeR`（Float32Array，NaN = 边外没有地面）；`hudBand(aspect, W, H, board?)`、`BoardWalk.bandFor(aspect, W, H, slab)`；`landscapePhone()`、`watchClock()`、CSS 变量 `--iw-clock-half`；`RunnerFlow.stripBottom(fresh)`、`RunnerFlow.seaN` / `debug().sea`；审计：`perf-forms.mjs --form runner|duel|boss [--warm N] [--frames N]`、`wire-audit --quiz`、`net-duo-play --full`、`arena-audit` 报告的 `shots` / `boardFonts` / `wideClock` / `land[].plan`、`runner-drive` 报告的 `sea`。
+- **和 `play-9b` 会碰的**：`tools/learn/arena-audit.mjs`——主会话在那边改了「名牌让位」检查的几行，这边没碰那几行，加的都在别处（S 段回声亭、整局收尾、横屏顶上一排、横屏打字核）；`docs/LEARN.md` 两边都在末尾加节（§28 是这边的）、`docs/DEVLOG.md` 两边都在最上面加条。
+- **已知坑**：① 整局审计 `--fast` 时 Boss 的球落后一步，「框出安全区」会有几次（没做的 1）；看打空用报告里的 `shots`（`fires` / `answers` / `extra`），别看「点中」那一条（重放题时会多点一次）。② 帧时间的「有题」「走」两桶里各有第一次画东西的那几帧，短样本用 `--warm` 先跑一段。③ `fallRoom` 依赖 `clearWidths` 的 `edgeL / edgeR`；测试里手搭的 `W` 没有这两个数组时，坡边一律当「掉下去」。
