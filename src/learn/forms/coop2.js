@@ -50,7 +50,7 @@ export class Coop2Flow extends LearnFlow {
     this.mine = { asked: 0, right: 0, firsts: 0, firstRight: 0, clues: 0 };
     this.pairRight = 0; this.pairAsked = 0;
     this.heldT = 0; this.nextT = -1; this.left = false; this.lastQ = 0;
-    this.tank = { last: null, out: 0, t: 0, vT: 0 }; this._inkIn = 0; this._inkV = null;   // one ink tank for two (play-9: duo.js sharedInk, 'lk')
+    this.tank = { last: null, out: 0, t: 0, vT: 0, sentAt: -1 }; this._inkIn = 0; this._inkV = null;   // one ink tank for two (play-9: duo.js sharedInk, 'lk')
     this._padsBuilt();
     // 题即玩法 (play-6): the questions are things on the stage — the clue side's board, the answering side's objects
     this.play = match.mode === 'learn' ? new CoopPlay(this) : null;
@@ -109,7 +109,7 @@ export class Coop2Flow extends LearnFlow {
       case 'lk': if (from !== this.myId && this.duo.includes(from)) this._onInk(d); break;
     }
   }
-  _onInk(d) { if (Number.isFinite(+d.d)) this._inkIn += +d.d; if (!this.isHost && Number.isFinite(+d.v)) this._inkV = +d.v; }
+  _onInk(d) { if (Number.isFinite(+d.d)) this._inkIn += +d.d; if (!this.isHost && Number.isFinite(+d.v) && this.t - this.tank.sentAt > 0.3) this._inkV = +d.v; }   // (a level sampled before my own delta reached the host: skipped)
 
   // ---------------------------------------------------------------------------------------------- per frame
   // one ink tank for the two of us (LEARN §14 §4; duo.js sharedInk): what the engine did to mine this frame is summed and
@@ -124,6 +124,7 @@ export class Coop2Flow extends LearnFlow {
     const v = this.isHost && this.tank.vT <= 0;
     if (Math.abs(this.tank.out) < 0.05 && !v) return;
     if (v) this.tank.vT = 1;
+    if (Math.abs(this.tank.out) >= 0.05) this.tank.sentAt = this.t;
     this._bcast({ k: 'lk', d: +this.tank.out.toFixed(2), ...(v ? { v: +a.ink.toFixed(1) } : {}) });
     this.tank.out = 0;
   }

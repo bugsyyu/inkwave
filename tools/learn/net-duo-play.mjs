@@ -401,13 +401,15 @@ async function migrateOn(H, V) {
 async function driveCoopPlay(H) {
   const { ev, both, step, pair } = H;
   if (WALK) await both(() => __inkwave.match.learn.autoWalk(true));
-  // play-9: one ink tank for two (coop2 'lk') — c0 sprays 40 in one go, c1's tank follows within 0.6 s; c1 refills 20, c0's follows
+  // play-9: one ink tank for two (coop2 'lk', only while the match plays) — c0 sprays 40 in one go, c1's tank follows
+  // within 0.6 s; c1 refills 20 in steps a swim's size (a jump bigger than LEARN.coop2.inkReset would read as a respawn), c0's follows
   {
-    const before = await both(() => __inkwave.match.local ? +__inkwave.match.local.ink.toFixed(1) : null);
+    for (let n = 0; n < 40; n++) { const pl = await both(() => __inkwave.match.state === 'playing'); if (pl.every(Boolean)) break; await step(0.5); }
+    const before = await both(() => __inkwave.match.state === 'playing' && __inkwave.match.local ? +__inkwave.match.local.ink.toFixed(1) : null);
     await ev(0, () => { const a = __inkwave.match.local; a.ink = Math.max(0, a.ink - 40); });
     await step(0.6);
     const mid = await both(() => +__inkwave.match.local.ink.toFixed(1));
-    await ev(1, () => { const a = __inkwave.match.local; a.ink = Math.min(100, a.ink + 20); });
+    for (let n = 0; n < 10; n++) { await ev(1, () => { const a = __inkwave.match.local; a.ink = Math.min(100, a.ink + 2); }); await step(1 / 24); }
     await step(0.6);
     const after = await both(() => +__inkwave.match.local.ink.toFixed(1));
     check('one ink tank for two: c0\'s spray of 40 shows on c1 within 0.6 s, c1\'s refill of 20 shows on c0', before[1] != null && mid[1] <= before[1] - 30 && after[0] >= mid[0] + 12, JSON.stringify({ before, mid, after }));
