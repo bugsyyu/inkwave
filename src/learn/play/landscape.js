@@ -12,6 +12,10 @@
 //     there on the screen (the clock row, the strip, the boss's bar, the runner's standings, the touch layer's top keys)
 //   · hudBand(aspect, W, H) — a board's framing band (board/frame.js boardBand) whose top clears the same row: the boss's
 //     回声亭 board (arena/host.js EchoStation) is framed under the HP bar, not behind it
+//   · play-9: the HP bar and the phase strip stand clear of the clock as wide as it is now — the boss's clock says its
+//     phase too (「R 阅读 · 词汇 · 语法 · 13:20」, 213 px; play-8's whole landscape 周考 saw both overlapped by it): a
+//     ResizeObserver on the clock keeps --iw-clock-half (half its width) on the page's root; the two sit that far plus
+//     8 px from the middle, never nearer than the 52 px they had
 // Desktop (no max-height: 460px) keeps every position as it was; the split keyboard still opens the column there.
 import { boardBand } from './board/frame.js';
 
@@ -27,12 +31,12 @@ const CSS = `@media (max-height: 460px) and (orientation: landscape) {
   .iw-ps.is-typing .iw-ps__zh, .iw-ps.is-typing .iw-ps__why { font-size: 17px !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
   .iw-ps.is-typing .iw-ps__acts { flex-wrap: wrap; }
   :root:has(.iw-hud .iw-bb:not(.is-off)) .iw-ps.is-typing .iw-ps__box { top: 44px !important; }
-  .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + 52px); translate: none; top: 3px; }
+  .iw-hud.is-learn .iw-bb { --u: 4.4px; left: auto; right: calc(50% + max(52px, var(--iw-clock-half, 0px) + 8px)); translate: none; top: 3px; }
   .iw-hud.is-learn .iw-bb.is-intro { animation-name: iw-bb-in7; }
   @keyframes iw-bb-in7 { from { opacity: 0; translate: 0 -12px; scale: .7; } }
   .iw-hud.is-learn .iw-bb.is-gone { animation-name: iw-bb-gone7; }
   @keyframes iw-bb-gone7 { to { opacity: 0; translate: 0 -10px; scale: .9; } }
-  .iw-lf__phase { left: calc(50% + 52px); translate: none; top: 7px; padding: 4px 6px; gap: 4px; font-size: 12px; }
+  .iw-lf__phase { left: calc(50% + max(52px, var(--iw-clock-half, 0px) + 8px)); translate: none; top: 7px; padding: 4px 6px; gap: 4px; font-size: 12px; }
   .iw-lf__phase span { padding: 3px 7px; }
 }`;
 let cssDone = false;
@@ -40,6 +44,24 @@ export function ensureLandscapeCss() {
   if (cssDone || typeof document === 'undefined') return;
   cssDone = true;
   const el = document.createElement('style'); el.id = 'iw-play-landscape-css'; el.textContent = CSS; document.head.appendChild(el);
+  watchClock();
+}
+// (play-9) a landscape phone: the media query the CSS above is for (one MediaQueryList, read per frame without allocating)
+let mq = null;
+export function landscapePhone() {
+  if (typeof matchMedia === 'undefined') return false;
+  return (mq || (mq = matchMedia('(max-height: 460px) and (orientation: landscape)'))).matches;
+}
+// (play-9) the clock's half width on the root, whenever its text changes its size — never per frame: the observer calls
+// back only on a change of size
+let clockSeen = null;
+export function watchClock() {
+  if (typeof document === 'undefined' || typeof ResizeObserver === 'undefined') return;
+  const el = document.querySelector('.iw-hud__top .iw-timer'); if (!el || el === clockSeen) return;
+  clockSeen = el;
+  const set = () => { const w = el.getBoundingClientRect().width; if (w > 0) document.documentElement.style.setProperty('--iw-clock-half', Math.ceil(w / 2) + 'px'); };
+  new ResizeObserver(set).observe(el);
+  set();
 }
 
 // what may stand at the top of the column (each only while it is on the screen)
