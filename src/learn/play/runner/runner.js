@@ -166,6 +166,7 @@ export class RunnerFlow extends RaceFlow {
   }
 
   _respawned(a) {   // the sea (the only way to be splatted here): back on the road where she left it
+    this.seaN = (this.seaN || 0) + 1;   // (play-9: how often — debug().sea; the audits count it)
     at(this.T, this.lastGoodS - 3, _p);
     a.pos.set(_p.x, _p.y + 0.6, _p.z); a.vel.set(0, 0, 0); a.yaw = a.aimYaw = Math.atan2(_p.tx, _p.tz);
     a.character.root.position.copy(a.pos);
@@ -947,7 +948,7 @@ export class RunnerFlow extends RaceFlow {
   debug() {
     const a = this.match.local, row = this._shown();
     return {
-      form: 'runner', phase: this.phase, started: this.started, paused: this.match.paused, cur: this.cur, gates: this.gates.length,
+      form: 'runner', phase: this.phase, started: this.started, paused: this.match.paused, cur: this.cur, gates: this.gates.length, sea: this.seaN || 0,
       s: +this.sNow.toFixed(2), d: +this.dNow.toFixed(2), lat: +this.latT.toFixed(2), swimK: +this.swimK.toFixed(3), tide: +this.tideK.toFixed(3),
       speed: a ? +Math.hypot(a.vel.x, a.vel.z).toFixed(2) : 0, submerged: !!(a && a.submerged), form_: a ? a.form : null, grounded: !!(a && a.grounded),
       lap: +this.T.len.toFixed(1), laps: this.laps, lapsPlan: this.lapsPlan, finishS: this.finish ? +this.finish.s.toFixed(1) : null,

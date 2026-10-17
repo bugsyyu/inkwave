@@ -42,6 +42,7 @@ const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
 // --exit-only (play-fix): every gate opened at once (flow._open, nothing answered, nothing recorded) — the walk from the
 // spawn to the exit area and its stops, for a stage whose exit walk needs a look
 const EXIT_ONLY = args.includes('--exit-only');
+const QUIZ = args.includes('--quiz');   // (play-9: the results card's 「今日小考」 → the quiz's first question, see the end)
 // (--full steps without drawing — a SwiftShader frame costs far more than the simulation; the scene graph and the camera
 // are brought up to date after each step so every projection is current, and a screenshot draws one frame first;
 // --render: draw every step as the short runs do)
@@ -504,4 +505,40 @@ if (report.exit && !report.resume) { const x = await ev(() => __inkwave.match.le
   check(!x.spots.some((s) => s.kind === 'echo') || x.spoke, 'exit: the booth spoken (说完了) before the day ended', x);
   const ends = await ev(() => ({ results: !!document.querySelector('.iw-learn.is-done'), phase: __inkwave.match.learn.phase }));
   check(ends.phase === 'done', `exit: the day ended (phase ${ends.phase}, results ${ends.results})`, ends); }
+// play-9 (LEARN §27 没做的 4; play-8 deleted the card-era play-quiz-chain.json): --quiz — the results card's 「今日小考」
+// button tapped, the day's quiz starts in the page (api.startLearn: a duel round of its own), its 备战 board's 「开始」,
+// and its first question is up as things — no card, no pause, no hold (with --exit-only: the gates opened, the exit walked)
+if (QUIZ) {
+  for (let i = 0; i < 160; i++) { if (await ev(() => !!document.querySelector('.iw-learn.is-done .iw-learn__quiz'))) break; await step(250); }
+  await sleep(1500);   // (the card fades in on wall time)
+  const btn = await ev(() => { const b = document.querySelector('.iw-learn.is-done .iw-learn__quiz'); if (!b) return null; const r = b.getBoundingClientRect(); return { text: b.innerText.replace(/\s+/g, ' ').trim(), x: r.left + r.width / 2, y: r.top + r.height / 2, w: Math.round(r.width), h: Math.round(r.height) }; });
+  report.quiz = { button: btn };
+  check(!!btn && btn.w >= 44 && btn.h >= 44, `results card: the 「今日小考」 button (${btn && btn.text})`, btn);
+  if (btn) {
+    await shot('results-quiz');
+    await tapAt(btn.x, btn.y);
+    let up = false;
+    for (let i = 0; i < 480 && !up; i++) { up = await ev(() => !!(__inkwave.match && __inkwave.match.learn && __inkwave.match.learn.level && __inkwave.match.learn.level.quiz)); if (!up) await sleep(250); }
+    check(up, 'the quiz started: a new level in the page, level.quiz');
+    if (up) {
+      await ev(() => __inkwave.debug.freeze());
+      let q = null;
+      for (let i = 0; i < 260 && !q; i++) {
+        await step(250);
+        q = await ev(() => {
+          const m = __inkwave.match, F = m.learn, H = F.arena, d = H && H.m1 && H.m1.cur ? H.m1.debug() : null;
+          const b = document.querySelector('.iw-ps:not(.is-off) .iw-ps__act.is-primary'); if (H && H.kind === 'prep' && b) { b.click(); return null; }
+          if (!F.asking || !H || !H.kind || H.kind === 'prep') return null;
+          if (H.kind === 'm1' && !(d && d.placed)) return null;
+          const panel = document.querySelector('.iw-learn__panel'), r = panel && panel.getBoundingClientRect();
+          return { kind: m.learnKind, quiz: !!F.level.quiz, mech: H.kind, item: F.asking.item.id, n: d ? d.n : null, strip: ((document.querySelector('.iw-ps:not(.is-off) .iw-ps__q') || {}).textContent || '').slice(0, 60), paused: m.paused, hold: !!F.hold, panel: !!(r && r.width > 0 && r.height > 0), gates: F.gates.length, items: F.gates[0] && F.gates[0].items.length };
+        });
+      }
+      report.quiz.first = q;
+      check(!!q && q.quiz && q.kind === 'duel', `the quiz's first question is up (${q && q.mech} ${q && q.item}, 「${q && q.strip}」; ${q && q.items} items)`, q);
+      check(!!q && !q.paused && !q.hold && !q.panel, 'the quiz\'s first question: no pause, no hold, no card', q);
+      await shot('quiz-first');
+    }
+  }
+}
 await finish();

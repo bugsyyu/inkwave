@@ -309,7 +309,10 @@ for (const viewName of VIEWS_WANT) { try {
       // ≥ 17 px, off both pads, and nothing at the top over anything: the strip, the clock, the boss's bar and phase strip,
       // the typewriter's box. (The real keycaps and the sheet as it stands: on the screen, off the pads.)
       const lc = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); const T = __inkwave.match.learn.arena.type; return M.typeCheck({ root: T.shot.rig.root, camera: __G.camera, keys: T.keys }); });
-      report.land = report.land || []; report.land.push({ label, ...lc });
+      // (play-9: the frame it was posed for beside what the live camera shows — the column then and now, the hull's yaw
+      // and the question's, the lens's distance from the pose and its field of view — for a rig standing off its column)
+      const plan = await ev(() => { const T = __inkwave.match.learn.arena.type, C = T.cur, P = C && C.pose, cam = __G.camera, K = T.keys && T.keys.rect ? T.keys.rect() : null; return P ? { px: P.f && P.f.px, key: P.f && P.f.key, region: P.region, fovPose: P.fov, fovCam: +cam.fov.toFixed(2), dCam: +cam.position.distanceTo(P.pos).toFixed(3), hull: +T.shot.rig.hullYaw.toFixed(3), yaw: +C.yaw.toFixed(3), herYaw: +__inkwave.match.local.yaw.toFixed(3), mid: K && K.mid, mode: C.mode } : null; });
+      report.land = report.land || []; report.land.push({ label, ...lc, plan });
       check(lc.split, `${label} landscape: the game keyboard is split (column ${lc.mid ? lc.mid.x0 + '–' + lc.mid.x1 : '—'})`, lc);
       check(lc.h >= 240, `${label} landscape: the typewriter is ${lc.h} px tall (≥ 240; ${lc.rig.join('–')} × ${lc.xs.join('–')})`, lc);
       check(lc.glyph >= 17, `${label} landscape: a typed letter is ${lc.glyph} px (≥ 17)`, lc);
