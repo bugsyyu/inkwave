@@ -791,7 +791,13 @@ export class RunnerFlow extends RaceFlow {
     if (row && row.centers && this.sNow >= row.s - this.RR.runIn - 6 && s < row.s - this.RR.runIn) sr = row.s - this.RR.runIn;
     const r = roomAt(this.T, this.W, sr, 0.45);
     let lo = -r.left, hi = r.right;
-    if (row && row.centers && s >= row.sAppear - 2 && s <= row.s + 1.5) { lo = Math.max(lo, row.centers[0] - 0.35); hi = Math.min(hi, row.centers[row.centers.length - 1] + 0.35); if (lo > hi) lo = hi = row.centers[0]; }
+    if (row && row.centers && s >= row.sAppear - 2 && s <= row.s + 1.5) {
+      // inside the row's lane band — unless the road is narrower than the band here (a ramp up a deck in the row's
+      // reading zone, halyard): then the road wins. (It used to put her on the first lane's line, off the ramp against
+      // the deck's side, where she stayed: play-4's w1d3 gate=1 audits, both orientations.)
+      const lo2 = Math.max(lo, row.centers[0] - 0.35), hi2 = Math.min(hi, row.centers[row.centers.length - 1] + 0.35);
+      if (lo2 <= hi2) { lo = lo2; hi = hi2; }
+    }
     else if (row && row.kind === 'glide') { this.latT = damp(this.latT, 0, 1.5, 1 / 60); }   // (the ink carries her down the middle while she types)
     // onto the middle of the road for a jump-up edge just ahead and for the line (the lap's own way up a ledge / onto the
     // start deck is the route's line; a metre off it the ledge may be a wall)
