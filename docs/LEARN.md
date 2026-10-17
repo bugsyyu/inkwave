@@ -1517,3 +1517,20 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：滑行段打字的取景本身（头顶离键盘中排 0–7 px，别处留白只有 3–5 px；一处 rig 点离左沿 14 px）——另一期；真机。
 
 **交接**：分支 `bag-aside`（从 dev `3b2e57e` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。
+
+## 31. 滑行段打字取景的头部余量（2026-10-17，主会话，开发分支直接改：整天审计里头顶高过键盘中排 0–11 px）
+
+**先读了什么**：lockgate w2d5 / w2d2 整天审计的 `day-check`（w2d2 三条 FAIL「her head is not below the keys' row」，头 489 px、中排 500 px；lockgate 那天 0–7 px）；`type/frame.js` 的 `frameFor`（打字机位的搜索：头在中排下面是一条**严格但零余量**的规则——搜出来的机位头只在中排下 0.1–3.7 px）；`wire/type.js` 的 `_typeFrame`（回声亭 / 题簇的打字站自己另搜一遍、留 `HEAD_MARGIN` 0.05 NDC，play-fix 加的）；`type/split.js`（横屏拆半的机位也留 0.05）；`runner/glide.js` 的 `_framed`（跑酷直接用 `frameFor`，没余量）；`runner/cam.js`（机位走临界阻尼弹簧，审计在 2 s 后量）。
+
+**先定的**：
+1. **余量放进 `frameFor`，不另搜**：`frameFor({ …, headMargin })` 新选项，默认 0（别的调用一字不变）；`FRAME.headMargin` 0.05 和打字站、拆半机位同一个数。跑酷的滑行段带着它搜，放不下（`fits` 假）退回零余量的那一次——和打字站的退法一样。
+2. **不去追那几像素是谁的**：真机位和搜出来的差一点（她的位置插值、弹簧的尾巴、底座随她的朝向）都可能，0.05 NDC（竖屏 ≈ 21 px）把 0–11 px 的偏差盖住，不改相机。
+3. **代价**：打字机在屏上矮 2 %（390 × 844、带 0.3 / 键盘 0.35：210 px 对 215 px），横屏不受影响（拆半机位本来就有余量）。
+
+**改了什么**：`type/frame.js`（`FRAME.headMargin`、`frameFor` 的 `headMargin`）、`runner/glide.js`（带余量搜 + 退回）；`tests/learn/runner-glide.test.mjs` 多一条（六个带：有余量的机位放得下、头在中排下 ≥ 21 / 18 px、打字机还在带里、最多矮 5 %；glide.js 的调用和退回）。
+
+**测试**：`npm run test:learn` 251 / 251、`npm run check` 287。判分没动。
+
+**实测**（浏览器，锁下一次一个）：排在 w2d4 整天审计和双人房间探针后面——跑酷 w1d3 短关（竖屏）和 w2d2 整天重跑，结果见 DEVLOG 这一条。
+
+**没做的**：lockgate 那天一处 rig 点离左沿 14 px（`inBand` 的 x < −2）——另一个偏差，这次没碰；真机。
