@@ -17,6 +17,7 @@ import {
   mergeDue, spreadGates, buildQueue, canRequeue, answerTime, Referee, settle, tally,
   rolesFor, splitPrompt, padSpots, padNodes, padsApart, padsHeld, LEARN_WIRE, validQ,
   seeded, seedOf, duoAltPrompt, duoMechanic, clueSpec,
+  sharedInk,
 } from '../../src/learn/forms/duo.js';
 import { readFileSync } from 'node:fs';
 import { store, setBackend } from '../../src/learn/store.js';
@@ -186,7 +187,7 @@ test('coop2 on every offline stage (Level + Physics + NavGraph in Node): along B
 });
 
 test('the wire: the learning payload kinds on the room envelope, a q that is not an integer refused; versus2\'s queue on A\'s real week 1 (day 1) holds 12 askable items spread over the day\'s steps; the short match 2', async () => {
-  assert.deepEqual(LEARN_WIRE, ['ls', 'ld', 'lq', 'la', 'lr', 'lc', 'lg']);
+  assert.deepEqual(LEARN_WIRE, ['ls', 'ld', 'lq', 'la', 'lr', 'lc', 'lg', 'lk']);
   assert.equal(validQ({ k: 'lq', q: 3 }), true); assert.equal(validQ({ k: 'lq', q: '3' }), false); assert.equal(validQ({ k: 't' }), false); assert.equal(validQ(null), false);
   const w = await loadWeek(1);
   const level = planDay(w, 1, 'duel');
@@ -377,4 +378,17 @@ test('play-9 versus2 host migration: the new host re-opens the question in fligh
   F.qs.set(2, late); F.q = late; F.hud = null;
   Versus2Flow.prototype._expire.call(F, 'time');
   assert.equal(F.sent.length, 1); assert.equal(F.sent[0].none, 1); assert.deepEqual(late.sent, { ok: 0, ms: F.sent[0].ms, none: 1 });
+});
+
+test('play-9 coop2 shared ink (sharedInk): only what the engine did to my tank goes out (no echo of the partner\'s share), the partner\'s deltas come in, a respawn\'s jump is not a refill, the host\'s level pulls a drifted guest back, clamped 0..max', () => {
+  const s = { last: null, out: 0 };
+  assert.equal(sharedInk(s, 100), 100); assert.equal(s.out, 0, 'the first frame only takes the level');
+  assert.equal(sharedInk(s, 97), 97); assert.equal(s.out, -3, 'a spray of 3 goes out');
+  assert.equal(sharedInk(s, 97, -20), 77, 'the partner sprayed 20: my tank follows'); assert.equal(s.out, -3, '… and that is not sent back');
+  assert.equal(sharedInk(s, 77.5), 77.5); assert.equal(+s.out.toFixed(2), -2.5, 'my refill of 0.5 goes out');
+  assert.equal(sharedInk(s, 100), 77.5, 'a respawn\'s full tank is a reset: back to the shared level'); assert.equal(+s.out.toFixed(2), -2.5, '… and not sent');
+  assert.equal(+sharedInk(s, 77.5, 0, 70).toFixed(2), 75.25, 'the host says 70: a third of the way back');
+  assert.equal(sharedInk(s, 75.25, 0, 76), 75.25, 'within 2 of the host: left alone');
+  assert.equal(sharedInk(s, 1, -5), 0, 'clamped at empty'); assert.equal(sharedInk(s, 0, 150), 100, 'clamped at full');
+  s.out = 0; assert.equal(sharedInk(s, 100, 0, null, 100, 5), 100); assert.equal(s.out, 0);
 });

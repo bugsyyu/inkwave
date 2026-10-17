@@ -375,6 +375,17 @@ async function driveVersusPlay(H) {
 async function driveCoopPlay(H) {
   const { ev, both, step, pair } = H;
   if (WALK) await both(() => __inkwave.match.learn.autoWalk(true));
+  // play-9: one ink tank for two (coop2 'lk') — c0 sprays 40 in one go, c1's tank follows within 0.6 s; c1 refills 20, c0's follows
+  {
+    const before = await both(() => __inkwave.match.local ? +__inkwave.match.local.ink.toFixed(1) : null);
+    await ev(0, () => { const a = __inkwave.match.local; a.ink = Math.max(0, a.ink - 40); });
+    await step(0.6);
+    const mid = await both(() => +__inkwave.match.local.ink.toFixed(1));
+    await ev(1, () => { const a = __inkwave.match.local; a.ink = Math.min(100, a.ink + 20); });
+    await step(0.6);
+    const after = await both(() => +__inkwave.match.local.ink.toFixed(1));
+    check('one ink tank for two: c0\'s spray of 40 shows on c1 within 0.6 s, c1\'s refill of 20 shows on c0', before[1] != null && mid[1] <= before[1] - 30 && after[0] >= mid[0] + 12, JSON.stringify({ before, mid, after }));
+  }
   const seen = new Set();
   let wrongDone = false, retry = null, lastSig = '', shots = 0, lastGate = -1, iter = 0;
   while (budgetLeft() > 4500) {

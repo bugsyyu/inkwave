@@ -24,8 +24,26 @@ import { canPlayArena } from '../play/arena/m1.js';
 //   lr  host → all    { q, win, by, name, z, at: [x, y, z], r } versus2: who inked it, and where (paint.flood is not replicated)
 //   lc  host → all    { q, win, res: [[pid, 1 | 0 | -1]…] }     versus2: the question closed (everyone answered, or time)
 //   lg  host → all    { g, s: 'ask' | 'open' | 'done', … }      coop2: a gate's state
-export const LEARN_WIRE = ['ls', 'ld', 'lq', 'la', 'lr', 'lc', 'lg'];
+export const LEARN_WIRE = ['ls', 'ld', 'lq', 'la', 'lr', 'lc', 'lg', 'lk'];   // (lk: coop2's shared ink tank — play-9)
 export const validQ = (d) => !!d && typeof d === 'object' && LEARN_WIRE.includes(d.k) && (d.q == null || Number.isInteger(d.q));
+
+/* ───────────────────────────── coop2: one ink tank for two ───────────────────────────── */
+// LEARN §14 §4 「墨罐共用（一个人喷光了另一个人得去充）」: the two squidkids draw on one tank. Each screen keeps its own
+// actor's ink as the engine runs it and tells the other only what the engine did to it this frame (a spray −, a refill +:
+// the sum goes out as 'lk' every C.inkSync s) — never the partner's share it applied, so nothing echoes. A jump up
+// bigger than any refill (reset: a respawn's full tank) is not a refill — the tank stays at the shared level. The
+// partner's deltas come in as `incoming`; the host's own level `v` (once a second) pulls a drifted guest back by 30 %.
+// Pure: s = { last, out } carried by the caller; returns the actor's ink after this frame.
+export function sharedInk(s, ink, incoming = 0, v = null, max = 100, reset = 5) {
+  if (s.last == null) s.last = ink;
+  let own = ink - s.last;
+  if (own > reset) { ink = s.last; own = 0; }
+  if (incoming) ink += incoming;
+  if (v != null && Math.abs(v - ink) > 2) ink += (v - ink) * 0.3;
+  ink = Math.max(0, Math.min(max, ink));
+  s.last = ink; s.out += own;
+  return ink;
+}
 
 /* ───────────────────────────── versus2: what is asked ───────────────────────────── */
 // Several players' due lists merged into one (到期的词两个人共用一份，谁的到期谁的题多): each list keeps its own order

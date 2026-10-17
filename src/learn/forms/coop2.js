@@ -22,13 +22,13 @@
 // pads, the roles, the re-ask to the other hands, the gates, the host's ink trail and the evidence are as they were.
 import * as THREE from 'three';
 import { G } from '../../core/ctx.js';
-import { LEARN } from '../../config.js';
+import { LEARN, PLAYER } from '../../config.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { judgeAnswer, rightAnswerOf } from './common.js';
 import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
-import { rolesFor, splitPrompt, padNodes, padsHeld, validQ, duoAltPrompt, seedOf } from './duo.js';
+import { rolesFor, splitPrompt, padNodes, padsHeld, validQ, duoAltPrompt, seedOf, sharedInk } from './duo.js';
 import { CoopPlay } from '../play/duo/coop.js';
 import { firstSentence } from '../play/m1.js';
 
@@ -50,6 +50,7 @@ export class Coop2Flow extends LearnFlow {
     this.mine = { asked: 0, right: 0, firsts: 0, firstRight: 0, clues: 0 };
     this.pairRight = 0; this.pairAsked = 0;
     this.heldT = 0; this.nextT = -1; this.left = false; this.lastQ = 0;
+    this.tank = { last: null, out: 0, t: 0, vT: 0 }; this._inkIn = 0; this._inkV = null;   // one ink tank for two (play-9: duo.js sharedInk, 'lk')
     this._padsBuilt();
     // 题即玩法 (play-6): the questions are things on the stage — the clue side's board, the answering side's objects
     this.play = match.mode === 'learn' ? new CoopPlay(this) : null;
@@ -105,10 +106,27 @@ export class Coop2Flow extends LearnFlow {
       case 'lg': if (fromHost) this._onGate(d); break;
       case 'lq': if (fromHost) this._onAsk(d); break;
       case 'la': if (this.duo.includes(from)) this._onAnswer(from, d); break;
+      case 'lk': if (from !== this.myId && this.duo.includes(from)) this._onInk(d); break;
     }
   }
+  _onInk(d) { if (Number.isFinite(+d.d)) this._inkIn += +d.d; if (!this.isHost && Number.isFinite(+d.v)) this._inkV = +d.v; }
 
   // ---------------------------------------------------------------------------------------------- per frame
+  // one ink tank for the two of us (LEARN §14 §4; duo.js sharedInk): what the engine did to mine this frame is summed and
+  // sent as 'lk' every C.inkSync s, the partner's comes back the same way; the host adds its level once a second
+  _shareInk(dt, a) {
+    if (!a || this.duo.length !== 2) return;
+    a.ink = sharedInk(this.tank, a.ink, this._inkIn, this._inkV, PLAYER.inkMax, this.C.inkReset);
+    this._inkIn = 0; this._inkV = null;
+    this.tank.t -= dt; this.tank.vT -= dt;
+    if (this.tank.t > 0) return;
+    this.tank.t = this.C.inkSync;
+    const v = this.isHost && this.tank.vT <= 0;
+    if (Math.abs(this.tank.out) < 0.05 && !v) return;
+    if (v) this.tank.vT = 1;
+    this._bcast({ k: 'lk', d: +this.tank.out.toFixed(2), ...(v ? { v: +a.ink.toFixed(1) } : {}) });
+    this.tank.out = 0;
+  }
   update(dt) {
     this.t += dt;
     this._animate();
@@ -120,6 +138,7 @@ export class Coop2Flow extends LearnFlow {
     // controller wrote them; the room's match runs on, nothing is held or paused)
     if (this.phase === 'done' && m.local) { const it = m.local.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
     if (m.state !== 'playing' || this.phase === 'done') return;
+    this._shareInk(dt, m.local);
     const g = this.gates[this.cur];
     if (!g) return;
     const ppl = this._people(), on = padsHeld(g.pads, ppl, this.C.padRadius);
