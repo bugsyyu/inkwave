@@ -33,6 +33,9 @@ const NEAR = args.includes('--near');
 // walking (the auto-walk under way), typing (the rig and the keyboard up, the lens settled), the beat stage (the word
 // played, the round listening), a framed board — the first time each comes up
 const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
+// --exit-only (play-fix): every gate opened at once (flow._open, nothing answered, nothing recorded) — the walk from the
+// spawn to the exit area and its stops, for a stage whose exit walk needs a look
+const EXIT_ONLY = args.includes('--exit-only');
 const VIEW = opt('view', 'portrait'), SHOTS = opt('shots', null), LEARN_Q = opt('learn', 'w1d1'), GATE = +opt('gate', 1), BUDGET = +opt('budget', 1500) * 1000, MAXQ = +opt('max', 12);
 const VIEWS = { portrait: { w: 390, h: 844, touch: true, app: true }, landscape: { w: 844, h: 390, touch: true, app: false }, desktop: { w: 1280, h: 720, touch: false, app: false } };
 const V = VIEWS[VIEW] || VIEWS.portrait;
@@ -96,6 +99,7 @@ report.boot = await ev(() => { const F = __inkwave.match.learn; __inkwave.debug.
 say('boot', JSON.stringify(report.boot));
 check(report.boot.play && report.boot.host, 'LEARN.play is on: the puzzle has its play host');
 for (let i = 0; i < 6; i++) await step(100);   // (the host's stations build on the first frames)
+if (EXIT_ONLY) { const ph = await ev(() => { const F = __inkwave.match.learn; let k = 0; while (F.phase !== 'exit' && F.phase !== 'done' && F.cur < F.gates.length && k++ < 20) F._open(F.gates[F.cur]); F.autoWalk(true); return F.phase; }); say('exit-only: every gate opened, phase', ph); }
 
 // ------------------------------------------------------------------------------------------------ what the page shows
 const state = () => ev(() => {
@@ -139,12 +143,13 @@ async function perfSample(label) {
 // (.iw-xh itself is a 0 × 0 anchor at the centre — its reticle .iw-ret is what shows: a rect test on the anchor is always
 // "hidden", play-4's runner-drive check included)
 const xhShown = () => ev(() => { const e = document.querySelector('.iw-xh'), r = e && e.querySelector('.iw-ret'); if (!r) return false; const b = r.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && b.height > 0 && cs.visibility !== 'hidden' && +cs.opacity > 0.05; });
-// the lens has come to rest (the station's spring): the camera moves < 1 cm a step, or the steps run out
+// the lens has come to rest (the station's spring): the camera moves < 1 cm and turns < 0.003 rad a step, or the steps
+// run out (the turn too: a lens that stays put and only turns from the last word to the rig is still on its way)
 async function settle(max = 30, ms = 100) {
   let last = null;
   for (let i = 0; i < max; i++) {
-    const c = await ev(() => [__G.camera.position.x, __G.camera.position.y, __G.camera.position.z]);
-    if (last && Math.hypot(c[0] - last[0], c[1] - last[1], c[2] - last[2]) < 0.01) return i;
+    const c = await ev(() => { const C = __G.camera, d = C.getWorldDirection(C.position.clone()); return [C.position.x, C.position.y, C.position.z, d.x, d.y, d.z]; });
+    if (last && Math.hypot(c[0] - last[0], c[1] - last[1], c[2] - last[2]) < 0.01 && Math.hypot(c[3] - last[3], c[4] - last[4], c[5] - last[5]) < 0.003) return i;
     last = c; await step(ms);
   }
   return max;
@@ -188,7 +193,7 @@ async function walkOn() {
       const sp = await ev(() => { const a = __inkwave.match.local; return Math.hypot(a.vel.x, a.vel.z); });
       if (sp > 1.5) await perfSample('walk');
     }
-    if (i % 40 === 39) say('walking', JSON.stringify(await ev(() => { const F = __inkwave.match.learn, a = F.match.local; return { phase: F.phase, auto: F.auto, her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(1)), stall: +F.autoStall.toFixed(1), exit: F.play.exit.debug() }; })).slice(0, 400));
+    if (i % 40 === 39) say('walking', JSON.stringify(await ev(() => { const F = __inkwave.match.learn, a = F.match.local, nav = __G.nav, P = F.autoPath, nx = P && nav ? nav.nodes[P[Math.min(F.autoK, P.length - 1)]] : null; return { phase: F.phase, auto: F.auto, her: [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(2)), vel: [a.vel.x, a.vel.y, a.vel.z].map((v) => +v.toFixed(2)), move: [a.intent.move.x, a.intent.move.z].map((v) => +v.toFixed(2)), jump: !!a.intent.jump, stall: +F.autoStall.toFixed(1), autoK: F.autoK, path: P ? P.length : 0, next: nx ? [nx.x, nx.y, nx.z].map((v) => +v.toFixed(2)) : null, exit: F.play.exit.debug() }; })).slice(0, 700));
     if (s.phase === 'exit' && !s.auto) {
       // a stop in the exit area: the booth (the sample plays; walking on = 说完了) or the check-in pad (踩上去 = 走完了)
       for (let k = 0; k < 6; k++) await step(250);
@@ -233,7 +238,11 @@ async function answerM1(s, right) {
   // the objects come up once the camera has settled
   const placed = await waitFor(() => { const d = __inkwave.match.learn.play.m1.debug(); return d.placed && d.projected.length ? d : null; }, 60, 100);
   for (let i = 0; i < 4; i++) await step(100);
+  // (play-fix: the follow camera's own framing — dampAngle — may still be turning when the objects come up, after a stage
+  // or a typing frame let go of the lens; measure where it comes to rest, and say how long that took)
+  const m1Settle = await settle(30, 100);
   const d = await ev(() => __inkwave.match.learn.play.m1.debug());
+  if (m1Settle >= 5) say('M1: the lens settled after', m1Settle, 'steps');
   check(!!placed && d.projected.length === d.n, `M1: ${d.n} objects placed (${d.banner ? 'banners' : 'balls'})`, d.log && d.log.slice(-4));
   const st = await state();
   const safe = { x: 16, y: st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0, w: st.W - 32, h: st.H - (st.strip ? st.strip.rect[1] + st.strip.rect[3] : 0) };
@@ -326,7 +335,11 @@ async function answerType(s, right) {
   return v && v.verdict;
 }
 async function answerBeat(s, right) {
-  const d0 = s.dbg.station;
+  // (play-fix: the stage's lens springs in from the follow camera — measure the pads where it comes to rest; the first
+  // read at the question's start caught it half way, a pad 45 px under the screen that the screenshot then showed inside)
+  const stSteps = await settle(30, 100);
+  const d0 = await ev(() => __inkwave.match.learn.play.beat.debug());
+  if (stSteps >= 5) say('M3: the lens settled after', stSteps, 'steps');
   const safe = { x: 16, y: s.strip ? s.strip.rect[1] + s.strip.rect[3] : 0, w: s.W - 32, h: s.H - (s.strip ? s.strip.rect[1] + s.strip.rect[3] : 0) };
   check(d0.pads.length === d0.n && d0.pads.every((p) => p.x >= safe.x && p.x <= safe.x + safe.w && p.y >= safe.y && p.y <= safe.y + safe.h), `M3: ${d0.n} pads' centres inside the safe area`, { pads: d0.pads, safe });
   check(s.rigMode === 'path', 'M3: the lens is the stage\'s', s.rigMode);
