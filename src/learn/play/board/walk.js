@@ -16,7 +16,7 @@
 //                                            phones have no stick — the 「自动走」 button walks her on)
 //   W.inZone(pos) → bool
 //   W.questionUp = bool                      a question is up: the strip closes and will not open
-//   W.bandFor = (aspect, W, H) → band | null   play-7: the framing band (frame.js boardBand's shape) when the screen's top
+//   W.bandFor = (aspect, W, H, slab) → band | null   play-7: the framing band (frame.js boardBand's shape) when the screen's top
 //                                            holds more than the default allows for (the boss's HP bar: arena/host.js)
 //   W.tapApi { down(x, y, id) → bool, up(x, y, id, cancel) }   taps on the framed board's hotspots (touch.js G.playTap)
 //   W.on = { speak(text, { slow, onEnd }), framed(i), read(i), more(i), hotspot(id, board, data) }
@@ -118,8 +118,9 @@ export class BoardWalk {
   // the pose that frames board i (world): straight in front of it, the board filling the band
   frameOf(i, aspect, W, H) {
     const L = this.list[i]; if (!L) return null;
-    const band = this.bandFor ? this.bandFor(aspect, W, H) : null;
-    const b = L.b, f = frameBoard({ w: b.w + 0.14, h: b.h + 0.14, bottom: b.bottom - 0.07 }, aspect, band ? { W, H, band } : { W, H });
+    const b = L.b, slab = { w: b.w + 0.14, h: b.h + 0.14, bottom: b.bottom - 0.07 };
+    const band = this.bandFor ? this.bandFor(aspect, W, H, slab) : null;   // (play-9: the board too — landscape.js hudBand)
+    const f = frameBoard(slab, aspect, band ? { W, H, band } : { W, H });
     const s = Math.sin(b.yaw), c = Math.cos(b.yaw), x = b.base.x, y = b.base.y, z = b.base.z;
     const toW = (p, out) => out.set(x + p[0] * c + p[2] * s, y + p[1], z - p[0] * s + p[2] * c);
     return { pos: toW(f.pos, new THREE.Vector3()), look: toW(f.look, new THREE.Vector3()), fov: f.fov, frame: f };

@@ -171,9 +171,11 @@ const linked = (nav, a, b) => { if (a === b) return true; for (const e of nav.no
 // for every sample: how far she can go left and right of the centre line before the grid runs out (an edge, a wall's
 // clearance, a railing — two cells with no walk edge between them —, ground more than `flat` above or below the road's
 // own: a row's curtains stand on one floor). 0 / 0 where the smoothed line itself cuts a corner off the grid.
+// play-9: and what is past each edge — the floor a cell beyond it (edgeL / edgeR: its height, NaN where there is none: the
+// sea, a drop off the grid), so the runner can tell an edge she would fall off from a wall, a railing or a step
 export function clearWidths(nav, T, opts = {}) {
   const maxW = opts.maxW ?? 4.5, res = opts.res ?? 0.25, dy = opts.dy ?? 0.5, flat = opts.flat ?? 0.45;
-  const left = new Float32Array(T.n), right = new Float32Array(T.n);
+  const left = new Float32Array(T.n), right = new Float32Array(T.n), edgeL = new Float32Array(T.n).fill(NaN), edgeR = new Float32Array(T.n).fill(NaN);
   for (let i = 0; i < T.n; i++) {
     const cx = T.x[i], cz = T.z[i], rx = -T.tz[i], rz = T.tx[i];
     const n0 = walkNode(nav, cx, cz, T.y[i], 0.9);
@@ -188,9 +190,12 @@ export function clearWidths(nav, T, opts = {}) {
       }
       // the last walkable sample stands for its cell: half a sample more is still floor
       arr[i] = w > 0 ? Math.min(maxW, w + res / 2) : 0;
+      // (past it: the nearest floor in height in the next cell out — any height; none = a fall)
+      const d1 = w + nav.step * 0.75, past = walkNode(nav, cx + rx * d1 * sgn, cz + rz * d1 * sgn, y0, 8);
+      (sgn > 0 ? edgeR : edgeL)[i] = past < 0 ? NaN : nav.nodes[past].y;
     }
   }
-  return { left, right, maxW };
+  return { left, right, maxW, edgeL, edgeR };
 }
 
 // a row of `lanes` lanes at arc length s: every sample over [s − runIn, s + runOut] must leave lanes × laneW between its
@@ -256,4 +261,23 @@ export function placeRow(T, W, want, lanes, opts = {}) {
 export function roomAt(T, W, s, margin = 0.45) {
   const q = wrapI(T, Math.round(s / T.step));
   return { left: Math.max(0, W.left[q] - margin), right: Math.max(0, W.right[q] - margin) };
+}
+
+// play-9 (LEARN §27 拿不准的 17): the room she keeps from s0 to s1 on a ramp or a stair (the road there more than 0.3 m off
+// yRef, the floor she aims by) whose edge is a fall — nothing past it (the sea; a wall's cell has no floor either), or a
+// floor more than `drop` m under yRef — narrows `out` { left, right } on that side (never widens it). Level road, and a
+// ramp's side with the row's own floor (or higher) past it, are as before: the diagonal into an outer lane may cut across
+// there. The runner steers into an outer lane by the room where a row's run-in starts (wider than the way down to it):
+// off halyard's narrow ramp from the middle deck that steered her into the sea once a lap. (A grid without edge heights —
+// a test's fixture — counts a ramp's edges as falls.)
+export function fallRoom(T, W, s0, s1, yRef, drop, margin, out) {
+  for (let i = Math.round(s0 / T.step), i1 = Math.round(s1 / T.step); i <= i1; i++) {
+    const q = wrapI(T, i);
+    if (Math.abs(T.y[q] - yRef) <= 0.3) continue;   // (level with where she aims: as before — the diagonal's corner is floor)
+    let fl = true, fr = true;
+    if (W.edgeL && W.edgeR) { fl = !(W.edgeL[q] >= yRef - drop); fr = !(W.edgeR[q] >= yRef - drop); }
+    if (fl) out.left = Math.min(out.left, Math.max(0, W.left[q] - margin));
+    if (fr) out.right = Math.min(out.right, Math.max(0, W.right[q] - margin));
+  }
+  return out;
 }

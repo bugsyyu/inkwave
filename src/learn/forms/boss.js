@@ -27,6 +27,7 @@ import { judgeRecord } from '../play/judge.js';   // the one judging path (play-
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
+import { landscapePhone } from '../play/landscape.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const WEAK = ['eyeL', 'eyeR', 'belly'];
@@ -132,7 +133,9 @@ export class BossFlow extends LearnFlow {
       this.clock += dt;
       this.phaseLeft -= dt;
       m.time = Math.max(0.06, this.phaseLeft);   // (the display; the match never calls time itself)
-      const txt = `${g.phase} ${g.zh} · ${fmtClock(this.phaseLeft)}`;
+      // (play-9: a landscape phone's top row is the clock between the HP bar and the phase strip — there the clock names
+      // the phase by its first word, as the phase strip does: 「R 阅读 · 13:20」, not 「R 阅读 · 词汇 · 语法 · 13:20」)
+      const txt = `${g.phase} ${landscapePhone() ? g._zh1 || (g._zh1 = String(g.zh || '').split(' · ')[0]) : g.zh} · ${fmtClock(this.phaseLeft)}`;
       if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
       if (this.phaseLeft <= 0) { this._phaseDone(g, 'time'); return; }
     }

@@ -53,6 +53,7 @@ export class RunnerCam {
     this.lift = new Spring(0); this.liftHold = 0; this.occl = { frames: 0, blocked: 0, still: 0 };   // the crane-up over a prop
     this.tilt = 0;   // m the look point is raised to bring a row out from under the strip
     this._poseObj = null; this.tr = null; this._trP = new THREE.Vector3(); this._trL = new THREE.Vector3(); this._trF = 52;   // a pose → pose hand-over
+    this._trA = new THREE.Vector3(); this._trQ = new THREE.Vector3(); this._trR = new THREE.Vector3();   // (play-9: … carried along with her)
   }
   // take the lens from the rig: from wherever the camera is now (the intro's fly-in ends behind her)
   take(rig) {
@@ -152,12 +153,16 @@ export class RunnerCam {
       // another pose while one is (still) weighed in: ease from where the last one had the lens, never a cut
       // (or the same pose re-framed in a jump — the strip changed height under the typing frame: > 0.6 m in a frame)
       const jumped = pose === this._poseObj && this._lpp && this._lpp.distanceToSquared(pose.pos) > 0.36;
-      if ((pose !== this._poseObj || jumped) && this.ow.x > 0.02) { this._trP.copy(this.ov.pos); this._trL.copy(this.ov.look); this._trF = this.ov.fov; this.tr = { t: 0 }; }
+      if ((pose !== this._poseObj || jumped) && this.ow.x > 0.02) { this._trP.copy(this.ov.pos); this._trL.copy(this.ov.look); this._trF = this.ov.fov; this._trA.copy(a.pos); this.tr = { t: 0 }; }
       this._poseObj = pose; (this._lpp || (this._lpp = new THREE.Vector3())).copy(pose.pos);
       this.ov.pos.copy(pose.pos); this.ov.look.copy(pose.look); this.ov.fov = pose.fov || want;
       if (this.tr) {
         this.tr.t += dt; const k = smoothstep(0, 1, this.tr.t / 0.8);
-        this.ov.pos.lerpVectors(this._trP, pose.pos, k); this.ov.look.lerpVectors(this._trL, pose.look, k); this.ov.fov = this._trF + (this.ov.fov - this._trF) * k;
+        // (play-9: the pose it eases from moves on with her — she swims on through the hand-over; held where it was in the
+        // world, it left the lens behind: the typing frame re-framed for a taller strip (the hint) saw the rig slide up
+        // under the strip and off to a side for the 0.8 s — LEARN §27 没做的 3)
+        this._trQ.copy(this._trP).add(a.pos).sub(this._trA); this._trR.copy(this._trL).add(a.pos).sub(this._trA);
+        this.ov.pos.lerpVectors(this._trQ, pose.pos, k); this.ov.look.lerpVectors(this._trR, pose.look, k); this.ov.fov = this._trF + (this.ov.fov - this._trF) * k;
         if (k >= 1) this.tr = null;
       }
     } else { this._poseObj = null; this.tr = null; }

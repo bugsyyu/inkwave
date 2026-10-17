@@ -311,7 +311,10 @@ for (const viewName of VIEWS_WANT) { try {
       // ≥ 17 px, off both pads, and nothing at the top over anything: the strip, the clock, the boss's bar and phase strip,
       // the typewriter's box. (The real keycaps and the sheet as it stands: on the screen, off the pads.)
       const lc = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); const T = __inkwave.match.learn.arena.type; return M.typeCheck({ root: T.shot.rig.root, camera: __G.camera, keys: T.keys }); });
-      report.land = report.land || []; report.land.push({ label, ...lc });
+      // (play-9: the frame it was posed for beside what the live camera shows — the column then and now, the hull's yaw
+      // and the question's, the lens's distance from the pose and its field of view — for a rig standing off its column)
+      const plan = await ev(() => { const T = __inkwave.match.learn.arena.type, C = T.cur, P = C && C.pose, cam = __G.camera, K = T.keys && T.keys.rect ? T.keys.rect() : null; return P ? { px: P.f && P.f.px, key: P.f && P.f.key, region: P.region, fovPose: P.fov, fovCam: +cam.fov.toFixed(2), dCam: +cam.position.distanceTo(P.pos).toFixed(3), hull: +T.shot.rig.hullYaw.toFixed(3), yaw: +C.yaw.toFixed(3), herYaw: +__inkwave.match.local.yaw.toFixed(3), mid: K && K.mid, mode: C.mode } : null; });
+      report.land = report.land || []; report.land.push({ label, ...lc, plan });
       check(lc.split, `${label} landscape: the game keyboard is split (column ${lc.mid ? lc.mid.x0 + '–' + lc.mid.x1 : '—'})`, lc);
       check(lc.h >= 240, `${label} landscape: the typewriter is ${lc.h} px tall (≥ 240; ${lc.rig.join('–')} × ${lc.xs.join('–')})`, lc);
       check(lc.glyph >= 17, `${label} landscape: a typed letter is ${lc.glyph} px (≥ 17)`, lc);
@@ -379,6 +382,10 @@ for (const viewName of VIEWS_WANT) { try {
       return { framed: Wk.framed, board: r(board), rects: Object.fromEntries(Object.entries(R).map(([k, v]) => [k, r(v)])), over: Object.keys(R).filter((k) => hit(board, R[k])) };
     });
     report.booth = bo;
+    // play-9: the board's smallest text with the live camera — ≥ 17 px on a landscape phone too (the band under the top row)
+    const bf = await ev(async () => { const M = await import(new URL('tools/learn/land-measure.js', location.href).href); return M.boardFont({ walk: __inkwave.match.learn.arena.echo.echo.walk, camera: __G.camera }); });
+    (report.boardFonts = report.boardFonts || []).push({ label, ...bf });
+    check(bf.framed >= 0 && bf.font >= 17, `${label}: the booth's board reads at ${bf.font} px (≥ 17; face ${bf.face}, band top ${bf.band && bf.band.top})`, bf);
     const tagsOff = await ev(() => { const L = document.querySelector('.iw-mks'); return { yield: !!(L && L.classList.contains('is-yield')), shown: [...document.querySelectorAll('.iw-mk')].filter((el) => el.style.display !== 'none' && +getComputedStyle(el).opacity > 0.05).length }; });
     check(tagsOff.yield && tagsOff.shown === 0, `${label}: the squad's name tags (and the arrows to them) step aside while the booth's board is framed`, tagsOff);
     if (V.w > V.h || FORM === 'boss') check(bo.framed >= 0 && bo.over.length === 0, `${label}: the booth's board (${bo.board}) clear of the clock / the boss's bar / its phase strip (${JSON.stringify(bo.rects)})`, bo);
@@ -425,6 +432,22 @@ for (const viewName of VIEWS_WANT) { try {
       });
       (report.tops = report.tops || []).push({ label, ...top });
       check(top.over.length === 0, `${label}: strip / clock / boss bar / phase strip clear of each other (${JSON.stringify(top.R)})`, top.over);
+      // play-9 (LEARN §27 已知坑 ⑦): the boss's clock as wide as it gets — the longest phase name in full, as play-8 saw it
+      // (213 px) — the HP bar and the phase strip still clear of it (landscape.js: --iw-clock-half), once per view
+      if (FORM === 'boss' && V.w > V.h && !report.wideClock) {
+        const wide = await ev(async () => {
+          const el = __G.hud && __G.hud.timerTxt; if (!el) return null;
+          const was = el.textContent; el.textContent = 'R 阅读 · 词汇 · 语法 · 13:20';
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));   // (the ResizeObserver's turn)
+          const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width > 0 ? { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } : null; };
+          const R = { clock: box('.iw-hud__top .iw-timer'), bar: box('.iw-bb:not(.is-off)'), phase: box('.iw-lf:not(.is-off) .iw-lf__phase') };
+          const hit = (a, q) => a && q && a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
+          el.textContent = was;
+          return { R, half: getComputedStyle(document.documentElement).getPropertyValue('--iw-clock-half'), over: ['bar', 'phase'].filter((k) => hit(R.clock, R[k])), onScreen: !!(R.bar && R.bar.x >= 0 && R.phase && R.phase.x + R.phase.w <= innerWidth) };
+        });
+        report.wideClock = wide;
+        check(!!wide && wide.over.length === 0 && wide.onScreen, `${label}: the boss's clock at its widest (${wide && wide.R.clock && wide.R.clock.w} px) — the HP bar and the phase strip clear of it, on the screen (${JSON.stringify(wide && wide.R)})`, wide);
+      }
     }
     if (FORM === 'boss') check(s.bossMove === null, `${label}: the boss is between moves while she answers`);
     const before = s.answers.length, inks = s.inks, hps = s.hps;
@@ -463,6 +486,11 @@ for (const viewName of VIEWS_WANT) { try {
   if (FULL && !report.resume) for (let i = 0; i < 400; i++) { const done = await ev(() => !!document.querySelector('.iw-learn.is-done')); if (done) break; await step(250); }
   const end = await ev(() => { const F = __inkwave.match.learn; return { phase: F.phase, round: F.round, results: !!document.querySelector('.iw-learn.is-done'), resultsText: ((document.querySelector('.iw-learn__results') || {}).innerText || '').slice(0, 400), answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), log: F.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '')).slice(-30).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), fps: __inkwave.fps }; });
   report.end = end; report.seen = seen; report.fails = fails; report.badResponses = bad; report.errors = errs;
+  // play-9 (LEARN §27 已知坑 ⑥): every tap-shot of the run — the rounds that left her muzzle for each answered M1 / M5
+  // question (one = the first landed; the audit taps again after 1.8 s, so a miss shows as a second round)
+  const shots = await ev(() => { const H = __inkwave.match.learn.arena, L = (H && H.m1 && H.m1.log) || [], out = { asks: 0, answers: 0, fires: 0, extra: 0, misses: [] }; let cur = null; for (const e of L) { if (e.ev === 'ask') { out.asks++; cur = { item: e.item, fires: 0 }; } else if (e.ev === 'fire' && e.tagged && cur) { cur.fires++; out.fires++; } else if (e.ev === 'answer' && cur) { out.answers++; if (cur.fires > 1) { out.extra += cur.fires - 1; out.misses.push([cur.item, cur.fires]); } cur = null; } } return out; });
+  report.shots = shots;
+  if (shots.answers) check(shots.extra === 0, `every tap-shot landed with its first round (${shots.answers} answered with ${shots.fires} rounds)`, shots.misses);
   say('end', JSON.stringify({ seen, end: { ...end, evidence: undefined, answers: end.answers.length } }));
   check(n >= 1, `questions answered: ${n}`);
   if (FULL && !report.resume) check(end.results, 'the whole match ran to the results card', end.phase);

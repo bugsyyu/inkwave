@@ -41,6 +41,7 @@ export class ArenaRun extends PlayRun {
     this.anchorOf = opts.anchor || null; this.bossOf = opts.boss || null;
     this._qAtlas = null;
     this.team = opts.team | 0; this.edges = !!opts.edges; this.settle = !!opts.settle;
+    this._live = null;   // (play-9: the tap-shot's round in flight, steered onto its ball — _steer)
     if (this.team && G.teamColors[this.team]) { this.ink.copy(G.teamColors[this.team]); this.T.setInk(this.ink); this.strip?.setInk(G.teamHex?.[this.team]); }
     // her tap-shot flies to the object she tapped: on the crowded weak points (and in a cluster seen from her muzzle, lower
     // than the lens) another option's ball can stand on its way — it never eats that round (only its own target may)
@@ -255,6 +256,7 @@ export class ArenaRun extends PlayRun {
     }
     if (!C.placed) return;
     if (C.cluster === 'boss') { this._ride(); this._track(dt); } else this._orbit();
+    this._steer();
   }
   // the boss's balls ride a walking, turning boss: while the question is up and she has not looked round herself, the
   // follow camera keeps easing (dampAngle on the rig's own yaw / pitch, as the framing does) towards their middle — her
@@ -280,6 +282,27 @@ export class ArenaRun extends PlayRun {
     super._fire(k);
     const p = P && P.list.length > n0 ? P.list[n0] : null;
     if (p && p.playTag) { if (!this.tagged || this.tagged.size > 32) this.tagged = new Map(); this.tagged.set(p.prev, p); }
+    this._live = p && p.playTag ? { p, tag: p.playTag, k } : null;
+  }
+  // play-9 (LEARN §24 拿不准的 11, §27 已知坑 ⑥: a first tap-shot at a weak point often flew wide): while a question is up
+  // the boss's brain only holds its MOVES (bossHold) — it keeps walking and turning (bossBrain._idle → _walk: 2.9 m/s,
+  // 1.25 rad/s), and the balls ride its sockets ~2–3 m off its middle, so a ball moves 3–5 m/s; the round was aimed where
+  // the ball was when it left her muzzle and took 0.3–0.5 s to get there. Now the tapped round is steered every frame,
+  // before the projectiles step, onto where its own ball will be (steerRound: the boss's walk and turn as the lead) — it
+  // still has to meet the ball (the boss's exact sphere test, hit.js); it is never steered at anything else, and never once
+  // the question is answered, closed or replaced (a new serial: reg.through) or the round is gone (a pooled round's
+  // playTag is reset on reuse). The duel's cluster turns round its anchor with the camera: the same, without a lead.
+  _steer() {
+    const L = this._live; if (!L) return;
+    const C = this.cur, p = L.p;
+    if (!C || C.answered || !C.placed || p.playTag !== L.tag || !this.reg.through(p) || !this.T.n) { this._live = null; return; }
+    this.T.centre(L.k, _o);
+    let lead = null;
+    if (C.cluster === 'boss') {
+      const b = this.bossOf && this.bossOf();
+      if (b && b.vel) { const w = b.turn || 0, ox = _o.x - b.pos.x, oz = _o.z - b.pos.z; lead = _lead.set(b.vel.x + w * oz, 0, b.vel.z - w * ox); }
+    }
+    if (!steerRound(p, _o, lead)) this._live = null;
   }
   passes(prev) { const p = this.tagged && this.tagged.get(prev); return !!(p && G.playTargets === this.reg && this.reg.through(p)); }
   // the duel's cluster: its objects back in the world round the anchor, in the camera's basis as it is now
@@ -375,6 +398,25 @@ export class ArenaRun extends PlayRun {
   dispose() { if (this._qAtlas) { this.T.freeAtlas(this._qAtlas); this._qAtlas = null; } super.dispose(); }
 }
 const NEUTRAL = new THREE.Color('#a39db8');
+const _lead = new THREE.Vector3();
+
+// play-9: one frame of steering for a tagged round (p: weapons.js's round — pos, vel, age, straight, grav) onto a ball whose
+// centre is c now and which moves at v (m/s, or null): the velocity that meets it after T = distance / the round's speed,
+// T refined twice against the ball's lead, with the drop its gravity still has to come (none in its straight phase) put
+// back into the climb. Drag is left to the next frame's correction. Pure (Node-tested); writes p.vel only; false when the
+// round is already past the ball (nothing to steer) or not moving.
+export function steerRound(p, c, v = null) {
+  const sp = Math.hypot(p.vel.x, p.vel.y, p.vel.z); if (!(sp > 1)) return false;
+  let tx = c.x, ty = c.y, tz = c.z;
+  let T = Math.hypot(tx - p.pos.x, ty - p.pos.y, tz - p.pos.z) / sp;
+  if (v) for (let i = 0; i < 2; i++) { tx = c.x + v.x * T; ty = c.y + v.y * T; tz = c.z + v.z * T; T = Math.hypot(tx - p.pos.x, ty - p.pos.y, tz - p.pos.z) / sp; }
+  const dx = tx - p.pos.x, dy = ty - p.pos.y, dz = tz - p.pos.z;
+  if (dx * p.vel.x + dy * p.vel.y + dz * p.vel.z <= 0) return false;   // (past it)
+  T = Math.max(T, 1 / 240);
+  const fall = Math.max(0, T - Math.max(0, (p.straight || 0) - (p.age || 0)));
+  p.vel.set(dx / T, (dy + 0.5 * (p.grav || 0) * fall * fall) / T, dz / T);
+  return true;
+}
 
 // The weak points sit close (the eyes 1.3 m apart, the cannon between and under them): a ball the size a label needs at
 // 15 m (≈ 1.1 m) on each would overlap its neighbour and hide its label. So the balls keep their sockets' heights and are

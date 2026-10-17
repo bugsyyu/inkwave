@@ -33,7 +33,7 @@ import { judgeRecord } from '../judge.js';   // the one judging path (play-8)
 import { store } from '../../api.js';
 import { EFFECTS } from '../../design.js';
 import { laneCenters, dividerStart, laneOf, nextLane, readLead, leadDistance, beatGrid, onBeat, beatPulse, syncTide } from './lanes.js';
-import { buildTrack, straighten, clearWidths, placeRow, roomAt, project, at, rawAt } from './track.js';
+import { buildTrack, straighten, clearWidths, placeRow, roomAt, fallRoom, project, at, rawAt } from './track.js';
 import { detourBranch, branchLine, branchAt } from './detour.js';
 import { entriesOf, rowPrompt, rowLabels, labelText, isBanner, rowLanes, rightLane, planCourse } from './rows.js';
 import { RowView, HerMark } from './view.js';
@@ -47,7 +47,7 @@ import { PlayStrip } from '../../../ui/play-strip.js';   // play-1's question st
 import { say, stop as stopVoice } from '../../audio.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
-const _p = {}, _q = {}, _pr = {};
+const _p = {}, _q = {}, _pr = {}, _room = { left: 0, right: 0 }, _ry = {};
 const TAGS = ['A', 'B', 'C', 'D'];
 const FAR = new THREE.Vector3(1e6, 0, 1e6);
 
@@ -166,6 +166,7 @@ export class RunnerFlow extends RaceFlow {
   }
 
   _respawned(a) {   // the sea (the only way to be splatted here): back on the road where she left it
+    this.seaN = (this.seaN || 0) + 1;   // (play-9: how often — debug().sea; the audits count it)
     at(this.T, this.lastGoodS - 3, _p);
     a.pos.set(_p.x, _p.y + 0.6, _p.z); a.vel.set(0, 0, 0); a.yaw = a.aimYaw = Math.atan2(_p.tx, _p.tz);
     a.character.root.position.copy(a.pos);
@@ -447,10 +448,11 @@ export class RunnerFlow extends RaceFlow {
     say(text, { slow: !!o.slow, onEnd: () => this.strip.playing(false) });
   }
   // the strip's bottom edge as a share of the screen height, or null when it is hidden — read off the DOM at most every
-  // 0.4 s of game time (a layout read every frame after the lane cells' class changes would force a reflow a frame)
-  stripBottom() {
+  // 0.4 s of game time (a layout read every frame after the lane cells' class changes would force a reflow a frame);
+  // fresh: read it now (play-9: the strip has just changed height — the 滑行段's hint line)
+  stripBottom(fresh = false) {
     const now = G.time || 0;
-    if (this._sbT == null || now - this._sbT > 0.4 || now < this._sbT) {
+    if (fresh || this._sbT == null || now - this._sbT > 0.4 || now < this._sbT) {
       this._sbT = now;
       const r = this.strip.rect(), Hh = typeof innerHeight !== 'undefined' ? innerHeight : 0;
       this._sb = r && Hh ? r.bottom / Hh : null;
@@ -801,6 +803,12 @@ export class RunnerFlow extends RaceFlow {
     if (row && row.centers && this.sNow >= row.s - this.RR.runIn - 6 && s < row.s - this.RR.runIn) sr = row.s - this.RR.runIn;
     const r = roomAt(this.T, this.W, sr, 0.45);
     let lo = -r.left, hi = r.right;
+    // (play-9: … but never over an edge she would fall off on the way there: from where she is to where she aims, wherever
+    // past the road's edge is no floor or one more than 0.5 m under the floor she aims by, the road's own room holds on
+    // that side — halyard's way down from the middle deck into a three-lane row put her in the sea once a lap, LEARN §27
+    // 拿不准的 17)
+    _room.left = r.left; _room.right = r.right;
+    fallRoom(this.T, this.W, Math.min(this.sNow, s), s, at(this.T, sr, _ry).y, 0.5, 0.45, _room); lo = -_room.left; hi = _room.right;
     if (row && row.centers && s >= row.sAppear - 2 && s <= row.s + 1.5) {
       // inside the row's lane band — unless the road is narrower than the band here (a ramp up a deck in the row's
       // reading zone, halyard): then the road wins. (It used to put her on the first lane's line, off the ramp against
@@ -940,7 +948,7 @@ export class RunnerFlow extends RaceFlow {
   debug() {
     const a = this.match.local, row = this._shown();
     return {
-      form: 'runner', phase: this.phase, started: this.started, paused: this.match.paused, cur: this.cur, gates: this.gates.length,
+      form: 'runner', phase: this.phase, started: this.started, paused: this.match.paused, cur: this.cur, gates: this.gates.length, sea: this.seaN || 0,
       s: +this.sNow.toFixed(2), d: +this.dNow.toFixed(2), lat: +this.latT.toFixed(2), swimK: +this.swimK.toFixed(3), tide: +this.tideK.toFixed(3),
       speed: a ? +Math.hypot(a.vel.x, a.vel.z).toFixed(2) : 0, submerged: !!(a && a.submerged), form_: a ? a.form : null, grounded: !!(a && a.grounded),
       lap: +this.T.len.toFixed(1), laps: this.laps, lapsPlan: this.lapsPlan, finishS: this.finish ? +this.finish.s.toFixed(1) : null,

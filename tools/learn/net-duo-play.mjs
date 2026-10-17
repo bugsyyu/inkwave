@@ -36,6 +36,8 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const MODE = opt('mode', 'versus2'), WEEK = +opt('week', 1), DAY = +opt('day', 1), MAP = opt('map', 'tidewater');
 const VIEW = opt('view', 'portrait'), PLAY = true, SHOTS = opt('shots', null), BUDGET = +opt('budget', 176) * 1000;
+// play-9: --full — the whole lesson (not the short one): the same per-question checks on every question, to the results
+const FULL = args.includes('--full');
 const [W, H] = VIEW === 'landscape' ? [844, 390] : [390, 844];
 // coop2: the audit's hand puts each squidkid on its own pad at a gate (as the auto-walk ends there — B's walk is not what
 // is measured, and a 3-minute run has no room for it); --walk lets the auto-walk take them
@@ -129,10 +131,10 @@ try {
   const both = (fn, a) => Promise.all([0, 1].map((i) => ev(i, fn, a)));
 
   // ---- the room: create (host = c0), the mode and the short lesson, join, ready, start
-  const code = await ev(0, async ([mode, week, day, map]) => { const c = await __G.net.create('Ann'); __G.net.setSettings({ mode, map, bots: false, learn: { week, day, short: true } }); return c; }, [MODE, WEEK, DAY, MAP]);
+  const code = await ev(0, async ([mode, week, day, map, full]) => { const c = await __G.net.create('Ann'); __G.net.setSettings({ mode, map, bots: false, learn: { week, day, short: !full } }); return c; }, [MODE, WEEK, DAY, MAP, FULL]);
   await ev(1, async (c) => { await __G.net.join(c, 'Bo'); }, code);
   await pages[0].waitForFunction(() => __G.net.lobby.players.length === 2, null, { timeout: 30000, polling: 100 });
-  await pages[1].waitForFunction((m) => __G.net.lobby.mode === m && __G.net.lobby.learn && __G.net.lobby.learn.short, MODE, { timeout: 30000, polling: 100 });
+  await pages[1].waitForFunction(([m, full]) => __G.net.lobby.mode === m && __G.net.lobby.learn && !!__G.net.lobby.learn.short === !full, [MODE, FULL], { timeout: 30000, polling: 100 });
   await ev(1, () => __G.net.setMe({ ready: true }));
   await pages[0].waitForFunction(() => __G.net.canStart(), null, { timeout: 30000, polling: 100 });
   const lob = await both(() => ({ id: __G.net.myId, code: __G.net.code, mode: __G.net.lobby.mode, learn: __G.net.lobby.learn }));
@@ -367,7 +369,9 @@ async function driveVersusPlay(H) {
   check('question 2: the host inked (right at once; the guest wrong)', (inks[0].find((s) => s.startsWith('ink@2:')) || '') === 'ink@2:' + R.ids[0], JSON.stringify(inks[0]));
   check('flood: the zone shares moved on both screens and agree', V.every((v) => v.zone && v.zone.share[0][0] + v.zone.share[0][1] > 0) && Math.abs(V[0].zone.share[0][0] - V[1].zone.share[0][0]) < 0.05 && Math.abs(V[0].zone.share[0][1] - V[1].zone.share[0][1]) < 0.05, JSON.stringify(V.map((v) => v.zone)));
   const firsts = V.map((v) => (v.log.match(/answer[+-]\*@\d+/g) || []).length);
-  check('evidence: each player\'s first answers once each, in their own store', firsts.every((n) => n === 2) && ST.every((s) => s.length >= 2), JSON.stringify({ firsts, store: ST }));
+  // (the short lesson: two questions, two first answers each; a whole one (--full): every first answer one leaf in her own store)
+  check('evidence: each player\'s first answers once each, in their own store', FULL ? firsts.every((n, i) => n >= 2 && n === new Set(ST[i]).size) : firsts.every((n) => n === 2) && ST.every((s) => s.length >= 2), JSON.stringify({ firsts, store: FULL ? ST.map((s) => s.length) : ST }));
+  if (FULL) R.full = { questions: R.questions.length, firsts };
   check('results: INKWAVE\'s results screen with the answers strip on both', V.every((v) => v.results && v.strip2 && /双人联机赛/.test(v.strip2)), JSON.stringify(V.map((v) => v.strip2)));
   if (V.every((v) => v.results)) mark('results');
 }

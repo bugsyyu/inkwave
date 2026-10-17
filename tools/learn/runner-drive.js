@@ -338,6 +338,7 @@
   if (S.inv.breaks.length) S.errors.push('PLAY §1 rule 1 broken while she played: ' + JSON.stringify(S.inv.breaks.slice(0, 3)));
   const out = { resultsShown, boot: S.boot, camHandover: S.camHandover, boards: S.boards || 0, rows: S.rows, glides: S.glides, boardStretches: S.boardRecs, checks: S.checks.length, crosshairShown: xhAny, firstsOnce: !twice.length, typeLensBlocked: S.blockedTypes || 0, checkSample: S.checks.slice(0, 3), errors: S.errors, wallMs: Date.now() - S.t0 };
   out.final = Fl && Fl.debug ? Fl.debug() : null;
+  out.sea = Fl ? Fl.seaN || 0 : null;   // (play-9: how often she went into the sea this segment — halyard's ramp row, LEARN §27 拿不准的 17)
   out.log = Fl ? Fl.log.map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.beat ? '♪' : '')).join(' ') : null;
   out.results = (document.querySelector('.iw-learn__results') || {}).innerText || null;
   out.cov = G.paint ? G.paint.coverage().map((c) => +c.toFixed(4)) : null;
