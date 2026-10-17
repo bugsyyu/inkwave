@@ -20,10 +20,10 @@ const files = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1
 const [, wk, dy] = LEARN_Q.match(/^w(\d+)d(\d+)$/).map(Number);
 const W = await loadWeek(wk);
 const byId = new Map(); for (const d of W.days) for (const st of daySteps(W, d.n)) for (const it of st.items) byId.set(it.id, it);
-const scored = (it) => { const x = byId.get(it.id) || it; return !!(x.meta && x.meta.scored); };
+const scored = (it) => { if (it._spoken) return false; const x = byId.get(it.id) || it; return !!(x.meta && x.meta.scored); };
 // the gates as the form sees them (1-based --gate N is gates[N - 1]; past the last gate, the write wall's sentences)
 let gates;
-if (FORM === 'boss') gates = bossPlan(W).phases.map((ph) => ({ id: ph.id, items: ph.items }));
+if (FORM === 'boss') gates = bossPlan(W).phases.map((ph) => ({ id: ph.id, items: ph.id === 'S' ? ph.items.map((it) => ({ ...it, _spoken: true })) : ph.items }));   // (S: read aloud in the 回声亭 — not scored there)
 else {
   const L = planDay(W, dy, FORM === 'quiz' ? 'duel' : FORM);
   gates = L.gates.map((g) => ({ id: g.id, items: g.items }));

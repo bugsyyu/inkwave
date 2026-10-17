@@ -35,8 +35,10 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-// (--full steps without drawing — see wire-audit.mjs; --render draws every step)
-const FAST = args.includes('--full') && !args.includes('--render');
+// (--full steps without drawing — see wire-audit.mjs; --render draws every step. Not the boss: its balls ride the
+// walking boss's sockets, whose world matrices the drawing brings up to date frame by frame — stepped without it, the
+// balls lag the boss by a whole step and a tap at where they were drawn misses: play-8's first whole 周考)
+const FAST = args.includes('--full') && !args.includes('--render') && opt('form', 'duel') !== 'boss';
 const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
 const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
@@ -216,6 +218,7 @@ for (const viewName of VIEWS_WANT) { try {
     // play-7: the duel's objects up → the name tags over the bots step aside (hud.markerYield): every tag on the screen is
     // see-through, and none of them sits on an object's label (LEARN §24 已知坑 3)
     if (FORM !== 'boss') {
+      if (FAST) await sleep(350);   // (the tags fade on a CSS transition — .2 s of wall time; stepping without drawing gets here sooner)
       const tg = await ev((boxes) => {
         const L = document.querySelector('.iw-mks'), out = [];
         for (const el of document.querySelectorAll('.iw-mk')) { if (el.style.display === 'none') continue; const t = el.querySelector('.iw-mk__tag'), r = t && t.getBoundingClientRect(); if (!r || !r.width) continue; out.push({ name: el.querySelector('.iw-mk__tag b').textContent, off: el.classList.contains('is-off'), op: +getComputedStyle(el).opacity, rect: [r.left, r.top, r.width, r.height].map(Math.round), onLabel: boxes.some((b) => r.left < b.x + b.w && b.x < r.right && r.top < b.y + b.h && b.y < r.bottom) }); }
@@ -441,11 +444,12 @@ for (const viewName of VIEWS_WANT) { try {
     for (let i = 0; i < 8; i++) await step(100);
     if (n >= MAXQ) break;
     // (a whole match in segments: past the segment's wall clock, stop at this question boundary — the next segment
-    // starts at this round / phase, after its first items already answered right, in order; never in the last round)
+    // starts at this round / phase, after its first items already answered right, in order; never in the 回炉 round —
+    // the last round of a whole duel day is 25 words: it must be able to stop there too)
     if (SEGMENT && Date.now() - T0 > SEGMENT) {
       // (a round that is over — its gate open, the pause after it, every item of it answered — resumes at the next one:
       // never a finished round replayed, never a gate with nothing in it)
-      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || k >= F.gates.length - 1 || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; const base = Math.max(1, G0) + k; if (g.state === 'open' || F.phase === 'between' || done >= g.items.length) { const n = F.gates[k + 1]; return n && !n._relearnGate ? { gate: base + 1, skip: 0, of: n.items.length, title: n.title || n.phase } : null; } return { gate: base, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
+      const r = await ev(([G0, K0, boss]) => { const F = __inkwave.match.learn, k = boss ? F.pi : F.round, g = F.gates[k]; if (!g || g._relearnGate || F.phase === 'done') return null; let done = 0; while (done < g.items.length && (F.right.has(g.items[done].id) || !(g.items[done].meta && g.items[done].meta.scored))) done++; const base = Math.max(1, G0) + k; if (g.state === 'open' || F.phase === 'between' || done >= g.items.length) { const n = F.gates[k + 1]; return n && !n._relearnGate ? { gate: base + 1, skip: 0, of: n.items.length, title: n.title || n.phase } : null; } return { gate: base, skip: (k === 0 ? K0 : 0) + done, of: (k === 0 ? K0 : 0) + g.items.length, title: g.title || g.phase }; }, [GATE, SKIPN, FORM === 'boss']);
       if (r) { report.resume = r; say('segment over: resume at', JSON.stringify(r)); break; }
     }
   } } catch (e) { check(false, 'driver error', String(e && e.message || e) + ' ' + String(e && e.stack || '').split('\n').slice(1, 3).join(' | ')); }
