@@ -22,7 +22,7 @@ import { zonePlan } from '../../game/bots.js';
 import { LearnFlow } from '../flow.js';
 import { prompt, store } from '../api.js';
 import { BOT_ANSWER, EFFECTS } from '../design.js';
-import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, relearnTip, cardFor } from './common.js';
+import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writeStars, fmtClock, rightAnswerOf, relearnTip, cardFor, carryLeft } from './common.js';
 import { gateSpecs } from '../play/wire/boards.js';   // the step's M6 boards (the 备战 between rounds, play-8)
 import { noteSpec } from '../play/board/paint.js';
 import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
@@ -111,6 +111,7 @@ export class DuelFlow extends LearnFlow {
   // what the 备战 boards say: the step's own boards (words / sounds / the lesson / the passage — the puzzle's gateSpecs),
   // else a note — the 今日小考 (what it is, that it is optional), the 回炉 round (what comes back), a step with no board
   _prepSpecs(g) {
+    if (g._restGate) return [noteSpec('剩下的题', `上一轮没问到的 ${g.items.length} 个再来一轮：${g.items.map((it) => (it.en.length > 48 ? it.zh : it.en)).join('、')}`, '再一轮')];
     if (g._relearnGate) return [noteSpec('回炉门', `错过的 ${g.items.length} 个再来一次：${g.items.map((it) => (it.en.length > 48 ? it.zh : it.en)).join('、')}`, '回炉 · 再来一次')];
     if (this.level.quiz) return [noteSpec('今日小考 · 傍晚一轮对抗赛', `${g.items.length} 题：今天学的、到期的、答错过的。答对一题，区域里最缺墨的那块涂成你的颜色。可做可不做；今天第一次答的照样记进进度，课上答过的再答只算练习。`, '今日小考')];
     let specs = []; try { specs = gateSpecs(g, this.level); } catch (e) { specs = []; }
@@ -118,7 +119,7 @@ export class DuelFlow extends LearnFlow {
   }
   _showPrep(g) {
     this._prepShown = true;
-    const head = g._relearnGate ? '回炉门 · 最后一轮' : this.level.quiz ? '今日小考' : `备战 · 第 ${this.round + 1} / ${this.gates.length} 轮`;
+    const head = g._relearnGate ? '回炉门 · 最后一轮' : g._restGate ? '剩下的题 · 再一轮' : this.level.quiz ? '今日小考' : `备战 · 第 ${this.round + 1} / ${this.gates.length} 轮`;
     const go = g._relearnGate ? '开始回炉' : this.level.quiz ? '开始小考' : this.round === 0 ? '开始第 1 轮' : '开始这一轮';
     if (this.arena) this.arena.showPrep(this._prepSpecs(g), { head, go, onGo: () => this._roundStart() });
     else this._roundStart();
@@ -170,6 +171,9 @@ export class DuelFlow extends LearnFlow {
     setTimeout(() => G.audio?.play?.(E[1], { volume: 0.6 }), 500);
     setTimeout(() => { G.audio?.play?.(E[2], { volume: 0.7 }); G.hud?.banner?.('custom', winner === 0 ? '这一轮：我们赢了！' : winner === 1 ? '这一轮：对面先数完，没关系' : '这一轮：打平'); }, 1300);
     this.ui.say(`第 ${this.round + 1} 轮 · 我们 ${res.counts[0]} / 对面 ${res.counts[1]}`, { hold: 1 });
+    // a round the zone count ended early: its unasked items go to the front of the next round, or make a round of their own
+    // after the last one (forms/common.js carryLeft) — every item of the day is asked at least once
+    carryLeft(this.gates, this.round, g.queue.splice(0));
     // after the last gate: the 回炉 round when something was missed, then the results
     if (this.round === this.gates.length - 1 && this.relearn.length && !this.relearnAsked) {
       this.relearnAsked = true;

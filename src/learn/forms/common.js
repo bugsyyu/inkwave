@@ -316,3 +316,18 @@ export function shortenBoss(plan, perPhase = 2) {
   return { ...plan, short: true, phases: plan.phases.map((p) => ({ ...p, short: true, items: p.items.slice(0, perPhase), hitPerRight: p.hitPerRight > 0 ? +((p.hp[0] - p.hp[1]) / Math.max(1, Math.min(perPhase, p.items.length))).toFixed(4) : 0 })) };
 }
 export function fmtClock(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+// The duel's rounds (duel.js): a round the zone count ends early leaves its unasked items behind — they are not lost
+// (LEARN §27 拿不准的 18: ten of a day's 55 words never came up): they go to the front of the next round (whose label atlas
+// is drawn at its prep from its items, so its items get them too), and after the last round they make one more round of
+// their own (gate:rest), so every item of the day is asked at least once. The rest round's own leftovers are let go (no
+// chain), and so are a 回炉 round's; the 回炉 round still follows the rest round.
+export function carryLeft(gates, round, left) {
+  if (!left || !left.length) return null;
+  const g = gates[round], next = gates[round + 1];
+  if (next) { next.queue.unshift(...left); next.items = [...left, ...next.items]; return next; }
+  if (!g || g._restGate || g._relearnGate) return null;
+  const rest = { id: 'gate:rest', title: '剩下的题', index: gates.length, pathIndex: 0, node: -1, pos: g.pos && g.pos.clone ? g.pos.clone() : g.pos, state: 'locked', locks: 0, items: left, queue: left, minutes: g.minutes, _restGate: true };
+  gates.push(rest);
+  return rest;
+}

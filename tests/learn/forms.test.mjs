@@ -13,7 +13,7 @@ import { planDay, bossPlan, PROP_DROP, BOT_ANSWER, PROPS } from '../../src/learn
 import { LEARN, OFFLINE_MAPS } from '../../src/config.js';
 const { gateSpecs } = await import('../../src/learn/play/wire/boards.js');   // (three.js under it: after the hook)
 import {
-  astar, loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, drawProp, propOnRight, useProp, duelFlood, streakKind,
+  astar, loopRoute, cumulative, placeAlong, fitGates, botRoll, rubberDelay, finishOrder, drawProp, propOnRight, useProp, duelFlood, streakKind, carryLeft,
   phaseOfHp, bossDamage, phaseBudget, phaseTimeTotal, relearnPlan, starsOf, readStars, writeStars, shortenLevel, shortenBoss, fmtClock,
   judgeAnswer, rightAnswerOf, relearnTip,
 } from '../../src/learn/forms/common.js';
@@ -210,4 +210,20 @@ test('judgeAnswer maps B\'s reworded forms onto A\'s judge; rightAnswerOf names 
   const S = shortenLevel(L);
   assert.equal(S.gates.length, 2); assert.ok(S.gates.every((g) => g.items.length === 2)); assert.equal(S.short, true);
   assert.equal(L.gates.length, 7, 'the original untouched');
+});
+
+test('duel: a round the zone count ends early carries its unasked items to the next round; after the last round they get one round of their own', () => {
+  const its = (ids) => ids.map((id) => ({ id, en: id, zh: id }));
+  const mk = (id, ids) => ({ id, items: its(ids), queue: its(ids), pos: { clone() { return { ...this }; } }, minutes: 3 });
+  const gates = [mk('g1', ['a', 'b', 'c']), mk('g2', ['d'])];
+  assert.equal(carryLeft(gates, 0, []), null, 'nothing left: nothing moves');
+  assert.equal(carryLeft(gates, 0, gates[0].queue.splice(1)), gates[1], 'the leftovers go to the next round');
+  assert.deepEqual(gates[1].queue.map((i) => i.id), ['b', 'c', 'd'], 'at the front of its queue');
+  assert.deepEqual(gates[1].items.map((i) => i.id), ['b', 'c', 'd'], 'and into its items (the atlas is drawn from them)');
+  const rest = carryLeft(gates, 1, gates[1].queue.splice(1));
+  assert.equal(rest && rest._restGate, true, 'after the last round: a round of their own');
+  assert.equal(gates.length, 3); assert.equal(gates[2], rest); assert.equal(rest.minutes, 3);
+  assert.deepEqual(rest.queue.map((i) => i.id), ['c', 'd']);
+  assert.equal(carryLeft(gates, 2, rest.queue.splice(0)), null, 'the rest round\'s own leftovers are let go');
+  assert.equal(gates.length, 3);
 });
