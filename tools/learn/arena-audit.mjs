@@ -38,7 +38,7 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 // (--full steps without drawing — see wire-audit.mjs; --render draws every step. Not the boss: its balls ride the
 // walking boss's sockets, whose world matrices the drawing brings up to date frame by frame — stepped without it, the
 // balls lag the boss by a whole step and a tap at where they were drawn misses: play-8's first whole 周考)
-const FAST = args.includes('--full') && !args.includes('--render') && opt('form', 'duel') !== 'boss';
+const FAST = args.includes('--full') && !args.includes('--render') && (opt('form', 'duel') !== 'boss' || args.includes('--fast'));   // (--fast: the boss too — a drawn landscape boss takes 3–4 min a question)
 const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
 const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
