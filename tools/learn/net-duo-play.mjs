@@ -39,7 +39,7 @@ const VIEW = opt('view', 'portrait'), PLAY = true, SHOTS = opt('shots', null), B
 const [W, H] = VIEW === 'landscape' ? [844, 390] : [390, 844];
 // coop2: the audit's hand puts each squidkid on its own pad at a gate (as the auto-walk ends there — B's walk is not what
 // is measured, and a 3-minute run has no room for it); --walk lets the auto-walk take them
-const WALK = args.includes('--walk');
+const WALK = args.includes('--walk'), MIGRATE = args.includes('--migrate');   // (--migrate: versus2, the host leaves with q 2 up — play-9)
 const T0 = Date.now();
 const ts = () => ((Date.now() - T0) / 1000).toFixed(1).padStart(5);
 const say = (...a) => console.log(`[duo-play ${MODE} ${VIEW}${PLAY ? '' : ' play=0'} ${ts()}]`, ...a);
@@ -339,6 +339,7 @@ async function driveVersusPlay(H) {
       } else check(`${tag}: the game keyboard up on both`, V.every((v) => v.kbOn && v.type && v.type.kbUp));
       check(`${tag}: the seconds left on the strip's chip`, V.every((v) => /秒/.test(v.strip.chip)), rec.chip);
       if (shots++ < 1) await pair('question', V.map((v, i) => `c${i} ${v.host ? '房主 Ann' : '访客 Bo'} · ${V[i].mech} · ${(v.strip && v.strip.text || '').slice(0, 28)}`));
+      if (MIGRATE && q === 2) { await migrateOn(H, V); return; }
       const P = plan[q] || { order: [0, 1], right: [true, true] };
       for (const [n, i] of P.order.entries()) {
         if (n) await sleep(1500);
@@ -369,6 +370,31 @@ async function driveVersusPlay(H) {
   check('evidence: each player\'s first answers once each, in their own store', firsts.every((n) => n === 2) && ST.every((s) => s.length >= 2), JSON.stringify({ firsts, store: ST }));
   check('results: INKWAVE\'s results screen with the answers strip on both', V.every((v) => v.results && v.strip2 && /双人联机赛/.test(v.strip2)), JSON.stringify(V.map((v) => v.strip2)));
   if (V.every((v) => v.results)) mark('results');
+}
+
+// --migrate (play-9, LEARN §14 没做的 1): with q 2 up on both and nobody answered, the host leaves; the relay hands the room
+// to the guest, whose _becameHost re-opens q 2 under the same number (lq re:1) instead of skipping it — the guest answers
+// it, its own referee closes it (the other side's bots roll their dice), and q 3 follows. From here only the guest is stepped.
+async function migrateOn(H, V) {
+  const { ev } = H;
+  const hi = V.findIndex((v) => v.host), g = 1 - hi, FDT = 1 / 24;
+  const stepOne = async (sec) => { const n = Math.max(1, Math.round(sec / FDT)); for (let d = 0; d < n; d += 4) { const k = Math.min(4, n - d); await ev(g, ([k, dt]) => { const I = __inkwave; I._skipRender = true; try { for (let j = 0; j < k; j++) I._frame(dt); } finally { I._skipRender = false; } }, [k, FDT]); await sleep(Math.max(5, k * FDT * 1000 / 2)); } };
+  H.step = stepOne;   // (answerOn steps through H: only the guest from here on)
+  const before = await ev(g, () => { const F = __inkwave.match.learn; return { host: __G.net.isHost, q: F.q && F.q.q, qi: F.qi, people: F.people().length }; });
+  say(`c${hi} (the host) leaves with q 2 up on both, nobody answered …`);
+  await ev(hi, () => __G.net.leave());
+  let st = null;
+  for (let n = 0; n < 80; n++) { await stepOne(0.25); st = await ev(g, () => { const F = __inkwave.match.learn; return { host: __G.net.isHost, net: __G.net.state, state: __inkwave.match.state, q: F.q ? F.q.q : null, answered: F.q ? !!F.q.answered : null, ref: !!(F.ref && F.ref.open_), refQ: F.ref && F.ref.cur ? F.ref.cur.q : null, people: F.people().length, chip: (document.querySelector('.iw-ps__chip') || {}).textContent || '' }; }); if (st.host && st.ref) break; }
+  check('migration: the guest became the host with q 2 still up, nobody answered, its referee open on the SAME q (re-opened, not skipped)', st && st.host && st.q === 2 && !st.answered && st.ref && st.refQ === 2 && st.people === 1, { before, after: st });
+  const a = await answerOn(H, g, true);
+  check(`migration: the new host answers q 2 — 「${a.verdict && a.verdict.head}」`, !!(a.verdict && a.verdict.ok === true), a);
+  let r = null;
+  for (let n = 0; n < 80; n++) { await stepOne(0.25); r = await ev(g, () => { const F = __inkwave.match.learn; return { closed: F.results.find((x) => x.q === 2) || null, q: F.q ? F.q.q : null, log: F.log.filter((e) => e.q === 2).map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.none ? '(none)' : '')) }; }); if (r.closed && r.q === 3) break; }
+  check('migration: q 2 closed by the new host\'s referee with its answer in it, no none-answer for it, then q 3 asked', !!(r && r.closed && Array.isArray(r.closed.res) && r.q === 3 && !r.log.some((x) => /\(none\)/.test(x)) && r.log.includes('answer+*')), r);
+  const st2 = await ev(g, STORE_FN);
+  check('migration: the new host\'s store holds its first answers (q 1 and q 2) once each', st2.length >= 2, JSON.stringify(st2));
+  R.final = [{ guest: g, migrated: true, after: r }];
+  mark('migrated');
 }
 
 // ------------------------------------------------------------------------------------------------ coop2, the flag on

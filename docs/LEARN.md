@@ -1374,3 +1374,32 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - **接口**：`judgeRecord({ item, p, ans, o: { judged, hinted, hold, decided, claim, at }, store }) → { r, first, held, self, hinted, evidence }`；`ArenaHost.showPrep(specs, { head, go, onGo })`、`ArenaHost.facingYaw(g, a)`；`PrepStation(host)`（`show / update / pose / tapApi / clear / debug / dispose`，宿主要 `flow / match / strip / reduced / say / facingYaw / m1._topKeys`）；`frontSpot({ a, base, spec, bw, W, H })`；`LEARN.duel.prepWalk`；事件 `learn:skip`；审计 `?skip=K`（`forms/index.js`）。
 - **怎么再跑整天**：`node tools/learn/day-run.mjs --name <n> --dir <dir> --form puzzle|race|duel|boss --learn w1d1 [--shots <dir>] -- tools/learn/wire-audit.mjs --view portrait --learn w1d1 --full --segment 780 --budget 870`（对抗赛 / Boss：`arena-audit.mjs --form duel|boss --learn … --views portrait --full --segment 780 --budget 870`；跑酷：`runner-audit.mjs --scenario runner --w 390 --h 844 --touch --query '?learn=w1d3&kind=race' --plan right --glidePlan right --segment --wallMs 660000 --timeout 870`）——它自己一段一段进锁；中途断了用 `--from k --gate N --skip K` 接着。改了判分相关的东西就跑 `node tools/learn/evidence-snapshot.mjs --out <f>`，和基线 `cmp`（基线要在改之前的提交上用同一个工具跑）。
 - **已知坑**：① 整天审计不画帧（拿不准的 16），只看「画出来」的东西用短关；Boss 照旧每步画（横屏太慢时用 `--fast`）。② 同一天里同一个词问两次，第二次是练习——审计按「之前今天有没有叶子」核，别改回「每题都要 first」。③ halyard 中间高台下来那一行（拿不准的 17）。④ 跑酷竖屏写字墙的打字取景（没做的 3）。⑤ 分段跑一定要同一个端口（`day-run` 管；自己手起审计时给 `--port`），否则每段一个空存储、证据接不上，每段自己的检查也看不出来。⑥ Boss 弱点上第一发点射常常打空（§24 拿不准的 11；整局 56 次出题里 7 次）——不写证据、再出一次就中，没查到根。⑦ 横屏 Boss（实测 B4）：钟写着段名时（213 px 宽）压到两侧的 HP 条和阶段牌；W 段长句的纸伸到右半块键盘上——都是 play-7 的横屏 HUD / 取景，没动。
+
+## 29. play-9b 交付（2026-10-17，主会话，分支 `play-9b`：对抗赛一轮到点等最后一题 + 双人联机赛房主迁移不丢题 + 双人合作赛共用墨罐——和子代理的 play-9（§28）并行）
+
+**先读了什么**：§27 拿不准的 18（区域倒数在一题正问着时数完）、§14 §4 表「墨罐共用」和「没做的」第 1 条（房主迁移时正问着的题、共用墨罐）、§24 拿不准的 11；`duel.js` 的 `_roundEnd` / `update`、`zones.js` 的 `_end`、`versus2.js` 的 `_becameHost` / `_onAsk` / `_referee`、`coop2.js` 的 `onNet` / `update`、`netmatch.js`（远端角色的 `ink` 随 20 Hz 的 tick 同步）。
+
+**先定的**：
+1. **一轮到点时正问着的题先答完**（`forms/common.js` `RoundGrace`，LEVELS §2.3 加了一句）：钟到 0 或区域数完时 `_roundEnd` 不结束、把判定停下（`hold`）；钟上写「第 N 轮 · 最后一题」、对面的「答题」骰子停、不再出新题、道具键照常；答完（判完、结果看过、`asking` 清掉）才真正结束。最多等 `LEARN.duel.graceS` 8 s（打字题 `graceTypeS` 25 s），等不到就把这题放回队首（`carryLeft` 接到下一轮）、不记证据、arena 日志记一条 `withdraw`。**输赢和两边的计数按到点 / 数完那一刻算**（hold 时记下 `counts`），这期间她答对泼的墨只是画面和特殊槽，不翻盘——只有这期间区域被击倒例外（zones 自己已冻结，以它为准）。`learn:round` 多一种 `state: 'grace'`。
+2. **房主迁移时正问着的题按原 q 重开**（`versus2.js`）：新房主看自己手里 `qs.get(qi + 1)` 没收到 `lc`，就 `_openAt(qi, true)`——同一个 q 重发 `lq`（多 `re: 1`）、重开裁判。每个屏幕收到带 `re` 的同号题**不动现场**：答过的把当时发的 `la` 原样再发（`q.sent`：答对 / 答错 / 过期都记着），还开着的只刷新钟（`t0`、`sec`）；没见过这题的屏幕照新题出。当天首答一天只记一次，重问不会多记（`judgeRecord` 自己挡）。
+3. **coop2 共用墨罐**（`duo.js` `sharedInk`，新负载 `lk`）：每个屏幕的墨照引擎走，只把引擎这一帧对自己墨罐做的事（喷了 −、充了 +）累起来每 `LEARN.coop2.inkSync` 0.1 s 发给对方，对方加进自己的罐——从不把加过的对方份额再发回去，所以不会来回放大；一帧涨超过 `inkReset` 5 的（重生满罐）不算充墨、罐留在共用的位置；房主每秒带一次自己的刻度 `v`，访客偏得超过 2 就往回拉三成。两个人都闲着时两边的闲充都算（两个人充一个罐，快一倍——合作的意思）；答题的那颗墨弹本来就不扣墨（§18）。
+
+**改了什么**：`forms/common.js`（`RoundGrace`）、`forms/duel.js`（`_roundEnd(winner, reason, released)`、update 的等待分支）、`forms/versus2.js`（`_openAt`、`_becameHost`、`_onAsk` 的 `re` 分支、`q.sent` / `q.closed`）、`forms/duo.js`（`sharedInk`、`LEARN_WIRE` + `lk`）、`forms/coop2.js`（`_shareInk`、`_onInk`、`tank`）、`config.js`（`LEARN.duel.graceS / graceTypeS`、`LEARN.coop2.inkSync / inkReset`）、LEVELS §2.3；`tools/learn/duel-grace-audit.mjs`（新）、`tools/learn/net-duo-play.mjs`（coop2 开局的墨罐探针、`--migrate`）、`tools/learn/arena-audit.mjs`（「名字牌让开」遇到还在淡出的牌子等 0.4 s 再采一次：整天跑里一次 0.054）。
+
+**动了别人地盘的**：没有（`weapons.js` / `main.js` / `actor.js` / `cameraRig.js` / `zones.js` / `netmatch.js` 一行没动）。
+
+**测试**：`npm run test:learn` 243 → 246（`forms.test` RoundGrace 一条；`duo.test` 房主迁移一条、共用墨罐一条，`LEARN_WIRE` 多 `lk`），`npm run check` 286 个文件。判分没动（`judge.js` 一字未改、`_judgeRecord` 未改），证据快照不需要重跑。
+
+**实测**（浏览器，锁下一次一个）：
+- 对抗赛 w1d6 **整天一段跑完**（`day-run` + `arena-audit --full --segment 3300`，29 分钟）：55 / 55 计分条目都有首答、首答只记一次、每个首答一个叶子、PLAY §1 第 1 条 6 687 步全守住、0 报错 0 4xx；§27 实测 ② 的那两条 FAIL（q67 轮结束时被收掉、下一轮再问）没有了；整天 `withdraw` 0 次（没有一题等不到 8 s）。剩一条和这期无关的 FAIL：q35 的名字牌还在淡出（op 0.054 > 0.05）——审计改成再采一次。
+- `tools/learn/duel-grace-audit.mjs`（竖屏，缩短的对抗赛日，三轮手动制造）：① 钟到 0 时题正问着 → 等待（phase 还是 round、题还在、钟写「最后一题」、不暂停不开卡、`learn:round grace` 一次、对面骰子停）→ 点对的球 → 轮结束在答案之后、首答记一次、结果 `time` 带那一刻的计数；② 不答 → 8 s 后收回：没有答案、没有叶子、题在下一轮（剩下的题那一轮）队首、arena 日志 `withdraw`；③ 那一轮里手动击倒区域 → 等待里记的是击倒（winner 1）→ 答对 → 结果 `knockout` 带它那一刻的计数、这题拿到首答。38 / 38，322 步不变量全守住。截图 `play9b-shots/duel-grace-portrait-grace.png`（看完删）。
+- coop2 共用墨罐、versus2 房主迁移：两个浏览器跑在等锁（子代理的 Boss 整局在前面），结果见本节下一次提交。
+
+**拿不准的（自己定了）**：
+1. 打字题的等待 25 s（写一句约 20 s）、墨靶 8 s——真机上嫌长嫌短都是一个数。
+2. 等待期间输赢不翻盘（按到点那一刻算）：翻盘更刺激，但对面的骰子停了就不公平；留给以后要改也是 `_roundEnd` 里 `released.counts` 一处。
+3. 共用墨罐两个人闲充都算、重生不算充墨：重生的人回到共用刻度（可能是空的），要去充。
+
+**没做的**：房主迁移时 coop2（不是 versus2）正问着的题——coop2 的题由房主出、答案两边都收，房主走了合作赛本来就结束（`_partnerLeft`），不用接；三人以上房间的迁移只在 relay.test 里测过。
+
+**交接**：分支 `play-9b`（从 dev `741bfee` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。LEARN §14「没做的」第 1 条两样都做了（本节）。
