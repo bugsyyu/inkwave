@@ -55,7 +55,9 @@ export class PlayCam {
   }
   to(pose) {
     if (!pose) return this;
-    this.want = { pos: pose.pos, look: pose.look, fov: pose.fov || 52 };
+    // (one object, refilled: a station hands its pose in every frame — nothing allocated per frame, PLAY §7)
+    const w = this._w || (this._w = { pos: null, look: null, fov: 52 });
+    w.pos = pose.pos; w.look = pose.look; w.fov = pose.fov || 52; this.want = w;
     if (this.reduced) this._snap();
     return this;
   }
