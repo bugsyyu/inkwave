@@ -389,8 +389,9 @@ async function migrateOn(H, V) {
   const a = await answerOn(H, g, true);
   check(`migration: the new host answers q 2 — 「${a.verdict && a.verdict.head}」`, !!(a.verdict && a.verdict.ok === true), a);
   let r = null;
-  for (let n = 0; n < 80; n++) { await stepOne(0.25); r = await ev(g, () => { const F = __inkwave.match.learn; return { closed: F.results.find((x) => x.q === 2) || null, q: F.q ? F.q.q : null, log: F.log.filter((e) => e.q === 2).map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.none ? '(none)' : '')) }; }); if (r.closed && r.q === 3) break; }
-  check('migration: q 2 closed by the new host\'s referee with its answer in it, no none-answer for it, then q 3 asked', !!(r && r.closed && Array.isArray(r.closed.res) && r.q === 3 && !r.log.some((x) => /\(none\)/.test(x)) && r.log.includes('answer+*')), r);
+  // (the short match has two questions: after q 2 the new host calls the match — a longer one asks q 3)
+  for (let n = 0; n < 80; n++) { await stepOne(0.25); r = await ev(g, () => { const F = __inkwave.match.learn; return { closed: F.results.find((x) => x.q === 2) || null, q: F.q ? F.q.q : null, ended: !!F.ended, log: F.log.filter((e) => e.q === 2).map((e) => e.name.replace('learn:', '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.none ? '(none)' : '')) }; }); if (r.closed && (r.q === 3 || r.ended)) break; }
+  check('migration: q 2 closed by the new host\'s referee with its answer in it, no none-answer for it, then q 3 asked (or the match called: the short match ends on q 2)', !!(r && r.closed && Array.isArray(r.closed.res) && (r.q === 3 || r.ended) && !r.log.some((x) => /\(none\)/.test(x)) && r.log.includes('answer+*')), r);
   const st2 = await ev(g, STORE_FN);
   check('migration: the new host\'s store holds its first answers (q 1 and q 2) once each', st2.length >= 2, JSON.stringify(st2));
   R.final = [{ guest: g, migrated: true, after: r }];
