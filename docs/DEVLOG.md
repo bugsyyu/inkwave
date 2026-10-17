@@ -6,6 +6,13 @@
 
 ## 2026-10-17
 
+### 23:52 游戏为主体 第一期（游戏这一侧）；今晚五个子 agent 并行
+
+- **为什么**：业主 10-17：「以后直接游戏模式取代原有的雅思整个app的原有设计，游戏不再是子版块，而是主体，围绕游戏来管理学习进度」（IELTS-Base `docs/GAME-FIRST.md`）。她的 App 现在打开就是这个游戏（IELTS-Base bugsyyu/IELTS-Base#190）。
+- **改了什么**（`c70dc84`、`e72b938`）：`src/learn/app.js`（新：appToday、BOOK_URL）；主菜单 from=app 时第一个「开始今天的关 · 第 N 周 · 第 M 天 · 形式 · 要复习 K 个」、「选关」默认在她的今天、「回课本」带 `?classic=1`；`workbench.js` mirror / mirrorFlush——把证据并进她账号以后在 iOS App 里发进度镜像（和 IELTS-Base `app/native.js` 同一个消息）；`index.html`：模块载不进、致命错误、60 秒没启动好 → 回课本，原生事件（点开复习提醒 → 课本的复盘 `?open=review`，power 给渲染器）。
+- **怎么验证的**：`test:learn` 255（+4 `game-first.test`）、`check` 289；IELTS-Base 的 `tests/game-first-e2e.mjs` 12 / 12（游戏首屏、今天的按钮、回课本、坏了自己回来）。
+- **今晚并行的**（业主授权 23:38 → 01:02 最多 5 个子 agent，Opus 5.5 / xhigh）：`ui-sticker`（LEARN §32，学习层界面贴纸风 + 3A 节奏）、`render-gov`（§33，iPhone 机型档位、画质调度、自动 60、发热；iOS 那边 `HighRefresh.swift` 关 WKWebView 的 60 帧钳制）、`gf-map`（§34，课程地图）、`learn-3d`（§35，3D 答案牌 / 墨球 / 命中顿挫）、`gf-review`（§36，复习关）。业主同时定了标准：「所有你们自己新开发的游戏组件，都要和原风格一样融合，而且要比原风格都更精细，甚至带有电影级三维动画的光影和质感和3A大作的交互节奏」。
+
 ### 22:26 滑行段打字取景：头在键盘中排下留余量（主会话，开发分支 `bc11703`，LEARN §31）
 
 - **为什么**：整天审计里头顶高过键盘中排 0–11 px（w2d2 三条 FAIL、lockgate 0–7 px）：`frameFor` 那条「头在中排下」的规则零余量，搜出来只差 0.1–3.7 px，真机位差一点就翻。打字站（`wire/type.js`）和横屏拆半机位早就留 0.05 NDC，跑酷没有。
