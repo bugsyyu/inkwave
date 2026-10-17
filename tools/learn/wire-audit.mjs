@@ -402,7 +402,9 @@ async function answerBeat(s, right) {
   await shot('m3-pads-' + d0.n);
   const d = await ev(() => __inkwave.match.learn.play.beat.debug());
   const p = d.pads[right];
-  await tapAt(p.x, p.y);
+  // (a keyboard: its own keys — 1–4 by option order, as the stage's key map has them; the mouse is the camera's. play-8,
+  // the desktop run of PLAY §10)
+  if (V.touch) await tapAt(p.x, p.y); else await page.keyboard.press(String(right + 1));
   const hop = await waitFor(() => { const d = __inkwave.match.learn.play.beat.debug(); return d.state && d.state.hop ? d : null; }, 10, 16.7);
   check(!!hop, 'M3: the tap → she hops', hop && hop.state);
   const v = await untilAnswered(80);
