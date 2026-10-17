@@ -156,6 +156,8 @@ export const store = {
     out.sort((a, b) => a.p - b.p || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     return out.map((x) => x.id);
   },
+  // how many of the week's items are due (复习关, LEARN §36: the main menu's 「复习 K 个」)
+  dueCount(week, asOf) { try { return store.due(week, asOf).length; } catch (e) { return 0; } },
 
   // the game's ev-<Monday> documents, IELTS-Base's format, a copy
   evidence() { return clone(S().ev); },

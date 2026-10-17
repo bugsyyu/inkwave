@@ -888,7 +888,8 @@ class Game {
     const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
     const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'plan';   // ('plan': buildLearn takes the day's planned form)
     let learn = null;
-    try { learn = await buildLearn({ week, day, kind, short: !!o.short, gate: o.gate | 0 }); } catch (e) { console.error('[inkwave] learn level', e); this.menus?.toast?.('这一天的课还没准备好'); return; }
+    // (an error that says why in her words — the review with nothing due: 「现在没有要复习的」 — is toasted as it is)
+    try { learn = await buildLearn({ week, day, kind, short: !!o.short, gate: o.gate | 0 }); } catch (e) { if (e && e.zh) console.info('[inkwave] learn level:', e.zh); else console.error('[inkwave] learn level', e); this.menus?.toast?.((e && e.zh) || '这一天的课还没准备好'); return; }
     return this.startMatch({ mode: 'learn', mapId: learn.level.stage || 'tidewater', time: learn.time || 'day', duration: learn.duration, learn });
   }
 
