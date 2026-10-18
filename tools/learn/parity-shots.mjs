@@ -5,6 +5,8 @@
 //   node tools/learn/parity-shots.mjs --out <dir> [--dpr 3] [--views landscape,portrait] [--quality high] [--secs 8] [--native iphone16]
 // --native <device>: her App's page as the App leaves it (a made-up window.__IELTS_NATIVE with display / device, no message
 // handlers, so nothing is ever posted to a native side) plus &applegpu — the render step that device gets (src/core/render-gov.js).
+// --probe (with --native): after the shot, 显示帧率 on for 3 s (the readout 「帧 · 密度 · 档」), then a made-up 'power' event (thermal
+// serious) through window.__iwNative.on — the game should hold 60 and drop to the floor density at once.
 // One PNG per view: <dir>/original-<view>[-<quality>].png, after --secs of play (the bots ink the stage).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -22,7 +24,7 @@ const NATIVE = {
   iphone15: { platform: 'ios', display: { maxFps: 60, highRefresh: false }, device: { model: 'iPhone15,4', memGB: 6, cores: 6 } },
   iphone12: { platform: 'ios', display: { maxFps: 60, highRefresh: false }, device: { model: 'iPhone13,2', memGB: 4, cores: 6 } },
 };
-const NAT = NATIVE[opt('native', '')] || null;
+const NAT = NATIVE[opt('native', '')] || null, PROBE = NAT && args.includes('--probe');
 const VIEWS = { portrait: { w: 390, h: 844 }, landscape: { w: 844, h: 390 } };
 const MIME = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', ogg: 'audio/ogg', mp3: 'audio/mpeg', glb: 'model/gltf-binary', bin: 'application/octet-stream', ktx2: 'image/ktx2', wasm: 'application/wasm' };
 const srv = http.createServer((q, r) => {
@@ -43,7 +45,8 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   const V = VIEWS[vn]; if (!V) continue;
   const ctx = await browser.newContext({ viewport: { width: V.w, height: V.h }, deviceScaleFactor: DPR, isMobile: true, hasTouch: true });
   const page = await ctx.newPage(), errs = [];
-  if (NAT) await page.addInitScript((n) => { window.__IELTS_NATIVE = n; }, NAT);
+  // (window.__iwNative as index.html keeps it for ?from=app — without from=app's back-to-the-lesson timer)
+  if (NAT) await page.addInitScript((n) => { window.__IELTS_NATIVE = n; window.__iwNative = { power: null, events: [] }; }, NAT);
   page.on('pageerror', (e) => errs.push(e.message));
   const q = `?autostart=180&nofullscreen` + (QUAL ? `&quality=${QUAL}` : '') + (NAT ? '&applegpu' : '');
   await page.goto(base + 'index.html' + q, { waitUntil: 'load', timeout: 180000 });
@@ -54,6 +57,21 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   const f = path.join(OUT, `original-${vn}${QUAL ? '-' + QUAL : ''}${NAT ? '-' + opt('native') : ''}.png`);
   await page.screenshot({ path: f });
   console.log(`[parity] ${vn} ${JSON.stringify(info)} → ${f}${errs.length ? ' · errors: ' + errs.join(' | ').slice(0, 300) : ''}`);
+  if (PROBE) {
+    const pb = await page.evaluate(async () => {
+      const g = __inkwave, R = g.R, o = {};
+      g.settings.showFps = true; g.debug.unfreeze();
+      await new Promise((r) => setTimeout(r, 3000));
+      o.note = g.fpsNote; o.hud = (document.querySelector('.iw-fps') || {}).textContent;
+      o.before = { cap: g._autoCap || 0, pr: R.renderer.getPixelRatio() };
+      const N = window.__iwNative; N.power = { lowPower: false, thermal: 'serious' }; N.on({ type: 'power' });
+      o.after = { cap: g._autoCap, why: g._capWhy, dyn: R.dynScale, floor: R.dynFloor(), pr: R.renderer.getPixelRatio() };
+      g.settings.showFps = false;
+      return o;
+    });
+    console.log(`[parity] probe ${JSON.stringify(pb)}`);
+    if (!(pb.after.cap === 60 && pb.after.dyn === pb.after.floor && /帧 · .+× · 第 \d 档/.test(pb.note || ''))) { code = 1; console.log('[parity] probe FAIL'); }
+  }
   if (errs.length) code = 1;
   await ctx.close();
 }
