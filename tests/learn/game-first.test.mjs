@@ -78,7 +78,8 @@ test('the App\'s mirror: after a push that changed her blob, the stored text goe
 test('a game that cannot start in her App hands her back to the lesson page: module error, fatal boot error, 60 s; a tapped review reminder opens the review page', () => {
   const H = src('index.html');
   assert.ok(/onerror="window\.__gfBack && window\.__gfBack\('module'\)"/.test(H), 'the module fails to load');
-  assert.ok(/setTimeout\(\(\) => window\.__gfBack\('slow'\), 60000\)/.test(H), 'a boot that never finishes');
+  assert.ok(/if \(Date\.now\(\) - beat > 60000\) \{ clearInterval\(dog\); window\.__gfBack\('slow'\); \}/.test(H), 'a boot with no loading step for 60 s');
+  assert.ok(/window\.__gfBeat\?\.\(\);/.test(src('src/main.js')), 'every loading step beats');
   assert.ok(/location\.replace\('\.\.\/index\.html\?classic=1&why=' \+ encodeURIComponent/.test(H));
   assert.ok(/if \(q\.get\('from'\) !== 'app'\) return;/.test(H), 'only opened from her App');
   assert.ok(/e\.type === 'notify\.open' && e\.kind === 'review'\) \{ location\.href = '\.\.\/index\.html\?classic=1&open=review'/.test(H), 'the lesson page opens its review (app/native.js reads ?open=review)');

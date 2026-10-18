@@ -73,7 +73,7 @@
 </script>
 <script>
   // 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: opened from her App (?from=app) this is the App's front page. If the
-  // game cannot start — no WebGL, a module that fails to load, a fatal boot error, a boot that has not finished in 60 s — she
+  // game cannot start — no WebGL, a module that fails to load, a fatal boot error, a boot with no loading step for 60 s — she
   // goes back to the lesson page by herself (../index.html?classic=1&why=…) instead of a red box she cannot get past.
   // Her App's native events reach this page too (window.__IELTS_NATIVE_EVENT): a tapped review reminder opens the review
   // page there; the rest is kept for the renderer (window.__iwNative: power / thermal).
@@ -88,7 +88,10 @@
         gone = true;
         try { location.replace('../index.html?classic=1&why=' + encodeURIComponent(String(why || 'boot').slice(0, 80))); } catch (e) { /* stay */ }
       };
-      setTimeout(() => window.__gfBack('slow'), 60000);
+      // (a boot that is slow but moving is left alone: main.js beats at every loading step — back only after 60 s without one)
+      let beat = Date.now();
+      window.__gfBeat = () => { beat = Date.now(); };
+      const dog = setInterval(() => { if (booted()) { clearInterval(dog); return; } if (Date.now() - beat > 60000) { clearInterval(dog); window.__gfBack('slow'); } }, 2000);
       const N = (window.__iwNative = window.__iwNative || { power: null, events: [] });
       const prev = window.__IELTS_NATIVE_EVENT;
       window.__IELTS_NATIVE_EVENT = function (evt) {

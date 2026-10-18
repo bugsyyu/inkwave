@@ -147,7 +147,7 @@ class Game {
     this.hud?.setVisible(false);
     this.menus?.show('loading');
     this.bootMarks = [];
-    const progress = async (p, label) => { this.bootMarks.push([label, Math.round(performance.now() - t0)]); this.menus?.setLoading(p, label); await nextFrame(); };
+    const progress = async (p, label) => { this.bootMarks.push([label, Math.round(performance.now() - t0)]); this.menus?.setLoading(p, label); window.__gfBeat?.(); await nextFrame(); };   // (__gfBeat: her App's boot watchdog, index.html)
     await progress(0.05, t('boot.mix'));
 
     // renderer / scene
