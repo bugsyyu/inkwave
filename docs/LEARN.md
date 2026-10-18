@@ -1534,3 +1534,27 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **实测**（浏览器，锁下一次一个，竖屏 390 × 844 触屏）：跑酷 w1d3 短关（`runner-audit --touch`）两次滑行段打字，头在中排下 23 / 26 px（改前整天里 −11 到 +4 px），带 0.28 / 0.3、键盘 0.35，`fits` 真、打字机全在带里，`bad` 0、0 报错 0 4xx；截图看过（头在键盘下面、纸和色带都在）删了。w2d2 整天重跑排在锁后面，结果见 DEVLOG。
 
 **没做的**：lockgate 那天一处 rig 点离左沿 14 px（`inBand` 的 x < −2）——另一个偏差，这次没碰；真机。
+
+## 35. learn-3d 交付（2026-10-17，子代理，分支 `learn-3d`：学习关卡的 3D 题物和原版一样精致——答案牌贴纸风、字不出框、墨球更像墨）
+
+**先读了什么**：`atlas.js`（`drawLabelAtlas` 画的是 `rgba(21,18,28,.9)` 的深色玻璃牌、白字、淡紫中文；`fitLabel`）、`layout.js`（`textWidth` 估宽、`labelBox` 每边 12 px）、`targets.js`（`inkMaterial` 清漆 + wobble、`plateMaterial` 的 SDF 环、`pop` 的回弹其实只有 1.006）、`runner/view.js`（PLATE、车道字母的浅色小块）、原版名字牌 `styles/hud.css .iw-mk__tag`（队伍色填充、`0 0 0 2px var(--k)` 描边、往下的实色投影、底下一个小尾巴）、`play.test.mjs` / `play4.test.mjs` 里 atlas 和 layout 的断言。
+
+**先定的**：
+1. **牌 = 贴纸**：深色描边 `#15121c` 3 px（atlas scale 2 = 6 纹素）、往下 3 px 的实色投影、珍珠白的面（上白下淡紫，一圈浅色内沿）、球的牌顶上一个朝球的小尾巴（横幅 / 墨帘的牌没有）；框的尺寸放在 `layout.js FRAME`，layout、atlas、着色器三处用同一组数。
+2. **状态不靠换贴图**：贴图里的面是浅色，着色器按亮度把面乘成珊瑚（答错）或她的墨（答对 / 揭晓）——描边、投影、字都是深色，乘了还是深色；**永远不用对手的颜色**（PLAY §1.6）。「答对后变她的墨色」就是名字牌那种队伍色填充。
+3. **字不出框**：`fitText`——先缩字号（到 0.82 倍、≥ 12 px），再换行（中文最多两行），最后才省略号；`labelBox` 用估宽量、`drawLabelAtlas` 再用 canvas 的 `measureText`（真实字体）在同一个框里排一次，`fillText` 的 maxWidth 只是最后的保险。球的牌里面最宽 150 px（`FRAME.maxIn`）。
+4. **字体**：英文行用 Titan One（`document.fonts.load` 在 PlayTargets / RowView 构造时就发；`document.fonts.check` 过了才用，没载进来用 Rubik 800），带中文的行用 Rubik + 系统 CJK 字体。
+5. **墨球**：中性墨 `#a39db8` → `#d3cae8`（珍珠淡紫），着色器里加视角变色的珍珠光泽（菲涅耳）和慢慢转的大理石内里（只在中性墨上：她的墨 / 珊瑚保持纯色），命中那一帧边缘白光一闪；**还是一个程序**（`iw-play-ink-3` 替换 `-2`），牌也是一个（`iw-play-plate-3` 替换 `-2`），不加绘制调用、不加每帧分配。
+6. **动作**（全部走预分配的槽和实例属性）：牌从球的中心弹出来落到球下面（ease-out-back 到 1.08 再回 1、50 ms 错开）；答错果冻抖（衰减的弹簧，x/z 和 y 反着，~0.45 s，wobble 一起放大）；命中先鼓一下（1 → 0.9 → 1.12，80 ms，边缘光闪）再消失（判中、hit 形状在 `burst` 那一刻就没了，判分时序不变）；揭晓答对那一张牌往前顶一下、描边亮一下再落（`aState.w` 闪光、`aBox` 让着色器知道描边在哪）；减少动态效果：不弹不抖不鼓，牌只淡入。
+
+**改了什么**：`src/learn/play/layout.js`（`wrapLines` 可传 measure、`fitText`、`FRAME` / `frameX`、`plateText`、`labelBox` 按贴纸框）、`src/learn/play/atlas.js`（`STICKER`、`FRAME_FIXED`、`labelFonts`、`enFont` / `zhFont`、`sticker` / `stickerBody`、车道字母徽章、`drawLabelAtlas` 三种牌全换、`fitLabel` 竖向扣掉框）、`src/learn/play/targets.js`（两个材质、`aBox` 实例属性、闪光 / 果冻 / 鼓 / 牌升起、`pop` 真的回弹到 1.08）、`src/learn/play/runner/view.js`（构造时发字体、注释）。
+
+**动了别人地盘的**：没有。`flip/targets.js` 有它自己的 COLORS，没碰。
+
+**测试**：新 `tests/learn/learn-3d.test.mjs` 6 个（「床（复数）」「猫（复数）」和 7–10 个汉字的释义：估宽和宽 15 % 的字体下每一行都 ≤ 牌里面的宽；`fitText` 的先缩、再换行、最后省略；框的纹素数；中性墨更亮、两个程序、`update` / `_write` / `_scaleOf` 里不分配；动作的时序和减少动态效果）。`play.test.mjs` 里 `labelBox('星期一').w` 75 → 78（贴纸框每边 1.5 + 3 + 9 = 13.5 px，原来 12 px）——设计改了，断言没删。词关 25 个释义仍在 1024 × 512、scale 2 里（原断言不动、过了）。
+
+**实测**：见交接。
+
+**拿不准的**：答对的牌整面变她的墨——她的队伍色是橙色时和珊瑚（答错）只差在饱和度；球上的光环、边缘光仍在她的墨里，答错的球自己变珊瑚还会抖，应该分得开，真机上再看一眼。Titan One 在第一关的牌上可能还没载进来（那一关是 Rubik 粗体）。
+
+**没做的**：球下面的 blob 软影子（要么多一次绘制、要么把牌的实例数翻倍：漂在空中的球没有地面可投，这次不做）；展板（`board/paint.js`）的标题和边框（第 5 条，有时间再做——没时间）。
