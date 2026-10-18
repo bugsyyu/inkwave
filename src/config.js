@@ -831,6 +831,15 @@ export const TOUCH = {
   // tier's desktop-calibrated 0.75 pixel ratio and zero anti-aliasing as heavy jaggies; these raise only those two.
   minPixelRatio: 1.5,
   minMsaa: 2,
+  // Apple GPUs (iPhone / iPad; the IELTS-Base App's WKWebView) hold more than the floor: the owner, 10-17 — 「画风和精致度和精细
+  // 程度和原版游戏一样，丝滑 高清」. The 3x screen is drawn at 2x instead of 1.5x (the floor above; 1.78× the pixels — the scene is
+  // vertex-bound, see renderer.dynFloor) and the ink's bloom is on, as on the desktop. Both give way when frames miss: the
+  // dynamic resolution steps 2 → 1.75 → 1.5 (densityFloor), then the bloom is shed (main.js _dynRes) — smooth first, sharp second.
+  // applePixels caps the render target (CSS w × h × ratio²) so a big iPad does not allocate 5 MP HDR buffers: past it the
+  // ratio falls back towards the floor, never under it.
+  applePixelRatio: 2,
+  applePixels: 2.1e6,
+  appleBloom: true,
   // GPU memory is the binding constraint on a phone, not frame time: Chromium evicts its own compositor shared
   // images when the GPU process runs short, which shows up as DOM tiles failing to rasterise (the loading screen
   // turns to noise) long before the WebGL context itself is lost.
@@ -870,10 +879,58 @@ export const DEFAULT_SETTINGS = {
 // monitor: pixelRatio 0.75 and msaa 0 together render the scene at three-quarters of CSS resolution with no
 // anti-aliasing at all, which on a 3x phone screen is a field of jaggies. Sharpen those two knobs only; the
 // storage-related fields (paintAtlas, shadowSize, particles) stay exactly as the tier defines them.
-export function rendererQuality(settings, touch) {
+export function rendererQuality(settings, touch, apple = false, profile = null) {
   const q = QUALITY[settings?.quality] || QUALITY.high;
   if (!touch) return q;
-  return { ...q, pixelRatio: Math.max(q.pixelRatio, TOUCH.minPixelRatio), msaa: Math.max(q.msaa, TOUCH.minMsaa) };
+  const t = { ...q, pixelRatio: Math.max(q.pixelRatio, TOUCH.minPixelRatio), msaa: Math.max(q.msaa, TOUCH.minMsaa) };
+  // (an Apple GPU: the sharper ratio and the bloom — TOUCH.applePixelRatio; storage fields untouched, as above)
+  if (apple) { t.pixelRatio = Math.max(t.pixelRatio, TOUCH.applePixelRatio); t.bloom = q.bloom || TOUCH.appleBloom; t.apple = true; }
+  return profile ? withProfile(t, profile, settings) : t;
+}
+
+// Her App's render step (RENDER_STEPS, picked by src/core/render-gov.js for the device her App names) over a touch quality
+// t: the density, its pixel budget, the bloom, the AO, the shadow map and the particles come from the step; the paint atlas
+// stays the tier's. Only while the tier is the step's own — a tier she picked herself in the settings wins (rendererQuality
+// then as without a step). Never on a desktop.
+export function withProfile(t, profile, settings) {
+  if (!profile || !t || !t.apple || profile.quality !== settings?.quality) return t;
+  return { ...t, pixelRatio: profile.pixelRatio, pixels: profile.pixels, bloom: profile.bloom, ao: profile.ao,
+    shadowSize: profile.shadowSize, particles: profile.particles, step: profile.step };
+}
+
+// The render steps for her App, best first (src/core/render-gov.js picks one per device and moves it a step at a time
+// between matches, by the real frame times; within a match nothing that recompiles a shader changes). What each looks like:
+//   0  影子 + 接触暗部 + 墨的辉光，2.5×：the whole post stack — soft sun shadows under every squid and crate, GTAO contact
+//      shading where things meet the deck, the ink's glow; drawn near the 3× screen's own density (the top iPhones: A17 Pro on)
+//   1  影子 + 辉光，2.25×：no contact AO (the costliest pass), the rest as 0
+//   2  辉光，2×：no shadow pass (one program variant fewer per material), medium tier, fewer particles
+//   3  辉光，2×：the low tier (small ink atlas), 0.4 particles — what an Apple phone got before the steps (TOUCH.apple*)
+//   4  平光，1.5×：no bloom, the touch floor density — the phone default before 10-17; smooth before anything else
+// pixels caps the render target (CSS w × h × ratio²) as TOUCH.applePixels does; the top steps may hold more of it.
+export const RENDER_STEPS = [
+  { step: 0, quality: 'high',   shadows: true,  shadowSize: 2048, ao: true,  bloom: true,  pixelRatio: 2.5,  pixels: 3.2e6, particles: 1.0 },
+  { step: 1, quality: 'high',   shadows: true,  shadowSize: 2048, ao: false, bloom: true,  pixelRatio: 2.25, pixels: 3.2e6, particles: 1.0 },
+  { step: 2, quality: 'medium', shadows: false, shadowSize: 2048, ao: false, bloom: true,  pixelRatio: 2.0,  pixels: 2.1e6, particles: 0.7 },
+  { step: 3, quality: 'low',    shadows: false, shadowSize: 1024, ao: false, bloom: true,  pixelRatio: 2.0,  pixels: 2.1e6, particles: 0.4 },
+  { step: 4, quality: 'low',    shadows: false, shadowSize: 1024, ao: false, bloom: false, pixelRatio: 1.5,  pixels: 2.1e6, particles: 0.4 },
+];
+// where each device class (src/core/device.js deviceClass) starts
+export const RENDER_START = { top: 0, high: 2, base: 3 };
+
+// The render density (renderer pixel ratio before the dynamic scale) for a quality q on a screen of dpr and w × h CSS px:
+// the tier's cap, and on an Apple touch device kept inside TOUCH.applePixels (a render step's own pixels; never under the touch floor).
+export function renderDensity(q, dpr = 1, w = 1, h = 1) {
+  const d = dpr || 1;
+  let pr = Math.min(d, q.pixelRatio);
+  if (q.apple) pr = Math.max(Math.min(d, TOUCH.minPixelRatio), Math.min(pr, Math.sqrt((q.pixels || TOUCH.applePixels) / Math.max(1, w * h))));
+  return pr;
+}
+// The lowest dynamic scale for it: touch devices never go under their floor density (renderer.dynFloor says why); an
+// Apple one may step down to it from its sharper ratio. Elsewhere 0.75 of CSS density, never under half the preset.
+export function densityFloor(q, touch, dpr = 1, w = 1, h = 1) {
+  const base = renderDensity(q, dpr, w, h);
+  if (touch) return q.apple ? Math.min(1, Math.min(dpr || 1, TOUCH.minPixelRatio) / base) : 1;
+  return Math.max(0.5, Math.min(0.75, 0.75 / base));
 }
 
 // Quality presets consumed by the renderer + fx.

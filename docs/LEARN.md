@@ -1561,3 +1561,54 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：浏览器里的那一次确认；真机；原生「点开复习提醒」现在还是去课本的复盘（index.html），可以改成进复习关。
 
 **交接**：主菜单的「复习 K 个」（gf-map）调 `api.startLearn({ week, day, kind: 'review' })`；K 可以用 `store.dueCount(week)`，关里实际问的是 `min(K, 24)`（配速再压）。
+
+## 33. render-gov 交付（2026-10-17，子代理，分支 `render-gov`：她的 App 里按机型定画质起点、按整局的真实帧时间升降档、120 帧稳不住就稳 60）
+
+**先读了什么**：hd-render（`3579501`：Apple 触屏 2 倍密度 + 辉光、`renderDensity` / `densityFloor`、`renderer.shedBloom()`、`?applegpu`、`tests/learn/hd-render.test.mjs`）；`main.js` 启动时的触屏默认值（`qualityChosen` / `shadowsChosen` 各管各的）、`_loop` / `_trackVsync` / `_frameTarget` / `_dynRes`；`config.js` 的 `TOUCH` / `QUALITY` / `rendererQuality`；`renderer.js` 的合成链（GTAO 在 Apple 上半分辨率、辉光、SMAA 代替 MSAA）；`index.html` 收原生事件的 `window.__iwNative`（`power: { lowPower, thermal }`、`N.on`）；`hud.js` 的 `_updFps`；`fx.js` 只读 `q.particles`；`tools/learn/parity-shots.mjs`。
+
+**先定的**：
+1. **机型类**（`src/core/device.js`，新）：`deviceInfo(win)` 读 `window.__IELTS_NATIVE` 的 `display` / `device`（IELTS-Base iOS 壳 `HighRefresh.swift` 放的）→ `{ native, model, memGB, cores, maxFps, highRefresh, cls }`；`deviceClass(model, memGB)`：iPhone 的 `iPhoneN,m` N ≥ 16（A17 Pro 起）top、15（A16）high、14 按内存（≥ 5.5 GB high，否则 base）、≤ 13 base；iPad 按内存（≥ 8 top、≥ 6 high、否则 base）；**没有机型（网页 Safari、桌面、开发机）→ null：不套档位，一字照旧**。
+2. **档位表**（`config.js` `RENDER_STEPS`，从好到稳；`RENDER_START`：top 0、high 2、base 3）。每一档「看起来有什么」：
+
+   | 档 | 画质档 | 阴影 | AO | 辉光 | 密度 | 像素预算 | 粒子 | 看起来 |
+   |---|---|---|---|---|---|---|---|---|
+   | 0 | high | 开 2048 | 开 | 开 | 2.5× | 3.2 MP | 1.0 | 太阳的软影子在每只鱿鱼 / 箱子 / 栏杆下面，GTAO 的接触暗部（东西和甲板接的地方），墨的辉光；接近 3 倍屏本身的清晰度 |
+   | 1 | high | 开 2048 | 关 | 开 | 2.25× | 3.2 MP | 1.0 | 同 0，少了接触暗部（最贵的那一趟） |
+   | 2 | medium | 关 | 关 | 开 | 2.0× | 2.1 MP | 0.7 | 没有阴影那一趟（每种材质少一个着色器变体），墨还亮 |
+   | 3 | low | 关 | 关 | 开 | 2.0× | 2.1 MP | 0.4 | = hd-render 给 Apple 的（小墨图集） |
+   | 4 | low | 关 | 关 | 关 | 1.5× | 2.1 MP | 0.4 | = 10-17 以前的手机默认，平光，先保丝滑 |
+
+   档位只管**密度、像素预算、辉光、AO、阴影图大小、粒子**（`withProfile`）；墨图集（`paintAtlas`）照画质档（触屏再乘 `memK` 0.5：high 档在手机上是 2048²）。
+3. **只在启动时套档位**（`main.js` 触屏默认值那一段）：有机型类时，她没自己选过画质（`qualityChosen`）就用这一档的画质档、没选过阴影（`shadowsChosen`）就用这一档的阴影；`G.renderProfile` 交给渲染器（构造和 `applySettings` 都是 `withProfile(rendererQuality(…), this.profile, settings)`；`rendererQuality` 也多了第 4 个参数 `profile`，同一条规则）、`Environment` 的 `shadowSize`、FX 的粒子。**她自己选的永远优先**：档位只在画质档就是这一档的画质档时生效（她在设置里换了别的档，档位立刻不管了；下次启动也一样）。**对局里不换档**（换档要重编着色器）。
+4. **调度**（`src/core/render-gov.js`，新；本机 `localStorage['inkwave:render:v1'] = { v: 1, model, step, good, bad, at }`）：
+   - `startStep(info, saved)`：同一机型用存下的档（不比机型类的起点更好），换了机型 / 没存 → 机型类的起点；没机型类 → null。
+   - `afterMatch(saved, stats, best)` → `{ step, changed, why, saved }`：不到 60 秒的局不算（`short`），**发热 / 低电量时打的局也不算**（`hot`：是热的问题不是档的问题——简报没写，我加的）；在最低密度上还掉帧（`floorFrac ≥ 0.25` 且 `slowFrac ≥ 0.2`）或者被自动压到 60（`capped`）→ 降一档；连着 3 局干净（`slowFrac < 0.05`、`floorFrac = 0`）→ 升一档，最多到机型类的起点。`slowFrac` / `floorFrac` 是 4 秒窗口的比例（掉帧 = 窗口平均 > 目标 × 1.12，和动态分辨率同一把尺）。
+   - **一次启动最多动一档**：动了以后这次启动剩下的局还在跑旧档，不再评（`_govDone`），不然一晚上连降两档。
+5. **对局里（不重编）**：动态分辨率 + 关辉光照旧（hd-render）；新加 **自动 60**（纯函数 `shouldCap({ s, floor, shed, slowWindows, targetMs, cap })`）：在最低密度、辉光在这个窗口开始时已经关了、连着两个 4 秒窗口掉帧、屏幕是 120Hz（`_vs.ms` < 12）、没有别的帧率上限 → `this._autoCap = 60`。`_loop` 和 `_frameTarget` 都看 `settings.fpsCap || this._autoCap`；压到 60 以后 `ups` 重新给，动态分辨率可以往上走。**只在有档位时**（她的 App）——别的 120Hz 设备（桌面、安卓）不变。
+   - **发热**：`window.__iwNative.on` 收 `power`（接在原来的 `on` 前面，不吞）：thermal serious / critical 或低电量 → 马上 60 + 密度到最低，发热期间动态分辨率不往上走；回到 nominal / fair 后下一局开头（第一个 4 秒窗口）放开。
+   - **每局的统计**在 `_dynRes` 的 4 秒窗口里攒（同一个 match 对象，`_govWin`），state 离开 playing 或者换了 match → `_govEnd` 交给 `afterMatch`、存下来。每帧不多分配（统计、判断都在 4 秒一次的分支里）；不加着色器、不加绘制调用。
+6. **真机上怎么看**：设置 → **显示帧率**（`settings.showFps`）打开，有档位时左上角那块读数变成 `120 帧 · 2.0× · 第 0 档`（帧率 · 当前渲染密度（含动态缩放）· 档位），压到 60 时多一个 ` · 稳 60`；没有档位（桌面）还是 `N FPS`；关着什么都不多。读数半秒拼一次字符串（`govReadout`），不每帧拼。控制台里 `__inkwave.govLast` 是上一局的判定（`step / changed / why / stats`）。
+
+**改了什么**：`src/core/device.js`（新）、`src/core/render-gov.js`（新）、`src/config.js`（`RENDER_STEPS` / `RENDER_START` / `withProfile`、`rendererQuality` 的 `profile`、`renderDensity` 用 `q.pixels`）、`src/core/renderer.js`（`this.profile`、两处 `withProfile`）、`src/main.js`（启动时的触屏默认值、`__iwNative.on`、`Environment` / FX 用 `this.R.q`、`_loop` / `_frameTarget` / `_dynRes`、新的 `_govWin` / `_govEnd` / `_onPower` / `_matchPower`、HUD 帧里多 `fpsNote`）、`src/ui/hud.js`（`_updFps` 多一个 `note`）；`tools/learn/parity-shots.mjs`（`--native iphone16 | iphone15 | iphone12`、`--probe`、info 多打档位）；`tests/learn/render-gov.test.mjs`（新，10 条）。
+
+**动了别人地盘的**：`src/ui/hud.js` 两行（`_updFps` 的调用和文字，表里没人认领；简报第 6 条让找这里）；`main.js` HUD 帧那一行下面加了一行 `fpsNote`。`hd-render.test.mjs` 一字没动（它要的 `rendererQuality(settings, this.touch, this.appleGPU)` 原样在 `withProfile(…)` 里面）。
+
+**测试**：`npm run test:learn` 271 / 271（+12 `render-gov.test`：机型类、`deviceInfo`、档位表、带档位的 `rendererQuality`（没档位时四个画质档 × 三种设备逐字段和以前一样）、带档位的密度 / 下限、`startStep`、`afterMatch`（降、升、到头、短局、发热局、门槛边上）、`shouldCap` / `hotPower`、读数和存储（坏 JSON、存储抛错）、`main.js` / `renderer.js` / `hud.js` 的接线读源码断言；再加两条**把 `main.js` 里真的 `_loop` / `_frameTarget` / `_dynRes` / `_govWin` / `_govEnd` / `_onPower` / `_matchPower` 方法体拿出来在替身游戏上跑**：120Hz 下读数每 0.5 秒出一次、压到 60 时隔一个 vsync 画一帧；一局 12 ms 一帧的 120Hz 手机：先降密度到下限、再关辉光、再过两个窗口才稳 60、稳 60 后密度往回走、局结束存下「下一档 1、capped」、同一次启动不再动；干净的一局记 good、不动；发热的局：当场 60 + 下限、发热期间不回升、不算数、凉下来下一局开头放开）；hd-render 的 4 条照样过。`npm run check` 291 个文件。
+
+**实测**（浏览器，锁下一次一个，SwiftShader）：
+- `parity-shots --views landscape --dpr 3 --native iphone16`（844 × 390 @ 3）：`quality high`、`shadows true`、`pr 2.5`、`buf 2110x975`、`step 0`、AO / 辉光 / 阴影图都开、`shadowSize 2048`、`particles 1`，没有页面错误。截图看过：凉亭和栏杆下面有影子、画面和 HUD 的字 / 描边清楚；辉光在 SwiftShader 里只看得出墨的一点亮边（SwiftShader 不是 Apple 的 WebGL——Apple 上三样是不是都起作用要真机看）；看完删了。
+- `--probe`（同样的设置再跑一次：显示帧率读数 + 一个现编的 thermal serious 事件）：**发热那一半过了**——事件进 `window.__iwNative.on` 后当场 `_autoCap 60`、`_capWhy 'hot'`、动态缩放到下限 0.6、渲染密度 2.5 → 1.5；**读数那一半没验到**：打开显示帧率后只等了固定 3 秒，HUD 还是旧的 `60 FPS`、`fpsNote` 还没算（读数每攒够 0.5 秒的帧才算一次，推断是 SwiftShader 在 2.5× + 整套后期下一帧要几秒、3 秒里没攒够 0.5 秒的帧，HUD 拿的是冻结前的旧帧率——没再开浏览器证实）。探针已改成等读数出来（最多 40 秒），但浏览器次数（2 次）用完了，没重跑；读数本身由单元测试证明（`govReadout` 的字符串；`_loop` 的真方法体在替身上跑出 `120 帧 · 2.0× · 第 0 档`）——浏览器里没看到。截图看过：钟楼、路灯、凉亭在广场上的影子清楚；看完删了。
+
+**要真机才能定的**：
+1. 120 帧下各档的真实帧时间（iPhone 15 Pro / 16 上 0 档能不能稳 120、1 档是不是够；A16 从 2 档起是不是太保守）——用「显示帧率」的读数看，几局之后档位自己会走到能稳住的那一档。
+2. Apple 的 WebGL 里阴影（PCF 3×3）、GTAO（半分辨率）、辉光三样是不是都真的画出来（SwiftShader 里都开着、截图里能看到影子）。
+3. 降档门槛（`floorFrac ≥ 0.25` 且 `slowFrac ≥ 0.2`）、升档要 3 局干净——都是一个数。
+
+**拿不准的（自己定了）**：
+1. 发热的局不算数（简报没说）：不然夏天一局就把档位降下去、凉下来还要 3 局才回来。
+2. 自动 60 只在有档位时（她的 App）——桌面 / 安卓的 120Hz 屏照旧；要推广是 `_dynRes` 里 `this.R.q.step != null` 一处。
+3. 她在设置里选的画质档如果正好是档位的画质档（比如 top 机型选 high），档位的密度 / AO / 阴影图（2048，不是 high 档的 4096）照样生效——「她选的档」赢的是画质档本身。
+
+**没做的**：真机；120Hz 下 `--probe` 只验了接线（SwiftShader 只有 60 帧上下，到不了自动 60 的条件）；`screenfx.js` 的镜头光晕采样数还按画质档（没按档位的粒子）。
+
+**交接**：分支 `render-gov`（从 hd-render `79caea1` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；iOS 壳要真的放 `window.__IELTS_NATIVE.device` / `.display`（主会话今晚的 `HighRefresh.swift`），不放就是 null、一切照旧。
