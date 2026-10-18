@@ -1535,32 +1535,46 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **没做的**：lockgate 那天一处 rig 点离左沿 14 px（`inBand` 的 x < −2）——另一个偏差，这次没碰；真机。
 
-## 36. gf-review 交付（2026-10-17，子代理，分支 `gf-review`：游戏为主体 第二期（下）——复习关：这一周该复习的词组成一关）
+## 32. ui-sticker 交付（2026-10-17 / 18，子代理，分支 `ui-sticker`：学习层自己的 DOM 换成原版 INKWAVE 的贴纸画风）
 
-**先读了什么**：`forms/index.js`（buildLearn、buildQuiz 怎么挑到期的题、怎么组关）、`store.js`（`due(week)`：记忆模型说该复习的、最忘的在前；判题路径）、`design.js`（planDay、dayPlanFor、mechanicOf、playOf、quizPlan / bossPlan 的 dedupe）、`levels.js`、`play/runner/`（rows.js entriesOf：每道题按自己的 input 变成车道行 / 节拍行 / 滑行段；boards.js：只有 word-board / symbol-door / grammar 的门前面有看板段；runner.js `_start`：reading-room 的门起跑前放课文）、`wire/boards.js` gateSpecs、`main.js` startLearn、PLAY §1（题就是玩法，不暂停、不弹卡片）。
+**先读了什么**：业主 10-17「画风和精致度和精细程度和原版游戏一样，丝滑 高清」、23:45 那句（融合、比原版更精细、3A 的交互节奏）；`styles/hud.css` 前 1320 行和 `styles/ui.css`（原版的做法：`--k` #15121c 的硬描边 `0 0 0 Npx var(--k)`、往下错开的实色投影、`.iw-call__ribbon` 的斜切彩带、`.iw-modal__card` 的白边 + 墨边、`.iw-res__splat` 慢慢转的墨花、`.iw-key` / `.iw-pad` 的贴纸键帽、`--spring`）；学习层六个带 CSS 的文件和 `hud.css` 1320 行以后那一节（`var(--k)` 一次都没用：半透明深色圆角框 + 1.5 px 淡白边 + 柔和投影）；`hud-learn.js` 的结算卡、`forms/ui.js` 的道具袋（§30 的 `is-aside`）、`landscape.js` 的 `topOver` / `hudBand`（量的是哪些框）；主会话 10-17 晚上按手机真实密度（`--dpr 3`）拍的原版对战和改前的跑酷 / 对抗赛截图。
 
 **先定的**：
-1. **形式是 race（墨浪跑酷），flow 原样**：跑酷每道题按它自己的 input 出（选择 → 车道 / 节拍行，打字 / 写句 → 滑行段），一门里混着几种题也稳；拼图（puzzle）的门按门的 mechanic 出（翻牌门等），混合的门要改 flow——不选。舞台和时间用这一周复习日（第 7 天）的计划。
-2. **挑题**：`store.due(week)` 的顺序原样（最忘的在前），最多 24 题，配速模型（`REVIEW.pace`：车道 / 节拍行 9 s、打字词 14 s、听写句 28 s、写句 40 s、课文 60 s）把一关的作答时间压在 8 分钟以内——放不下的长题跳过，后面短的还能进；同一个 id 教两次的（词表和卡片），按第一次教它的那一步出（和 bossPlan / quizPlan 的 dedupe 一样）。
-3. **分门**：3 门（18 题以上 4 门），尽量平均，每门 ≤ 8；门的 `design.mechanic` 是 null（复习不在门前放教学看板：不让她等），`design.mechanics` 是每道题自己那一步的 mechanic（合法性检查用）。
-4. **课文**：一关最多一篇课文，它的题挨着、排在那一门最前面（门的 mechanic 'reading-room'，起跑前的展板就是课文——题只带课文标题，第一题是带全文的副本，内容本身不动）；别的课文的题留到下一次复习。
-5. **一题都没到期 → 抛错**：`Error('现在没有要复习的')`，`e.zh` 同一句、`e.code = 'nothing-due'`；`main.js` startLearn 的 catch 带 `e.zh` 就 toast 它（console.info，不算报错），别的错照旧「这一天的课还没准备好」。
-6. **复习不算走完哪一天**：`ReviewFlow`（RunnerFlow 的子类，只在 forms/index.js）把星星记在 `wNreview`；出发后 0.9 s 比赛自己的提示条说一句「复习关 · 这一周该复习的 K 个 · 最忘的在前」（不弹卡片）；结果卡（现有的）的「再来一次」是再复习一轮。
-7. **证据照旧**：判题 / 记录一个字没改（`judge.js`、`_judgeRecord`、`recordFirst`），当天首答——今天已经答过的（今天答错才到期的）在复习关里是练习，不再记。
+1. **只换画风，不动布局**：描边和错开投影都用 `box-shadow`（不进 `getBoundingClientRect`，审计量的框一像素不变）；原来的 1.5 px 边框留着、改成一圈亮一点的内边（贴纸的「白边在墨边里」）；字号、点按区都不小于原来（题 19 / 中文 17 / 判语 19 / 17 / 车道 14 / 12、按钮 44 pt）。唯一的布局改动是车道格（第 4 条），题条只会变矮。
+2. **判语是彩带**（学 `.iw-call__ribbon`）：「答对了」她的墨色、「差一点」珊瑚色 `#f08a7a`（不是任何一队的颜色，PLAY §1.6），字一律深色 `--k`——六套队色和珊瑚上都 ≥ 4.5 : 1（队色里最暗的泡泡糖粉 5.7 : 1）。彩带画在字后面（`::before`），不加上下内边距，题条和 `VERDICT_H` 一样高。
+3. **结算卡 = 菜单的弹窗卡 + 结算屏的墨花**：白边 + 墨边 + 投影；标题后面一朵她墨色的 `splatSVG` 慢慢转（60 s 一圈），探出卡的上沿。卡分成不滚的头（标题 + 墨花）和能滚的身子（`results_`，各形式照旧往里加行）——横屏手机上卡要滚，墨花不能盖到滚上来的字上。
+4. **车道格不拆英文词**（主会话 23:45 转来的毛病：「here」→「her / e」）：英文 `keep-all`、格子至少有最长的词那么宽、放不下换到第二排；竖屏有车道时题条换成网格：▶ 和标签在题干左边，车道一排在下面横跨整条（原来只有标签右边那一列，一格约 43 px）。没有中文行时 ▶ 占左边一列（一行题干比 ▶ 矮，不然车道会被往下推）。所以题条只会变矮：四道短词 134 → 118 px、三道长词 158 → 142 px、一行题干 135 → 118 px（390 × 844）。
+5. **节奏**（23:45 那句）：按下当帧就沉进自己的投影（`:active` 的 `transition-duration: 0s`，松手弹簧回来）；彩带从左边弹簧扫进来（带回弹），判语的字晚 60 ms 滑进来，答对了字再弹一下；结算卡弹进来、墨花炸开、标题弹出、卡里每一行隔 60 ms 升上来，分数从 0 滚到真数（最多 0.7 s，滚的数画在 `::after` 上，元素里一直是真数——审计和读屏读到的不会是 0）、落定弹一下。都只动 transform / opacity；减少动态时一个都不动（`.iw-learn *` 和题条的规则）。
+6. **材质有层次**：框是上亮下暗的渐变 + 顶上一线清漆高光 + 底下一线内阴影；彩带上半透亮、脚下压暗；按钮一层上半的高光。不加 `backdrop-filter`（手机上贵，原来的也没有）。
 
-**改了什么**：`src/learn/review.js`（新，纯：`reviewPlan`、`REVIEW`）；`src/learn/forms/index.js`（`LEARN_KINDS` 加 'review'、`buildReview`、`ReviewFlow`、`NOTHING_DUE`）；`src/learn/store.js`（只加 `dueCount(week)`）；`src/learn/api.js`（只加导出 `reviewPlan` / `REVIEW`）；`src/main.js`（startLearn 的 catch 一处）；`tests/learn/review.test.mjs`（新，5 条）。
+**改了什么**（`cf7246a` 起，8 个文件 +381 / −102）：
+- `src/ui/play-strip.js`：题条框、▶、标签（斜 3°）、车道格（字母是描边的 Titan One）、判语彩带、「我的写法也对 / 继续」、提示行；竖屏车道网格；动效和减少动态。
+- `styles/hud.css`（学习层那一节）：走路条（箭头在她墨色的圆片里、距离 Titan One、「门 2 / 5」浅色斜贴纸）、学习层按钮、结算卡（外框 / 头 / 墨花 / 能滚的卡 / 分数 / 到期词贴纸 / 按钮微倾）、横屏手机上卡下移 16 px 给墨花留地方。
+- `src/ui/hud-learn.js`：结算卡多一层外框和头（`rFrame` / `rHead`，墨花 `splatSVG`），`_countUp`。
+- `src/learn/forms/ui.js`：道具袋的格子（贴纸 + 按下沉）、**图标换成游戏自己的副武器 / 大招图标**（`PROP_GLYPH` 的名字在 `SUB_ICONS` / `SPECIAL_ICONS` 里、不在 `GLYPHS` 里——原来每一格都退成同一个墨滴）、提示条、名次、Boss 阶段条；空的阶段条不再在钟下面画一个小黑块（别的玩法里一直有）。
+- `src/learn/play/board/strip.js`（展板全文条：框、斜贴纸的小标题、✕）、`src/learn/play/runner/tips.js`（操作提示 / 「横过来更好玩」贴纸；两个同时出来时提示站到上面，原来叠在一起）、`src/ui/play-keys.js`（只有 ▶ / 提示两个圆键加了贴纸边，键帽本来就是 Titan One + 实色投影，不动）。
+- `wire/type.js`、`landscape.js` 的 CSS 只是挪题条的位置，没有自己的框，没动；取景函数一行没动。
+- `tests/learn/ui-sticker.test.mjs`（新，7 条）。
 
-**动了别人地盘的**：没有。`ReviewFlow._results` 读了 hud-learn 的 `rAgain`（只换它的 onclick，没有就什么都不做）。
+**动了别人地盘的**：没有。`judge.js`、`_judgeRecord`、`content/`、`src/core/`、`config.js`、`targets.js`、`atlas.js`、`board/paint.js` 一行没动。
 
-**测试**：`npm run test:learn` 260 / 260（+5），`npm run check` 290。证据全是现编的（memory backend）。出发那一句在 Node 里用跑酷自己的 `_go` 验（裸对象，没有舞台）。
+**测试**：`npm run test:learn` 251 → 258（新 `ui-sticker.test` 7 条：题条 / 结算卡 / 道具袋 / 走路条 / 展板条 / 提示都有墨描边 + 错开投影；没有一个文件退回暗色玻璃或加 `backdrop-filter`；字号和 44 pt；车道不拆词、竖屏网格；按下当帧、彩带弹簧、结算卡错开 40–80 ms、减少动态；数字滚动只在变的时候写、元素里是真数），第一版的 5 条在改前的代码上跑 4 条不过（确认它真拦得住；没过的那条是字号，改前本来就满足）；`npm run check` 288 个文件。判分没动。
 
-**实测**：浏览器跑了 1 次（新浏览器、`?learn=w1d3&kind=review`、844 × 390）：脚本在最后截图那一步超时（SwiftShader，Playwright 截图 30 s），结果没打出来——toast / 页面错误这一条没在浏览器里确认；Node 测试覆盖了抛错和 toast 的那一行。
+**实测**（浏览器，锁下一次一个）：
+- 自己写的展台页（草稿目录里，不提交）：真的 `PlayStrip` / `LearnHud` / `FormsUi` / `ReadStrip` / `RunnerTips` + 原版的钟，背景是原版对战的截图，390 × 844 / 844 × 390，`--dpr 3`，改前（`cf7246a` 的源码）改后各一套；量题条的框：判语 / Boss 题条的高度和改前一样（88 / 90 px），车道题条变矮（见上）。
+- 跑酷 w1d3 短关（`runner-audit --touch --dpr 3`）：`bad` 0、0 报错、0 个 4xx，到结算卡；截图里车道「here」「tour」不断开、空阶段条的小黑块没了、名次和题条是贴纸。
+- 对抗赛 w1d6 短关（`arena-audit --form duel --views portrait --n 2`，`--dpr 1`）：45 条全过（含 §30 的道具袋让位、题条 / 钟不相交、题物都在题条下的安全区里），206 步 PLAY §1 第 1 条全守住，0 报错 0 个 4xx；截图里「答对了」是她墨色（青）的彩带、题条描她的墨边。
+- 没在浏览器里跑的：Boss、解谜（竖横）、横屏的跑酷 / 对抗赛、`portrait-audit`——10-17 晚上六方共用一把锁，每方限次、限 8 分钟；布局只有车道格变了（只会变矮），别的框的尺寸一像素没变（描边、投影都是 `box-shadow`）。
 
-**拿不准的**：配速的秒数是估的（跑酷注释里的「滑行段 ≈ 14 s 一个词」为准，车道行按行距估），要整关实测校准；`REVIEW` 的数放在 review.js，没进 config.js 的 LEARN（config.js 这次有别人在改）。
+**拿不准的（自己定了）**：
+1. 彩带上的字用深色而不是 `--self-ink`：泡泡糖粉的 `--self-ink` 是白字（3.3 : 1），深色是 5.7 : 1。按钮照旧用 `--self-ink`（原版就是这样）。
+2. 结算卡的标题：中文落到系统字体，800 字重、`font-synthesis: none`（数字是 Titan One，不合成假粗体），描边 .15em（比 `.iw-display` 的 .17em 细一点，「关 / 周」的小空不被糊上）。
+3. 横屏手机上墨花会盖到钟的下沿一点（关卡已经结束、比赛停着）。
+4. 车道格里一个特别长的单词（三道、每道一个 14 个字母以上的词）会换到第二排，题条比原来高一行；原来是把词拆开。四道题行都是 ≤ 12 个字符的短词，不会碰到。
 
-**没做的**：浏览器里的那一次确认；真机；原生「点开复习提醒」现在还是去课本的复盘（index.html），可以改成进复习关。
+**没做的**：游戏键盘的键帽（奶白 + 茶色投影，和原版 `.iw-key` 的冷白 + 墨投影不完全一样，但本来就是 Titan One + 实色投影，没动）；`prefers-reduced-motion` 下换成淡入淡出（现在是完全不动，和原来的规则一致）；横屏 Boss / 解谜在浏览器里没拍（锁）；真机。
 
-**交接**：主菜单的「复习 K 个」（gf-map）调 `api.startLearn({ week, day, kind: 'review' })`；K 可以用 `store.dueCount(week)`，关里实际问的是 `min(K, 24)`（配速再压）。
+**交接**：分支 `ui-sticker`（从 dev `cf7246a` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。`docs/DEVLOG.md` 按 10-17 晚上的共同规矩没改，由主会话合并时写。
 
 ## 33. render-gov 交付（2026-10-17，子代理，分支 `render-gov`：她的 App 里按机型定画质起点、按整局的真实帧时间升降档、120 帧稳不住就稳 60）
 
@@ -1646,43 +1660,56 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **交接**：gf-review 合进来以后复习按钮自动出现（`LEARN_KINDS` 有 'review'、`reviewPlan` 在 api.js）；合并后在 App 里跑一次 `map-shot.mjs`（有到期词的进度才看得到复习按钮——那要现编的进度，不用她的）。
 
-## 32. ui-sticker 交付（2026-10-17 / 18，子代理，分支 `ui-sticker`：学习层自己的 DOM 换成原版 INKWAVE 的贴纸画风）
+## 35. learn-3d 交付（2026-10-17，子代理，分支 `learn-3d`：学习关卡的 3D 题物和原版一样精致——答案牌贴纸风、字不出框、墨球更像墨）
 
-**先读了什么**：业主 10-17「画风和精致度和精细程度和原版游戏一样，丝滑 高清」、23:45 那句（融合、比原版更精细、3A 的交互节奏）；`styles/hud.css` 前 1320 行和 `styles/ui.css`（原版的做法：`--k` #15121c 的硬描边 `0 0 0 Npx var(--k)`、往下错开的实色投影、`.iw-call__ribbon` 的斜切彩带、`.iw-modal__card` 的白边 + 墨边、`.iw-res__splat` 慢慢转的墨花、`.iw-key` / `.iw-pad` 的贴纸键帽、`--spring`）；学习层六个带 CSS 的文件和 `hud.css` 1320 行以后那一节（`var(--k)` 一次都没用：半透明深色圆角框 + 1.5 px 淡白边 + 柔和投影）；`hud-learn.js` 的结算卡、`forms/ui.js` 的道具袋（§30 的 `is-aside`）、`landscape.js` 的 `topOver` / `hudBand`（量的是哪些框）；主会话 10-17 晚上按手机真实密度（`--dpr 3`）拍的原版对战和改前的跑酷 / 对抗赛截图。
+**先读了什么**：`atlas.js`（`drawLabelAtlas` 画的是 `rgba(21,18,28,.9)` 的深色玻璃牌、白字、淡紫中文；`fitLabel`）、`layout.js`（`textWidth` 估宽、`labelBox` 每边 12 px）、`targets.js`（`inkMaterial` 清漆 + wobble、`plateMaterial` 的 SDF 环、`pop` 的回弹其实只有 1.006）、`runner/view.js`（PLATE、车道字母的浅色小块）、原版名字牌 `styles/hud.css .iw-mk__tag`（队伍色填充、`0 0 0 2px var(--k)` 描边、往下的实色投影、底下一个小尾巴）、`play.test.mjs` / `play4.test.mjs` 里 atlas 和 layout 的断言。
 
 **先定的**：
-1. **只换画风，不动布局**：描边和错开投影都用 `box-shadow`（不进 `getBoundingClientRect`，审计量的框一像素不变）；原来的 1.5 px 边框留着、改成一圈亮一点的内边（贴纸的「白边在墨边里」）；字号、点按区都不小于原来（题 19 / 中文 17 / 判语 19 / 17 / 车道 14 / 12、按钮 44 pt）。唯一的布局改动是车道格（第 4 条），题条只会变矮。
-2. **判语是彩带**（学 `.iw-call__ribbon`）：「答对了」她的墨色、「差一点」珊瑚色 `#f08a7a`（不是任何一队的颜色，PLAY §1.6），字一律深色 `--k`——六套队色和珊瑚上都 ≥ 4.5 : 1（队色里最暗的泡泡糖粉 5.7 : 1）。彩带画在字后面（`::before`），不加上下内边距，题条和 `VERDICT_H` 一样高。
-3. **结算卡 = 菜单的弹窗卡 + 结算屏的墨花**：白边 + 墨边 + 投影；标题后面一朵她墨色的 `splatSVG` 慢慢转（60 s 一圈），探出卡的上沿。卡分成不滚的头（标题 + 墨花）和能滚的身子（`results_`，各形式照旧往里加行）——横屏手机上卡要滚，墨花不能盖到滚上来的字上。
-4. **车道格不拆英文词**（主会话 23:45 转来的毛病：「here」→「her / e」）：英文 `keep-all`、格子至少有最长的词那么宽、放不下换到第二排；竖屏有车道时题条换成网格：▶ 和标签在题干左边，车道一排在下面横跨整条（原来只有标签右边那一列，一格约 43 px）。没有中文行时 ▶ 占左边一列（一行题干比 ▶ 矮，不然车道会被往下推）。所以题条只会变矮：四道短词 134 → 118 px、三道长词 158 → 142 px、一行题干 135 → 118 px（390 × 844）。
-5. **节奏**（23:45 那句）：按下当帧就沉进自己的投影（`:active` 的 `transition-duration: 0s`，松手弹簧回来）；彩带从左边弹簧扫进来（带回弹），判语的字晚 60 ms 滑进来，答对了字再弹一下；结算卡弹进来、墨花炸开、标题弹出、卡里每一行隔 60 ms 升上来，分数从 0 滚到真数（最多 0.7 s，滚的数画在 `::after` 上，元素里一直是真数——审计和读屏读到的不会是 0）、落定弹一下。都只动 transform / opacity；减少动态时一个都不动（`.iw-learn *` 和题条的规则）。
-6. **材质有层次**：框是上亮下暗的渐变 + 顶上一线清漆高光 + 底下一线内阴影；彩带上半透亮、脚下压暗；按钮一层上半的高光。不加 `backdrop-filter`（手机上贵，原来的也没有）。
+1. **牌 = 贴纸**：深色描边 `#15121c` 3 px（atlas scale 2 = 6 纹素）、往下 3 px 的实色投影、珍珠白的面（上白下淡紫，一圈浅色内沿）、球的牌顶上一个朝球的小尾巴（横幅 / 墨帘的牌没有）；框的尺寸放在 `layout.js FRAME`，layout、atlas、着色器三处用同一组数。
+2. **状态不靠换贴图**：贴图里的面是浅色，着色器按亮度把面乘成珊瑚（答错）或她的墨（答对 / 揭晓）——描边、投影、字都是深色，乘了还是深色；**永远不用对手的颜色**（PLAY §1.6）。「答对后变她的墨色」就是名字牌那种队伍色填充。
+3. **字不出框**：`fitText`——先缩字号（到 0.82 倍、≥ 12 px），再换行（中文最多两行），最后才省略号；`labelBox` 用估宽量、`drawLabelAtlas` 再用 canvas 的 `measureText`（真实字体）在同一个框里排一次，`fillText` 的 maxWidth 只是最后的保险。球的牌里面最宽 150 px（`FRAME.maxIn`）。
+4. **字体**：英文行用 Titan One（`document.fonts.load` 在 PlayTargets / RowView 构造时就发；`document.fonts.check` 过了才用，没载进来用 Rubik 800），带中文的行用 Rubik + 系统 CJK 字体。
+5. **墨球**：中性墨 `#a39db8` → `#d3cae8`（珍珠淡紫），着色器里加视角变色的珍珠光泽（菲涅耳）和慢慢转的大理石内里（只在中性墨上：她的墨 / 珊瑚保持纯色），命中那一帧边缘白光一闪；**还是一个程序**（`iw-play-ink-3` 替换 `-2`），牌也是一个（`iw-play-plate-3` 替换 `-2`），不加绘制调用、不加每帧分配。
+6. **动作**（全部走预分配的槽和实例属性）：牌从球的中心弹出来落到球下面（ease-out-back 到 1.08 再回 1、50 ms 错开）；答错果冻抖（衰减的弹簧，x/z 和 y 反着，~0.45 s，wobble 一起放大）；命中先鼓一下（1 → 0.9 → 1.12，80 ms，边缘光闪）再消失（判中、hit 形状在 `burst` 那一刻就没了，判分时序不变）；揭晓答对那一张牌往前顶一下、描边亮一下再落（`aState.w` 闪光、`aBox` 让着色器知道描边在哪）；减少动态效果：不弹不抖不鼓，牌只淡入。
 
-**改了什么**（`cf7246a` 起，8 个文件 +381 / −102）：
-- `src/ui/play-strip.js`：题条框、▶、标签（斜 3°）、车道格（字母是描边的 Titan One）、判语彩带、「我的写法也对 / 继续」、提示行；竖屏车道网格；动效和减少动态。
-- `styles/hud.css`（学习层那一节）：走路条（箭头在她墨色的圆片里、距离 Titan One、「门 2 / 5」浅色斜贴纸）、学习层按钮、结算卡（外框 / 头 / 墨花 / 能滚的卡 / 分数 / 到期词贴纸 / 按钮微倾）、横屏手机上卡下移 16 px 给墨花留地方。
-- `src/ui/hud-learn.js`：结算卡多一层外框和头（`rFrame` / `rHead`，墨花 `splatSVG`），`_countUp`。
-- `src/learn/forms/ui.js`：道具袋的格子（贴纸 + 按下沉）、**图标换成游戏自己的副武器 / 大招图标**（`PROP_GLYPH` 的名字在 `SUB_ICONS` / `SPECIAL_ICONS` 里、不在 `GLYPHS` 里——原来每一格都退成同一个墨滴）、提示条、名次、Boss 阶段条；空的阶段条不再在钟下面画一个小黑块（别的玩法里一直有）。
-- `src/learn/play/board/strip.js`（展板全文条：框、斜贴纸的小标题、✕）、`src/learn/play/runner/tips.js`（操作提示 / 「横过来更好玩」贴纸；两个同时出来时提示站到上面，原来叠在一起）、`src/ui/play-keys.js`（只有 ▶ / 提示两个圆键加了贴纸边，键帽本来就是 Titan One + 实色投影，不动）。
-- `wire/type.js`、`landscape.js` 的 CSS 只是挪题条的位置，没有自己的框，没动；取景函数一行没动。
-- `tests/learn/ui-sticker.test.mjs`（新，7 条）。
+**改了什么**：`src/learn/play/layout.js`（`wrapLines` 可传 measure、`fitText`、`FRAME` / `frameX`、`plateText`、`labelBox` 按贴纸框）、`src/learn/play/atlas.js`（`STICKER`、`FRAME_FIXED`、`labelFonts`、`enFont` / `zhFont`、`sticker` / `stickerBody`、车道字母徽章、`drawLabelAtlas` 三种牌全换、`fitLabel` 竖向扣掉框）、`src/learn/play/targets.js`（两个材质、`aBox` 实例属性、闪光 / 果冻 / 鼓 / 牌升起、`pop` 真的回弹到 1.08）、`src/learn/play/runner/view.js`（构造时发字体、注释）。
 
-**动了别人地盘的**：没有。`judge.js`、`_judgeRecord`、`content/`、`src/core/`、`config.js`、`targets.js`、`atlas.js`、`board/paint.js` 一行没动。
+**动了别人地盘的**：没有。`flip/targets.js` 有它自己的 COLORS，没碰。
 
-**测试**：`npm run test:learn` 251 → 258（新 `ui-sticker.test` 7 条：题条 / 结算卡 / 道具袋 / 走路条 / 展板条 / 提示都有墨描边 + 错开投影；没有一个文件退回暗色玻璃或加 `backdrop-filter`；字号和 44 pt；车道不拆词、竖屏网格；按下当帧、彩带弹簧、结算卡错开 40–80 ms、减少动态；数字滚动只在变的时候写、元素里是真数），第一版的 5 条在改前的代码上跑 4 条不过（确认它真拦得住；没过的那条是字号，改前本来就满足）；`npm run check` 288 个文件。判分没动。
+**测试**：新 `tests/learn/learn-3d.test.mjs` 6 个（「床（复数）」「猫（复数）」和 7–10 个汉字的释义：估宽和宽 15 % 的字体下每一行都 ≤ 牌里面的宽；`fitText` 的先缩、再换行、最后省略；框的纹素数；中性墨更亮、两个程序、`update` / `_write` / `_scaleOf` 里不分配；动作的时序和减少动态效果）。`play.test.mjs` 里 `labelBox('星期一').w` 75 → 78（贴纸框每边 1.5 + 3 + 9 = 13.5 px，原来 12 px）——设计改了，断言没删。词关 25 个释义仍在 1024 × 512、scale 2 里（原断言不动、过了）。
 
-**实测**（浏览器，锁下一次一个）：
-- 自己写的展台页（草稿目录里，不提交）：真的 `PlayStrip` / `LearnHud` / `FormsUi` / `ReadStrip` / `RunnerTips` + 原版的钟，背景是原版对战的截图，390 × 844 / 844 × 390，`--dpr 3`，改前（`cf7246a` 的源码）改后各一套；量题条的框：判语 / Boss 题条的高度和改前一样（88 / 90 px），车道题条变矮（见上）。
-- 跑酷 w1d3 短关（`runner-audit --touch --dpr 3`）：`bad` 0、0 报错、0 个 4xx，到结算卡；截图里车道「here」「tour」不断开、空阶段条的小黑块没了、名次和题条是贴纸。
-- 对抗赛 w1d6 短关（`arena-audit --form duel --views portrait --n 2`，`--dpr 1`）：45 条全过（含 §30 的道具袋让位、题条 / 钟不相交、题物都在题条下的安全区里），206 步 PLAY §1 第 1 条全守住，0 报错 0 个 4xx；截图里「答对了」是她墨色（青）的彩带、题条描她的墨边。
-- 没在浏览器里跑的：Boss、解谜（竖横）、横屏的跑酷 / 对抗赛、`portrait-audit`——10-17 晚上六方共用一把锁，每方限次、限 8 分钟；布局只有车道格变了（只会变矮），别的框的尺寸一像素没变（描边、投影都是 `box-shadow`）。
+**实测**（浏览器，锁下一次一个，共 2 次）：
+- 对抗赛竖屏 390 × 844、dpr 3（`arena-audit --form duel --views portrait --dpr 3`，w1d6 短关）：36 条 ok——第一题从 备战 到答对整套过（4 个球都在安全区里、名字牌让开、普通一发打中不判、点打 → 答对了、learn:answer 一次、区域灌墨、没有暂停没有卡片），第二题过到「普通一发不判」；然后 `timeout 600` 到点把浏览器关了（`driver error: Target page … closed`，599.7 s：SwiftShader 在 dpr 3 下这台机器上启动 48 s、备战 133 s），**不是页面的错，但这一次没跑完**。截图：贴纸牌一眼就是原版名字牌的样子（深描边、往下的投影、朝球的小尾巴、Titan One 的英文），「床（复数）」「猫（复数）」两边都有空；墨球亮了（珍珠淡紫、清漆高光）。**截图里看到一个错**：men / no 两张牌被省略成「m…」「n…」——框按 Rubik 估宽、字用 Titan One 画（宽约 1.3 倍）。当场修了（`enWidth`：拉丁行按 ×1.3 估、牌里面最窄 34 px、第一行也可换两行；画的时候英文先缩到 0.7 再说省略），加了单元测试（三周所有球的牌一个都不省略、词关仍在 scale 2）；修过以后没再开浏览器看（只剩一次，给了跑酷）。
+- 跑酷竖屏 390 × 844 触屏 dpr 3（`runner-audit --scenario runner --query '?learn=w1d3&kind=race&short=1'`）：exit 0、`bad` 空、0 报错 0 4xx。截图：墨帘上的四张牌是同一套贴纸（深描边、往下的投影、珍珠白的面），go / here / hair / tour 是 Titan One、中文在下面不出框；左上角的车道字母徽章在这个距离太小（屏上 ~12 px，字母认不清）——字母从徽章的 0.66 放到 0.8（没再开浏览器看）。顺带看到：顶上题条里的选项「her / e」「tou / r」被拆成两行——那是 `play-strip.js`（ui-sticker 的文件），不是这次的，报给主会话。
+- 两次的截图看完都按路径删了。
 
-**拿不准的（自己定了）**：
-1. 彩带上的字用深色而不是 `--self-ink`：泡泡糖粉的 `--self-ink` 是白字（3.3 : 1），深色是 5.7 : 1。按钮照旧用 `--self-ink`（原版就是这样）。
-2. 结算卡的标题：中文落到系统字体，800 字重、`font-synthesis: none`（数字是 Titan One，不合成假粗体），描边 .15em（比 `.iw-display` 的 .17em 细一点，「关 / 周」的小空不被糊上）。
-3. 横屏手机上墨花会盖到钟的下沿一点（关卡已经结束、比赛停着）。
-4. 车道格里一个特别长的单词（三道、每道一个 14 个字母以上的词）会换到第二排，题条比原来高一行；原来是把词拆开。四道题行都是 ≤ 12 个字符的短词，不会碰到。
+**拿不准的**：答对的牌整面变她的墨——她的队伍色是橙色时和珊瑚（答错）只差在饱和度；球上的光环、边缘光仍在她的墨里，答错的球自己变珊瑚还会抖，应该分得开，真机上再看一眼。Titan One 在第一关的牌上可能还没载进来（那一关是 Rubik 粗体）。
 
-**没做的**：游戏键盘的键帽（奶白 + 茶色投影，和原版 `.iw-key` 的冷白 + 墨投影不完全一样，但本来就是 Titan One + 实色投影，没动）；`prefers-reduced-motion` 下换成淡入淡出（现在是完全不动，和原来的规则一致）；横屏 Boss / 解谜在浏览器里没拍（锁）；真机。
+**没做的**：球下面的 blob 软影子（要么多一次绘制、要么把牌的实例数翻倍：漂在空中的球没有地面可投，这次不做）；展板（`board/paint.js`）的标题和边框（第 5 条，有时间再做——没时间）。
 
-**交接**：分支 `ui-sticker`（从 dev `cf7246a` 建出）；合并后 IELTS-Base 那边 `app/game` 要重新同步。`docs/DEVLOG.md` 按 10-17 晚上的共同规矩没改，由主会话合并时写。
+## 36. gf-review 交付（2026-10-17，子代理，分支 `gf-review`：游戏为主体 第二期（下）——复习关：这一周该复习的词组成一关）
+
+**先读了什么**：`forms/index.js`（buildLearn、buildQuiz 怎么挑到期的题、怎么组关）、`store.js`（`due(week)`：记忆模型说该复习的、最忘的在前；判题路径）、`design.js`（planDay、dayPlanFor、mechanicOf、playOf、quizPlan / bossPlan 的 dedupe）、`levels.js`、`play/runner/`（rows.js entriesOf：每道题按自己的 input 变成车道行 / 节拍行 / 滑行段；boards.js：只有 word-board / symbol-door / grammar 的门前面有看板段；runner.js `_start`：reading-room 的门起跑前放课文）、`wire/boards.js` gateSpecs、`main.js` startLearn、PLAY §1（题就是玩法，不暂停、不弹卡片）。
+
+**先定的**：
+1. **形式是 race（墨浪跑酷），flow 原样**：跑酷每道题按它自己的 input 出（选择 → 车道 / 节拍行，打字 / 写句 → 滑行段），一门里混着几种题也稳；拼图（puzzle）的门按门的 mechanic 出（翻牌门等），混合的门要改 flow——不选。舞台和时间用这一周复习日（第 7 天）的计划。
+2. **挑题**：`store.due(week)` 的顺序原样（最忘的在前），最多 24 题，配速模型（`REVIEW.pace`：车道 / 节拍行 9 s、打字词 14 s、听写句 28 s、写句 40 s、课文 60 s）把一关的作答时间压在 8 分钟以内——放不下的长题跳过，后面短的还能进；同一个 id 教两次的（词表和卡片），按第一次教它的那一步出（和 bossPlan / quizPlan 的 dedupe 一样）。
+3. **分门**：3 门（18 题以上 4 门），尽量平均，每门 ≤ 8；门的 `design.mechanic` 是 null（复习不在门前放教学看板：不让她等），`design.mechanics` 是每道题自己那一步的 mechanic（合法性检查用）。
+4. **课文**：一关最多一篇课文，它的题挨着、排在那一门最前面（门的 mechanic 'reading-room'，起跑前的展板就是课文——题只带课文标题，第一题是带全文的副本，内容本身不动）；别的课文的题留到下一次复习。
+5. **一题都没到期 → 抛错**：`Error('现在没有要复习的')`，`e.zh` 同一句、`e.code = 'nothing-due'`；`main.js` startLearn 的 catch 带 `e.zh` 就 toast 它（console.info，不算报错），别的错照旧「这一天的课还没准备好」。
+6. **复习不算走完哪一天**：`ReviewFlow`（RunnerFlow 的子类，只在 forms/index.js）把星星记在 `wNreview`；出发后 0.9 s 比赛自己的提示条说一句「复习关 · 这一周该复习的 K 个 · 最忘的在前」（不弹卡片）；结果卡（现有的）的「再来一次」是再复习一轮。
+7. **证据照旧**：判题 / 记录一个字没改（`judge.js`、`_judgeRecord`、`recordFirst`），当天首答——今天已经答过的（今天答错才到期的）在复习关里是练习，不再记。
+
+**改了什么**：`src/learn/review.js`（新，纯：`reviewPlan`、`REVIEW`）；`src/learn/forms/index.js`（`LEARN_KINDS` 加 'review'、`buildReview`、`ReviewFlow`、`NOTHING_DUE`）；`src/learn/store.js`（只加 `dueCount(week)`）；`src/learn/api.js`（只加导出 `reviewPlan` / `REVIEW`）；`src/main.js`（startLearn 的 catch 一处）；`tests/learn/review.test.mjs`（新，5 条）。
+
+**动了别人地盘的**：没有。`ReviewFlow._results` 读了 hud-learn 的 `rAgain`（只换它的 onclick，没有就什么都不做）。
+
+**测试**：`npm run test:learn` 260 / 260（+5），`npm run check` 290。证据全是现编的（memory backend）。出发那一句在 Node 里用跑酷自己的 `_go` 验（裸对象，没有舞台）。
+
+**实测**：浏览器跑了 1 次（新浏览器、`?learn=w1d3&kind=review`、844 × 390）：脚本在最后截图那一步超时（SwiftShader，Playwright 截图 30 s），结果没打出来——toast / 页面错误这一条没在浏览器里确认；Node 测试覆盖了抛错和 toast 的那一行。
+
+**拿不准的**：配速的秒数是估的（跑酷注释里的「滑行段 ≈ 14 s 一个词」为准，车道行按行距估），要整关实测校准；`REVIEW` 的数放在 review.js，没进 config.js 的 LEARN（config.js 这次有别人在改）。
+
+**没做的**：浏览器里的那一次确认；真机；原生「点开复习提醒」现在还是去课本的复盘（index.html），可以改成进复习关。
+
+**交接**：主菜单的「复习 K 个」（gf-map）调 `api.startLearn({ week, day, kind: 'review' })`；K 可以用 `store.dueCount(week)`，关里实际问的是 `min(K, 24)`（配速再压）。

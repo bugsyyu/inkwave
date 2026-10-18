@@ -8,10 +8,12 @@
 import * as THREE from 'three';
 import { G } from '../../../core/ctx.js';
 import { at } from './track.js';
-import { drawLabelAtlas, fitLabel } from '../atlas.js';
+import { drawLabelAtlas, fitLabel, labelFonts } from '../atlas.js';
 
 // a curtain's plate (atlas px): lane-wide on the sheet, the text fitted to it (fitLabel) — a word's meaning fills it in
-// big type, a 54-character banner wraps to four lines; the row's plates pack into one sheet (≤ 1024 px) at 1 texel / px
+// big type, a 54-character banner wraps to four lines; the row's plates pack into one sheet (≤ 1024 px) at 1 texel / px.
+// LEARN §35: a sticker like the battle's name tags (atlas.js FRAME_FIXED: the ink outline, its solid shadow, the pearl
+// face), the lane letter a Titan One badge in its top-left corner
 export const PLATE = { w: 400, h: 250, bannerH: 350 };
 
 // subs.js's Drip Curtain shader + four uniforms: uPulse (a beat kick), uCoral (0 → 1: the wrong curtain's soft coral),
@@ -55,7 +57,7 @@ export function curtainMaterial() {
 // row: { s, lanes, c, centers, labels: [{ en, zh }], banner, kind, D (lead distance) }; T: the track
 export class RowView {
   constructor(row, T, opts = {}) {
-    geos();
+    geos(); labelFonts();
     this.row = row;
     this.group = new THREE.Group(); this.group.name = 'runner-row';
     this.curtains = [];

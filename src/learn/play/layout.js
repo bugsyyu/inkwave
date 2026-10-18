@@ -47,28 +47,69 @@ export function isBanner(labels) {
   return (labels || []).some((l) => enCount(l.text) > M.bannerEn || zhCount(l.text) + zhCount(l.zh) > M.bannerZh);
 }
 
-// words / characters of a line broken to fit maxW (CJK breaks anywhere, Latin at spaces)
-export function wrapLines(s, maxW, px) {
+// words / characters of a line broken to fit maxW (CJK breaks anywhere, Latin at spaces); `measure` (s, px) → width:
+// the estimate here, the canvas's own measureText in the atlas
+export function wrapLines(s, maxW, px, measure = textWidth) {
   const str = String(s ?? '').trim();
   if (!str) return [];
   const toks = str.match(/[⺀-鿿豈-﫿＀-￯　-〿]|[^\s⺀-鿿豈-﫿＀-￯　-〿]+|\s+/g) || [str];
   const lines = []; let cur = '';
   for (const t of toks) {
     const next = cur + t;
-    if (cur && textWidth(next.trim(), px) > maxW) { lines.push(cur.trim()); cur = /^\s+$/.test(t) ? '' : t; }
+    if (cur && measure(next.trim(), px) > maxW) { lines.push(cur.trim()); cur = /^\s+$/.test(t) ? '' : t; }
     else cur = next;
   }
   if (cur.trim()) lines.push(cur.trim());
   return lines;
 }
 
-// a label plate's natural box (CSS px): its line, its Chinese under it when there is one, 12 px of padding across,
-// 8 above and below; the atlas draws it at this shape (× LEARN.m1.atlasScale)
-export function labelBox(label, font = U.font, font2 = font - 2) {
+// a line into maxW (LEARN §35): first a smaller size (down to `min`), then wrapped (≤ `lines` lines, from the full size
+// down), and only then cut with an ellipsis at `min` → { px, lines: [...], cut }
+export function fitText(s, maxW, px, o = {}) {
+  const m = o.measure || textWidth, n = o.lines || 1, min = Math.min(px, o.min ?? Math.max(12, Math.round(px * 0.82)));
+  const str = String(s ?? '').trim();
+  if (!str) return { px, lines: [], cut: false };
+  for (let f = px; f >= min; f--) if (m(str, f) <= maxW) return { px: f, lines: [str], cut: false };
+  if (n > 1) for (let f = px; f >= min; f--) {
+    const L = wrapLines(str, maxW, f, m);
+    if (L.length <= n && L.every((l) => m(l, f) <= maxW)) return { px: f, lines: L, cut: false };
+  }
+  const L = (n > 1 ? wrapLines(str, maxW, min, m) : [str]).slice(0, n);
+  for (let k = 0; k < L.length; k++) {
+    if (k < L.length - 1 && m(L[k], min) <= maxW) continue;
+    const cs = [...L[k]];
+    while (cs.length > 1 && m(cs.join('').trimEnd() + '…', min) > maxW) cs.pop();
+    L[k] = cs.join('').trimEnd() + '…'; L.length = k + 1;
+    break;
+  }
+  return { px: min, lines: L, cut: true };
+}
+
+// the sticker plate's frame (CSS px, LEARN §35 — the battle's name tags): a dark outline `line` wide, a solid shadow
+// `shadow` under it, a tail `tail` tall up to the ball, `air` round it all (the texture's filtering), the text `padX` /
+// `padY` inside the outline; `maxIn` the widest a ball's text runs before its Chinese shrinks, wraps, is cut
+export const FRAME = { line: 3, shadow: 3, tail: 6, air: 1.5, padX: 9, padY: 3, rad: 16, maxIn: 150, lh: 1.22, minIn: 34 };
+// the first line's estimate: a Latin line is set in Titan One, ~1.3 × the Rubik estimate (its m, w, n are wide)
+export const TITAN_K = 1.3;
+export const enWidth = (s, px) => (zhCount(s) ? textWidth(s, px) : textWidth(s, px) * TITAN_K);
+export const frameX = (F = FRAME) => F.air + F.line + F.padX;
+// a plate's text fitted (pure: `measure` the estimate here, the canvas's measureText in the atlas) → the first line
+// { px, lines }, the Chinese's (smaller, then on two lines, then cut), and the inner width they take
+export function plateText(label, font = U.font, font2 = font - 2, maxIn = FRAME.maxIn, measure = enWidth, measure2 = textWidth, minA) {
   const a = String(label?.text ?? ''), b = label?.zh && label.zh !== label.text ? String(label.zh) : '';
-  const w = Math.max(textWidth(a, font), b ? textWidth(b, font2) : 0) + 24;
-  const h = Math.round(font * 1.25 + (b ? font2 * 1.25 : 0) + 16);
-  return { w: Math.ceil(w), h, lines: b ? 2 : 1 };
+  const A = fitText(a, maxIn, font, { measure, lines: 2, min: minA });   // (a long mixed line — an IPA note with its Chinese — wraps too)
+  const B = b ? fitText(b, maxIn, font2, { measure: measure2, lines: 2 }) : { px: font2, lines: [], cut: false };
+  const ws = [...A.lines.map((l) => measure(l, A.px)), ...B.lines.map((l) => measure2(l, B.px))];
+  return { a: A, b: B, inner: Math.min(maxIn, Math.max(FRAME.minIn, ...ws)) };
+}
+
+// a label plate's natural box (CSS px): its line, its Chinese under it when there is one, in the sticker frame; the
+// atlas draws it at this shape (× LEARN.m1.atlasScale) and fits the text again with the real fonts inside it
+export function labelBox(label, font = U.font, font2 = font - 2) {
+  const F = FRAME, P = plateText(label, font, font2);
+  const w = P.inner + 2 * frameX();
+  const h = Math.round((P.a.lines.length * P.a.px + P.b.lines.length * P.b.px) * F.lh + 2 * (F.padY + F.line + F.air) + F.tail + F.shadow);
+  return { w: Math.ceil(w), h, lines: P.a.lines.length + P.b.lines.length };
 }
 // a banner's box at a given width: both lines wrapped to it
 export function bannerBox(label, w, font = U.font, font2 = font - 2) {
