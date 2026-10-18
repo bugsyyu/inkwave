@@ -237,3 +237,22 @@ test('the course map: every node\'s label hangs below its drawn ring and its tic
   assert.match(rule(M, '.iw-cmap'), /--ns: clamp\(52px, /, 'a node is ≥ 52 px (a thumb) on its side');
   assert.match(M, /\.iw-cmap \{ --u: min\(2\.2vw, 1\.1vh\); --ns: 60px; \}/, 'and 60 px upright');
 });
+
+// (§35 enlarged the letter inside a 37-texel chip, 0.66 → 0.8: the dpr-3 run shows it at ~4 px on a phone held upright —
+// a dot. The badge itself is bigger now, riding over the plate's top edge, and the text keeps its room)
+test('the runner\'s lane badge: ~1.7 × the old chip, half over the plate\'s top edge, the other half in the chip row the text keeps free — the text\'s room and the row\'s sheet as before', async () => {
+  const { fitLabel, laneBadge, FRAME_FIXED: F } = await import('../../src/learn/play/atlas.js');
+  const { PLATE } = await import('../../src/learn/play/runner/view.js');
+  const B = laneBadge(PLATE.w);
+  assert.ok(B.cs >= 37 * 1.6, `the badge ${B.cs} texels (the old chip 37)`);
+  for (const [ph, big, lines] of [[PLATE.h, 92, 2], [PLATE.bannerH, 64, 4]]) {
+    const L = fitLabel({ text: 'tour', zh: '旅行', tag: 'D' }, PLATE.w, ph, { big, small: 26, lines }), N = fitLabel({ text: 'tour', zh: '旅行', tag: '' }, PLATE.w, ph, { big, small: 26, lines });
+    assert.equal(L.plate, ph); assert.equal(L.h, ph + B.tab, 'the cell is the tab taller'); assert.equal(N.h, ph, 'no tag: no tab');
+    const bodyY = B.tab + F.air + F.line / 2;   // (drawLabelAtlas: the plate under the tab, the badge centred on its top edge)
+    assert.ok(bodyY - B.cs / 2 >= 0, 'the badge inside its cell');
+    assert.ok(B.cs / 2 + B.cs * 0.12 <= L.top - 4, `its lower half and drop (${(B.cs * 0.62).toFixed(1)}) inside the chip row (${L.top}) the text keeps free`);
+  }
+  const V = src('src/learn/play/runner/view.js');
+  assert.match(V, /board\.scale\.set\(bw, bw \* \(\(ph \+ tab\) \/ PLATE\.w\), 1\); board\.position\.set\(0, h \* 0\.58 \+ \(row\.banner \? 0\.1 : 0\) \+ bw \* \(tab \/ PLATE\.w\) \/ 2, 0\.04\);/, 'the quad grows upwards by the tab: the plate stays where it was');
+  assert.match(src('src/learn/play/atlas.js'), /x\.translate\(0, tab\); const B = sticker\(x, W, H - tab, F, 0\); x\.translate\(0, -tab\); B\.Y \+= tab;/);
+});
