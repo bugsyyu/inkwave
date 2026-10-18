@@ -5,7 +5,7 @@
 //   node tools/learn/parity-shots.mjs --out <dir> [--dpr 3] [--views landscape,portrait] [--quality high] [--secs 8] [--native iphone16]
 // --native <device>: her App's page as the App leaves it (a made-up window.__IELTS_NATIVE with display / device, no message
 // handlers, so nothing is ever posted to a native side) plus &applegpu — the render step that device gets (src/core/render-gov.js).
-// --probe (with --native): after the shot, 显示帧率 on for 3 s (the readout 「帧 · 密度 · 档」), then a made-up 'power' event (thermal
+// --probe (with --native): after the shot, 显示帧率 on until the readout 「帧 · 密度 · 档」 shows (≤ 40 s), then a made-up 'power' event (thermal
 // serious) through window.__iwNative.on — the game should hold 60 and drop to the floor density at once.
 // One PNG per view: <dir>/original-<view>[-<quality>].png, after --secs of play (the bots ink the stage).
 import http from 'node:http';
@@ -61,7 +61,9 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
     const pb = await page.evaluate(async () => {
       const g = __inkwave, R = g.R, o = {};
       g.settings.showFps = true; g.debug.unfreeze();
-      await new Promise((r) => setTimeout(r, 3000));
+      // (the readout is made every 0.5 s of frames; SwiftShader at 2.5× with the full post stack takes seconds a frame — a fixed
+      // 3 s wait saw only the stale rate: wait for the readout itself, up to 40 s)
+      for (let t = 0; t < 40 && !g.fpsNote; t++) await new Promise((r) => setTimeout(r, 1000));
       o.note = g.fpsNote; o.hud = (document.querySelector('.iw-fps') || {}).textContent;
       o.before = { cap: g._autoCap || 0, pr: R.renderer.getPixelRatio() };
       const N = window.__iwNative; N.power = { lowPower: false, thermal: 'serious' }; N.on({ type: 'power' });
