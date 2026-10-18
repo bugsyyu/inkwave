@@ -1548,11 +1548,11 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 6. **复习不算走完哪一天**：`ReviewFlow`（RunnerFlow 的子类，只在 forms/index.js）把星星记在 `wNreview`；出发后 0.9 s 比赛自己的提示条说一句「复习关 · 这一周该复习的 K 个 · 最忘的在前」（不弹卡片）；结果卡（现有的）的「再来一次」是再复习一轮。
 7. **证据照旧**：判题 / 记录一个字没改（`judge.js`、`_judgeRecord`、`recordFirst`），当天首答——今天已经答过的（今天答错才到期的）在复习关里是练习，不再记。
 
-**改了什么**：`src/learn/review.js`（新，纯：`reviewPlan`、`REVIEW`）；`src/learn/forms/index.js`（`LEARN_KINDS` 加 'review'、`buildReview`、`ReviewFlow`、`NOTHING_DUE`）；`src/learn/store.js`（只加 `dueCount(week)`）；`src/learn/api.js`（只加导出 `reviewPlan` / `REVIEW`）；`src/main.js`（startLearn 的 catch 一处）；`tests/learn/review.test.mjs`（新，4 条）。
+**改了什么**：`src/learn/review.js`（新，纯：`reviewPlan`、`REVIEW`）；`src/learn/forms/index.js`（`LEARN_KINDS` 加 'review'、`buildReview`、`ReviewFlow`、`NOTHING_DUE`）；`src/learn/store.js`（只加 `dueCount(week)`）；`src/learn/api.js`（只加导出 `reviewPlan` / `REVIEW`）；`src/main.js`（startLearn 的 catch 一处）；`tests/learn/review.test.mjs`（新，5 条）。
 
 **动了别人地盘的**：没有。`ReviewFlow._results` 读了 hud-learn 的 `rAgain`（只换它的 onclick，没有就什么都不做）。
 
-**测试**：`npm run test:learn` 259 / 259（+4），`npm run check` 290。证据全是现编的（memory backend）。
+**测试**：`npm run test:learn` 260 / 260（+5），`npm run check` 290。证据全是现编的（memory backend）。出发那一句在 Node 里用跑酷自己的 `_go` 验（裸对象，没有舞台）。
 
 **实测**：浏览器跑了 1 次（新浏览器、`?learn=w1d3&kind=review`、844 × 390）：脚本在最后截图那一步超时（SwiftShader，Playwright 截图 30 s），结果没打出来——toast / 页面错误这一条没在浏览器里确认；Node 测试覆盖了抛错和 toast 的那一行。
 

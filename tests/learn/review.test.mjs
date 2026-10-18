@@ -150,3 +150,21 @@ test('buildLearn({ kind: \'review\' }): the level\'s items are the due ones, a r
   const main = readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
   assert.ok(main.includes("this.menus?.toast?.((e && e.zh) || '这一天的课还没准备好')"));
 });
+
+test('ReviewFlow: at GO one line on the race\'s own note says this is the review (after the 出发 banner; once), nothing else of the runner changed', async () => {
+  setBackend(memory()); store.load();
+  const w1 = await loadWeek(1);
+  daySteps(w1, 1).find((s) => s.meta.type === 'words').items.slice(0, 3).forEach((it) => store.recordFirst({ itemId: it.id, ok: false, day: ago(0) }));
+  const L = await buildLearn({ week: 1, day: 3, kind: 'review' });
+  // the runner's own _go on a bare object (no stage in Node): the racers, the tips, the note
+  const said = [], hints = [];
+  const F = Object.assign(Object.create(L.Flow.prototype), { started: false, racers: [], level: L.level, scoredN: 3, ui: { say: (t) => said.push(t) }, tips: { showHint: (t) => hints.push(t), maybeRotate() {} } });
+  F._go();
+  assert.equal(F.started, true); assert.equal(F.phase, 'walk'); assert.equal(hints.length, 1, 'the runner\'s controls hint, as always');
+  assert.deepEqual(said, [], 'not on top of the 出发 banner');
+  await new Promise((ok) => setTimeout(ok, 1000));
+  assert.deepEqual(said, ['复习关 · 这一周该复习的 3 个 · 最忘的在前']);
+  F._go(); await new Promise((ok) => setTimeout(ok, 1000));
+  assert.equal(said.length, 1, 'once');
+  for (const k of ['_place', '_appear', '_ask', '_start', 'update']) assert.equal(L.Flow.prototype[k], RunnerFlow.prototype[k], k + ': the runner\'s own');
+});
