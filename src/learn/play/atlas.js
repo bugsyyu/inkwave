@@ -148,7 +148,7 @@ function badge(x, X, Y, cs, tag, titan) {
   x.fillStyle = '#2b2638'; roundRect(x, X, Y, w, cs, r); x.fill();
   x.lineWidth = Math.max(2, cs * 0.08); x.strokeStyle = 'rgba(255, 255, 255, 0.28)';
   roundRect(x, X + x.lineWidth, Y + x.lineWidth, w - 2 * x.lineWidth, cs - 2 * x.lineWidth, r - x.lineWidth); x.stroke();
-  x.fillStyle = '#ffffff'; x.font = enFont(tag, Math.round(cs * (titan ? 0.66 : 0.72)), titan);
+  x.fillStyle = '#ffffff'; x.font = enFont(tag, Math.round(cs * (titan ? 0.8 : 0.84)), titan);
   x.fillText(tag, X + w / 2, Y + cs * 0.53);
   x.restore();
 }
