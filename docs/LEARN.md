@@ -1566,11 +1566,11 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **动了别人地盘的**：`src/ui/hud.js` 两行（`_updFps` 的调用和文字，表里没人认领；简报第 6 条让找这里）；`main.js` HUD 帧那一行下面加了一行 `fpsNote`。`hd-render.test.mjs` 一字没动（它要的 `rendererQuality(settings, this.touch, this.appleGPU)` 原样在 `withProfile(…)` 里面）。
 
-**测试**：`npm run test:learn` 269 / 269（+10 `render-gov.test`：机型类、`deviceInfo`、档位表、带档位的 `rendererQuality`（没档位时四个画质档 × 三种设备逐字段和以前一样）、带档位的密度 / 下限、`startStep`、`afterMatch`（降、升、到头、短局、发热局、门槛边上）、`shouldCap` / `hotPower`、读数和存储（坏 JSON、存储抛错）、`main.js` / `renderer.js` / `hud.js` 的接线读源码断言）；hd-render 的 4 条照样过。`npm run check` 291 个文件。
+**测试**：`npm run test:learn` 271 / 271（+12 `render-gov.test`：机型类、`deviceInfo`、档位表、带档位的 `rendererQuality`（没档位时四个画质档 × 三种设备逐字段和以前一样）、带档位的密度 / 下限、`startStep`、`afterMatch`（降、升、到头、短局、发热局、门槛边上）、`shouldCap` / `hotPower`、读数和存储（坏 JSON、存储抛错）、`main.js` / `renderer.js` / `hud.js` 的接线读源码断言；再加两条**把 `main.js` 里真的 `_loop` / `_frameTarget` / `_dynRes` / `_govWin` / `_govEnd` / `_onPower` / `_matchPower` 方法体拿出来在替身游戏上跑**：120Hz 下读数每 0.5 秒出一次、压到 60 时隔一个 vsync 画一帧；一局 12 ms 一帧的 120Hz 手机：先降密度到下限、再关辉光、再过两个窗口才稳 60、稳 60 后密度往回走、局结束存下「下一档 1、capped」、同一次启动不再动；干净的一局记 good、不动；发热的局：当场 60 + 下限、发热期间不回升、不算数、凉下来下一局开头放开）；hd-render 的 4 条照样过。`npm run check` 291 个文件。
 
 **实测**（浏览器，锁下一次一个，SwiftShader）：
 - `parity-shots --views landscape --dpr 3 --native iphone16`（844 × 390 @ 3）：`quality high`、`shadows true`、`pr 2.5`、`buf 2110x975`、`step 0`、AO / 辉光 / 阴影图都开、`shadowSize 2048`、`particles 1`，没有页面错误。截图看过：凉亭和栏杆下面有影子、画面和 HUD 的字 / 描边清楚；辉光在 SwiftShader 里只看得出墨的一点亮边（SwiftShader 不是 Apple 的 WebGL——Apple 上三样是不是都起作用要真机看）；看完删了。
-- `--probe`（同样的设置再跑一次：显示帧率读数 + 一个现编的 thermal serious 事件）：**发热那一半过了**——事件进 `window.__iwNative.on` 后当场 `_autoCap 60`、`_capWhy 'hot'`、动态缩放到下限 0.6、渲染密度 2.5 → 1.5；**读数那一半没验到**：打开显示帧率后只等了固定 3 秒，HUD 还是旧的 `60 FPS`、`fpsNote` 还没算（读数每攒够 0.5 秒的帧才算一次，SwiftShader 在 2.5× + 整套后期下一帧要几秒——unfreeze 后 3 秒里只画了一帧，HUD 拿的是冻结前的旧帧率）。探针已改成等读数出来（最多 40 秒），但浏览器次数（2 次）用完了，没重跑；读数本身只有单元测试（`govReadout` 的字符串、`_loop` / HUD 的接线断言）。截图看过：钟楼、路灯、凉亭在广场上的影子清楚；看完删了。
+- `--probe`（同样的设置再跑一次：显示帧率读数 + 一个现编的 thermal serious 事件）：**发热那一半过了**——事件进 `window.__iwNative.on` 后当场 `_autoCap 60`、`_capWhy 'hot'`、动态缩放到下限 0.6、渲染密度 2.5 → 1.5；**读数那一半没验到**：打开显示帧率后只等了固定 3 秒，HUD 还是旧的 `60 FPS`、`fpsNote` 还没算（读数每攒够 0.5 秒的帧才算一次，推断是 SwiftShader 在 2.5× + 整套后期下一帧要几秒、3 秒里没攒够 0.5 秒的帧，HUD 拿的是冻结前的旧帧率——没再开浏览器证实）。探针已改成等读数出来（最多 40 秒），但浏览器次数（2 次）用完了，没重跑；读数本身由单元测试证明（`govReadout` 的字符串；`_loop` 的真方法体在替身上跑出 `120 帧 · 2.0× · 第 0 档`）——浏览器里没看到。截图看过：钟楼、路灯、凉亭在广场上的影子清楚；看完删了。
 
 **要真机才能定的**：
 1. 120 帧下各档的真实帧时间（iPhone 15 Pro / 16 上 0 档能不能稳 120、1 档是不是够；A16 从 2 档起是不是太保守）——用「显示帧率」的读数看，几局之后档位自己会走到能稳住的那一档。

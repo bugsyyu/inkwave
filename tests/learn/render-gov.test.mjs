@@ -194,3 +194,90 @@ test('the wiring: the step applied at launch only (each choice of hers still win
   const H = readFileSync(new URL('../../src/ui/hud.js', import.meta.url), 'utf8');
   assert.ok(/this\._updFps\(f\.fps, dt, f\.fpsNote\);/.test(H)); assert.ok(/const txt = note \|\| `\$\{Math\.round\(fps\)\} FPS`;/.test(H));
 });
+
+// main.js cannot be imported in Node (it boots the game): its _loop / _frameTarget bodies are run here on a stand-in game
+const method = (src, name) => { const a = src.indexOf(`  ${name}(`), b = src.indexOf('\n  }\n', a); const s = src.slice(a, b + 4); return s.slice(s.indexOf('{') + 1, s.lastIndexOf('}')); };
+
+test('_loop at 120 Hz: the readout every 0.5 s of frames with the step on, nothing without one or with 显示帧率 off; held at 60 it skips every other vsync and says so', () => {
+  const M = readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
+  const loop = new Function('requestAnimationFrame', 'govReadout', 'ts', method(M, '_loop'));
+  const target = new Function(method(M, '_frameTarget'));
+  const mk = (step, showFps) => {
+    const g = { settings: { fpsCap: 0, showFps }, fpsAcc: 0, fpsN: 0, frames: 0, _trackVsync() {}, _dynRes() {}, _frame() { this.frames++; },
+      timer: { p: undefined, d: 0, update(t) { this.d = this.p === undefined ? 0 : (t - this.p) / 1000; this.p = t; }, getDelta() { return this.d; } },
+      R: { q: { step }, renderer: { getPixelRatio: () => 2 } } };
+    g._loop = (t) => loop.call(g, () => {}, govReadout, t);
+    return g;
+  };
+  const run = (g, ms) => { for (let t = 0; t <= ms; t += 1000 / 120) g._loop(t); };
+  let g = mk(0, true); run(g, 2000);
+  assert.match(g.fpsNote, /^1(19|20|21) 帧 · 2\.0× · 第 0 档$/); assert.equal(g.frames, 241);
+  g = mk(undefined, true); run(g, 1000); assert.equal(g.fpsNote, undefined, 'no step (a desktop): the bare rate');
+  g = mk(0, false); run(g, 1000); assert.equal(g.fpsNote, undefined, '显示帧率 off: nothing');
+  g = mk(0, true); g._autoCap = 60; run(g, 2000);
+  assert.ok(g.frames >= 119 && g.frames <= 122, `held at 60: ${g.frames} frames in 2 s`);
+  assert.match(g.fpsNote, /^(59|60|61) 帧 · 2\.0× · 第 0 档 · 稳 60$/);
+  // the frame target: the display's interval, the hold's 60, the player's own cap first
+  assert.equal(target.call({ settings: { fpsCap: 0 }, _vs: { ms: 1000 / 120 } }), 1000 / 120);
+  assert.equal(target.call({ settings: { fpsCap: 0 }, _autoCap: 60, _vs: { ms: 1000 / 120 } }), 1000 / 60);
+  assert.equal(target.call({ settings: { fpsCap: 30 }, _autoCap: 60, _vs: { ms: 1000 / 120 } }), 1000 / 30);
+});
+
+test('_dynRes on a stand-in 120 Hz phone that cannot hold it: density down to the floor, then the bloom, then 自动 60 — and the match it played moves the next launch one step down; a hot match moves nothing', () => {
+  const M = readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
+  const NAMES = ['_dynRes', '_govWin', '_govEnd', '_onPower', '_matchPower', '_frameTarget'];
+  const mkGame = (power) => {
+    const saved = [], win = { __iwNative: { power } };
+    const env = { document: { hidden: false }, window: win, shouldCap, afterMatch, RENDER_START, hotPower, saveGov: (r) => { saved.push(r); return true; } };
+    const g = { settings: { quality: 'high', fpsCap: 0 }, _vs: { ms: 1000 / 120 }, device: { model: 'iPhone16,1', cls: 'top' }, gov: null, saved, win,
+      R: { q: { step: 0 }, dynScale: 1, bloom: { enabled: true }, bloomShed: false, dynFloor: () => 0.6,
+        setDynamicScale(s) { this.dynScale = Math.max(0.6, Math.min(1, s)); },
+        shedBloom() { if (this.bloomShed) return false; this.bloomShed = true; this.bloom.enabled = false; return true; } } };
+    for (const n of NAMES) {
+      const a = M.indexOf(`  ${n}(`), params = M.slice(M.indexOf('(', a) + 1, M.indexOf(') {', a)).split(',').map((p) => p.trim()).filter(Boolean);
+      const f = new Function(...Object.keys(env), ...params, method(M, n));
+      g[n] = (...args) => f.call(g, ...Object.values(env), ...args);
+    }
+    return g;
+  };
+  const play = (g, secs, dt) => { for (let t = 0; t < secs; t += dt) g._dynRes(dt); };
+  // a match at 12 ms a frame on a 120 Hz screen (target 8.3 ms)
+  let g = mkGame({ lowPower: false, thermal: 'nominal' }); g.match = { state: 'playing' };
+  play(g, 20, 0.012);
+  assert.equal(g.R.dynScale, 0.6, 'the density at its floor first'); assert.equal(g._autoCap, undefined);
+  play(g, 8, 0.012);
+  assert.equal(g.R.bloomShed, true, 'then the bloom');
+  assert.equal(g._autoCap, undefined, 'not yet held: the bloom has only just gone');
+  play(g, 8.5, 0.012);
+  assert.equal(g._autoCap, 60); assert.equal(g._capWhy, 'slow'); assert.equal(g._frameTarget(), 1000 / 60);
+  play(g, 14, 0.012);
+  assert.ok(g.R.dynScale > 0.6, `held at 60 the density climbs again (${g.R.dynScale})`);
+  play(g, 30, 0.012);
+  assert.equal(g.saved.length, 0, 'nothing judged while it plays');
+  g.match.state = 'ended'; play(g, 4.1, 0.012);
+  assert.equal(g.saved.length, 1); assert.equal(g.saved[0].step, 1); assert.equal(g.saved[0].model, 'iPhone16,1');
+  assert.deepEqual([g.govLast.changed, g.govLast.why], [true, 'capped']); assert.equal(g._govDone, true);
+  g.match = { state: 'playing' }; play(g, 70, 0.012); g.match = null; play(g, 4.1, 0.012);
+  assert.equal(g.saved.length, 1, 'one move per launch');
+  // a clean 70 s match on a fresh launch: judged clean, stored, nothing moves (already the class's start)
+  g = mkGame({ lowPower: false, thermal: 'nominal' }); g.match = { state: 'playing' };
+  play(g, 70, 0.006); g.match.state = 'ended'; play(g, 4.1, 0.006);
+  assert.equal(g.saved.length, 1); assert.deepEqual([g.saved[0].step, g.saved[0].good, g.govLast.why], [0, 1, 'best']);
+  assert.equal(g._autoCap, undefined); assert.equal(g.R.dynScale, 1);
+  // hot from the start: held at 60 and the floor at once, not back up while hot, the match does not count; cool → let go at the next match
+  g = mkGame({ lowPower: false, thermal: 'serious' }); g.match = { state: 'playing' };
+  play(g, 4.1, 0.006);
+  assert.equal(g._autoCap, 60); assert.equal(g._capWhy, 'hot'); assert.equal(g.R.dynScale, 0.6);
+  play(g, 60, 0.006);
+  assert.equal(g.R.dynScale, 0.6, 'not back up while hot');
+  g.match.state = 'ended'; play(g, 4.1, 0.006);
+  assert.equal(g.saved.length, 0); assert.equal(g.govLast.why, 'hot');
+  g.win.__iwNative.power = { lowPower: false, thermal: 'fair' };
+  assert.equal(g._autoCap, 60, 'held until a match starts');
+  g.match = { state: 'playing' }; play(g, 4.1, 0.006);
+  assert.equal(g._autoCap, 0); assert.equal(g._capWhy, null);
+  // mid-match heat through the App's event: at once
+  g.win.__iwNative.power = { lowPower: true, thermal: 'nominal' }; g.R.dynScale = 1;
+  g._onPower(g.win.__iwNative.power);
+  assert.equal(g._autoCap, 60); assert.equal(g.R.dynScale, 0.6);
+});
