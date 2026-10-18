@@ -3293,7 +3293,10 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
    lacquered ink (gradient + clear-coat gloss + rim light), today breathes in her team's ink. Motion is transform /
    opacity only (the ring's one-off fill is stroke-dashoffset on 8 small circles); reduced motion → fades. */
 .iw-cmap { --ns: clamp(52px, calc(var(--u) * 6.2), 72px); }
-.iw-cmap__body { position: absolute; left: 50%; top: calc(var(--u) * 10.5 + var(--sat, 0px)); bottom: calc(var(--u) * 4.5 + var(--sab, 0px)); translate: -50% 0;
+/* (a veil over the whole stage, darker at the edges: the road reads over a busy harbour) */
+.iw-cmap .iw-ss__scrim { background: radial-gradient(rgba(255, 255, 255, .06) 1.2px, transparent 1.7px) 0 0 / 11px 11px,
+  radial-gradient(120% 90% at 50% 55%, rgba(10, 8, 20, .52), rgba(10, 8, 20, .84)); }
+.iw-cmap__body { position: absolute; left: 50%; top: calc(var(--u) * 10.5 + var(--sat, 0px)); bottom: calc(var(--u) * 7 + var(--sab, 0px)); translate: -50% 0;
   width: min(calc(var(--u) * 104), calc(100vw - 32px - var(--sal, 0px) - var(--sar, 0px))); display: flex; flex-direction: column; gap: calc(var(--u) * .8); }
 .iw-cmap__top { display: flex; align-items: center; gap: calc(var(--u) * 1.4); flex-wrap: wrap; }
 .iw-cmap__weeks { flex: none; display: flex; align-items: center; gap: calc(var(--u) * 1); padding: 4px 6px 4px 14px; border-radius: 999px;
