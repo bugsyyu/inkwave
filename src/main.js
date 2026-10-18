@@ -578,6 +578,9 @@ class Game {
   _applyAudioVolumes() { G.audio?.setVolumes?.({ master: this.settings.master, music: this.settings.music, sfx: this.settings.sfx }); }
 
   _onScreen(s) {
+    // 课本 (LEARN §37): the book covers the whole screen and she reads in it — the stage behind holds its last frame (no
+    // render, no sim) until it closes; the menus run their own loop meanwhile
+    this._bookHold = s === 'book' && G.mode === 'menu';
     // the loadout opened mid-practice sits over the live stage: tuck the HUD away while it's up
     if (G.mode === 'match' && this.hud) {
       const hide = s === 'loadout';
@@ -1251,7 +1254,7 @@ class Game {
     if (cap && ts !== undefined && this._lastTs !== undefined && ts - this._lastTs < 1000 / cap - 2) return;
     this._lastTs = ts;
     this.timer.update(ts); let dt = Math.max(0, this.timer.getDelta());
-    if (this.frozen || this._building) return;
+    if (this.frozen || this._building || this._bookHold) return;
     this.fpsAcc += dt; this.fpsN++;
     if (this.fpsAcc > 0.5) {
       this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0;
