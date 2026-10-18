@@ -96,7 +96,8 @@ export class Renderer {
     r.setClearColor(0x9fd8f0, 1);
     container.appendChild(r.domElement);
     // (?applegpu: the Apple-GPU profile on any GPU — the audits' way to see the iPhone's sharper density and bloom in SwiftShader)
-    this.appleGPU = isAppleGPU(r.getContext()) || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('applegpu'));
+    // (her App named an iPhone / iPad — a render step is set, main.js boot: an Apple GPU even if the renderer string is masked)
+    this.appleGPU = isAppleGPU(r.getContext()) || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('applegpu')) || !!G.renderProfile;
     r.domElement.id = 'game-canvas';
     this.container = container;
     this.scene = null; this.camera = null;

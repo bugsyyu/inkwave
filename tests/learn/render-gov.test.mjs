@@ -190,6 +190,7 @@ test('the wiring: the step applied at launch only (each choice of hers still win
   const R = readFileSync(new URL('../../src/core/renderer.js', import.meta.url), 'utf8');
   assert.equal((R.match(/withProfile\(rendererQuality\(settings, this\.touch, this\.appleGPU\), this\.profile, settings\)/g) || []).length, 2, 'constructor and applySettings');
   assert.ok(/this\.profile = G\.renderProfile \|\| null;/.test(R));
+  assert.ok(/has\('applegpu'\)\) \|\| !!G\.renderProfile;/.test(R), 'a step means an iPhone / iPad: never a step without the Apple profile under it');
   const H = readFileSync(new URL('../../src/ui/hud.js', import.meta.url), 'utf8');
   assert.ok(/this\._updFps\(f\.fps, dt, f\.fpsNote\);/.test(H)); assert.ok(/const txt = note \|\| `\$\{Math\.round\(fps\)\} FPS`;/.test(H));
 });
