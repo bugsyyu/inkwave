@@ -1534,3 +1534,30 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **实测**（浏览器，锁下一次一个，竖屏 390 × 844 触屏）：跑酷 w1d3 短关（`runner-audit --touch`）两次滑行段打字，头在中排下 23 / 26 px（改前整天里 −11 到 +4 px），带 0.28 / 0.3、键盘 0.35，`fits` 真、打字机全在带里，`bad` 0、0 报错 0 4xx；截图看过（头在键盘下面、纸和色带都在）删了。w2d2 整天重跑排在锁后面，结果见 DEVLOG。
 
 **没做的**：lockgate 那天一处 rig 点离左沿 14 px（`inBand` 的 x < −2）——另一个偏差，这次没碰；真机。
+
+## 36. gf-review 交付（2026-10-17，子代理，分支 `gf-review`：游戏为主体 第二期（下）——复习关：这一周该复习的词组成一关）
+
+**先读了什么**：`forms/index.js`（buildLearn、buildQuiz 怎么挑到期的题、怎么组关）、`store.js`（`due(week)`：记忆模型说该复习的、最忘的在前；判题路径）、`design.js`（planDay、dayPlanFor、mechanicOf、playOf、quizPlan / bossPlan 的 dedupe）、`levels.js`、`play/runner/`（rows.js entriesOf：每道题按自己的 input 变成车道行 / 节拍行 / 滑行段；boards.js：只有 word-board / symbol-door / grammar 的门前面有看板段；runner.js `_start`：reading-room 的门起跑前放课文）、`wire/boards.js` gateSpecs、`main.js` startLearn、PLAY §1（题就是玩法，不暂停、不弹卡片）。
+
+**先定的**：
+1. **形式是 race（墨浪跑酷），flow 原样**：跑酷每道题按它自己的 input 出（选择 → 车道 / 节拍行，打字 / 写句 → 滑行段），一门里混着几种题也稳；拼图（puzzle）的门按门的 mechanic 出（翻牌门等），混合的门要改 flow——不选。舞台和时间用这一周复习日（第 7 天）的计划。
+2. **挑题**：`store.due(week)` 的顺序原样（最忘的在前），最多 24 题，配速模型（`REVIEW.pace`：车道 / 节拍行 9 s、打字词 14 s、听写句 28 s、写句 40 s、课文 60 s）把一关的作答时间压在 8 分钟以内——放不下的长题跳过，后面短的还能进；同一个 id 教两次的（词表和卡片），按第一次教它的那一步出（和 bossPlan / quizPlan 的 dedupe 一样）。
+3. **分门**：3 门（18 题以上 4 门），尽量平均，每门 ≤ 8；门的 `design.mechanic` 是 null（复习不在门前放教学看板：不让她等），`design.mechanics` 是每道题自己那一步的 mechanic（合法性检查用）。
+4. **课文**：一关最多一篇课文，它的题挨着、排在那一门最前面（门的 mechanic 'reading-room'，起跑前的展板就是课文——题只带课文标题，第一题是带全文的副本，内容本身不动）；别的课文的题留到下一次复习。
+5. **一题都没到期 → 抛错**：`Error('现在没有要复习的')`，`e.zh` 同一句、`e.code = 'nothing-due'`；`main.js` startLearn 的 catch 带 `e.zh` 就 toast 它（console.info，不算报错），别的错照旧「这一天的课还没准备好」。
+6. **复习不算走完哪一天**：`ReviewFlow`（RunnerFlow 的子类，只在 forms/index.js）把星星记在 `wNreview`；出发后 0.9 s 比赛自己的提示条说一句「复习关 · 这一周该复习的 K 个 · 最忘的在前」（不弹卡片）；结果卡（现有的）的「再来一次」是再复习一轮。
+7. **证据照旧**：判题 / 记录一个字没改（`judge.js`、`_judgeRecord`、`recordFirst`），当天首答——今天已经答过的（今天答错才到期的）在复习关里是练习，不再记。
+
+**改了什么**：`src/learn/review.js`（新，纯：`reviewPlan`、`REVIEW`）；`src/learn/forms/index.js`（`LEARN_KINDS` 加 'review'、`buildReview`、`ReviewFlow`、`NOTHING_DUE`）；`src/learn/store.js`（只加 `dueCount(week)`）；`src/learn/api.js`（只加导出 `reviewPlan` / `REVIEW`）；`src/main.js`（startLearn 的 catch 一处）；`tests/learn/review.test.mjs`（新，5 条）。
+
+**动了别人地盘的**：没有。`ReviewFlow._results` 读了 hud-learn 的 `rAgain`（只换它的 onclick，没有就什么都不做）。
+
+**测试**：`npm run test:learn` 260 / 260（+5），`npm run check` 290。证据全是现编的（memory backend）。出发那一句在 Node 里用跑酷自己的 `_go` 验（裸对象，没有舞台）。
+
+**实测**：浏览器跑了 1 次（新浏览器、`?learn=w1d3&kind=review`、844 × 390）：脚本在最后截图那一步超时（SwiftShader，Playwright 截图 30 s），结果没打出来——toast / 页面错误这一条没在浏览器里确认；Node 测试覆盖了抛错和 toast 的那一行。
+
+**拿不准的**：配速的秒数是估的（跑酷注释里的「滑行段 ≈ 14 s 一个词」为准，车道行按行距估），要整关实测校准；`REVIEW` 的数放在 review.js，没进 config.js 的 LEARN（config.js 这次有别人在改）。
+
+**没做的**：浏览器里的那一次确认；真机；原生「点开复习提醒」现在还是去课本的复盘（index.html），可以改成进复习关。
+
+**交接**：主菜单的「复习 K 个」（gf-map）调 `api.startLearn({ week, day, kind: 'review' })`；K 可以用 `store.dueCount(week)`，关里实际问的是 `min(K, 24)`（配速再压）。

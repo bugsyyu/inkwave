@@ -10,6 +10,7 @@ export { loadWeek, daySteps, dayOf, itemOf, weekIndex, setLoader } from './conte
 export { prompt, judge } from './engine.js';
 export { store } from './store.js';
 export { puzzleLevel, raceLevel, duelLevel, bossLevel } from './levels.js';
+export { reviewPlan, REVIEW } from './review.js';   // 复习关 (LEARN §36): the week's due items as one race
 
 // In the page: the game's first answers go into her own account (docs/LEARN.md §16, src/learn/workbench.js) — a moment after
 // each one, when the page hides or goes away, and at start for any a killed page left behind. Quiet without a workbench here.

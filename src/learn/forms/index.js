@@ -1,6 +1,7 @@
 // 关卡学习 — the forms registry (docs/LEVELS.md §2): a day of the course (or the week's 周考) as a level of one of the
 // four forms, built from D's design (planDay / bossPlan) on A's content, played by one flow class each:
 //   puzzle → src/learn/flow.js (B)   race → play/runner/runner.js (墨浪跑酷)   duel → forms/duel.js   boss → forms/boss.js
+//   review → the week's due items as one 墨浪跑酷 (src/learn/review.js, LEARN §36; nothing due → throws, e.zh says so)
 //
 //   await buildLearn({ week, day, kind, short }) → { kind, level, Flow, time, duration, world, short, weekRef }
 //     level     the planned level (A's gates with their items + D's design per gate; the boss: bossPlan's phases)
@@ -18,7 +19,7 @@ import { G, on } from '../../core/ctx.js';
 import { h } from '../../ui/ui-util.js';
 import { GLYPHS } from '../../ui/ui-icons.js';
 import { LEARN } from '../../config.js';
-import { loadWeek, daySteps } from '../api.js';
+import { loadWeek, daySteps, store, reviewPlan } from '../api.js';
 import { planDay, bossPlan, quizPlan, FORMS } from '../design.js';
 import { LearnFlow } from '../flow.js';
 import { DuelFlow } from './duel.js';
@@ -29,8 +30,8 @@ import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
 import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN §20, §23): the race as a lane runner
 
 // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (play-4's ?kind=runner: the
-// same as 'race' now — the race IS the runner)
-export const LEARN_KINDS = [...FORMS, 'quiz', 'runner'];
+// same as 'race' now — the race IS the runner) + 'review' (复习关, LEARN §36: the main menu's 「复习 K 个」)
+export const LEARN_KINDS = [...FORMS, 'quiz', 'runner', 'review'];
 // 题即玩法 (docs/PLAY.md §5.2, play-4): the race is the runner (墨浪跑酷 — the form id stays 'race'). flowFor(kind) is the
 // pure pick (Node-tested).
 export function flowFor(kind) {
@@ -50,6 +51,7 @@ function resumeAt(level, gate, skip) {
 export async function buildLearn({ week, day, kind, short = false, gate = 0 }) {
   const w = await loadWeek(week);
   if (kind === 'quiz') return buildQuiz(w, week, day, short);
+  if (kind === 'review') return buildReview(w, week, day, short);
   if (kind === 'runner') kind = 'race';
   if (kind === 'boss') {
     let plan = bossPlan(w);
@@ -102,6 +104,39 @@ function buildQuiz(w, week, day, short) {
   const gate = { id: 'gate:quiz:' + w.id + 'd' + day, stepId: 'quiz', kind: 'mixed', title: '今日小考', minutes: q.minutes, items, pos: null, design: null, index: 0 };
   const level = { kind: 'duel', quiz: true, form: 'duel', week, day, weekRef: w, stage: q.stage, time: q.time || 'dusk', title: '今日小考', teacher: '', gates: [gate], signs: [], review: false, short: !!short, minutes: q.minutes, rules: q.rules, bots: q.bots };
   return { kind: 'duel', level, Flow: FLOWS.duel, time: level.time, duration: short ? 60 : LEARN.quiz.minutes * 60, world: 'zones', short: !!short, weekRef: w, sides: [1 + (q.bots.allies || 1), q.bots.enemies || 2] };
+}
+
+// 复习关 (LEARN §36): store.due(week) — the memory model's due items, most forgotten first — as one race (reviewPlan:
+// ≤ 24 items, 3–4 gates of ≤ 8, under 8 minutes, each item in its own step's mechanic, on the review day's stage).
+// Answers are evidence as in every level (当天首答; the runner's one judging path). Nothing due → an Error whose .zh
+// main.js toasts.
+export const NOTHING_DUE = '现在没有要复习的';
+function buildReview(w, week, day, short) {
+  let ids = []; try { ids = store.due(w); } catch (e) { ids = []; }
+  let level = reviewPlan(w, ids);
+  if (!level) { const e = new Error(NOTHING_DUE); e.zh = NOTHING_DUE; e.code = 'nothing-due'; throw e; }
+  if (short) level = shortenLevel(level, 2, 2);
+  Object.assign(level, { week, day, weekRef: w });
+  return { kind: 'race', review: true, level, Flow: ReviewFlow, time: level.time || 'day', duration: undefined, world: 'turf', short: !!short, weekRef: w };
+}
+// the runner as it is, with three review touches: its stars under their own key (a review walks no day), one line on
+// the race's note at GO (this is the review: how many, most forgotten first), and 「再来一次」 is another review
+class ReviewFlow extends RunnerFlow {
+  constructor(match, opts) { super(match, opts); this.dayKey = `w${this.week}review`; }
+  _go() {
+    const was = this.started;
+    super._go();
+    if (was || !this.started) return;
+    const n = (this.level.reviewOf && this.level.reviewOf.n) || this.scoredN;
+    clearTimeout(this._reviewT);
+    this._reviewT = setTimeout(() => this.ui?.say?.(`复习关 · 这一周该复习的 ${n} 个 · 最忘的在前`), 900);   // (after the 出发 banner)
+  }
+  _results() {
+    super._results();
+    const H = G.hud && G.hud.learn;
+    if (H && H.rAgain) H.rAgain.onclick = () => { G.hud.playSound?.('ui_confirm'); G.game?.api?.startLearn?.({ week: this.week, day: this.day, kind: 'review' }); };
+  }
+  dispose() { clearTimeout(this._reviewT); super.dispose(); }
 }
 
 // the hook on the puzzle's results card (B's hud-learn, used as is): a 「今日小考」 button on days 1–6 — never on the
