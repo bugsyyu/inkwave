@@ -1,7 +1,8 @@
 // 游戏为主体 第二期 (docs/LEARN.md §34): the main menu in her App and the course map, the way her phone draws them — a fresh
 // browser (no progress: today is w1d3, the two days before it todo, the rest locked), 390 × 844 at its real density
 // (--dpr 3, an iPhone), then the map turned to 844 × 390 (the screen rebuilds on the turn). Prints each node's state and
-// box (a thumb needs ≥ 44 px), any horizontal overflow, the locked node's toast, and page errors.
+// box (a thumb needs ≥ 44 px) and the gap from its ring to its label (≥ 2 px, LEARN §38), any horizontal overflow, the
+// locked node's toast, and page errors.
 //   node tools/learn/map-shot.mjs --out <dir> [--dpr 3] [--today w1d3]
 // PNGs: <dir>/main-portrait.png, <dir>/map-portrait.png, <dir>/map-landscape.png
 import http from 'node:http';
@@ -37,7 +38,10 @@ const probe = () => page.evaluate(() => {
   const vw = innerWidth, over = document.documentElement.scrollWidth > vw + 1;
   const nodes = [...document.querySelectorAll('.iw-cmap__node')].map((n) => {
     const r = n.getBoundingClientRect(), st = ['done', 'part', 'today', 'todo', 'locked'].find((s) => n.classList.contains('is-' + s));
-    return { st, w: Math.round(r.width), x: Math.round(r.left), y: Math.round(r.top), out: r.left < 0 || r.right > vw };
+    // (LEARN §38: the label hangs under the node's drawn ring — today's is drawn 1.14 × — gap = label top − ring bottom, px)
+    const lb = n.querySelector('.iw-cmap__label').getBoundingClientRect(), rg = n.querySelector('.iw-cmap__ring').getBoundingClientRect();
+    const ringOn = getComputedStyle(n.querySelector('.iw-cmap__ring')).display !== 'none';
+    return { st, w: Math.round(r.width), x: Math.round(r.left), y: Math.round(r.top), out: r.left < 0 || r.right > vw, gap: ringOn ? +(lb.top - rg.bottom).toFixed(1) : null };
   });
   const sub = document.querySelector('.iw-btn--today .iw-btn__sub');
   const btns = [...document.querySelectorAll('.iw-main__menu .iw-btn')].map((b) => b.dataset.id);
@@ -66,7 +70,7 @@ try {
   const l = await probe();
   console.log('[map-shot] map landscape', JSON.stringify(l));
   await page.screenshot({ path: path.join(OUT, 'map-landscape.png'), timeout: 120000 });
-  for (const v of [p, l]) if (v.over || v.nodes.length !== 8 || v.nodes.some((n) => n.w < 44 || n.out)) code = 1;
+  for (const v of [p, l]) if (v.over || v.nodes.length !== 8 || v.nodes.some((n) => n.w < 44 || n.out || (n.gap != null && n.gap < 2))) code = 1;
 } catch (e) { errs.push('run: ' + e.message); }
 if (errs.length) { console.log('[map-shot] errors: ' + errs.join(' | ').slice(0, 600)); code = 1; }
 await browser.close(); srv.close();
