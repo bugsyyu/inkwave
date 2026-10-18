@@ -16,6 +16,7 @@ import { layoutBoard, drawBoard } from './paint.js';
 import { canvasMeasure } from './text.js';
 import { FONT } from './atlas.js';
 import { canvasToBoard } from './hotspot.js';
+import { labelFonts, titanIn } from '../atlas.js';
 
 const BD = LEARN.board;
 const _m = new THREE.Matrix4(), _b = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -42,6 +43,7 @@ export class BoardSet {
     this.boards = [];
     this.dirty = true;
     scene?.add(this.group);
+    labelFonts();   // (the boards' titles are Titan One — LEARN §38)
   }
 
   paint(spec) {
@@ -54,7 +56,16 @@ export class BoardSet {
       tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter;
     } else { tex = new THREE.DataTexture(new Uint8Array([20, 18, 28, 230]), 1, 1); tex.needsUpdate = true; }
-    return { spec, layout, canvas, tex, dispose() { tex.dispose(); if (canvas) canvas.width = canvas.height = 1; } };
+    const entry = { spec, layout, canvas, tex, dispose() { this.gone = true; tex.dispose(); if (canvas) canvas.width = canvas.height = 1; } };
+    // painted before Titan One was in (the first gate's boards, at the level load): once more when it is — same layout,
+    // only the title's face changes (one upload per board, at most once)
+    if (canvas && !titanIn() && document.fonts && document.fonts.load) {
+      document.fonts.load('400 74px "Titan One"').then(() => {
+        if (entry.gone || !titanIn()) return;
+        drawBoard(canvas.getContext('2d'), layout, { ink: this.inkHex, titan: true }); tex.needsUpdate = true;
+      }, () => null);
+    }
+    return entry;
   }
 
   add(entry, { x = 0, y = 0, z = 0, yaw = 0, w = BD.w, bottom = BD.bottom } = {}) {

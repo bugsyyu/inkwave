@@ -102,7 +102,7 @@ export function labelFonts() {
   _asked = true;
   for (const f of [`400 40px ${TITAN}`, '800 40px Rubik', '600 40px Rubik']) document.fonts.load(f).catch(() => null);
 }
-const titanIn = () => { try { return typeof document !== 'undefined' && !!document.fonts && document.fonts.check(`400 40px ${TITAN}`); } catch (e) { return false; } };
+export const titanIn = () => { try { return typeof document !== 'undefined' && !!document.fonts && document.fonts.check(`400 40px ${TITAN}`); } catch (e) { return false; } };
 // a line's face: Titan One for a Latin line (when it is in), Rubik / the system's CJK face, bold, for one with Chinese
 export const enFont = (s, px, titan) => (titan && !zhCount(s) ? `400 ${px}px ${TITAN}, ${LABEL_FONT}` : `800 ${px}px ${LABEL_FONT}`);
 export const zhFont = (s, px) => `600 ${px}px ${LABEL_FONT}`;

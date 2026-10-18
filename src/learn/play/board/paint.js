@@ -8,13 +8,21 @@
 //       everything on a board is ≥ BOARD.minFont canvas px (≥ 17 px on a phone once the board is framed — frame.js);
 //       a board takes what fits — its title, the first paragraph — and when the text goes on, a 「读全文」 hotspot opens the
 //       reading strip with all of it (`full`: the strip's blocks)
-//   drawBoard(ctx, layout, { ink })   dark glass, a rim in her ink, the ops
+//   drawBoard(ctx, layout, { ink, titan })   a sticker (LEARN §38: the §35 plates at a board's size — an ink outline, a
+//                                     solid drop, a pearl face), ink letters, the title in Titan One; her ink on the
+//                                     kicker's tag, the buttons, the row keys and the dots
 import { wrap, clampLines, approxMeasure } from './text.js';
-import { FONT, GLASS, TEXT, MUTED, DIM, roundRect } from './atlas.js';
+import { FONT, roundRect } from './atlas.js';
+import { titanIn } from '../atlas.js';
 
 export const BOARD = { W: 1024, pad: 54, minFont: 54, title: 74, body: 58, en: 64, ipa: 54, kicker: 54, lineH: 1.3, rowH: 134, btnH: 116, gap: 22 };
 const ROW_MIN = 140;  // canvas px: a row's height (≥ 44 pt on a 390 px wide phone)
 const MAX_H = 930;    // canvas px: taller than this and a framed board in landscape (a 375–390 px tall screen) reads under 17 px
+// the letters on the pearl face (≥ 4.5 : 1 on its foot and on a row's tint) and the sticker's frame (canvas px: ~2.7 screen
+// px of outline once framed on a 390 px phone — the HUD's 2.5 px; the drop and the air inside the margins the layout keeps)
+export const INKS = { text: '#15121c', muted: '#4a4360', dim: '#5d5674' };
+const TEXT = INKS.text, MUTED = INKS.muted, DIM = INKS.dim;
+export const BOARD_FRAME = { line: 8, shadow: 8, air: 2, rad: 40, top: '#fefdff', mid: '#f9f7fc', foot: '#e6e1f0', rim: 'rgba(255, 255, 255, 0.92)' };
 
 /* ───────────────────────────── specs (content → what a board says) ───────────────────────────── */
 // a word board (每 5 个词一块): the word, its US IPA, its meaning; each row replays its word; 「跟读」 plays them with gaps
@@ -75,7 +83,7 @@ export function layoutBoard(spec, o = {}) {
   const ops = [], hotspots = [];
   let y = P * 0.62, minFont = Infinity, cut = false;
   const font = (px) => { minFont = Math.min(minFont, px); return px; };
-  const textLine = (text, x, yb, px, weight, color, align = 'left') => ops.push({ op: 'text', text, x, y: yb, px: font(px), weight, color, align });
+  const textLine = (text, x, yb, px, weight, color, align = 'left', more) => ops.push({ op: 'text', text, x, y: yb, px: font(px), weight, color, align, ...more });
   // rows (words / sounds) are planned first: a row's meaning or tip that runs past its lines is cut (…) and the board's
   // 「全文」 (the reading strip) has every word with its whole meaning
   const isRows = !!spec.rows;
@@ -103,14 +111,15 @@ export function layoutBoard(spec, o = {}) {
     }
   }
   // header: kicker, title (+ its Chinese); a rows board keeps its buttons (跟读, 全文) at the right of the title row
-  if (spec.kicker) { textLine(spec.kicker, P, y + BOARD.kicker * 0.8, BOARD.kicker, 600, DIM); y += BOARD.kicker * 1.25; }
+  if (spec.kicker) { textLine(spec.kicker, P, y + BOARD.kicker * 0.8, BOARD.kicker, 800, TEXT, 'left', { role: 'kicker' }); y += BOARD.kicker * 1.25; }
   const headBtns = isRows ? (spec.buttons || []).concat(rowsCut && spec.full ? [{ id: 'more', label: '全文', icon: 'book' }] : []) : [];
   if (spec.title) {
     const bws = headBtns.map((b) => Math.max(200, measure(b.label, BOARD.body, 800) + 128));
     const tw = inner - bws.reduce((a, b) => a + b + 18, 0);
     const lines = clampLines(wrap(spec.title, tw, BOARD.title, measure, 800), 2, tw, BOARD.title, measure, 800).lines;
     const y0 = y, lh = BOARD.title * 1.12, hh = Math.max(lh * lines.length, headBtns.length ? BOARD.btnH + 8 : 0);
-    lines.forEach((l, k) => textLine(l, P, y0 + (hh - lh * lines.length) / 2 + k * lh + BOARD.title * 0.82, BOARD.title, 800, TEXT));
+    // (role / maxW: drawn in Titan One, fitted again into the width the Rubik measure gave it — drawBoard)
+    lines.forEach((l, k) => textLine(l, P, y0 + (hh - lh * lines.length) / 2 + k * lh + BOARD.title * 0.82, BOARD.title, 800, TEXT, 'left', { role: 'title', maxW: tw }));
     let bx = W - P;
     headBtns.slice().reverse().forEach((b, k) => {
       const bw = bws[headBtns.length - 1 - k]; bx -= bw;
@@ -145,7 +154,7 @@ export function layoutBoard(spec, o = {}) {
   // text blocks: as many as fit; the one that does not fit is clamped (…), the rest go to the strip
   for (const b of spec.blocks || []) {
     if (room() < BOARD.body * 1.4) { cut = true; break; }
-    if (b.t === 'label') { textLine(b.text, P, y + BOARD.kicker * 0.8, BOARD.kicker, 700, DIM); y += BOARD.kicker * 1.3; continue; }
+    if (b.t === 'label') { textLine(b.text, P, y + BOARD.kicker * 0.8, BOARD.kicker, 800, MUTED, 'left', { role: 'label' }); y += BOARD.kicker * 1.3; continue; }
     if (b.t === 'q') {
       const lines = clampLines(wrap(b.en, inner, BOARD.en, measure, 800), 3, inner, BOARD.en, measure, 800);
       for (const l of lines.lines) { textLine(l, P, y + BOARD.en * 0.85, BOARD.en, 800, TEXT); y += BOARD.en * 1.2; }
@@ -204,28 +213,89 @@ function icon(x, kind, cx, cy, r, color) {
   else if (kind === 'mic') { x.lineWidth = r * 0.14; roundRect(x, -r * 0.16, -r * 0.48, r * 0.32, r * 0.58, r * 0.16); x.fill(); x.beginPath(); x.arc(0, -r * 0.08, r * 0.32, 0.15, Math.PI - 0.15); x.moveTo(0, r * 0.24); x.lineTo(0, r * 0.44); x.stroke(); }
   x.restore();
 }
+// a title's runs: Latin in Titan One (once it is in; Rubik 800 before), Chinese in the system's CJK face at 800 (Titan One
+// has none, and a synthesised bold is never wanted) — the results card's title does the same (styles/hud.css .iw-learn__rtitle)
+const TITAN = '"Titan One"', CJK_RUN = /[⺀-鿿豈-﫿︰-﹏＀-￯　-〿]+|[^⺀-鿿豈-﫿︰-﹏＀-￯　-〿]+/g, CJK1 = /[⺀-鿿豈-﫿︰-﹏＀-￯　-〿]/;
+export const titleRuns = (text) => (String(text).match(CJK_RUN) || []).map((t) => ({ t, zh: CJK1.test(t) }));
+export const runFace = (r, px, titan) => (r.zh || !titan ? `800 ${px}px ${FONT}` : `400 ${px}px ${TITAN}, ${FONT}`);
+// the title line fitted into its width (LEARN §35 fitText's order): its own size, then smaller down to 0.82 × (never under
+// BOARD.minFont), and when Titan One still runs wider the layout's own face (Rubik 800: what the layout measured, so it fits)
+export function fitTitle(x, text, px, maxW, titan) {
+  const R = titleRuns(text), width = (f, t) => R.reduce((n, r) => { x.font = runFace(r, f, t); return n + x.measureText(r.t).width; }, 0);
+  if (titan) for (let f = px, min = Math.max(BOARD.minFont, Math.round(px * 0.82)); f >= min; f -= 2) if (width(f, true) <= maxW) return { px: f, titan: true, runs: R, w: width(f, true) };
+  return { px, titan: false, runs: R, w: width(px, false) };
+}
+// the sticker's path: a rounded box (the outline's centre line)
+function stickerBox(x, F, W, H) { const X = F.air + F.line / 2, Y = X; roundRect(x, X, Y, W - 2 * X, H - Y - F.air - F.line / 2 - F.shadow, F.rad); }
+// a pill (a button): drawn inside its hotspot's box — the face on top, its solid drop under it, an ink outline, a varnish
+// line on top; her ink for the primary one, the keys' cool white (ui.css .iw-key) for the others; ink letters on both
+function pill(x, op, ink) {
+  const L = 5, S = 7, X = op.x + L / 2, Y = op.y + L / 2, w = op.w - L, h = op.h - L - S, r = h / 2;
+  x.save();
+  roundRect(x, X, Y + S, w, h, r); x.fillStyle = TEXT; x.fill(); x.lineWidth = L; x.strokeStyle = TEXT; x.stroke();
+  roundRect(x, X, Y, w, h, r);
+  const g = x.createLinearGradient(0, Y, 0, Y + h);
+  if (op.primary) { x.fillStyle = ink; x.fill(); g.addColorStop(0, 'rgba(255,255,255,0.3)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,0.12)'); }
+  else { g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#ebe8f3'); }
+  x.fillStyle = g; x.fill();
+  x.lineWidth = L; x.strokeStyle = TEXT; x.stroke();
+  x.restore();
+  return { cy: Y + h / 2 };
+}
+// a disc in her ink with an ink outline and a solid drop (the rows' play keys, the list dots)
+function disc(x, cx, cy, r, ink, L, S) {
+  x.beginPath(); x.arc(cx, cy + S, r, 0, Math.PI * 2); x.fillStyle = TEXT; x.fill(); x.lineWidth = L; x.strokeStyle = TEXT; x.stroke();
+  x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fillStyle = ink; x.fill();
+  const g = x.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, 'rgba(255,255,255,0.32)'); g.addColorStop(0.55, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fill();
+  x.lineWidth = L; x.strokeStyle = TEXT; x.stroke();
+}
 export function drawBoard(x, L, o = {}) {
-  const ink = o.ink || '#ff8a14', W = L.W, H = L.H;
+  const ink = o.ink || '#ff8a14', W = L.W, H = L.H, F = BOARD_FRAME;
+  const titan = o.titan ?? titanIn();
   x.clearRect(0, 0, W, H);
-  // the glass: dark, a soft sheen down from the top, a rim in her ink
-  roundRect(x, 8, 8, W - 16, H - 16, 44); x.fillStyle = GLASS; x.fill();
-  const g = x.createLinearGradient(0, 0, 0, H * 0.4); g.addColorStop(0, 'rgba(255,255,255,0.08)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fill();
-  x.lineWidth = 12; x.strokeStyle = ink; x.stroke();
-  roundRect(x, 22, 22, W - 44, H - 44, 34); x.lineWidth = 2; x.strokeStyle = 'rgba(255,255,255,0.12)'; x.stroke();
+  x.save(); x.lineJoin = 'round';
+  // the sticker: its solid drop straight down, the pearl face (a shade at its foot: a little thickness), a varnish sheen
+  // down from the top-left, a light rim just inside the ink outline
+  x.translate(0, F.shadow); stickerBox(x, F, W, H); x.fillStyle = TEXT; x.fill(); x.lineWidth = F.line; x.strokeStyle = TEXT; x.stroke(); x.translate(0, -F.shadow);
+  stickerBox(x, F, W, H);
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, F.top); g.addColorStop(0.5, F.mid); g.addColorStop(1, F.foot); x.fillStyle = g; x.fill();
+  const sh = x.createRadialGradient(W * 0.18, 0, 0, W * 0.18, 0, W * 0.7); sh.addColorStop(0, 'rgba(255,255,255,0.7)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = sh; x.fill();
+  x.save(); x.clip(); x.lineWidth = F.line * 1.85; x.strokeStyle = F.rim; x.stroke(); x.restore();
+  x.lineWidth = F.line; x.strokeStyle = TEXT; x.stroke();
+  x.restore();
   for (const op of L.ops) {
-    if (op.op === 'text') { x.font = `${op.weight} ${op.px}px ${FONT}`; x.fillStyle = op.color; x.textAlign = op.align || 'left'; x.textBaseline = 'alphabetic'; x.fillText(op.text, op.x, op.y); }
-    else if (op.op === 'rowbg') { roundRect(x, op.x, op.y, op.w, op.h, 26); x.fillStyle = op.i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.09)'; x.fill(); }
-    else if (op.op === 'icon') { x.beginPath(); x.arc(op.x, op.y, op.r, 0, Math.PI * 2); x.fillStyle = 'rgba(255,255,255,0.14)'; x.fill(); icon(x, op.icon, op.x, op.y, op.r, TEXT); }
-    else if (op.op === 'dot') { x.beginPath(); x.arc(op.x, op.y, op.r, 0, Math.PI * 2); x.fillStyle = ink; x.fill(); }
+    if (op.op === 'text') {
+      x.textAlign = op.align || 'left'; x.textBaseline = 'alphabetic';
+      if (op.role === 'title') {
+        // Titan One, fitted into the width the layout gave the line; the runs drawn one after another
+        const T = fitTitle(x, op.text, op.px, op.maxW || W - op.x - BOARD.pad, titan);
+        let cx = op.x; x.fillStyle = op.color; x.textAlign = 'left';
+        for (const r of T.runs) { x.font = runFace(r, T.px, T.titan); x.fillText(r.t, cx, op.y); cx += x.measureText(r.t).width; }
+        continue;
+      }
+      x.font = `${op.weight} ${op.px}px ${FONT}`;
+      if (op.role === 'kicker') {
+        // the kicker on a tilted tag in her ink (the reading strip's .iw-read__kicker): an ink outline, a solid drop
+        const tw = x.measureText(op.text).width, px = op.px, X = op.x - 16, Y = op.y - px * 0.95, w = tw + 32, h = px * 1.28, rot = -Math.min(0.026, 8 / (w / 2));
+        x.save(); x.translate(X + w / 2, Y + h / 2); x.rotate(rot); x.translate(-(X + w / 2), -(Y + h / 2));
+        roundRect(x, X, Y + 5, w, h, 14); x.fillStyle = TEXT; x.fill(); x.lineWidth = 5; x.strokeStyle = TEXT; x.stroke();
+        roundRect(x, X, Y, w, h, 14); x.fillStyle = ink; x.fill(); x.lineWidth = 5; x.stroke();
+        x.fillStyle = op.color; x.fillText(op.text, op.x, op.y);
+        x.restore();
+        continue;
+      }
+      x.fillStyle = op.color; x.fillText(op.text, op.x, op.y);
+    }
+    else if (op.op === 'rowbg') { roundRect(x, op.x, op.y, op.w, op.h, 26); x.fillStyle = op.i % 2 ? 'rgba(87,80,112,0.05)' : 'rgba(87,80,112,0.1)'; x.fill(); }
+    else if (op.op === 'icon') { disc(x, op.x, op.y - 2, op.r - 3, ink, 5, 5); icon(x, op.icon, op.x, op.y - 2, op.r, TEXT); }
+    else if (op.op === 'dot') disc(x, op.x, op.y, op.r, ink, 3, 3);
     else if (op.op === 'pill') {
-      roundRect(x, op.x, op.y, op.w, op.h, op.h / 2);
-      x.fillStyle = op.primary ? ink : 'rgba(255,255,255,0.14)'; x.fill();
-      const fg = op.primary ? '#15121c' : TEXT;
+      const { cy } = pill(x, op, ink), fg = TEXT;
       x.font = `800 ${op.px}px ${FONT}`; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
       const tw = x.measureText(op.label).width, iw = op.icon ? op.h * 0.5 : 0, total = tw + iw + (op.icon ? 14 : 0);
       const sx = op.x + (op.w - total) / 2;
-      if (op.icon) icon(x, op.icon, sx + iw / 2, op.y + op.h / 2, op.h * 0.42, fg);
-      x.fillStyle = fg; x.fillText(op.label, sx + iw + (op.icon ? 14 : 0), op.y + op.h / 2 + op.px * 0.36);
+      if (op.icon) icon(x, op.icon, sx + iw / 2, cy, op.h * 0.42, fg);
+      x.fillStyle = fg; x.fillText(op.label, sx + iw + (op.icon ? 14 : 0), cy + op.px * 0.36);
     }
   }
 }
