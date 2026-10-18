@@ -3,7 +3,7 @@
 // App's bundle lays it out), Chromium on software GL, ?quality=low, shadows / bloom off, the game clock frozen
 // (debug.freeze) and stepped by hand; both phone views in ONE browser (one lock for both).
 //
-//   node tools/learn/arena-audit.mjs --form duel|quiz|boss [--views portrait,landscape] [--learn w1d6] [--gate N] [--shots <dir>] [--n 3]
+//   node tools/learn/arena-audit.mjs --form duel|quiz|boss [--views portrait,landscape] [--learn w1d6] [--gate N] [--shots <dir>] [--n 3] [--tick]
 //       [--far] (boss: leave her where she is — the options then float towards it) [--skip-to S] (boss: clear the phases before)
 //       duel   ?learn=w1d6&kind=duel&short=1 (two rounds of two)      quiz   ?learn=w1d1&kind=quiz&short=1 (two questions)
 //       boss   ?learn=w1d7&kind=boss&short=1 (four phases of two)      --n: questions to answer per view (default 3)
@@ -42,6 +42,7 @@ const FAST = args.includes('--full') && !args.includes('--render') && (opt('form
 const FULL = args.includes('--full'), PROFILE = opt('profile', null), SEGMENT = +opt('segment', 0) * 1000, OUT = opt('out', null), SKIPN = +opt('skip', 0);
 const FORM = opt('form', 'duel'), SHOTS = opt('shots', null), MAXQ = +opt('n', FULL ? 999 : 3), BUDGET = +opt('budget', 1500) * 1000;
 const VIEWS_WANT = opt('views', 'portrait,landscape').split(',');
+const TICK = args.includes('--tick');   // (LEARN §38: one picture of the reveal — the right plate's tick — on the first M1 question)
 const LEARN_Q = opt('learn', FORM === 'boss' ? 'w1d7' : FORM === 'quiz' ? 'w1d1' : 'w1d6');
 const GATE = +opt('gate', 0);   // (a duel day's gate N and N+1: ?short=1&gate=N — a typed gate is w1d6 --gate 4)
 const QUERY = `?learn=${LEARN_Q}&kind=${FORM}${FULL ? '' : '&short=1'}&quality=low&nofullscreen&noclips` + (GATE > 0 ? `&gate=${GATE}` : '') + (SKIPN > 0 ? `&skip=${SKIPN}` : '');
@@ -234,6 +235,17 @@ for (const viewName of VIEWS_WANT) { try {
       check(tg.yield && tg.tags.every((t) => t.op < 0.05), `${label}: the name tags over the bots step aside while the objects are up (${tg.tags.length} on the screen${tg.tags.some((t) => t.onLabel) ? ', ' + tg.tags.filter((t) => t.onLabel).length + ' would sit on a label' : ''})`, tg);
     }
     await shot(d.banner ? 'm1-banners' : 'm1-balls');
+    // --tick (LEARN §38): the reveal's look on the first M1 question — the right plate in her ink with its tick badge, a
+    // wrong one coral — drawn only (T.state, as a miss sets it: nothing judged, nothing written), then back to idle
+    if (TICK && SHOTS && !shotDone.has('m1-tick')) {
+      const wrong = await ev(([k]) => { const P = __inkwave.match.learn.arena.m1, n = P.T.n, w = (k + 1) % n; P.T.state(w, 'coral'); P.T.state(k, 'right'); return w; }, [right]);
+      for (let i = 0; i < 8; i++) await step(100);
+      const tk = await ev(([k, w]) => { const T = __inkwave.match.learn.arena.m1.T, at = (i) => T.slots[i].slot; return { right: [T.plates.aBox.getW(at(k)), T.plates.aState.getY(at(k))], wrong: [T.plates.aBox.getW(at(w)), T.plates.aState.getZ(at(w))] }; }, [right, wrong]);
+      say('tick', JSON.stringify(tk));
+      await shot('m1-tick');
+      await ev(([k, w]) => { const T = __inkwave.match.learn.arena.m1.T; T.state(k, 'idle'); T.state(w, 'idle'); }, [right, wrong]);
+      for (let i = 0; i < 8; i++) await step(100);
+    }
     // a PLAIN round at the right object: her own weapon, aimed at it, no tap — it splats and answers nothing (PLAY §1.5)
     const before = st.answers.length, hitsBefore = ((d.log || []).filter((e) => e.ev === 'hit')).length;
     if (!FULL || n <= 2) {

@@ -125,7 +125,10 @@ const CSS = `
 .iw-ps__note.is-ok { color: var(--self); border-color: var(--self); }
 .iw-ps__note.is-bad { color: var(--coral); border-color: var(--coral); }
 .iw-ps__note small { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .iw-ps__box.is-enter, .iw-ps__box.is-flash .iw-ps__head, .iw-ps.is-verdict .iw-ps__head::before, .iw-ps.is-verdict .iw-ps__head, .iw-ps.is-verdict .iw-ps__why { animation: none; } .iw-ps * { transition: none !important; } }
+/* reduced motion: nothing moves, nothing pops — the strip, the ribbon and the verdict's words only fade in (.18 s), the note
+   line fades in and out */
+@keyframes iw-ps-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .iw-ps__box.is-enter, .iw-ps__box.is-flash .iw-ps__head, .iw-ps.is-verdict .iw-ps__head::before, .iw-ps.is-verdict .iw-ps__head, .iw-ps.is-verdict .iw-ps__why { animation: none; } .iw-ps__box.is-enter, .iw-ps.is-verdict .iw-ps__head::before, .iw-ps.is-verdict .iw-ps__head, .iw-ps.is-verdict .iw-ps__why { animation: iw-ps-fade .18s linear backwards; } .iw-ps * { transition: none !important; } .iw-ps .iw-ps__note { transition: opacity .18s linear !important; } }
 `;
 
 let cssDone = false;
@@ -199,7 +202,7 @@ export class PlayStrip {
     this.el.classList.remove('is-off', 'is-verdict', 'is-ok', 'is-bad');
     this._acts(null);
     this.on = true;
-    if (!prefersReducedMotion()) restartAnim(this.box, 'is-enter');
+    restartAnim(this.box, 'is-enter');   // (reduced motion: the same class, a fade — the CSS's last rule)
   }
   chip(text, kind = '') {
     const t = String(text || ''), cls = 'iw-ps__tag' + (t ? ' is-on' + (kind ? ' is-' + kind : '') : '');

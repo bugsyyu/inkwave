@@ -66,6 +66,7 @@ export class RowView {
     at(T, row.s, _p);
     const yaw = Math.atan2(-_p.tx, -_p.tz);   // the sheets face back down the road, towards her
     const tags = row.tags || [];
+    this.labels = row.centers.map((_, i) => fitLabel({ text: (row.labels[i] || {}).en || '', zh: (row.labels[i] || {}).zh || '', tag: tags[i] || '' }, PLATE.w, row.banner ? PLATE.bannerH : PLATE.h, { big: row.banner ? 64 : 92, small: 26, lines: row.banner ? 4 : 2 }));
     row.centers.forEach((off, i) => {
       const x = _p.x + _p.rx * off, z = _p.z + _p.rz * off;
       const gy = G.level ? G.level.groundHeight(x, z, _p.y + 1.4) : _p.y;
@@ -76,15 +77,15 @@ export class RowView {
       // the labels are drawn later (prepare: the row's atlas, two rows ahead): a placeholder map keeps the material's program the same
       const bm = new THREE.MeshBasicMaterial({ map: blankTex(), transparent: true, depthWrite: false, toneMapped: false }); this.mats.push(bm);
       const bw = laneW - (row.banner ? 0.06 : 0.14);   // (boards nearly as wide as the lane: the curtains below show the gaps)
-      const ph = row.banner ? PLATE.bannerH : PLATE.h;
+      const ph = row.banner ? PLATE.bannerH : PLATE.h, tab = this.labels[i].tab || 0;
       const bg = BOARD.clone(); this.geos.push(bg);   // (its own uvs: the plate's rect in the row's atlas)
-      const board = new THREE.Mesh(bg, bm); board.scale.set(bw, bw * (ph / PLATE.w), 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0), 0.04); board.renderOrder = 3;
+      // (the lane badge's tab rides over the plate's top edge: the quad is that much taller, the plate itself where it was)
+      const board = new THREE.Mesh(bg, bm); board.scale.set(bw, bw * ((ph + tab) / PLATE.w), 1); board.position.set(0, h * 0.58 + (row.banner ? 0.1 : 0) + bw * (tab / PLATE.w) / 2, 0.04); board.renderOrder = 3;
       board.visible = false;
       grp.add(sheet, board);
       this.group.add(grp);
       this.curtains.push({ grp, sheet, board, mat, bm, state: 'idle', k: 0, glow: 0, drain: 0, x, y, z });
     });
-    this.labels = row.centers.map((_, i) => fitLabel({ text: (row.labels[i] || {}).en || '', zh: (row.labels[i] || {}).zh || '', tag: tags[i] || '' }, PLATE.w, row.banner ? PLATE.bannerH : PLATE.h, { big: row.banner ? 64 : 92, small: 26, lines: row.banner ? 4 : 2 }));
     this._drawn = false;
     // guide lines on the ink between the lanes (and its two edges) over the run-in: where the gaps are
     this._lines(T, row, laneW);

@@ -3328,7 +3328,7 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 @keyframes iw-cmap-draw { from { stroke-dashoffset: 1; } }
 
 /* a node: the button is the disc's box (≥ 52 px: a thumb), the label hangs under it */
-.iw-cmap__node { position: absolute; width: var(--ns); height: var(--ns); translate: -50% -50%; margin: 0; padding: 0; border: 0; border-radius: 50%;
+.iw-cmap__node { --nsc: 1; position: absolute; width: var(--ns); height: var(--ns); translate: -50% -50%; margin: 0; padding: 0; border: 0; border-radius: 50%;
   background: none; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .iw-cmap__node.is-boss { --ns: clamp(64px, calc(var(--u) * 7.8), 88px); }
 .iw-cmap__node > * { pointer-events: none; }
@@ -3372,8 +3372,10 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-cmap__halo { position: absolute; inset: -34%; border-radius: 50%; opacity: 0;
   background: radial-gradient(closest-side, rgba(var(--a-rgb), .75), rgba(var(--a-rgb), .28) 55%, rgba(var(--a-rgb), 0)); }
 
-/* label: 第 N 天 + done / total */
-.iw-cmap__label { position: absolute; left: 50%; top: calc(100% + 11px); translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap;
+/* label: 第 N 天 + done / total — hung from the node's drawn size (LEARN §38): 15 px under the disc's edge clears the
+   progress ring (8 px outside the disc) and the tick sticker's drop (.1 × the node + 5.5 px), times the node's own scale
+   (--nsc: today is drawn 1.14 × — its ring and glow used to cover 「第 N 天」); over the node's ink and halo */
+.iw-cmap__label { position: absolute; z-index: 1; left: 50%; top: calc(50% + (var(--ns) / 2 + 15px) * var(--nsc)); translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap;
   animation: iw-fade .4s ease-out calc(var(--d, 0ms) + .2s) backwards; }
 .iw-cmap__day { font: 400 13px / 1 'Titan One', sans-serif; letter-spacing: .03em; color: #fff; -webkit-text-stroke: .2em var(--k); paint-order: stroke fill; }
 .iw-cmap__count { font: 700 11px / 1 'Rubik', sans-serif; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 11px; }
@@ -3396,8 +3398,8 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-cmap__node.is-complete .iw-cmap__tick { opacity: 1; scale: 1; rotate: -8deg; transition: opacity .12s, scale .42s var(--spring2), rotate .42s var(--spring2); transition-delay: calc(var(--d, 0ms) + .3s); }
 .iw-cmap__stage.is-loaded .iw-cmap__node.is-complete .iw-cmap__tick { transition-delay: .1s; }
 
-.iw-cmap__node.is-today { z-index: 2; }
-.iw-cmap__node.is-today .iw-cmap__core { scale: 1.14; }
+.iw-cmap__node.is-today { z-index: 2; --nsc: 1.14; }
+.iw-cmap__node.is-today .iw-cmap__core { scale: var(--nsc); }
 .iw-cmap__node.is-today.is-down .iw-cmap__core { scale: .96 .9; }
 .iw-cmap__node.is-today:not(.is-complete) .iw-cmap__disc {
   background: radial-gradient(90% 70% at 32% 18%, rgba(255, 255, 255, .6), rgba(255, 255, 255, 0) 55%), linear-gradient(170deg, var(--a-light), var(--a) 45%, var(--a-dark));

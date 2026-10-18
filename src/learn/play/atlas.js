@@ -63,10 +63,16 @@ function roundRect(x, X, Y, W, H, R) { x.beginPath(); if (x.roundRect) x.roundRe
 // a fixed box (the runner's lane-wide plate): the largest font at which the label fits — the line wrapped to at most
 // `lines` lines (its Chinese to two), nothing wider than the box, the lot no taller than it. Chinese-only lines (a
 // word's meaning) take the CJK face at the same size. → { fixed: true, w, h, font, font2, la, lb, text, zh, tag }
+// the lane letter's badge on a plate w texels wide (LEARN §38: the old chip, 37 texels inside the plate's corner, put the
+// letter at ~4 px on a phone held upright — unreadable): cs tall, centred on the plate's top edge — its upper half rides
+// over the edge (the label's cell is `tab` taller than the plate: nothing taken from the text), its lower half and its
+// drop inside the chip row the text already keeps free (`top`)
+export function laneBadge(w) { const cs = Math.round(w * 0.16); return { cs, tab: Math.round(cs * 0.44) }; }
 export function fitLabel(label, w, h, o = {}) {
   const a = String(label?.text ?? ''), b = label?.zh && label.zh !== label.text ? String(label.zh) : '';
   const big = o.big || 92, small = o.small || 26, lines = o.lines || 2, pad = o.pad ?? 24, tag = label?.tag || '';
-  const top = tag ? Math.round(Math.max(28, h * 0.18)) : 0;   // the chip's row
+  const top = tag ? Math.round(Math.max(28, h * 0.18)) : 0;   // the chip's row (the badge's lower half)
+  const tab = tag ? laneBadge(w).tab : 0;
   const F = FRAME_FIXED, fv = 2 * (F.air + F.line) + F.shadow + 6;   // (the sticker's frame, top and bottom)
   let pick = null;
   for (let font = big; font >= small; font -= 2) {
@@ -77,7 +83,7 @@ export function fitLabel(label, w, h, o = {}) {
     if (la.length <= lines && lb.length <= 2 && !tooWide && H <= h - top - Math.max(pad, fv)) { pick = { font, font2, la, lb }; break; }
     if (font - 2 < small) pick = { font: small, font2, la: la.slice(0, lines), lb: lb.slice(0, 2) };
   }
-  return { fixed: true, w, h, text: a, zh: b, tag, top, ...pick, key: (tag ? tag + '|' : '') + 'F|' + a + '|' + b };
+  return { fixed: true, w, h: h + tab, plate: h, tab, text: a, zh: b, tag, top, ...pick, key: (tag ? tag + '|' : '') + 'F|' + a + '|' + b };
 }
 
 // the largest scale (from LEARN.m1.atlasScale down by quarters, never under 1) at which the gate's labels pack
@@ -102,7 +108,7 @@ export function labelFonts() {
   _asked = true;
   for (const f of [`400 40px ${TITAN}`, '800 40px Rubik', '600 40px Rubik']) document.fonts.load(f).catch(() => null);
 }
-const titanIn = () => { try { return typeof document !== 'undefined' && !!document.fonts && document.fonts.check(`400 40px ${TITAN}`); } catch (e) { return false; } };
+export const titanIn = () => { try { return typeof document !== 'undefined' && !!document.fonts && document.fonts.check(`400 40px ${TITAN}`); } catch (e) { return false; } };
 // a line's face: Titan One for a Latin line (when it is in), Rubik / the system's CJK face, bold, for one with Chinese
 export const enFont = (s, px, titan) => (titan && !zhCount(s) ? `400 ${px}px ${TITAN}, ${LABEL_FONT}` : `800 ${px}px ${LABEL_FONT}`);
 export const zhFont = (s, px) => `600 ${px}px ${LABEL_FONT}`;
@@ -179,14 +185,15 @@ export function drawLabelAtlas(labels, opts = {}) {
     const s = r.w / l.w;   // (= scale, or less when the sheet is full)
     x.save(); x.translate(r.x, r.y); x.scale(s, s);
     const W = l.w, H = l.h;
-    if (l.fixed) {   // 墨浪跑酷's plate (fitLabel): the lines centred in the box, the lane letter in a badge at the top-left
-      const F = FRAME_FIXED, B = sticker(x, W, H, F, 0), inner = W - 2 * (F.air + F.line) - 20;
+    if (l.fixed) {   // 墨浪跑酷's plate (fitLabel): the lines centred in the box, the lane letter in a badge on its top-left corner
+      const F = FRAME_FIXED, tab = l.tab || 0, inner = W - 2 * (F.air + F.line) - 20;
+      x.translate(0, tab); const B = sticker(x, W, H - tab, F, 0); x.translate(0, -tab); B.Y += tab;   // (the plate under the badge's tab)
       let a1 = l.font, a2 = l.font2;
       // (fitLabel measured with the estimate: the real faces may run wider — smaller, never past the box)
       while (a1 > 20 && (l.la || []).some((ln) => mA(ln, a1) > inner)) a1 -= 2;
       while (a2 > 16 && (l.lb || []).some((ln) => mB(ln, a2) > inner)) a2 -= 2;
       const rows = [[l.la || [], a1, enFace, S.en], [l.lb || [], a2, zhFont, S.zh]], lh = 1.19;
-      if (l.tag) badge(x, B.X + F.line / 2 + 6, B.Y + F.line / 2 + 5, Math.max(22, l.top - 8), l.tag, titan);
+      if (l.tag) { const cs = laneBadge(W).cs; badge(x, B.X + F.line / 2 + 10, B.Y - cs / 2, cs, l.tag, titan); }
       const top = l.top, total = blockH(rows, lh) + (rows[1][0].length ? 10 : 0);
       const y0 = B.Y + top + (B.h - top - total) / 2;
       lines([rows[0]], W / 2, y0, lh, inner);
