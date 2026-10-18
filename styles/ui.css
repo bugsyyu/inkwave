@@ -3472,18 +3472,19 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-book.is-up .iw-book__rig { transform: none; }
 .iw-book.is-down .iw-book__rig { transform: translateY(108vh) rotateX(10deg) scale(.94); transition: transform .33s var(--in); }
 
-/* bookmarks: sticker tabs standing up out of the page's top edge; the open one stands tallest, the rest tuck behind */
-.iw-book__tabs { position: relative; z-index: 3; display: flex; gap: 6px; padding: 8px 6px 0 26px; margin-bottom: -6px; overflow-x: auto; overflow-y: hidden;
+/* bookmarks: sticker tabs standing up out from behind the page's top edge (the page covers their feet); the open one
+   stands tallest. What shows of a tab is ≥ 44 px tall: 56 − 8 under the page (the open one 6 px more) */
+.iw-book__tabs { position: relative; display: flex; gap: 6px; padding: 10px 6px 0 26px; margin-bottom: -8px; overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scroll-padding: 0 40px; }
 .iw-book__tabs::-webkit-scrollbar { display: none; }
-.iw-book__tab { flex: 0 0 auto; position: relative; min-width: 58px; height: 50px; padding: 0 14px 6px; border: 0; border-radius: 13px 13px 4px 4px; cursor: pointer;
+.iw-book__tab { flex: 0 0 auto; position: relative; min-width: 58px; height: 56px; padding: 0 14px 10px; border: 0; border-radius: 13px 13px 4px 4px; cursor: pointer;
   background: linear-gradient(180deg, color-mix(in srgb, var(--c) 78%, #fff) 0, var(--c) 34%, color-mix(in srgb, var(--c) 82%, #000) 100%);
   color: var(--k); font: 800 15px/1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; letter-spacing: .02em;
   box-shadow: 0 0 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -6px 0 rgba(0, 0, 0, .14);
-  transform: translateY(9px); transition: transform .32s var(--spring), filter .2s; filter: saturate(.78) brightness(.86); -webkit-tap-highlight-color: transparent;
+  transform: none; transition: transform .32s var(--spring), filter .2s; filter: saturate(.78) brightness(.86); -webkit-tap-highlight-color: transparent;
   animation: iw-book-tab .5s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 45ms + 520ms); }
 .iw-book__tab b { position: relative; display: block; font-weight: inherit; white-space: nowrap; }
-.iw-book__tab.is-on { transform: translateY(0); filter: none; z-index: 1; }
+.iw-book__tab.is-on { transform: translateY(-6px); filter: none; z-index: 1; }
 .iw-book__tab:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .iw-book__tab:active { transform: translateY(5px) scale(.96, .94); transition-duration: 0s; }
 @keyframes iw-book-tab { from { transform: translateY(40px); opacity: 0; } }
@@ -3564,7 +3565,7 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 @media (orientation: landscape) and (max-height: 520px) {
   .iw-book { --bk-top: calc(6px + var(--sat, 0px)); }
   .iw-book__rig { left: calc(max(10px, var(--sal, 0px)) + 66px); right: max(10px, var(--sar, 0px)); bottom: calc(8px + var(--sab, 0px)); }
-  .iw-book__tab { height: 46px; min-width: 64px; }
+  .iw-book__tab { height: 52px; padding-bottom: 8px; min-width: 64px; }
   .iw-book__close { left: max(10px, var(--sal, 0px)); top: calc(10px + var(--sat, 0px)); width: 58px; height: 58px; padding: 0; flex-direction: column; justify-content: center; gap: 1px; font-size: 12px; }
   .iw-book__closeic { width: 26px; height: 26px; }
   .iw-book__title { font-size: 56px; }
@@ -3577,6 +3578,6 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-book__cover { display: none; }
   .iw-book__leaf { display: none; }
   .iw-book__tab, .iw-book__close, .iw-book.is-up .iw-book__close { animation: none; transform: none; transition: opacity .25s; }
-  .iw-book__tab:not(.is-on) { transform: translateY(9px); }
+  .iw-book__tab.is-on { transform: translateY(-6px); }
   .iw-book__blot { animation: none; }
 }

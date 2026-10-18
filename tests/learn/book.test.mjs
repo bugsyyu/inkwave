@@ -135,9 +135,11 @@ test('screen: the game pushes before the page loads, the page saves before the b
 test('look: INKWAVE\'s sticker language, ≥ 44 pt to tap, only transform / opacity move, reduced motion fades', () => {
   const a = CSS.indexOf('游戏为主体 第三期第一步: 课本'), css = CSS.slice(a);
   assert.ok(a > 0);
-  assert.match(css, /\.iw-book__tab \{[^}]*height: 50px[^}]*box-shadow: 0 0 0 2\.5px var\(--k\)/);
+  assert.match(css, /\.iw-book__tab \{[^}]*height: 56px[^}]*box-shadow: 0 0 0 2\.5px var\(--k\)/);
+  assert.match(css, /\.iw-book__tabs \{[^}]*margin-bottom: -8px/, 'the page covers 8 px of a tab: 48 px of it shows');
+  assert.doesNotMatch(BOOK, /\.scrollIntoView\(/, 'the strip scrolls sideways only');
   assert.match(css, /\.iw-book__close \{[^}]*height: 48px[^}]*box-shadow: 0 0 0 3px var\(--k\), 0 5px 0 3px var\(--k\)/);
-  assert.match(css, /orientation: landscape\) and \(max-height: 520px\) \{[\s\S]*\.iw-book__tab \{ height: 46px;[\s\S]*\.iw-book__close \{[^}]*width: 58px; height: 58px/);
+  assert.match(css, /orientation: landscape\) and \(max-height: 520px\) \{[\s\S]*\.iw-book__tab \{ height: 52px;[\s\S]*\.iw-book__close \{[^}]*width: 58px; height: 58px/);
   assert.match(css, /\.iw-book__page \{[^}]*box-shadow: 0 0 0 3px var\(--k\), 0 8px 0 3px var\(--k\)/);
   assert.match(css, /\.iw-book__title \{[^}]*font-size: 76px/);
   assert.match(BOOK, /class: 'iw-book__title iw-display'/, 'Titan One with the ink outline');

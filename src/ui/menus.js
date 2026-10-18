@@ -1349,7 +1349,11 @@ export class Menus {
     const rig = h('div', { class: 'iw-book__rig' }, strip, h('div', { class: 'iw-book__body' }, rings, page, cover));
     const el = h('div', { class: 'iw-screen iw-book' + (reduced ? ' is-still' : '') }, h('div', { class: 'iw-book__scrim' }), rig, close);
     const mark = () => tabs.forEach((x, i) => { const on = BOOK_TABS[i].id === tab; x.classList.toggle('is-on', on); x.setAttribute('aria-current', on ? 'page' : 'false'); });
-    const reveal = () => { const on = tabs[BOOK_TABS.findIndex((b) => b.id === tab)]; if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reduced ? 'auto' : 'smooth' }); };
+    // the open bookmark into view: the strip scrolls sideways only (scrollIntoView would also scroll it up and cut the tabs' tops)
+    const reveal = () => {
+      const on = tabs[BOOK_TABS.findIndex((b) => b.id === tab)];
+      if (on && strip.scrollTo) strip.scrollTo({ left: Math.max(0, on.offsetLeft + on.offsetWidth / 2 - strip.clientWidth / 2), behavior: reduced ? 'auto' : 'smooth' });
+    };
     mark();
     // the page under the leaf changes: by message once it is up, by address before (or when the message cannot go)
     const show = (view) => {
