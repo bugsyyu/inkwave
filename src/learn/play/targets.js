@@ -30,6 +30,10 @@ export const COLORS = { idle: '#d3cae8', coral: '#f08a7a', ink: '#ff8a14' };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _v = new THREE.Vector3();
 const _rot = new THREE.Matrix4(), _c = new THREE.Color();
 const ease = (k) => 1 - Math.pow(1 - k, 3);
+// the right one's tick badge (CSS px of the plate's box; LEARN §38): its radius, ink outline, solid drop; stamped on with a
+// harder spring than the plates' (0 → 1.15 → 1 over 0.34 s, 60 ms after the plate's flash)
+export const TICK = { r: 7.5, line: 1.6, drop: 1.6, delay: 0.06, dur: 0.34 };
+const stamp = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 + 3.2 * Math.pow(k - 1, 3) + 2.2 * Math.pow(k - 1, 2));
 // a spring-ish pop: 0 → 1.08 → 1 (an ease-out-back; reduced motion has none)
 const pop = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 + 2.5 * Math.pow(k - 1, 3) + 1.5 * Math.pow(k - 1, 2));
 
@@ -89,7 +93,7 @@ function plateMaterial() {
       .replace('#include <common>', `#include <common>
         attribute vec4 aUv;      // the label's rect in the atlas: u0 v0 u1 v1
         attribute vec4 aState;   // x opacity, y her ink (the right one), z coral, w flash (the outline lights up, then falls)
-        attribute vec4 aBox;     // the plate in CSS px: x w, y h, z its tail (0: a banner's face)
+        attribute vec4 aBox;     // the plate in CSS px: x w, y h, z its tail (0: a banner's face); w the tick badge's size
         varying vec4 vState; varying vec4 vBox; varying vec2 vLocal;`)
       .replace('#include <uv_vertex>', `#include <uv_vertex>
         vLocal = uv; vState = aState; vBox = aBox;
@@ -117,10 +121,31 @@ function plateMaterial() {
           float band = 1.0 - smoothstep(${f(F.line * 0.4)}, ${f(F.line * 0.75)}, abs(d));
           diffuseColor.rgb = mix(diffuseColor.rgb, uOutline * 1.15 + 0.22, band * vState.w);
           diffuseColor.a = max(diffuseColor.a, band * vState.w);
+          // the right one's badge (LEARN §38): a white tick on an ink disc stamped on the plate's top-right corner (its
+          // size is aBox.w: a spring from 0, overshooting), fading in with her ink — 答对 reads without the colour (an
+          // orange team ink is near the coral); a wrong one never has it. Linear colours: the ink, the badge's body
+          if (vBox.w > 0.001) {
+            float rb = ${f(TICK.r)} * vBox.w, aa = 0.8;
+            vec2 cb = vec2(vBox.x - ${f(TICK.r + 1)}, vBox.y - ${f(TICK.r + 1)}), dp = px - cb;
+            float drop = 1.0 - smoothstep(rb - aa, rb + aa, length(dp + vec2(0.0, ${f(TICK.drop)} * vBox.w)));
+            float dl = length(dp), disc = 1.0 - smoothstep(rb - aa, rb + aa, dl);
+            float ring = disc * smoothstep(rb - ${f(TICK.line)} - aa, rb - ${f(TICK.line)} + aa, dl);
+            vec2 t = dp / max(rb, 0.001), a = vec2(-0.44, 0.0), b = vec2(-0.12, -0.32), e = vec2(0.46, 0.33);
+            vec2 pa = t - a, ba = b - a, pb = t - b, eb = e - b;
+            float s1 = length(pa - ba * saturate(dot(pa, ba) / dot(ba, ba))), s2 = length(pb - eb * saturate(dot(pb, eb) / dot(eb, eb)));
+            float tick = disc * (1.0 - smoothstep(0.13 - aa / rb, 0.13 + aa / rb, min(s1, s2)));
+            float k = saturate(vState.y * 1.6);
+            vec3 ink = vec3(0.0075, 0.006, 0.0116), body = vec3(0.024, 0.0185, 0.04);
+            vec3 col = mix(diffuseColor.rgb, ink, drop * k);
+            col = mix(col, body + 0.05 * (1.0 - saturate(-t.y)), disc * k);
+            col = mix(col, ink, ring * k);
+            diffuseColor.rgb = mix(col, vec3(1.0), tick * k);
+            diffuseColor.a = max(diffuseColor.a, max(drop, disc) * k);
+          }
           diffuseColor.a *= vState.x;
         }`);
   };
-  mat.customProgramCacheKey = () => 'iw-play-plate-3';
+  mat.customProgramCacheKey = () => 'iw-play-plate-4';
   return mat;
 }
 
@@ -153,7 +178,7 @@ export class PlayTargets {
     this.slots = Array.from({ length: MAXO }, () => ({
       on: false, kind: 'ball', key: '', pos: new THREE.Vector3(), r: 0.5, w: 1, h: 0.5, d: 0.14,
       plate: { pos: new THREE.Vector3(), w: 1, h: 0.3 }, uv: NOUV, state: 'idle', t: 0, delay: 0, outAt: -1, gone: false, col: new THREE.Color(COLORS.idle), want: new THREE.Color(COLORS.idle), coral: 0, outline: 0, glow: 0,
-      bw: 100, bh: 40, tail: 0, flash: 0, jt: 9, bt: 9,   // the plate's box (CSS px) · the flash · the jelly / burst clocks (s)
+      bw: 100, bh: 40, tail: 0, flash: 0, jt: 9, bt: 9, kt: 9,   // the plate's box (CSS px) · the flash · the jelly / burst / tick clocks (s)
     }));
     this.n = 0; this.kind = 'ball'; this.time = 0; this.anim = false;
     this.basis = { right: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 1, 0), back: new THREE.Vector3(0, 0, 1) };
@@ -231,7 +256,7 @@ export class PlayTargets {
       S.r = o.r || 0.5; S.w = o.w || 1; S.h = o.h || 0.5; S.d = Math.max(0.12, (o.h || 0.5) * 0.22);
       S.plate.pos.set(o.plate.x, o.plate.y, o.plate.z); S.plate.w = o.plate.w; S.plate.h = o.plate.h;
       S.state = 'idle'; S.col.set(COLORS.idle); S.want.set(COLORS.idle); S.coral = 0; S.outline = 0; S.glow = 0;
-      if (!kept) { S.flash = 0; S.jt = 9; S.bt = 9; }
+      if (!kept) { S.flash = 0; S.jt = 9; S.bt = 9; S.kt = 9; }
       S.uv = (A && A.uv.get(o.key)) || NOUV;
       const bx = A && A.box.get(o.key); S.bw = bx ? bx.w : 100; S.bh = bx ? bx.h : 40; S.tail = o.kind === 'ball' ? FRAME.tail : 0;
     }
@@ -250,7 +275,7 @@ export class PlayTargets {
     S.want.set(s === 'coral' ? COLORS.coral : COLORS.idle);
     // a wrong one shakes like jelly (a damped spring, ~0.4 s); the right one's plate pushes out and its outline flares
     if (s === 'coral' && !this.reduced) S.jt = 0;
-    if (s === 'right') S.flash = 1;
+    if (s === 'right') { S.flash = 1; S.kt = 0; }
     this.anim = true;
   }
   // the hit one goes at once (the caller's explosion takes its place); the others drain away
@@ -296,9 +321,9 @@ export class PlayTargets {
       S.col.lerp(S.want, k);
       const wantCoral = S.state === 'coral' ? 1 : 0, wantOut = S.state === 'right' ? 1 : 0;
       S.coral += (wantCoral - S.coral) * k; S.outline += (wantOut - S.outline) * k; S.glow += (wantOut - S.glow) * k;
-      S.jt += dt; S.bt += dt; S.flash *= Math.exp(-dt * 6);
+      S.jt += dt; S.bt += dt; S.kt += dt; S.flash *= Math.exp(-dt * 6);
       if (S.flash < 0.01) S.flash = 0;
-      if (S.jt < 0.45 || S.bt < 0.1 || S.flash > 0 ||
+      if (S.jt < 0.45 || S.bt < 0.1 || S.flash > 0 || (S.state === 'right' && S.kt < TICK.delay + TICK.dur) ||
           S.t < S.delay + 0.5 || S.outAt >= 0 || Math.abs(S.coral - wantCoral) > 0.01 || Math.abs(S.outline - wantOut) > 0.01 || Math.abs(S.col.r - S.want.r) + Math.abs(S.col.g - S.want.g) + Math.abs(S.col.b - S.want.b) > 0.003) busy = true;
       if (ok >= 0.4) S.on = false;
     }
@@ -354,7 +379,9 @@ export class PlayTargets {
       // (reduced motion: no pop — the plates fade in instead)
       const op = S.gone ? 0 : this.reduced ? Math.max(0, Math.min(1, (S.t - S.delay) / 0.25)) * (S.outAt < 0 ? 1 : 1 - Math.min(1, this._outK(S) / 0.3)) : Math.min(1, s * 1.4);
       this.plates.aState.setXYZW(nl, op, S.outline, S.coral, S.flash);
-      this.plates.aBox.setXYZW(nl, S.bw, S.bh, S.tail, 0);
+      // (aBox.w: the tick badge's size — the right one only; reduced motion: there at once, fading in with her ink)
+      const tk = S.state !== 'right' || S.gone ? 0 : this.reduced ? 1 : stamp((S.kt - TICK.delay) / TICK.dur);
+      this.plates.aBox.setXYZW(nl, S.bw, S.bh, S.tail, tk);
       this.plates.aUv.setXYZW(nl, S.uv[0], S.uv[1], S.uv[2], S.uv[3]);
       nl++;
     }
