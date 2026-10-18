@@ -206,8 +206,10 @@ export function drawLabelAtlas(labels, opts = {}) {
       // a ball's plate: the tail up to the ball; the text fitted again in the real faces (smaller, the Chinese wrapped,
       // only then cut) into the box the layout gave it
       const F = FRAME, B = sticker(x, W, H, F, F.tail), inner = W - 2 * frameX(), room = B.h - F.line - 2 * F.padY;
-      let T = plateText(l, f1, f2, inner, mA, mB);
+      // (the English line may go a little smaller than the layout's fit before anything is cut: the box is fixed now)
+      let T = plateText(l, f1, f2, inner, mA, mB, Math.round(f1 * 0.7));
       if (blockH([[T.a.lines, T.a.px], [T.b.lines, T.b.px]], F.lh) > room + 1 && l.zh) T = { ...T, b: fitText(l.zh, inner, f2, { measure: mB, lines: 1 }) };
+      if (blockH([[T.a.lines, T.a.px], [T.b.lines, T.b.px]], F.lh) > room + 1) T = { ...T, a: fitText(l.text, inner, f1, { measure: mA, lines: 1, min: Math.round(f1 * 0.6) }) };
       const rows = [[T.a.lines, T.a.px, enFace, S.en], [T.b.lines, T.b.px, zhFont, S.zh]];
       lines(rows, W / 2, B.Y + (B.h - blockH(rows, F.lh)) / 2, F.lh, inner);
     }

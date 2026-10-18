@@ -12,8 +12,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { LEARN } from '../../src/config.js';
-import { fitText, plateText, labelBox, textWidth, FRAME, frameX, wrapLines } from '../../src/learn/play/layout.js';
-import { fitLabel, gateLabels } from '../../src/learn/play/atlas.js';
+import { fitText, plateText, labelBox, textWidth, FRAME, frameX, wrapLines, enWidth, TITAN_K } from '../../src/learn/play/layout.js';
+import { fitLabel, gateLabels, fitAtlas } from '../../src/learn/play/atlas.js';
+import { loadWeek } from '../../src/learn/content.js';
+import { prompt } from '../../src/learn/engine.js';
+import { planDay } from '../../src/learn/design.js';
+import { canPlayM1 } from '../../src/learn/play/m1.js';
 const THREE = await import('three');
 const { PlayTargets, COLORS } = await import('../../src/learn/play/targets.js');
 
@@ -39,6 +43,32 @@ test('a plate\'s text stays inside its outline: 床（复数）, 猫（复数）
     assert.equal(P.b.px, U.font - 2); assert.deepEqual(P.b.lines, [zh]);
     assert.ok(labelBox({ text: 'beds', zh }).w - textWidth(zh, U.font - 2) >= 2 * (FRAME.line + FRAME.padX), 'padding inside the outline both sides');
   }
+});
+
+// (the first browser shot of the duel: "men" / "no" came out as "m…" / "n…" — the box was sized by the Rubik estimate,
+// the line drawn in Titan One ~1.3 × wider; the first line is now estimated at Titan One's width)
+test('no ball plate of the three weeks is cut: every word gate\'s labels fit whole at Titan One\'s width, and still pack at full scale', async () => {
+  assert.ok(TITAN_K >= 1.25);
+  assert.equal(enWidth('men', 17), textWidth('men', 17) * TITAN_K); assert.equal(enWidth('星期一', 17), textWidth('星期一', 17));
+  for (const t of [{ text: 'men', zh: '男人' }, { text: 'no', zh: '不' }]) {
+    const P = plateText(t);
+    assert.deepEqual(P.a.lines, [t.text], t.text + ' whole'); assert.equal(P.a.px, U.font);
+    assert.ok(labelBox(t).w - 2 * frameX() >= enWidth(t.text, U.font), 'its box takes the Titan One line');
+  }
+  let n = 0;
+  for (const w of [1, 2, 3]) {
+    const W = await loadWeek(w);
+    for (const d of W.days) for (const g of planDay(W, d.n, 'puzzle').gates) {
+      const labs = gateLabels(g.items, prompt, (it, p) => canPlayM1(it, p));
+      for (const l of labs.filter((x) => !x.banner)) {
+        const P = plateText(l);
+        assert.ok(!P.a.cut && !P.b.cut, `w${w}d${d.n} ${l.text} / ${l.zh}: nothing cut`);
+        n++;
+      }
+      if (labs.length && labs.every((l) => !l.banner)) assert.equal(fitAtlas(labs).scale, LEARN.m1.atlasScale, 'ball labels at full scale');
+    }
+  }
+  assert.ok(n > 100, n + ' plates');
 });
 
 test('fitText: smaller first, then wrapped, only then cut with an ellipsis', () => {

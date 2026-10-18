@@ -88,16 +88,19 @@ export function fitText(s, maxW, px, o = {}) {
 // the sticker plate's frame (CSS px, LEARN §35 — the battle's name tags): a dark outline `line` wide, a solid shadow
 // `shadow` under it, a tail `tail` tall up to the ball, `air` round it all (the texture's filtering), the text `padX` /
 // `padY` inside the outline; `maxIn` the widest a ball's text runs before its Chinese shrinks, wraps, is cut
-export const FRAME = { line: 3, shadow: 3, tail: 6, air: 1.5, padX: 9, padY: 3, rad: 16, maxIn: 150, lh: 1.22 };
+export const FRAME = { line: 3, shadow: 3, tail: 6, air: 1.5, padX: 9, padY: 3, rad: 16, maxIn: 150, lh: 1.22, minIn: 34 };
+// the first line's estimate: a Latin line is set in Titan One, ~1.3 × the Rubik estimate (its m, w, n are wide)
+export const TITAN_K = 1.3;
+export const enWidth = (s, px) => (zhCount(s) ? textWidth(s, px) : textWidth(s, px) * TITAN_K);
 export const frameX = (F = FRAME) => F.air + F.line + F.padX;
 // a plate's text fitted (pure: `measure` the estimate here, the canvas's measureText in the atlas) → the first line
 // { px, lines }, the Chinese's (smaller, then on two lines, then cut), and the inner width they take
-export function plateText(label, font = U.font, font2 = font - 2, maxIn = FRAME.maxIn, measure = textWidth, measure2 = measure) {
+export function plateText(label, font = U.font, font2 = font - 2, maxIn = FRAME.maxIn, measure = enWidth, measure2 = textWidth, minA) {
   const a = String(label?.text ?? ''), b = label?.zh && label.zh !== label.text ? String(label.zh) : '';
-  const A = fitText(a, maxIn, font, { measure, lines: 1 });
+  const A = fitText(a, maxIn, font, { measure, lines: 2, min: minA });   // (a long mixed line — an IPA note with its Chinese — wraps too)
   const B = b ? fitText(b, maxIn, font2, { measure: measure2, lines: 2 }) : { px: font2, lines: [], cut: false };
   const ws = [...A.lines.map((l) => measure(l, A.px)), ...B.lines.map((l) => measure2(l, B.px))];
-  return { a: A, b: B, inner: Math.min(maxIn, Math.max(0, ...ws)) };
+  return { a: A, b: B, inner: Math.min(maxIn, Math.max(FRAME.minIn, ...ws)) };
 }
 
 // a label plate's natural box (CSS px): its line, its Chinese under it when there is one, in the sticker frame; the
