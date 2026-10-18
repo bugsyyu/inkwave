@@ -34,7 +34,10 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, de
 const page = await ctx.newPage(), errs = [];
 page.on('pageerror', (e) => errs.push(e.message));
 const wait = (ms) => page.waitForTimeout(ms);
-const probe = () => page.evaluate(() => {
+// (SwiftShader at dpr 3 starts the CSS animations late: the nodes' pop-in can still be running seconds after the screen is
+// built — measured mid-pop, a ring is a fifth of its size. The finite animations on the map are waited for first)
+const settle = () => page.evaluate(() => Promise.race([Promise.all(document.getAnimations().filter((a) => { const t = a.effect && a.effect.target; return t && t.closest && t.closest('.iw-cmap') && a.effect.getComputedTiming().iterations !== Infinity; }).map((a) => a.finished.catch(() => null))), new Promise((ok) => setTimeout(ok, 20000))]));
+const probe = async () => { await settle(); return page.evaluate(() => {
   const vw = innerWidth, over = document.documentElement.scrollWidth > vw + 1;
   const nodes = [...document.querySelectorAll('.iw-cmap__node')].map((n) => {
     const r = n.getBoundingClientRect(), st = ['done', 'part', 'today', 'todo', 'locked'].find((s) => n.classList.contains('is-' + s));
@@ -46,7 +49,7 @@ const probe = () => page.evaluate(() => {
   const sub = document.querySelector('.iw-btn--today .iw-btn__sub');
   const btns = [...document.querySelectorAll('.iw-main__menu .iw-btn')].map((b) => b.dataset.id);
   return { screen: __inkwave.menus && __inkwave.menus.current, over, btns, sub: sub && sub.textContent, nodes, weeksub: (document.querySelector('.iw-cmap__weeksub') || {}).textContent };
-});
+}); };
 let code = 0;
 try {
   await page.goto(base + `index.html?from=app&today=${TODAY}&skipTitle&nofullscreen`, { waitUntil: 'load', timeout: 180000 });
