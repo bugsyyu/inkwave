@@ -3367,7 +3367,7 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-cmap__lock { left: 50%; top: 50%; translate: -50% -50%; width: 46%; height: 46%; padding: 10%; background: #6c6680; color: #e2dfeb; opacity: 0; }
 
 /* her ink under today (and a faded one under a finished day), the breathing halo */
-.iw-cmap__ink { position: absolute; inset: -42%; opacity: 0; rotate: calc(var(--d, 0ms) / 1ms * .9deg); }
+.iw-cmap__ink { position: absolute; inset: -42%; opacity: 0; rotate: -14deg; }
 .iw-cmap__ink svg { width: 100%; height: 100%; }
 .iw-cmap__halo { position: absolute; inset: -34%; border-radius: 50%; opacity: 0;
   background: radial-gradient(closest-side, rgba(var(--a-rgb), .75), rgba(var(--a-rgb), .28) 55%, rgba(var(--a-rgb), 0)); }
