@@ -1454,7 +1454,10 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 }
 @media (prefers-reduced-motion: reduce) {
   .iw-learn *, .iw-learn *::before, .iw-learn *::after { animation: none !important; transition: none !important; }
+  /* (nothing moves; the results card fades in — opacity only, .18 s: hud-learn.js gives it is-fade instead of is-enter) */
+  .iw-learn .iw-learn__rframe.is-fade { animation: iw-learn-fade .18s linear backwards !important; }
 }
+@keyframes iw-learn-fade { from { opacity: 0; } }
 
 /* ---- 关卡学习 I (docs/LEARN.md §17): a phone held upright. The HUD's unit is 1/100 of a 16:9 frame fitted to the
    screen — 3.9 px on a 390 px phone, so the counts and the clock were a squint; re-based on the width here. The level's

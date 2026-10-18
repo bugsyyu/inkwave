@@ -155,7 +155,7 @@ export class LearnHud {
     } else this.rDue.append(h('div', { class: 'iw-learn__rlabel' }, '没有到期的词'));
     this.rAgain.onclick = () => { this._snd('ui_confirm'); actions.again?.(); };
     this.rMenu.onclick = () => { this._snd('ui_back'); actions.menu?.(); };
-    if (!prefersReducedMotion()) { restartAnim(this.rFrame, 'is-enter'); this._countUp(num, data.done); }
+    if (!prefersReducedMotion()) { restartAnim(this.rFrame, 'is-enter'); this._countUp(num, data.done); } else restartAnim(this.rFrame, 'is-fade');   // (reduced: the card only fades in)
     setTimeout(() => this.rAgain.focus?.(), 50);
   }
   // the score counts up as its line rises in (INKWAVE's results count their numbers too). The element keeps the real
