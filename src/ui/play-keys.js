@@ -22,7 +22,7 @@ import { h, prefersReducedMotion } from './ui-util.js';
 import { keyboardLayout, keyLabel, keyOfEvent, keysFor } from '../learn/play/type/keys.js';
 
 const CSS = `
-.iw-pk { position: fixed; left: 0; right: 0; bottom: 0; z-index: 19; pointer-events: none; --self: #ff8a14; --self-ink: #15121c;
+.iw-pk { position: fixed; left: 0; right: 0; bottom: 0; z-index: 19; pointer-events: none; --self: #ff8a14; --self-ink: #15121c; --k: #15121c; --k3: #2c2540;
   font-family: 'Titan One', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', sans-serif;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
 .iw-pk__panel { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto; border-radius: 22px 22px 0 0;
@@ -30,20 +30,23 @@ const CSS = `
   transform: translateY(0); transition: transform .42s cubic-bezier(.2,1.3,.4,1), opacity .2s; }
 .iw-pk.is-off .iw-pk__panel { transform: translateY(110%); pointer-events: none; }
 .iw-pk__panel::before { content: ''; position: absolute; left: 50%; top: 5px; width: 38px; height: 4px; margin-left: -19px; border-radius: 3px; background: rgba(255,255,255,.16); }
+/* the keycaps are the original's input glyphs (styles/ui.css .iw-key): a cool white cap, an ink outline, a solid ink drop
+   under it, a lilac lip at its foot; a press sinks it into its drop on the same frame (and lights it in her ink), the
+   release springs back. Outline and drop are box-shadows: the keys' boxes (keyboardLayout) do not move a pixel */
 .iw-pk__k { position: absolute; display: grid; place-items: center; box-sizing: border-box; border: 0; padding: 0; margin: 0; cursor: pointer;
-  border-radius: 11px; background: linear-gradient(180deg, #fbf8f0, #ece6d8); color: #272b34; font-size: 23px; line-height: 1; font-weight: 400; font-family: inherit;
-  box-shadow: 0 3px 0 #b4ab98, 0 4px 8px rgba(0,0,0,.25); transform: translateY(0) scale(1); transition: transform .16s cubic-bezier(.2,1.6,.4,1), box-shadow .16s, background-color .1s;
+  border-radius: 11px; background: linear-gradient(180deg, #fff, #ebe8f3); color: var(--k); font-size: 23px; line-height: 1; font-weight: 400; font-family: inherit;
+  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k), inset 0 -3px 0 #c9c4d8; transform: translateY(0) scale(1); transition: transform .16s cubic-bezier(.2,1.6,.4,1), box-shadow .16s, background-color .1s;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .iw-pk__k span { pointer-events: none; transform: translateY(-1px); }
 .iw-pk__k.is-wide { font-size: 19px; }
-.iw-pk__k.is-space::after { content: ''; width: 34%; height: 5px; border-radius: 3px; background: rgba(39,43,52,.18); }
-.iw-pk__k.is-back { background: linear-gradient(180deg, #4a4f5c, #393d48); color: #fff; box-shadow: 0 3px 0 #23262e, 0 4px 8px rgba(0,0,0,.3); }
-.iw-pk__k.is-fire { background: linear-gradient(180deg, color-mix(in srgb, var(--self) 88%, #fff), var(--self)); color: var(--self-ink); font-size: 24px;
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--self) 60%, #000), 0 4px 10px rgba(0,0,0,.3); gap: 6px; grid-auto-flow: column; }
+.iw-pk__k.is-space::after { content: ''; width: 34%; height: 5px; border-radius: 3px; background: rgba(21,18,28,.16); }
+.iw-pk__k.is-back { background: linear-gradient(180deg, #3a3350, var(--k3)); color: #fff; box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k), inset 0 2px 0 rgba(255,255,255,.14); }
+.iw-pk__k.is-fire { background: linear-gradient(180deg, color-mix(in srgb, var(--self) 82%, #fff), var(--self)); color: var(--self-ink); font-size: 24px;
+  box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k), inset 0 -3px 0 color-mix(in srgb, var(--self) 72%, #000); gap: 6px; grid-auto-flow: column; }
 .iw-pk__k.is-fire svg { width: 22px; height: 22px; }
 .iw-pk__k svg { display: block; width: 26px; height: 26px; pointer-events: none; }
-.iw-pk__k.is-down { transform: translateY(3px) scale(.94); box-shadow: 0 0 0 #b4ab98, 0 1px 3px rgba(0,0,0,.3); background: var(--self); color: var(--self-ink); transition-duration: .04s; }
-.iw-pk__k.is-back.is-down { background: #2c2f38; color: #fff; }
+.iw-pk__k.is-down { transform: translateY(3px) scale(.97); box-shadow: 0 0 0 2px var(--k), 0 0 0 2px var(--k), inset 0 -1px 0 rgba(0,0,0,.12); background: var(--self); color: var(--self-ink); transition-duration: 0s; }
+.iw-pk__k.is-back.is-down { background: #231d33; color: #fff; }
 .iw-pk__k.is-pop { animation: iw-pk-pop .32s cubic-bezier(.2,1.6,.4,1); }
 @keyframes iw-pk-pop { 0% { transform: translateY(3px) scale(.92); } 60% { transform: translateY(-2px) scale(1.04); } 100% { transform: none; } }
 .iw-pk__b { position: absolute; box-sizing: border-box; border-radius: 999px; border: 2px solid rgba(255,255,255,.22); background: #2c2540; color: #fff;
@@ -76,7 +79,7 @@ const CSS = `
 `;
 
 const ICON = {
-  back: '<svg viewBox="0 0 32 32"><path d="M12.5 7h13a3.5 3.5 0 0 1 3.5 3.5v11a3.5 3.5 0 0 1-3.5 3.5h-13L3 16z" fill="currentColor"/><path d="M15 12l7 8M22 12l-7 8" stroke="#393d48" stroke-width="3" stroke-linecap="round"/></svg>',
+  back: '<svg viewBox="0 0 32 32"><path d="M12.5 7h13a3.5 3.5 0 0 1 3.5 3.5v11a3.5 3.5 0 0 1-3.5 3.5h-13L3 16z" fill="currentColor"/><path d="M15 12l7 8M22 12l-7 8" stroke="#2f2944" stroke-width="3" stroke-linecap="round"/></svg>',
   fire: '<svg viewBox="0 0 32 32"><path d="M29 15c0-6-8-9-12-5-3 3-3 8 1 11 4 3 11 1 11-6z" fill="currentColor"/><path d="M11 10H3M11 16H1M12 22H4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
   replay: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>',
 };
