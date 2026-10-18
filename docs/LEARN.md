@@ -1612,3 +1612,36 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：真机；120Hz 下 `--probe` 只验了接线（SwiftShader 只有 60 帧上下，到不了自动 60 的条件）；`screenfx.js` 的镜头光晕采样数还按画质档（没按档位的粒子）。
 
 **交接**：分支 `render-gov`（从 hd-render `79caea1` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；iOS 壳要真的放 `window.__IELTS_NATIVE.device` / `.display`（主会话今晚的 `HighRefresh.swift`），不放就是 null、一切照旧。
+
+## 34. gf-map 交付（2026-10-17，子代理，分支 `gf-map`：游戏为主体 第二期（上）——游戏里的课程地图、首屏写今天的进度、复习按钮等 kind 'review'）
+
+**先读了什么**：c70dc84（第一期：`learn/app.js` appToday、主菜单 from=app 的今天按钮、`_appTodayDue`）；IELTS-Base `docs/GAME-FIRST.md`；`menus.js` 的 `_scr_learn` / `_startLearn` / `_seg` / `_bind` / `_fx` / `_burstAt` / `_runWipe`；`store.progress` / `store.due`（都要**载入后的周对象**）；`design.js` 的 `DAY_PLAN`、`UNLOCK.replay`；`forms/index.js` 的 `LEARN_KINDS`；`core/touch.js` 的 `PORTRAIT_SCREENS`；`ui.css` 的贴纸语言（`--k`、错开的实色投影、Titan One、`iw-in` 弹簧）。
+
+**先定的**：
+1. **state**：`today` 压过它自己的进度（地图上唯一的「你在这儿」；学完了另外盖勾：`complete`，`?done=1` 也算）；`done` = total > 0 且 done ≥ total；`part` = 0 < done < total；`todo`；`locked` = 有今天时今天以后。**total = 0 的天算 `todo`**（只有讲解、没有计分的题——没有证据就不打勾）。
+2. **锁**：有今天才锁（她跟着课程走；今天和以前的天都能重玩，`UNLOCK.replay`）；普通 INKWAVE / 开发（没有今天）全开。周考：那一周第 7 天不锁就开（`todo`），没有单独的周考进度。
+3. **进度什么时候算**：每次打开地图清一次缓存（刚玩完的一关要显示），每周 `loadWeek` 之后算一次 7 天（`this._cmapProg[W]`），换周走缓存；从不每帧算。
+4. **复习按钮**：只在 `LEARN_KINDS` 有 `'review'`（gf-review）、并且 api.js 有 `reviewPlan` 时出现；K 是 `reviewPlan(周对象, due).reviewOf.n`（复习关真会问的数，最多 24），K = 0 不出现。menus.js 直接 import `forms/index.js` 的 `LEARN_KINDS`——main.js 早就静态载入它了，不多载东西；`reviewPlan` 用命名空间导入（`learnApi.reviewPlan`），没合进来时是 undefined。
+5. **布局**：路的几何在纯模块里（`mapLayout`：横屏 1000 × 360 左到右、竖屏 360 × 940 上到下；Catmull-Rom 过每个节点）。横屏路的框是 size 容器里能放下的最大那一块（`min(100cqw, 100cqh × 比例)`），节点按 % 放、SVG 用 `meet`，两者严丝合缝；竖屏一列、能滚，打开时滚到今天。转屏重建这一屏（`matchMedia` change）。
+
+**改了什么**：
+- `src/learn/course-map.js`（新，纯）：`courseMap`、`weekShare`、`mapLayout`。
+- `src/ui/menus.js`：新屏 `'map'`（SCREENS 登记、`_back` 的直接打开名单）：路一笔画出来（`stroke-dashoffset`，620 ms）、走过的那段用她的墨接着画；节点按顺序弹出（55 ms 错开、overshoot 回弹）；今天的节点放大一点、队伍色的墨团 + 呼吸光圈，进场时先亮一下；学完的节点是上了清漆的墨（渐变 + 高光 + 边缘光 + 一道扫过的光泽）再盖一枚勾（弹簧盖上去）；部分完成的有进度环；锁着的灰掉、一摇 + toast「先学到这一天 — 今天是第 N 周第 M 天」。点天 → `_startLearn({ week, day, kind: 'plan' }, 节点)`，周考 → `kind: 'boss'`；当帧：按下形变、`ui_confirm`、地图轻轻一震，接着墨爆 + `splat_big` 同一帧、墨刷过场。Q / E（LB / RB）或「换周」那一行的左右换周；节点键盘 / 手柄用默认的空间导航。
+- 主菜单（App 里、有今天）：开始今天的关 → **课程地图** → （**复习 K 个**）→ 选关 → 回课本；今天按钮第二行加「今天 done / total」（和「要复习 K 个」一起，这一周载入后写一次）。`_startLearn(st, from)`：墨爆从按下的那个元素出；从地图开局时地图退场。
+- **修第一期的一个 bug**：`learnStore.due(T.week)` 传的是周号，`content.js` 的 `regOf` 对数字抛「not a week」，被 catch 吞掉——「要复习 K 个」从来没显示过。现在用 `loadWeek` 给的周对象。
+- `styles/ui.css` 末尾新的一节「游戏为主体 第二期: the course map」；`src/ui/i18n.js` 只加三条（`desc.today` / `desc.map` / `desc.review`）。
+- `tools/learn/map-shot.mjs`（新）：主菜单竖屏、课程地图竖屏、转成横屏三张，dpr 3，新浏览器（没有任何进度）。
+
+**动了别人地盘的**：`src/core/touch.js` 的 `PORTRAIT_SCREENS` 加了 `'map'`（只加：竖屏不挡这一屏）；`tests/learn/game-first.test.mjs` 里那条「要复习」的断言改成新的调用（`due = learnStore.due(wk)`），另加一条「不再传周号」——旧断言测的正是那个 bug，新的一样严。
+
+**测试**：`npm run test:learn` 262 / 262（+7 `course-map.test.mjs`：五种 state、有 / 没有今天的锁、周考什么时候开、total 0、坏的今天、done 不超过 total、`weekShare`、路过每个节点且单调、菜单接线、复习按钮的保护）；`npm run check` 291。
+
+**实测**（浏览器两次，都在锁里、一次一个；`map-shot.mjs --dpr 3`，新浏览器、没有任何进度，`?from=app&today=w1d3&skipTitle`）：
+- 第 1 次：主菜单的数据对（按钮顺序 today → map → learn（选关）→ book；今天按钮第二行「第 1 周 · 第 3 天 · 墨浪跑酷 · 今天 0 / 60」；没有复习按钮——没有 kind 'review'），截图那一步 30 s 超时（SwiftShader 在 dpr 3 下画 3D 背景太慢），没出图。
+- 第 2 次（截图前 `debug.freeze()`，背景停在最后一帧）：exit 0、0 报错、没有横向溢出。竖屏 390 × 844：8 个节点 `todo todo today locked locked locked locked` + 周考 `locked`，节点 60 px（周考 76 px），全在屏内；点锁着的节点 toast「先学到这一天 — 今天是第 1 周第 3 天」；转成 844 × 390 这一屏自己重建，节点 52 px（周考 64 px），节点和路的 SVG 严丝合缝。截图看过：路一条、走过的那段是她的墨、今天是亮的队伍色 + 光圈、锁着的灰 + 锁、形式贴纸在右上。看出来两处，改了（这两处没再开浏览器）：横屏最底下周考的标签压在底部按键提示上（地图底边从 4.5u 提到 7u）；竖屏地图压在亮的港口上不够清楚（这一屏的遮罩加深、四周更暗）。横屏截图右半边是黑的——是 freeze 以后渲染器不跟着改尺寸（审计的副作用），不是这一屏的。截图看完按路径删了。
+
+**拿不准的**：周考没有自己的「学完」（没有周考进度可读），只有开 / 锁；今天按钮第二行在竖屏 12 px 下会长（「第 1 周 · 第 3 天 · 墨浪跑酷 · 今天 0 / 60 · 要复习 K 个」），超出的用省略号；选关页没放地图入口（说明里是可选）。
+
+**没做的**：真机（iPhone 13 的 WKWebView）；选关页的地图入口；周考的进度 / 星。
+
+**交接**：gf-review 合进来以后复习按钮自动出现（`LEARN_KINDS` 有 'review'、`reviewPlan` 在 api.js）；合并后在 App 里跑一次 `map-shot.mjs`（有到期词的进度才看得到复习按钮——那要现编的进度，不用她的）。

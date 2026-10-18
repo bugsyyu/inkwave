@@ -28,7 +28,8 @@ test('the main menu in her App: today\'s level first (its planned form, the due 
   assert.ok(/id: 'today', label: T\.done \? '今天学完了 · 再练一关' : '开始今天的关'/.test(M), 'the today button');
   assert.ok(/accept: \(\) => this\._startLearn\(\{ week: T\.week, day: T\.day, kind: 'plan' \}\)/.test(M), 'it starts the day\'s planned form');
   assert.ok(/items\.unshift\(today, \{ \.\.\.learn, label: '选关'/.test(M), '选关 right after');
-  assert.ok(/learnStore\.due\(T\.week\)\.length/.test(M) && /要复习 \$\{n\} 个/.test(M), 'the due words');
+  assert.ok(/due = learnStore\.due\(wk\); n = due\.length;/.test(M) && /要复习 \$\{n\} 个/.test(M), 'the due words');
+  assert.ok(!/learnStore\.due\(T\.week\)/.test(M), 'on the loaded week object (a week number throws in content.js regOf: the count never showed)');
   assert.ok(/location\.href = BOOK_URL;/.test(M) && !/location\.href = '\.\.\/index\.html'/.test(M), '回课本 keeps the lesson page for the session');
   assert.ok(/if \(this\.current === 'learn' \|\| this\.current === 'main'\) this\.show\(null, \{ instantLeave: true \}\)/.test(M), 'the menu leaves when today\'s level starts from the main menu');
   assert.ok(/const st = this\._learnPick \|\| \(this\._learnPick = T \?/.test(M), 'the picker opens on her today');

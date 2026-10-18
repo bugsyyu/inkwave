@@ -1,0 +1,66 @@
+// src/learn/course-map.js — 游戏为主体 第二期（docs/LEARN.md §34）: the course map, her three weeks as INKWAVE's level map.
+// Pure (Node tests import it): the menu's 'map' screen (src/ui/menus.js _scr_map) asks it what each node is and where it
+// sits; the store / the plan come in as functions, so nothing here loads a week.
+//
+//   courseMap({ weeks, days, progress(week, day) → { done, total }, plan(week, day) → { form } | null, today })
+//     → [{ week, days: [{ day, form, done, total, state, complete, now }], boss: { state } }]
+//   state:  'today'  her course's today (whatever its progress: the map's one "you are here")
+//           'done'   total > 0 and done ≥ total        'part'  0 < done < total
+//           'todo'   nothing yet — and a day with no scored items (total 0: a lesson, nothing to prove)
+//           'locked' after her today (she follows the course; today and every day before it replay — design.js UNLOCK.replay)
+//   complete: done ≥ total > 0 (and today when the lesson page says it is done: ?done=1) — the node's tick
+//   no today (plain INKWAVE, development): nothing is locked
+//   boss:   the week's 周考, open ('todo') once that week's day 7 is not locked
+export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null } = {}) {
+  const T = today && today.week > 0 && today.day > 0 ? today : null;
+  const after = (w, d) => !!T && (w > T.week || (w === T.week && d > T.day));
+  const out = [];
+  for (let w = 1; w <= weeks; w++) {
+    const list = [];
+    for (let d = 1; d <= days; d++) {
+      let p = null, f = null;
+      try { p = progress ? progress(w, d) : null; } catch (e) { p = null; }
+      try { f = plan ? plan(w, d) : null; } catch (e) { f = null; }
+      const total = Math.max(0, (p && +p.total) | 0), done = Math.min(total, Math.max(0, (p && +p.done) | 0));
+      const now = !!T && w === T.week && d === T.day;
+      const full = total > 0 && done >= total;
+      const state = after(w, d) ? 'locked' : now ? 'today' : full ? 'done' : done > 0 ? 'part' : 'todo';
+      list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now });
+    }
+    out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo' } });
+  }
+  return out;
+}
+
+// the week's 0–1 progress over its days (the week tab's ring): scored items with evidence / all scored items
+export function weekShare(week) {
+  let done = 0, total = 0;
+  for (const d of (week && week.days) || []) { done += d.done; total += d.total; }
+  return total > 0 ? done / total : 0;
+}
+
+// Where the nodes sit: n points along one winding road in a fixed box (landscape 1000 × 360, left to right; portrait
+// 360 × 940, top to bottom), and the road through them as an SVG path (Catmull-Rom → cubic Béziers, so it passes
+// through every node; landscape rides a little high: the labels hang under the nodes). upTo(k): the same road from the
+// first node to the k-th (the walked part).
+export function mapLayout(n, portrait = false) {
+  const W = portrait ? 360 : 1000, H = portrait ? 940 : 360;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 0, s = Math.sin(i * 1.15 + 0.35);
+    pts.push(portrait ? { x: +(180 + s * 92).toFixed(1), y: +(66 + t * 808).toFixed(1) } : { x: +(66 + t * 868).toFixed(1), y: +(166 + s * 86).toFixed(1) });
+  }
+  const upTo = (k) => roadPath(pts.slice(0, Math.max(1, Math.min(n, k + 1))));
+  return { w: W, h: H, pts, d: roadPath(pts), upTo };
+}
+
+function roadPath(p) {
+  if (!p.length) return '';
+  let d = `M${p[0].x} ${p[0].y}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i - 1] || p[i], b = p[i], c = p[i + 1], e = p[i + 2] || c;
+    const c1 = { x: b.x + (c.x - a.x) / 6, y: b.y + (c.y - a.y) / 6 }, c2 = { x: c.x - (e.x - b.x) / 6, y: c.y - (e.y - b.y) / 6 };
+    d += ` C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${c.x} ${c.y}`;
+  }
+  return d;
+}

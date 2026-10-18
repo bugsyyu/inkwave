@@ -55,6 +55,10 @@ export const DICT = {
   'desc.settings': ['Controls, video, audio and gameplay options', '操作、画面、声音和玩法'],
   'desc.howto': ['The rules in 30 seconds, plus every control', '30 秒看懂规则，还有全部按键'],
   'desc.credits': ['The squidkids and code behind INKWAVE', 'INKWAVE 背后的小鱿鱼和代码'],
+  // 游戏为主体 第二期 (LEARN §34): the main menu in her App — today's level, the course map, the due words
+  'desc.today': ['今天这一天的课：课程里排的形式，学完的题算进度', '今天这一天的课：课程里排的形式，学完的题算进度'],
+  'desc.map': ['课程地图：三周、每天一关，学到哪儿一眼看见 — 点一天就开局', '课程地图：三周、每天一关，学到哪儿一眼看见 — 点一天就开局'],
+  'desc.review': ['复习关：这一周记忆模型说该复习的词，一关清掉', '复习关：这一周记忆模型说该复习的词，一关清掉'],
   'main.wins': ['WINS', '胜场'],
   'main.matches': ['MATCHES', '场次'],
   'main.nextRank': ['NEXT RANK', '下一级'],

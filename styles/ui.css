@@ -3286,3 +3286,170 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-res__btns .iw-btn--wide, .iw-results .iw-btn--wide { height: 52px; font-size: 18px; justify-content: center; --tilt: 0deg; }
   .iw-res__lobby { align-self: center; font-size: 13px; }
 }
+
+/* ------------------------------------------------------------------ 游戏为主体 第二期: the course map (menus.js _scr_map, LEARN §34)
+   Her three weeks as INKWAVE's level map: one winding road a week (learn/course-map.js mapLayout), 7 day nodes and the
+   周考 at the end. Sticker language: the --k outline, the offset solid shadow, Titan One numbers; the done nodes are a
+   lacquered ink (gradient + clear-coat gloss + rim light), today breathes in her team's ink. Motion is transform /
+   opacity only (the ring's one-off fill is stroke-dashoffset on 8 small circles); reduced motion → fades. */
+.iw-cmap { --ns: clamp(52px, calc(var(--u) * 6.2), 72px); }
+/* (a veil over the whole stage, darker at the edges: the road reads over a busy harbour) */
+.iw-cmap .iw-ss__scrim { background: radial-gradient(rgba(255, 255, 255, .06) 1.2px, transparent 1.7px) 0 0 / 11px 11px,
+  radial-gradient(120% 90% at 50% 55%, rgba(10, 8, 20, .52), rgba(10, 8, 20, .84)); }
+.iw-cmap__body { position: absolute; left: 50%; top: calc(var(--u) * 10.5 + var(--sat, 0px)); bottom: calc(var(--u) * 7 + var(--sab, 0px)); translate: -50% 0;
+  width: min(calc(var(--u) * 104), calc(100vw - 32px - var(--sal, 0px) - var(--sar, 0px))); display: flex; flex-direction: column; gap: calc(var(--u) * .8); }
+.iw-cmap__top { display: flex; align-items: center; gap: calc(var(--u) * 1.4); flex-wrap: wrap; }
+.iw-cmap__weeks { flex: none; display: flex; align-items: center; gap: calc(var(--u) * 1); padding: 4px 6px 4px 14px; border-radius: 999px;
+  background: rgba(21, 18, 28, .72); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .08), 0 3px 0 rgba(0, 0, 0, .35); }
+.iw-cmap__weeks .iw-seg { min-width: calc(var(--u) * 30); }
+.iw-cmap__weeks .iw-seg__opt { min-height: 44px; }
+.iw-cmap__weeksub { font: 700 var(--fs-m) / 1.3 'Rubik', sans-serif; color: #e9e5f4; text-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
+.iw-cmap__scroll { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.iw-cmap__stage { position: relative; aspect-ratio: var(--ar); margin: 0 auto; }
+/* (landscape: the road's box as large as fits both ways — a size container, so the box keeps the road's own ratio and
+   the nodes, placed in % of it, sit exactly on the SVG drawn with 'meet') */
+.iw-cmap:not(.is-portrait) .iw-cmap__scroll { container-type: size; }
+.iw-cmap:not(.is-portrait) .iw-cmap__stage { width: min(100cqw, 100cqh * var(--arn)); }
+.iw-cmap__stage.is-hit { animation: iw-cmap-hit .24s linear; }
+@keyframes iw-cmap-hit { 15% { translate: 3px -2px; } 35% { translate: -3px 2px; } 55% { translate: 2px 1px; } 75% { translate: -1px -1px; } }
+
+/* the road: a drop shade, the --k outline, the road itself, its painted dashes, the walked part in her ink */
+.iw-cmap__road { position: absolute; inset: 0; pointer-events: none; }
+.iw-cmap__road svg { width: 100%; height: 100%; }
+.iw-cmap__road path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.iw-cmap__rshade { stroke: var(--k); stroke-width: 34; opacity: .5; transform: translateY(7px); }
+.iw-cmap__rout { stroke: var(--k); stroke-width: 32; }
+.iw-cmap__rbase { stroke: #3b3354; stroke-width: 22; }
+.iw-cmap__rdots { stroke: #fff; stroke-width: 4; stroke-dasharray: 1 15; opacity: .32; }
+.iw-cmap__rwalk { stroke: var(--a); stroke-width: 12; filter: drop-shadow(0 0 6px rgba(var(--a-rgb), .55)); }
+.iw-cmap__rshade, .iw-cmap__rout, .iw-cmap__rbase { stroke-dasharray: 1 1; animation: iw-cmap-draw .62s var(--out) .08s backwards; }
+.iw-cmap__rwalk { stroke-dasharray: 1 1; animation: iw-cmap-draw .55s var(--out) .46s backwards; }
+.iw-cmap__rdots { animation: iw-fade .4s ease-out .5s backwards; }
+@keyframes iw-cmap-draw { from { stroke-dashoffset: 1; } }
+
+/* a node: the button is the disc's box (≥ 52 px: a thumb), the label hangs under it */
+.iw-cmap__node { position: absolute; width: var(--ns); height: var(--ns); translate: -50% -50%; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  background: none; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.iw-cmap__node.is-boss { --ns: clamp(64px, calc(var(--u) * 7.8), 88px); }
+.iw-cmap__node > * { pointer-events: none; }
+.iw-cmap__node .iw-cmap__core { position: absolute; inset: 0; display: block; transition: scale .18s var(--spring); animation: iw-cmap-pop .62s var(--spring2) var(--d, 0ms) backwards; }
+@keyframes iw-cmap-pop { 0% { opacity: 0; scale: .2; rotate: -18deg; } 45% { opacity: 1; } 70% { scale: 1.12; rotate: 4deg; } }
+.iw-cmap__node.is-hover .iw-cmap__core, .iw-cmap__node.is-focus .iw-cmap__core { scale: 1.08; }
+.iw-cmap__node.is-down .iw-cmap__core { scale: .88 .84; transition-duration: .06s; }
+.iw-cmap__node.is-press .iw-cmap__core { animation: iw-cmap-press .34s var(--spring); }
+@keyframes iw-cmap-press { 0% { scale: .84 .78; } 45% { scale: 1.16 1.1; } }
+.iw-cmap__node.is-nope .iw-cmap__core { animation: iw-shake .32s linear; }
+
+.iw-cmap__disc { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; border-radius: 50%;
+  background: radial-gradient(120% 100% at 30% 22%, #4a4166, #2a2340 62%, #1d182d);
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), 0 9px 14px rgba(0, 0, 0, .45),
+              inset 0 2px 0 rgba(255, 255, 255, .22), inset 0 -5px 0 rgba(0, 0, 0, .28); }
+.iw-cmap__gloss { position: absolute; left: 14%; top: 7%; width: 58%; height: 34%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0)); opacity: .55; }
+.iw-cmap__num { position: relative; font: 400 calc(var(--ns) * .46) / 1 'Titan One', sans-serif; color: #fff;
+  -webkit-text-stroke: .16em var(--k); paint-order: stroke fill; text-shadow: 0 .09em 0 var(--k); translate: 0 -.02em; }
+.iw-cmap__bossicon { width: 62%; height: 62%; color: #fff; filter: drop-shadow(0 3px 0 var(--k)); }
+.iw-cmap__bossicon svg { width: 100%; height: 100%; }
+
+/* the progress ring (done / total), around the disc */
+.iw-cmap__ring { position: absolute; inset: -8px; rotate: -90deg; }
+.iw-cmap__ring svg { width: 100%; height: 100%; }
+.iw-cmap__ring circle { fill: none; stroke-linecap: round; }
+.iw-cmap__ringbg { stroke: rgba(21, 18, 28, .82); stroke-width: 6.5; }
+.iw-cmap__ringfg { stroke: var(--a); stroke-width: 3.6; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - var(--p, 0)); transition: stroke-dashoffset .7s var(--out) .15s; }
+.iw-cmap__node:not(.is-part):not(.is-done):not(.is-today) .iw-cmap__ring { opacity: .55; }
+
+/* the form's sticker (top right), the tick (bottom right), the lock */
+.iw-cmap__form, .iw-cmap__tick, .iw-cmap__lock { position: absolute; display: grid; place-items: center; width: 44%; height: 44%; border-radius: 50%; box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k); }
+.iw-cmap__form { right: -14%; top: -12%; padding: 8%; background: var(--b); color: #fff; rotate: 10deg; }
+.iw-cmap__form svg, .iw-cmap__tick svg, .iw-cmap__lock svg { width: 100%; height: 100%; }
+.iw-cmap__tick { right: -12%; bottom: -10%; padding: 9%; background: #fff; color: var(--k); opacity: 0; scale: .2; rotate: -30deg; }
+.iw-cmap__lock { left: 50%; top: 50%; translate: -50% -50%; width: 46%; height: 46%; padding: 10%; background: #6c6680; color: #e2dfeb; opacity: 0; }
+
+/* her ink under today (and a faded one under a finished day), the breathing halo */
+.iw-cmap__ink { position: absolute; inset: -42%; opacity: 0; rotate: -14deg; }
+.iw-cmap__ink svg { width: 100%; height: 100%; }
+.iw-cmap__halo { position: absolute; inset: -34%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, rgba(var(--a-rgb), .75), rgba(var(--a-rgb), .28) 55%, rgba(var(--a-rgb), 0)); }
+
+/* label: 第 N 天 + done / total */
+.iw-cmap__label { position: absolute; left: 50%; top: calc(100% + 11px); translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap;
+  animation: iw-fade .4s ease-out calc(var(--d, 0ms) + .2s) backwards; }
+.iw-cmap__day { font: 400 13px / 1 'Titan One', sans-serif; letter-spacing: .03em; color: #fff; -webkit-text-stroke: .2em var(--k); paint-order: stroke fill; }
+.iw-cmap__count { font: 700 11px / 1 'Rubik', sans-serif; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 11px; }
+
+/* states */
+.iw-cmap__node.is-part .iw-cmap__disc { background: radial-gradient(120% 100% at 30% 22%, #5a4f7d, #2f2747 62%, #1d182d); }
+.iw-cmap__node.is-done .iw-cmap__disc, .iw-cmap__node.is-complete .iw-cmap__disc {
+  background: radial-gradient(90% 70% at 32% 18%, var(--a-light), rgba(255, 255, 255, 0) 60%),
+              linear-gradient(160deg, var(--a-light) 0%, var(--a) 38%, var(--a-dark) 78%, var(--a-deep) 100%);
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), 0 9px 14px rgba(0, 0, 0, .45),
+              inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -6px 0 rgba(0, 0, 0, .22), inset 0 0 0 2px rgba(255, 255, 255, .18); }
+.iw-cmap__node.is-done .iw-cmap__gloss, .iw-cmap__node.is-complete .iw-cmap__gloss { opacity: .95; }
+.iw-cmap__node.is-done .iw-cmap__gloss::after, .iw-cmap__node.is-complete .iw-cmap__gloss::after { content: ''; position: absolute; left: -40%; top: 120%; width: 70%; height: 260%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .55), rgba(255, 255, 255, 0)); rotate: 28deg;
+  animation: iw-cmap-sheen 1.1s var(--out) calc(var(--d, 0ms) + .55s) backwards; opacity: 0; }
+@keyframes iw-cmap-sheen { from { opacity: 1; translate: -60% 0; } to { opacity: 0; translate: 260% 0; } }
+.iw-cmap__node.is-done .iw-cmap__num, .iw-cmap__node.is-complete .iw-cmap__num { color: #fff; }
+.iw-cmap__node.is-done .iw-cmap__ringfg, .iw-cmap__node.is-complete .iw-cmap__ringfg { stroke: var(--a-light); }
+.iw-cmap__node.is-done .iw-cmap__ink { opacity: .32; }
+.iw-cmap__node.is-complete .iw-cmap__tick { opacity: 1; scale: 1; rotate: -8deg; transition: opacity .12s, scale .42s var(--spring2), rotate .42s var(--spring2); transition-delay: calc(var(--d, 0ms) + .3s); }
+.iw-cmap__stage.is-loaded .iw-cmap__node.is-complete .iw-cmap__tick { transition-delay: .1s; }
+
+.iw-cmap__node.is-today { z-index: 2; }
+.iw-cmap__node.is-today .iw-cmap__core { scale: 1.14; }
+.iw-cmap__node.is-today.is-down .iw-cmap__core { scale: .96 .9; }
+.iw-cmap__node.is-today:not(.is-complete) .iw-cmap__disc {
+  background: radial-gradient(90% 70% at 32% 18%, rgba(255, 255, 255, .6), rgba(255, 255, 255, 0) 55%), linear-gradient(170deg, var(--a-light), var(--a) 45%, var(--a-dark));
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), 0 0 24px rgba(var(--a-rgb), .65), inset 0 2px 0 rgba(255, 255, 255, .6), inset 0 -6px 0 rgba(0, 0, 0, .2); }
+.iw-cmap__node.is-today .iw-cmap__ringfg { stroke: #fff; }
+.iw-cmap__node.is-today .iw-cmap__ink { opacity: 1; animation: iw-cmap-inkin .5s var(--spring) calc(var(--d, 0ms) + .25s) backwards; }
+.iw-cmap__node.is-today .iw-cmap__halo { opacity: .9; animation: iw-cmap-lit .5s var(--out) calc(var(--d, 0ms) + .3s) backwards, iw-cmap-breathe 2.6s ease-in-out calc(var(--d, 0ms) + .8s) infinite; }
+.iw-cmap__node.is-today .iw-cmap__day { color: var(--a-light); font-size: 15px; }
+@keyframes iw-cmap-inkin { from { opacity: 0; scale: .3; } }
+@keyframes iw-cmap-lit { 0% { opacity: 0; scale: .6; } 40% { opacity: 1; scale: 1.25; } }
+@keyframes iw-cmap-breathe { 0%, 100% { opacity: .55; scale: .92; } 50% { opacity: 1; scale: 1.08; } }
+
+.iw-cmap__node.is-locked { cursor: not-allowed; }
+.iw-cmap__node.is-locked .iw-cmap__disc { background: radial-gradient(120% 100% at 30% 22%, #4b4659, #2c2937 65%, #211e2a); }
+.iw-cmap__node.is-locked .iw-cmap__num { color: #8d879e; opacity: .55; }
+.iw-cmap__node.is-locked .iw-cmap__lock { opacity: 1; }
+.iw-cmap__node.is-locked .iw-cmap__form { background: #4d475d; color: #a7a1b8; }
+.iw-cmap__node.is-locked .iw-cmap__day { color: #a7a1b8; }
+.iw-cmap__node.is-locked .iw-cmap__bossicon { opacity: .4; }
+
+/* the 周考 at the road's end */
+.iw-cmap__node.is-boss .iw-cmap__disc { background: radial-gradient(90% 70% at 32% 18%, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 55%), linear-gradient(165deg, #ff7a8e, #ff3d5e 45%, #9e1733); }
+.iw-cmap__node.is-boss.is-locked .iw-cmap__disc { background: radial-gradient(120% 100% at 30% 22%, #574554, #33283a 65%, #221a28); }
+.iw-cmap__node.is-boss .iw-cmap__ring { display: none; }
+.iw-cmap__node.is-boss .iw-cmap__day { font-size: 15px; color: #ffd0d8; }
+
+/* the main menu's two new buttons (her App) */
+.iw-btn--map .iw-btn__icon, .iw-btn--review .iw-btn__icon { color: var(--a); }
+
+@media (prefers-reduced-motion: reduce) {
+  .iw-cmap__node .iw-cmap__core, .iw-cmap__road path, .iw-cmap__label, .iw-cmap__ink, .iw-cmap__halo, .iw-cmap__gloss::after, .iw-cmap__stage.is-hit { animation: iw-fade .3s ease-out both !important; }
+  .iw-cmap__node.is-today .iw-cmap__halo { animation: iw-fade .3s ease-out both !important; opacity: .8; }
+  .iw-cmap__node .iw-cmap__core, .iw-cmap__tick, .iw-cmap__ringfg { transition: none !important; }
+  .iw-cmap__gloss::after { display: none; }
+}
+
+/* phones held upright: the road runs down (mapLayout portrait) and scrolls; the view starts on today */
+@media (orientation: portrait) and (max-width: 720px) {
+  .iw-cmap { --u: min(2.2vw, 1.1vh); --ns: 60px; }
+  .iw-cmap .iw-prompts { display: none; }
+  .iw-cmap .iw-backbtn .iw-hint { display: none; }
+  .iw-cmap .iw-head { left: 16px; right: 16px; top: calc(14px + var(--sat, 0px)); }
+  .iw-cmap .iw-head__titles { min-width: 0; }
+  .iw-cmap .iw-head__title { font-size: 28px; }
+  .iw-cmap .iw-head__sub { font-size: 12px; line-height: 1.35; }
+  .iw-cmap .iw-cmap__node.is-boss { --ns: 76px; }
+}
+.iw-cmap.is-portrait .iw-cmap__body { left: 16px; right: 16px; width: auto; translate: none; top: calc(92px + var(--sat, 0px)); bottom: 0; gap: 8px; }
+.iw-cmap.is-portrait .iw-cmap__top { flex-direction: column; align-items: stretch; gap: 6px; }
+.iw-cmap.is-portrait .iw-cmap__weeks { padding-left: 12px; }
+.iw-cmap.is-portrait .iw-cmap__weeks .iw-seg { flex: 1; min-width: 0; }
+.iw-cmap.is-portrait .iw-cmap__weeksub { font-size: 13px; text-align: center; }
+.iw-cmap.is-portrait .iw-cmap__scroll { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(24px + var(--sab, 0px));
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 24px), transparent); }
+.iw-cmap.is-portrait .iw-cmap__stage { width: min(100%, 420px); height: auto; }
