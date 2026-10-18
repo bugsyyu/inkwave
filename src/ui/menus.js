@@ -30,10 +30,11 @@ import * as learnApi from '../learn/api.js';   // (游戏为主体 第二期: re
 import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
 import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
+import { BOOK_TABS, bookTab, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本
 import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
 import { t, isZh, gameName, teamName, TIPS_ZH, TITLE_ZH, botNames, lookName, presetText } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
 
-const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'map', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
+const SCREENS = ['loading', 'title', 'main', 'mode', 'learn', 'map', 'book', 'loadout', 'setup', 'locker', 'settings', 'howto', 'credits', 'pause', 'results', 'online', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
 const WIPES = new Set(['loading>title', 'title>main', 'results>main', 'pause>main', 'results>null', 'pause>title', 'online>lobby', 'lobby>online', 'lobby>main', 'results>lobby', 'pause>online']);
 // Pushes/pops between these get the light ink swipe (decorative — the swap itself is immediate).
@@ -118,6 +119,8 @@ const MODE_INFO = {
   coop2: { id: 'coop2', label: '双人合作赛', name: '双人合作赛', icon: GLYPHS.users, text: '两个人同一队、没有敌人：两块墨垫各站一个人才出题，题拆成两半。' },
 };
 const modeOf = (m) => (MODE_INFO[m] ? m : 'turf');
+// 课本 (LEARN §37): a book, open — two pages on a spine
+const BOOK_GLYPH = '<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 14 Q8 9 13 9.5 L27 11 Q32 11.6 32 16.5 L32 56 Q30 52.5 25 52.2 L13 51.5 Q8 51.2 8 46.5 Z M56 14 Q56 9 51 9.5 L37 11 Q32 11.6 32 16.5 L32 56 Q34 52.5 39 52.2 L51 51.5 Q56 51.2 56 46.5 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M15 21 L25 22 M15 29 L25 30 M39 22 L49 21 M39 30 L49 29" fill="none" stroke="var(--k, #15121c)" stroke-width="3.2" stroke-linecap="round"/></svg>';
 // the session's start blocks (config noBotsStartBlock is English; coop2's are already Chinese) in the page's language
 const BLOCK_KEY = { 'Needs 2+ players — no bots on this stage': 'lb.needs2', 'Needs a player on each team': 'lb.needsEach' };
 const blockText = (b) => (b && BLOCK_KEY[b] ? t(BLOCK_KEY[b]) : b);
@@ -193,7 +196,7 @@ const LOCKER_TABS = [
   { id: 'outfit', label: t('lk.outfit'), icon: 'shirt', sections: ['outfit'] },
 ];
 const MENU_DESC = {
-  play: t('desc.play'), learn: t('desc.learn'), book: t('desc.book'), online: t('desc.online'), loadout: t('desc.loadout'),
+  play: t('desc.play'), learn: t('desc.learn'), book: t('desc.book'), textbook: t('desc.textbook'), online: t('desc.online'), loadout: t('desc.loadout'),
   locker: t('desc.locker'), settings: t('desc.settings'), howto: t('desc.howto'), credits: t('desc.credits'),
   today: t('desc.today'), map: t('desc.map'), review: t('desc.review'),
 };
@@ -930,6 +933,8 @@ export class Menus {
     if (FROM_APP) {
       const pick = (id) => items.splice(items.findIndex((x) => x.id === id), 1)[0];
       const learn = pick('learn'), book = pick('book'), play = pick('play');
+      // 课本 (游戏为主体 第三期第一步, LEARN §37): every page of the workbench in a book of the game's own
+      const textbook = { id: 'textbook', label: t('main.textbook'), sub: t('main.textbookSub'), icon: BOOK_GLYPH, cls: 'iw-btn--menu iw-btn--book', accept: () => this._go('book'), sound: 'ui_confirm' };
       const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;
       if (T) {
         // (游戏为主体: her course's today is the first button — its planned form, its due words once the week has loaded;
@@ -943,9 +948,10 @@ export class Menus {
         // (第二期: the course map right under today's level — her three weeks, each day's progress, a tap starts a day)
         const mapBtn = { id: 'map', label: '课程地图', sub: '三周 · 每天的进度 · 点一天就开局', icon: GLYPHS.map, cls: 'iw-btn--menu iw-btn--map', accept: () => this._go('map'), sound: 'ui_confirm' };
         items.splice(1, 0, mapBtn);
+        items.splice(items.indexOf(book), 0, textbook);   // (第三期第一步: 课本 — the lesson page's pages in a book, over 选关 · 回课本)
         this._appTodayDue(T, where);
       } else {
-        items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
+        items.unshift({ ...learn, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn' }, textbook, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
       }
     }
     const tilts = [-2.2, 1.3, 1.4, -1.1, 1.6, -1.3, 1.1];
@@ -1307,6 +1313,110 @@ export class Menus {
       destroy: () => { if (mq && mq.removeEventListener) mq.removeEventListener('change', turn); },
     };
     return scr;
+  }
+
+  // ================================================================ SCREEN: book (课本, 游戏为主体 第三期第一步, LEARN §37)
+  // A book rises from the bottom and opens on its spine; its pages are the lesson page's own (a same-origin iframe,
+  // ../index.html?classic=1&embed=<page>), the bookmarks its table of contents. The page asks for another page (ielts:go)
+  // → the leaf turns and the page shows it (ielts:show). One copy of her data: the game pushes what it holds before the
+  // page loads (store.flushWorkbench), the page saves what it holds before the book closes (ielts:flush → ielts:flushed,
+  // 400 ms at most), and the game reads her blob again afterwards (store.invalidateWorkbench).
+  _scr_book() {
+    const reduced = prefersReducedMotion();
+    const st = this._bookAt || (this._bookAt = { page: 'today' });
+    const ORIGIN = typeof location !== 'undefined' ? location.origin : '', TO = sameOrigin(typeof location !== 'undefined' ? location : null);
+    safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench());
+    let want = st.page, tab = bookTab(want) || 'today', loaded = false, closing = false, flushed = null, turnT = 0, leafT = 0;
+    const frame = h('iframe', { class: 'iw-book__frame', title: '课本', src: pageUrl(want), allow: 'microphone; autoplay; clipboard-write' });
+    const leaf = h('div', { class: 'iw-book__leaf' }, h('i', { class: 'iw-book__leafshade' }));
+    const wait = h('div', { class: 'iw-book__wait' }, h('i', { class: 'iw-book__blot', html: splatSVG({ seed: 23, cls: 'iw-fa', r: 40, arms: 7, drops: 3 }) }), h('span', null, '翻开课本……'));
+    const page = h('div', { class: 'iw-book__page' }, frame, wait, h('i', { class: 'iw-book__gloss' }), leaf);
+    const rings = h('div', { class: 'iw-book__rings' }, Array.from({ length: 9 }, () => h('i')));
+    const cover = h('div', { class: 'iw-book__cover' },
+      h('div', { class: 'iw-book__front' }, h('span', { class: 'iw-book__splat', html: splatSVG({ seed: 7, cls: 'iw-fa', r: 62, arms: 9, drops: 4 }) }),
+        h('b', { class: 'iw-book__title iw-display' }, '课本'), h('small', { class: 'iw-book__kicker' }, 'TEXTBOOK · IELTS 7.0')),
+      h('div', { class: 'iw-book__inside' }));
+    const tabs = BOOK_TABS.map((b, i) => {
+      const el = h('button', { class: 'iw-book__tab', style: { '--c': b.c, '--i': i }, 'aria-label': b.label }, h('b', null, b.label));
+      this._fx(el, { press: true });
+      this._bind(el, { id: 'bk-' + b.id, accept: () => { this._sfx('ui_click'); turn(b.id); } });
+      return el;
+    });
+    const strip = h('nav', { class: 'iw-book__tabs', 'aria-label': '目录' }, tabs);
+    const close = h('button', { class: 'iw-book__close', 'aria-label': '合上课本' }, h('span', { class: 'iw-book__closeic', html: GLYPHS.close }), h('b', null, '合上'));
+    this._fx(close, { press: true });
+    this._bind(close, { id: 'bk-close', accept: () => shut() });
+    const rig = h('div', { class: 'iw-book__rig' }, strip, h('div', { class: 'iw-book__body' }, rings, page, cover));
+    const el = h('div', { class: 'iw-screen iw-book' + (reduced ? ' is-still' : '') }, h('div', { class: 'iw-book__scrim' }), rig, close);
+    const mark = () => tabs.forEach((x, i) => { const on = BOOK_TABS[i].id === tab; x.classList.toggle('is-on', on); x.setAttribute('aria-current', on ? 'page' : 'false'); });
+    // the open bookmark into view: the strip scrolls sideways only (scrollIntoView would also scroll it up and cut the tabs' tops)
+    const reveal = () => {
+      const on = tabs[BOOK_TABS.findIndex((b) => b.id === tab)];
+      if (on && strip.scrollTo) strip.scrollTo({ left: Math.max(0, on.offsetLeft + on.offsetWidth / 2 - strip.clientWidth / 2), behavior: reduced ? 'auto' : 'smooth' });
+    };
+    mark();
+    // the page under the leaf changes: by message once it is up, by address before (or when the message cannot go)
+    const show = (view) => {
+      try { if (loaded && frame.contentWindow) { frame.contentWindow.postMessage({ type: 'ielts:show', view }, TO); return; } } catch (e) { /* the address then */ }
+      loaded = false; el.classList.remove('is-loaded'); frame.src = pageUrl(view);
+    };
+    const turn = (view) => {
+      const to = bookTab(view);
+      if (closing || !to || (view === want && to === tab)) return;
+      const dir = flipDir(tab, to);
+      want = view; tab = to; st.page = view; mark(); reveal();
+      clearTimeout(turnT); clearTimeout(leafT);
+      if (reduced) { page.classList.add('is-fade'); turnT = setTimeout(() => { show(view); page.classList.remove('is-fade'); }, 140); return; }
+      leaf.classList.remove('is-fwd', 'is-bwd'); void leaf.offsetWidth; leaf.classList.add(dir > 0 ? 'is-fwd' : 'is-bwd');
+      this._sfx('ui_toggle');
+      turnT = setTimeout(() => show(view), 200);   // (mid-turn: the leaf hides the page while it changes)
+      leafT = setTimeout(() => leaf.classList.remove('is-fwd', 'is-bwd'), 520);
+    };
+    const shut = () => {
+      if (closing) return;
+      closing = true;
+      this._sfx('ui_back');
+      el.classList.add('is-closing');
+      let t = 0;
+      const down = () => {
+        if (!flushed) return;
+        flushed = null; clearTimeout(t);
+        el.classList.remove('is-open');
+        setTimeout(() => { el.classList.add('is-down'); setTimeout(() => this.show('main', { back: true, instantLeave: true }), reduced ? 160 : 330); }, reduced ? 0 : 360);
+      };
+      flushed = down; t = setTimeout(down, 400);
+      try { if (loaded && frame.contentWindow) frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); else down(); } catch (e) { down(); }
+    };
+    const onMsg = (e) => {
+      const m = pageMessage(e, frame.contentWindow, ORIGIN);
+      if (!m) return;
+      if (m.flushed) { if (flushed) flushed(); return; }
+      if (m.go === 'game') shut(); else if (bookTab(m.go)) turn(m.go);
+    };
+    frame.addEventListener('load', () => { loaded = true; el.classList.add('is-loaded'); });
+    if (typeof window !== 'undefined') window.addEventListener('message', onMsg);
+    return {
+      el, noCursor: false, initial: () => tabs[BOOK_TABS.findIndex((b) => b.id === tab)] || close,
+      onBack: () => shut(),
+      onNav: (dir) => {
+        if (dir !== 'tab_prev' && dir !== 'tab_next') return false;
+        const i = BOOK_TABS.findIndex((b) => b.id === tab), j = clamp(i + (dir === 'tab_prev' ? -1 : 1), 0, BOOK_TABS.length - 1);
+        if (j !== i) { this._sfx('ui_click'); turn(BOOK_TABS[j].id); this._setFocus(tabs[j]); }
+        return true;
+      },
+      // up from the bottom (spring), then the cover swings open on the spine; the page fades in once it has loaded
+      afterMount: () => {
+        void el.offsetWidth;
+        el.classList.add('is-up');
+        this._sfx('ui_confirm');
+        setTimeout(() => { if (!closing) { el.classList.add('is-open'); reveal(); } }, reduced ? 0 : 380);
+      },
+      destroy: () => {
+        clearTimeout(turnT); clearTimeout(leafT);
+        if (typeof window !== 'undefined') window.removeEventListener('message', onMsg);
+        safeCall(() => learnStore.invalidateWorkbench && learnStore.invalidateWorkbench());
+      },
+    };
   }
 
   _startLearn(st, from = null) {

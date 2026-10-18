@@ -41,6 +41,8 @@ export const DICT = {
   'main.learnSub': ['解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 雅思课程 第 1–3 周', '解密闯关 · 墨浪跑酷 · 对抗赛 · Boss 战 · 第 1–3 周'],   // (题即玩法 PLAY §5.2, play-4)
   'main.book': ['回课本 · BACK', '回课本'],
   'main.bookSub': ['回到雅思工作台', '回到雅思工作台'],
+  'main.textbook': ['课本 · TEXTBOOK', '课本'],   // (游戏为主体 第三期第一步, LEARN §37)
+  'main.textbookSub': ['积累本 · 日志 · 考试 · 设置', '积累本 · 日志 · 考试 · 设置'],
   'main.loadout': ['LOADOUT', '装备'],
   'main.locker': ['LOCKER', '换装'],
   'main.settings': ['SETTINGS', '设置'],
@@ -49,6 +51,7 @@ export const DICT = {
   'desc.play': ['Turf War or Zone Control 4 v 4 — or team up with the bots against HULLBREAKER in a Boss Battle', '4 对 4 涂地赛、区域赛，或者和机器人一起打 Boss'],
   'desc.learn': ['雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考', '雅思课程进游戏：一天的课是一关 — 解密闯关答对门开、墨浪跑酷游进对的墨幕、对抗赛答题蓄墨、Boss 战是周考'],
   'desc.book': ['回到雅思工作台', '回到雅思工作台：课本、考试中心、我的进度'],
+  'desc.textbook': ['工作台的每一页都在这本书里：今天的课、复盘、考试、路线、积累本、学习日志、学习方法、老师、设置', '工作台的每一页都在这本书里：今天的课、复盘、考试、路线、积累本、学习日志、学习方法、老师、设置'],
   'desc.online': ['Private rooms for up to 8 friends — create one or join with a room code', '最多 8 个朋友的私人房间 — 开一个，或者输房间码加入'],
   'desc.loadout': ['Choose your weapon, sub and special — or practice with it', '选武器、副武器和特殊武器 — 也可以先练一练'],
   'desc.locker': ['Choose your squidkid — tentacles, headgear, eyes, skin and outfit', '打扮你的小鱿鱼 — 触手、帽子、眼睛、肤色和衣服'],

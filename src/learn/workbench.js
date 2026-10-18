@@ -199,5 +199,9 @@ export function mirror(ls, now) {
 // a pending mirror goes now (pagehide / hidden); nothing pending: nothing sent
 export function mirrorFlush() { return mir.timer ? mirrorSend() : false; }
 
+// 课本 (游戏为主体 第三期第一步): the lesson page inside the game's book wrote her blob — read it again next time (the mirror's
+// state stays: it holds what was last sent, not a copy of the blob)
+export function invalidate() { cache = { ls: null, raw: null, o: null, ev: null }; }
+
 // tests: forget the parsed blob
 export function _reset() { cache = { ls: null, raw: null, o: null, ev: null }; clearTimeout(mir.timer); mir = { timer: 0, last: null, ls: null }; }

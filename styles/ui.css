@@ -3455,3 +3455,131 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-cmap.is-portrait .iw-cmap__scroll { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(24px + var(--sab, 0px));
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 24px), transparent); }
 .iw-cmap.is-portrait .iw-cmap__stage { width: min(100%, 420px); height: auto; }
+
+/* =====================================================================================
+   游戏为主体 第三期第一步: 课本 (docs/LEARN.md §37) — a book of the game's own whose pages are the lesson page's
+   (a same-origin iframe, ../index.html?classic=1&embed=<page>). It rises from the bottom on a spring, the cover swings
+   open on the ring spine (its face darkens as it turns from the light), a leaf turns for every bookmark. Sticker language:
+   --k outlines, offset solid shadows, a varnish line, Titan One. Only transform / opacity move; reduced motion: fades.
+   ===================================================================================== */
+.iw-book { --bk-paper: #1b1726; --bk-ink: var(--a, #ff8a14); --bk-top: calc(70px + var(--sat, 0px)); --bk-side: 12px;
+  pointer-events: auto; }
+.iw-book__scrim { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 100%, rgba(13, 10, 20, .55), rgba(13, 10, 20, .88));
+  opacity: 0; transition: opacity .4s var(--out); }
+.iw-book.is-up .iw-book__scrim { opacity: 1; }
+.iw-book.is-down .iw-book__scrim { opacity: 0; transition-duration: .3s; }
+.iw-book__rig { position: absolute; left: var(--bk-side); right: var(--bk-side); top: var(--bk-top); bottom: calc(12px + var(--sab, 0px));
+  display: flex; flex-direction: column; transform: translateY(108vh) rotateX(16deg) scale(.9); transform-origin: 50% 100%;
+  transition: transform .58s var(--spring); will-change: transform; }
+.iw-book.is-up .iw-book__rig { transform: none; }
+.iw-book.is-down .iw-book__rig { transform: translateY(108vh) rotateX(10deg) scale(.94); transition: transform .33s var(--in); }
+
+/* bookmarks: sticker tabs standing up out from behind the page's top edge (the page covers their feet); the open one
+   stands tallest. What shows of a tab is ≥ 44 px tall: 56 − 8 under the page (the open one 6 px more) */
+.iw-book__tabs { position: relative; display: flex; gap: 6px; padding: 10px 6px 0 26px; margin-bottom: -8px; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scroll-padding: 0 40px; }
+.iw-book__tabs::-webkit-scrollbar { display: none; }
+.iw-book__tab { flex: 0 0 auto; position: relative; min-width: 58px; height: 56px; padding: 0 14px 10px; border: 0; border-radius: 13px 13px 4px 4px; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 78%, #fff) 0, var(--c) 34%, color-mix(in srgb, var(--c) 82%, #000) 100%);
+  color: var(--k); font: 800 15px/1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; letter-spacing: .02em;
+  box-shadow: 0 0 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -6px 0 rgba(0, 0, 0, .14);
+  transform: none; transition: transform .32s var(--spring), filter .2s; filter: saturate(.78) brightness(.86); -webkit-tap-highlight-color: transparent;
+  animation: iw-book-tab .5s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 45ms + 520ms); }
+.iw-book__tab b { position: relative; display: block; font-weight: inherit; white-space: nowrap; }
+.iw-book__tab.is-on { transform: translateY(-6px); filter: none; z-index: 1; }
+.iw-book__tab:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.iw-book__tab:active { transform: translateY(5px) scale(.96, .94); transition-duration: 0s; }
+@keyframes iw-book-tab { from { transform: translateY(40px); opacity: 0; } }
+
+.iw-book__body { position: relative; flex: 1; min-height: 0; perspective: 1700px; }
+/* the paper: ink-dark like the game's panels, a varnish line on top, the solid offset shadow, darker toward the spine */
+.iw-book__page { position: absolute; inset: 0 0 0 16px; border-radius: 6px 20px 20px 6px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(130% 70% at 85% 0%, rgba(255, 255, 255, .06), transparent 60%), linear-gradient(180deg, #221c31, var(--bk-paper) 30%, #17131f);
+  box-shadow: 0 0 0 3px var(--k), 0 8px 0 3px var(--k), 0 22px 40px rgba(0, 0, 0, .5), inset 0 1.5px 0 rgba(255, 255, 255, .12); }
+.iw-book__frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; color-scheme: dark;
+  opacity: 0; transition: opacity .28s var(--out); }
+.iw-book.is-loaded .iw-book__frame { opacity: 1; }
+.iw-book__page.is-fade .iw-book__frame { opacity: 0; transition-duration: .12s; }
+.iw-book__gloss { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .34), rgba(0, 0, 0, .1) 14px, transparent 30px), linear-gradient(270deg, rgba(255, 255, 255, .05), transparent 10px); }
+.iw-book__wait { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted, #c3bdd6);
+  font: 600 15px 'Rubik', -apple-system, 'PingFang SC', sans-serif; transition: opacity .2s; }
+.iw-book.is-loaded .iw-book__wait { opacity: 0; pointer-events: none; }
+.iw-book__blot { width: 64px; height: 64px; color: var(--bk-ink); animation: iw-book-blot 1.4s var(--spring) infinite alternate; }
+.iw-book__blot svg { width: 100%; height: 100%; }
+@keyframes iw-book-blot { from { transform: scale(.82) rotate(-10deg); } to { transform: scale(1.04) rotate(12deg); } }
+
+/* the spine: a ring binding (chrome rings in ink outline, a lit top edge, a small contact shadow on the paper) */
+.iw-book__rings { position: absolute; z-index: 4; left: 0; top: 14px; bottom: 14px; width: 30px; display: flex; flex-direction: column; justify-content: space-evenly; pointer-events: none; }
+.iw-book__rings i { display: block; width: 30px; height: 11px; border-radius: 6px; background: linear-gradient(180deg, #ffffff, #cfc9de 45%, #8d86a4);
+  box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2px var(--k), 4px 5px 6px rgba(0, 0, 0, .35); }
+
+/* the cover: her ink with a splat, the title in Titan One; it swings open on the spine (a little past, then settles) and
+   darkens as it turns from the light; inside, the endpaper */
+.iw-book__cover { position: absolute; inset: 0 0 0 16px; z-index: 5; transform-origin: 0 50%; transform-style: preserve-3d;
+  transition: transform .64s cubic-bezier(.3, 1.18, .42, 1), visibility 0s linear .64s; }
+.iw-book.is-open .iw-book__cover { transform: rotateY(-172deg); visibility: hidden; }
+.iw-book.is-closing .iw-book__cover { transition: transform .36s cubic-bezier(.5, 0, .4, 1), visibility 0s; }
+.iw-book__front, .iw-book__inside { position: absolute; inset: 0; border-radius: 6px 20px 20px 6px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
+.iw-book__front { display: grid; place-content: center; justify-items: center; gap: 8px;
+  background: radial-gradient(90% 60% at 30% 18%, rgba(255, 255, 255, .32), transparent 60%), linear-gradient(160deg, color-mix(in srgb, var(--bk-ink) 70%, #fff), var(--bk-ink) 45%, color-mix(in srgb, var(--bk-ink) 70%, #000));
+  box-shadow: 0 0 0 3px var(--k), 0 8px 0 3px var(--k), inset 0 2px 0 rgba(255, 255, 255, .5), inset 10px 0 0 rgba(0, 0, 0, .14); }
+.iw-book__front::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .15)); opacity: 0; transition: opacity .64s var(--out); }
+.iw-book.is-open .iw-book__front::after { opacity: 1; }
+.iw-book__splat { position: absolute; width: 78%; aspect-ratio: 1; top: 12%; left: 11%; color: var(--k); opacity: .2; transform: rotate(-12deg); }
+.iw-book__splat svg { width: 100%; height: 100%; fill: currentColor; }
+.iw-book__title { position: relative; font-size: 76px; line-height: 1; color: #fff; }
+.iw-book__kicker { position: relative; font: 400 13px 'Titan One', 'Rubik', sans-serif; letter-spacing: .14em; color: var(--k); }
+.iw-book__inside { transform: rotateY(180deg); background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .05) 0 8px, transparent 8px 16px), #2c2540; box-shadow: 0 0 0 3px var(--k); }
+
+/* a leaf for each bookmark: a fresh sheet sweeps in from the edge (its shadow runs ahead of it), the page changes under it,
+   then it folds to the spine; back the other way for an earlier bookmark */
+.iw-book__leaf { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transform-origin: 0 50%;
+  background: linear-gradient(90deg, #2a2340, var(--bk-paper) 40%, #201a2e); box-shadow: -14px 0 26px rgba(0, 0, 0, .45), inset 0 0 0 1.5px rgba(255, 255, 255, .06); }
+.iw-book__leafshade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 255, 255, .14), transparent 22%, transparent 70%, rgba(0, 0, 0, .35)); }
+.iw-book__leaf.is-fwd { animation: iw-book-fwd .5s cubic-bezier(.3, .7, .25, 1) both; }
+.iw-book__leaf.is-bwd { transform-origin: 100% 50%; animation: iw-book-bwd .5s cubic-bezier(.3, .7, .25, 1) both; }
+@keyframes iw-book-fwd {
+  0% { opacity: 1; transform: perspective(1500px) translateX(102%) rotateY(-24deg); }
+  40% { opacity: 1; transform: perspective(1500px) translateX(0) rotateY(0); }
+  100% { opacity: 1; transform: perspective(1500px) translateX(0) rotateY(-92deg); }
+}
+@keyframes iw-book-bwd {
+  0% { opacity: 1; transform: perspective(1500px) translateX(-102%) rotateY(24deg); }
+  40% { opacity: 1; transform: perspective(1500px) translateX(0) rotateY(0); }
+  100% { opacity: 1; transform: perspective(1500px) translateX(0) rotateY(92deg); }
+}
+
+/* 合上: a sticker pill over the top-left corner (≥ 44 pt), sinks into its shadow on the frame it is pressed */
+.iw-book__close { position: absolute; z-index: 6; left: max(12px, var(--sal, 0px)); top: calc(12px + var(--sat, 0px)); height: 48px; padding: 0 18px 0 8px;
+  display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; cursor: pointer; color: var(--k);
+  background: linear-gradient(180deg, #fff, #e4e0ef); font: 800 17px 'Rubik', -apple-system, 'PingFang SC', sans-serif;
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), inset 0 -3px 0 rgba(0, 0, 0, .08);
+  transform: translateY(-90px); transition: transform .5s var(--spring) .26s; -webkit-tap-highlight-color: transparent; }
+.iw-book.is-up .iw-book__close { transform: none; }
+.iw-book.is-closing .iw-book__close { transform: translateY(-90px); transition-delay: 0s; transition-duration: .25s; }
+.iw-book__close:active { transform: translateY(4px) !important; box-shadow: 0 0 0 3px var(--k), 0 1px 0 3px var(--k); transition-duration: 0s; }
+.iw-book__close:focus-visible { outline: 3px solid var(--bk-ink); outline-offset: 3px; }
+.iw-book__closeic { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--k); color: #fff; }
+.iw-book__closeic svg { width: 16px; height: 16px; }
+
+/* a phone on its side (844 × 390): 合上 is a round key in the left margin; the bookmarks run along the top of the page */
+@media (orientation: landscape) and (max-height: 520px) {
+  .iw-book { --bk-top: calc(6px + var(--sat, 0px)); }
+  .iw-book__rig { left: calc(max(10px, var(--sal, 0px)) + 66px); right: max(10px, var(--sar, 0px)); bottom: calc(8px + var(--sab, 0px)); }
+  .iw-book__tab { height: 52px; padding-bottom: 8px; min-width: 64px; }
+  .iw-book__close { left: max(10px, var(--sal, 0px)); top: calc(10px + var(--sat, 0px)); width: 58px; height: 58px; padding: 0; flex-direction: column; justify-content: center; gap: 1px; font-size: 12px; }
+  .iw-book__closeic { width: 26px; height: 26px; }
+  .iw-book__title { font-size: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iw-book__rig, .iw-book.is-down .iw-book__rig { transform: none; opacity: 0; transition: opacity .3s ease-out; }
+  .iw-book.is-up .iw-book__rig { opacity: 1; }
+  .iw-book.is-down .iw-book__rig { opacity: 0; }
+  .iw-book__cover { display: none; }
+  .iw-book__leaf { display: none; }
+  .iw-book__tab, .iw-book__close, .iw-book.is-up .iw-book__close { animation: none; transform: none; transition: opacity .25s; }
+  .iw-book__tab.is-on { transform: translateY(-6px); }
+  .iw-book__blot { animation: none; }
+}

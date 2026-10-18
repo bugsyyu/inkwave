@@ -1714,6 +1714,42 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **交接**：主菜单的「复习 K 个」（gf-map）调 `api.startLearn({ week, day, kind: 'review' })`；K 可以用 `store.dueCount(week)`，关里实际问的是 `min(K, 24)`（配速再压）。
 
+## 37. gf-book 交付（2026-10-18，子代理，分支 `gf-book`：游戏为主体 第三期第一步——游戏里一本「课本」，书页是经典工作台的那一页）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md` §4 第三期「做法」、`docs/NEXT-SESSION.md` §6–§9；本文件 §34（课程地图：主菜单 from=app 的写法、`_scr_map` 的屏）、§32（贴纸画风）；`menus.js` 的 `show` / `_swap` / `_back` / `_bind` / `_fx`、`main.js` 的 `_onScreen` / `_loop`、`store.js` 的 `attachWorkbench`、`workbench.js` 的 `readBlob` 缓存；IELTS-Base 那边 `app/index.html` 的 `go` / `Views` / `EXAM_AT` / `storage` 监听、`app/native.js` 的启动那一轮和镜像、`ios/IELTSBase/Bridge.swift`（原生只认主框架：`forMainFrameOnly: true`、`frame.isMainFrame`）。
+
+**先定的**：
+1. **一个 iframe、翻页不重新载入**：书签和书页里的 `go` 都只让书页 `go(view)`（`ielts:show`），经典页 750 KB 只载一次；翻页动画盖住换页的那一下。
+2. **页面要去别的页由书决定**：书页 `go(view)` 不是书翻到的那一页 → `parent.postMessage({ type: 'ielts:go', view }, location.origin)`；书认得的页（九个书签 + 别名：错题本 / 模考记录 / 批改陪练 → 考试，资源 → 学习方法）翻过去，`'game'`（「关卡」）合上书。
+3. **数据只有一份**：打开前 `store.flushWorkbench()`（等着的 800 ms 推送和以前没推成的马上推）；合上前书页 `ielts:flush` → 马上存、回 `ielts:flushed`（最多等 400 ms）；合上后 `store.invalidateWorkbench()`（`workbench.invalidate()` + 时区、合并视图的缓存）。镜像的状态不清（它记的是上次发了什么）。
+4. **书打开时舞台停住**：书盖满整个屏，她在读；`main.js` 的 `_bookHold`（屏是 'book' 且在菜单里）让 `_loop` 不模拟、不渲染，菜单自己的 rAF 接着跑（它 80 ms 没收到外面的 tick 就自己 tick）。省电，120 帧的手机上也不跟书页抢。
+5. **书页是深色的纸**：游戏的面板就是深墨色，经典页的字色（浅）不用改；书页的 token 由 IELTS-Base 那边 embed 模式换成 INKWAVE 的（`--k` #15121c、Rubik / Titan One、贴纸描边 + 错开的实色投影），字体文件用游戏自带的。
+
+**改了什么**：
+- `src/learn/book.js`（新，纯）：`BOOK_TABS`（九个书签、各一个贴纸色）、`BOOK_ALIAS`、`bookTab`、`pageUrl`（只认小写字母的页 id，别的开「今天」）、`flipDir`、`sameOrigin`、`pageMessage`（只认书页自己的窗口、同源、两种消息）。
+- `src/ui/menus.js`：新屏 `'book'`（`_scr_book`）；主菜单（App 里）「课本」在「选关 · 回课本」上面（有今天：今天的关 → 课程地图 → 选关 → 课本 → 回课本；没有今天：学习 → 课本 → 回课本）。
+  - 动画：书从下面弹簧升上来（580 ms，`--spring`）→ 380 ms 后封面绕环形书脊翻开（640 ms，`cubic-bezier(.3, 1.18, .42, 1)`：过头一点再回，翻开时封面背光变暗）→ 书页载入后淡入；书签错开 45 ms 弹进来；翻页：一页纸从边上扫进来（影子在前）、换页、折向书脊（500 ms，往前翻从右边来、往回翻从左边来）；合上：「合上」先缩回去、封面合上（360 ms）、书落下去（330 ms）。只动 transform / opacity；减少动态效果时整本书淡入淡出、没有封面和翻页纸。
+  - 质感：书页上亮下暗的纸、顶上一线清漆高光、靠书脊一侧压暗；封面是她的墨色（INKWAVE 橙）+ 墨花 + Titan One 的「课本」；环形书脊是白铬的环、墨描边、在纸上的小投影；书签是贴纸（上亮下暗、内高光、墨描边），书页盖住书签的脚、打开的那张高出 6 px。
+  - 点按：书签露出来的部分 ≥ 44（竖屏 48 / 打开的 54，横屏 44 / 50）；「合上」48 高、约 100 宽（横屏 58 × 58 的圆键）；按下当帧下沉。键盘 / 手柄：Q / E（LB / RB）、Tab 换书签，B / Esc 合上。
+- `src/learn/store.js`：只加 `flushWorkbench()`、`invalidateWorkbench()`（和 `attachWorkbench` 里的 `sync`）。`src/learn/workbench.js`：只加 `invalidate()`。
+- `src/main.js`：`_onScreen` 一行、`_loop` 的条件多一个 `_bookHold`。`src/core/touch.js`：`PORTRAIT_SCREENS` 加 `'book'`。`src/ui/i18n.js`：只加三条。
+- `styles/ui.css` 末尾一节「游戏为主体 第三期第一步: 课本」。
+- `tests/learn/book.test.mjs`（新，9 条）。
+
+**IELTS-Base 那边**（分支 `gf-book`）：`app/index.html` 的 embed 模式（`<head>` 认 `?embed=<页>` → `html.embed`、`__noSky`；样式只在 `html.embed` 下；`go` 交给书；`ielts:show` / `ielts:flush`）；`app/native.js`（书页走游戏页的消息通道、配置和原生事件；不重复 App 启动那一轮，改动后照常镜像）；`tests/base/embed.test.mjs`、`tests/base/native-shim.test.mjs` +5、`tests/book-e2e.mjs`。见 IELTS-Base `docs/GAME-FIRST.md` §4。
+
+**动了别人地盘的**：`src/main.js`（`_onScreen` 一行、`_loop` 的条件）、`src/core/touch.js`（`PORTRAIT_SCREENS` 只加）、`src/learn/store.js` / `workbench.js`（只加函数）。
+
+**测试**：`npm run test:learn` 306 / 306（+9 `book.test.mjs`）；`npm run check` 295 个文件。IELTS-Base 那边 `embed.test.mjs` 7 条、`native-shim` 60 / 60（新的 5 条在改前的 native.js 上都不过）、`budgets` 8 / 8。
+
+**实测**（IELTS-Base `tests/book-e2e.mjs --game <本仓库 dist/>`，锁里）：第 1 次走到「翻到积累本」都过（10 条：主菜单有课本、书升上来翻开载入、书页是 embed 的「今天」、没有目录 / 透明底 / 天光没起、Rubik 和 #15121c、没有横向滚动、不记 ielts:classic、竖屏尺寸、点书签翻到积累本），停在测试自己的错（`go` 不是全局的，改成 `__WB.go`）；截图里书签顶被切掉（`scrollIntoView` 把书签条往上滚了）→ 改成只横着滚、书页盖住书签的脚。第 2 次（容器刚重启、机器负载 ≈ 5）游戏 60 秒没起来、自己回了经典页（`why=slow` 的守卫），主菜单没出来；测试改成这时报地址。第 3 次没跑。截图看过、按路径删了。
+
+**拿不准的**：书页调游戏页的 `webkit.messageHandlers.ielts.postMessage`，原生（`Bridge.swift` 的 `frame.isMainFrame`）算不算主框架发的——按 WebKit 的实现是算（消息处理对象绑在它所属的那个框架上），要真机看一次；`notifyState` 在书页里没有（不发 `ready` 就没有 `notify.state`），设置里那一行权限说明不显示，开关照常。
+
+**没做的**：完整的浏览器那一遍（记一条 → 合上 → 两边的数据都在 → 横屏）；真机；`app/game/` 的同步（合并后主会话做）。
+
+**交接**：合并后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/book-e2e.mjs`（不带 `--game`）。
+
 ## 38. cine-polish 交付（2026-10-18，子代理，分支 `cine-polish`：学习层剩下的「电影级」精修——展板、游戏键盘的键帽、减少动态效果、答对的勾）
 
 **先读了什么**：业主 10-17 23:45 那句（融合、比原版更精细、电影级的光影、3A 的交互节奏；减少动态效果时全部换成淡入淡出）；§32 / §35 的回报里剩下的几条；`board/paint.js`（展板还是深色玻璃 + 她墨色的 12 px 边、白字）、`board/set.js`（她墨色的清漆板 + 面上一张画布）、`board/frame.js`（`frameBoard` / `boardBand` 只认布局的 W / H）、`play3-board.test` 和 `wire-audit` 量的是什么（板的框、热区、最小字）；`atlas.js` 的 `sticker` / `STICKER` / `enFont` / `titanIn`、`layout.js` 的 `fitText`；`ui.css` 的 `.iw-key`（冷白渐变 `#fff → #ebe8f3`、`0 0 0 2px var(--k)` 描边、`0 .2em 0 2px var(--k)` 投影、`inset 0 -.18em 0 #c9c4d8` 的下唇）、`play-keys.js`（奶白 `#fbf8f0` + 茶色投影 `#b4ab98` + 一层模糊阴影）和 `type/keys.js` 的键距（竖屏横向 5 px、行距 9 px）；`play-strip.js` / `hud.css` 学习层那一节 / `hud-learn.js` 的减少动态规则；`targets.js` 的牌着色器（`aState` / `aBox`，`aBox.w` 没用）和 `run.js` / `arena/run.js` 里什么时候 `state(right, 'right')`（只在答错以后揭晓那一张）。

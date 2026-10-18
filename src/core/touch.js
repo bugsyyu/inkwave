@@ -29,7 +29,7 @@ const MOVE_ZONE = 0.44;
 // level — and the controls stay live in portrait for whatever she starts from the menu.
 const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('from') === 'app';
 // menu screens with an upright layout of their own (styles/ui.css, the 关卡学习 G and I portrait blocks): no banner over them
-const PORTRAIT_SCREENS = new Set(['howto', 'credits', 'online', 'lobby', 'loadout', 'locker', 'results', 'pause', 'map']);   // (map: 游戏为主体 第二期, LEARN §34)
+const PORTRAIT_SCREENS = new Set(['howto', 'credits', 'online', 'lobby', 'loadout', 'locker', 'results', 'pause', 'map', 'book']);   // (map: 游戏为主体 第二期, LEARN §34; book: 课本, §37)
 
 // Button layout, anchored to the bottom-right corner (the right thumb's natural arc). x/y are distances from the
 // right / bottom edge in units of the step `u`, r is the radius in the same units, so the whole cluster scales

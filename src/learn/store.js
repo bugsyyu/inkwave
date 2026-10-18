@@ -228,6 +228,8 @@ export const store = {
     };
     const soon = () => { clearTimeout(t); t = setTimeout(run, delay); };
     const flush = () => { if (t) run(true); else WBK.mirrorFlush(); };
+    // (课本: before the lesson page opens in the game's book — also answers an earlier push never took)
+    const sync = () => { const st = S(); if (t || (st.n || 0) !== (st.pushed || 0)) run(true); else WBK.mirrorFlush(); };
     const vis = () => { if (typeof document !== 'undefined' && document.hidden) flush(); };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', vis);
     if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);
@@ -236,12 +238,22 @@ export const store = {
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', vis);
       if (typeof window !== 'undefined') window.removeEventListener('pagehide', flush);
     };
-    live = { soon, flush, detach };
+    live = { soon, flush, sync, detach };
     try {
       const st = S();
       if ((st.n || 0) !== (st.pushed || 0) && WBK.present(be())) ielts().then(() => { if (live) run(); }, () => {});
     } catch (e) { /* storage unreadable: nothing to catch up */ }
     return detach;
   },
+
+  // 课本 (游戏为主体 第三期第一步, IELTS-Base docs/GAME-FIRST.md §4): the lesson page opens inside the game (a same-origin
+  // iframe) and reads her blob as it loads — everything the game holds goes to her account first → true when attached
+  flushWorkbench() {
+    if (!live) return false;
+    try { live.sync(); } catch (e) { /* her account is never worth a crash */ }
+    return true;
+  },
+  // …and when the book closes the page may have written her blob (her settings, her clock, her answers): the game reads it again
+  invalidateWorkbench() { zoneC = undefined; viewC = null; WBK.invalidate(); },
 };
 let live = null;
