@@ -9,20 +9,25 @@
 //   S.close() · S.isOpen · S.blocked · S.onClose · S.dispose()
 //   ReadStrip.owns(e)                          a pointer event on a strip: touch.js lets it be (scroll, ✕), as PlayKeys.owns
 const CSS = `
-.iw-read { position: absolute; inset: 0; pointer-events: none; z-index: 16; color: #fff; --self: #ff8a14;
+.iw-read { position: absolute; inset: 0; pointer-events: none; z-index: 16; color: #fff; --self: #ff8a14; --k: #15121c; --k3: #2c2540;
   font-family: 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'WenQuanYi Zen Hei', 'Microsoft YaHei', sans-serif; -webkit-font-smoothing: antialiased; }
 .iw-read.is-off { display: none; }
 .iw-read * { box-sizing: border-box; }
 .iw-read__box { pointer-events: auto; position: absolute; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom)); translate: -50% 0; width: min(640px, calc(100vw - 32px));
-  max-height: min(52vh, 460px); display: flex; flex-direction: column; border-radius: 22px; background: rgba(14, 12, 22, .9);
-  border: 1.5px solid rgba(255, 255, 255, .14); border-top: 3px solid var(--self); box-shadow: 0 -6px 28px rgba(0, 0, 0, .35); touch-action: pan-y; }
+  max-height: min(52vh, 460px); display: flex; flex-direction: column; border-radius: 22px; background: linear-gradient(170deg, rgba(40, 33, 60, .96), rgba(22, 18, 32, .96));
+  border: 1.5px solid rgba(255, 255, 255, .2); border-top: 3px solid var(--self); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), 0 -6px 28px rgba(0, 0, 0, .3); touch-action: pan-y; }
 .iw-read__box.is-enter { animation: iw-read-in .4s cubic-bezier(.34, 1.56, .64, 1) backwards; }
 @keyframes iw-read-in { from { opacity: 0; translate: -50% 40px; } }
+/* (INKWAVE's sticker look, styles/hud.css: an ink outline, a solid ink shadow under it; the kicker a tilted tag) */
 .iw-read__head { display: flex; align-items: center; gap: 10px; padding: 8px 8px 6px 18px; }
 .iw-read__titles { flex: 1 1 auto; min-width: 0; }
-.iw-read__kicker { display: block; font-size: 13px; font-weight: 700; letter-spacing: .06em; color: #a9a3b8; }
+.iw-read__kicker { display: inline-block; margin: 2px 0 4px; padding: 2px 8px; border-radius: 6px; background: var(--self); color: #15121c; font-size: 13px; font-weight: 800; letter-spacing: .06em;
+  box-shadow: 0 0 0 1.5px var(--k); rotate: -2deg; }
+.iw-read__kicker:empty { display: none; }
 .iw-read__title { display: block; font-size: 19px; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
-.iw-read__x { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .12); color: #fff; font: 800 20px/44px Rubik, system-ui, sans-serif; cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent; }
+.iw-read__x { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--k3); color: #fff; font: 800 20px/44px Rubik, system-ui, sans-serif; cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22), 0 0 0 2px var(--k), 0 3px 0 2px var(--k); transition: translate .08s, box-shadow .08s; }
+.iw-read__x:active { translate: 0 2px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22), 0 0 0 2px var(--k), 0 1px 0 2px var(--k); }
 .iw-read__x:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .iw-read__body { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 2px 18px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 17px; line-height: 1.62; }
 .iw-read__p { margin: 0; color: #ece8f6; }
@@ -31,15 +36,15 @@ const CSS = `
 .iw-read__q { margin: 0; font-size: 19px; font-weight: 800; }
 .iw-read__q small { display: block; font-size: 17px; font-weight: 600; color: #c3bdd6; }
 .iw-read__li { margin: 0; padding-left: 18px; position: relative; }
-.iw-read__li::before { content: ''; position: absolute; left: 2px; top: .65em; width: 8px; height: 8px; border-radius: 50%; background: var(--self); }
+.iw-read__li::before { content: ''; position: absolute; left: 2px; top: .65em; width: 8px; height: 8px; border-radius: 50%; background: var(--self); box-shadow: 0 0 0 1.5px var(--k); }
 .iw-read__li small { display: block; color: #c3bdd6; font-size: 17px; }
-.iw-read__ex { margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .07); font-weight: 700; }
+.iw-read__ex { margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .1); font-weight: 700; }
 .iw-read__ex small { display: block; font-weight: 500; color: #c3bdd6; font-size: 17px; }
 .iw-read__tip { margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .06); color: #ddd8ea; }
 .iw-read__gloss { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; }
 .iw-read__gloss b { font-weight: 700; } .iw-read__gloss span { color: #c3bdd6; }
 @media (orientation: portrait) and (max-width: 640px) { .iw-read__box { left: 10px; right: 10px; width: auto; translate: none; max-height: 48vh; } .iw-read__box.is-enter { animation-name: iw-read-up; } @keyframes iw-read-up { from { opacity: 0; translate: 0 40px; } } }
-@media (prefers-reduced-motion: reduce) { .iw-read__box.is-enter { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .iw-read__box.is-enter { animation: none; } .iw-read__x { transition: none; } }
 `;
 let cssDone = false;
 function ensureCss() {
