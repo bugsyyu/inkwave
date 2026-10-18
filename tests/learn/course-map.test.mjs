@@ -102,7 +102,10 @@ test('the menu: a registered map screen (week tabs, the nodes start the day\'s p
   // the review button: only when kind 'review' exists (gf-review), only when K > 0, and then it starts review
   assert.ok(/import \{ LEARN_KINDS \} from '\.\.\/learn\/forms\/index\.js';/.test(M));
   assert.ok(/const REVIEW_OK = LEARN_KINDS\.includes\('review'\);/.test(M));
-  assert.ok(/if \(REVIEW_OK && n > 0 && /.test(M), 'no review button without kind review, nor with nothing due');
+  assert.ok(/if \(REVIEW_OK && K > 0 && /.test(M), 'no review button without kind review, nor with nothing to ask');
+  assert.ok(/if \(!REVIEW_OK \|\| typeof learnApi\.reviewPlan !== 'function' \|\| !due\.length\) return 0;/.test(M), 'K is 0 without gf-review\'s reviewPlan');
+  assert.ok(/learnApi\.reviewPlan\(wk, due\); return Math\.max\(0, \(r && r\.reviewOf && \+r\.reviewOf\.n\) \| 0\)/.test(M), 'K is what the review level asks (reviewOf.n), not every due word');
+  assert.ok(/label: `复习 \$\{K\} 个`/.test(M));
   assert.ok(/kind: 'review' \}/.test(M));
   assert.ok(/else if \(this\.current === 'map'\) this\.show\(null, \{ instantLeave: true \}\)/.test(M), 'the map leaves when a level starts from it');
   // the portrait gate stays down over the map (its own upright layout)
@@ -119,7 +122,7 @@ test('the review guard holds today: without gf-review\'s kind the button cannot 
   const M = src('src/ui/menus.js');
   // the button is created only inside the REVIEW_OK branch
   const i = M.indexOf("kind: 'review' }");
-  const g = M.lastIndexOf('if (REVIEW_OK && n > 0 && ', i);
+  const g = M.lastIndexOf('if (REVIEW_OK && K > 0 && ', i);
   assert.ok(g > 0 && i - g < 900, 'the review button is built inside the guard');
   assert.equal(typeof LEARN_KINDS.includes('review'), 'boolean');
 });

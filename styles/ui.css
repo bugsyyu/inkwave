@@ -3302,7 +3302,11 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-cmap__weeks .iw-seg__opt { min-height: 44px; }
 .iw-cmap__weeksub { font: 700 var(--fs-m) / 1.3 'Rubik', sans-serif; color: #e9e5f4; text-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
 .iw-cmap__scroll { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
-.iw-cmap__stage { position: relative; aspect-ratio: var(--ar); height: 100%; max-width: 100%; margin: 0 auto; }
+.iw-cmap__stage { position: relative; aspect-ratio: var(--ar); margin: 0 auto; }
+/* (landscape: the road's box as large as fits both ways — a size container, so the box keeps the road's own ratio and
+   the nodes, placed in % of it, sit exactly on the SVG drawn with 'meet') */
+.iw-cmap:not(.is-portrait) .iw-cmap__scroll { container-type: size; }
+.iw-cmap:not(.is-portrait) .iw-cmap__stage { width: min(100cqw, 100cqh * var(--arn)); }
 .iw-cmap__stage.is-hit { animation: iw-cmap-hit .24s linear; }
 @keyframes iw-cmap-hit { 15% { translate: 3px -2px; } 35% { translate: -3px 2px; } 55% { translate: 2px 1px; } 75% { translate: -1px -1px; } }
 

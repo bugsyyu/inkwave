@@ -41,13 +41,14 @@ export function weekShare(week) {
 
 // Where the nodes sit: n points along one winding road in a fixed box (landscape 1000 × 360, left to right; portrait
 // 360 × 940, top to bottom), and the road through them as an SVG path (Catmull-Rom → cubic Béziers, so it passes
-// through every node). upTo(k): the same road from the first node to the k-th (the walked part).
+// through every node; landscape rides a little high: the labels hang under the nodes). upTo(k): the same road from the
+// first node to the k-th (the walked part).
 export function mapLayout(n, portrait = false) {
   const W = portrait ? 360 : 1000, H = portrait ? 940 : 360;
   const pts = [];
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? i / (n - 1) : 0, s = Math.sin(i * 1.15 + 0.35);
-    pts.push(portrait ? { x: +(180 + s * 92).toFixed(1), y: +(66 + t * 808).toFixed(1) } : { x: +(66 + t * 868).toFixed(1), y: +(180 + s * 96).toFixed(1) });
+    pts.push(portrait ? { x: +(180 + s * 92).toFixed(1), y: +(66 + t * 808).toFixed(1) } : { x: +(66 + t * 868).toFixed(1), y: +(166 + s * 86).toFixed(1) });
   }
   const upTo = (k) => roadPath(pts.slice(0, Math.max(1, Math.min(n, k + 1))));
   return { w: W, h: H, pts, d: roadPath(pts), upTo };

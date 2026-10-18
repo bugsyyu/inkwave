@@ -26,6 +26,7 @@ import {
 import { bossSilhouette, bossEmblem, BOSS_GLYPH, BOSS_NAME, BOSS_EPITHET } from './boss-art.js';
 import { WhatsNew } from './news.js';
 import { loadWeek, store as learnStore } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
+import * as learnApi from '../learn/api.js';   // (游戏为主体 第二期: reviewPlan, gf-review's — undefined until that lands)
 import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
 import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
@@ -49,6 +50,12 @@ const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
 const APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
 // 游戏为主体 第二期: the review level is gf-review's kind 'review' (forms/index.js) — no 复习 button until the game has it
 const REVIEW_OK = LEARN_KINDS.includes('review');
+// K on the 复习 button: what the review level will really ask (reviewPlan caps it — at most 24, fewer when the pace caps
+// it), not every due word; 0 (no button) without reviewPlan
+function reviewK(wk, due) {
+  if (!REVIEW_OK || typeof learnApi.reviewPlan !== 'function' || !due.length) return 0;
+  try { const r = learnApi.reviewPlan(wk, due); return Math.max(0, (r && r.reviewOf && +r.reviewOf.n) | 0); } catch (e) { return 0; }
+}
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];
@@ -1080,8 +1087,8 @@ export class Menus {
   // the loaded week object: a week number throws in content.js regOf.)
   _appTodayDue(T, where) {
     loadWeek(T.week).then((wk) => {
-      let n = 0, p = null;
-      try { n = learnStore.due(wk).length; } catch (e) { n = 0; }
+      let n = 0, p = null, due = [];
+      try { due = learnStore.due(wk); n = due.length; } catch (e) { n = 0; }
       try { p = learnStore.progress(wk, T.day); } catch (e) { p = null; }
       const el = this.current === 'main' && this._scr && this._scr.el;
       const b = el && el.querySelector('.iw-btn--today .iw-btn__sub');
@@ -1090,8 +1097,9 @@ export class Menus {
       if (p && p.total > 0) bits.push(`今天 ${p.done} / ${p.total}`);
       if (n > 0) bits.push(`要复习 ${n} 个`);
       b.textContent = bits.join(' · ');
-      if (REVIEW_OK && n > 0 && !el.querySelector('.iw-btn--review')) {
-        const rb = this._btn({ id: 'review', label: `复习 ${n} 个`, sub: '这一周该复习的词 · 一关清掉', icon: GLYPHS.reset, cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', tilt: 1.2,
+      const K = reviewK(wk, due);
+      if (REVIEW_OK && K > 0 && !el.querySelector('.iw-btn--review')) {
+        const rb = this._btn({ id: 'review', label: `复习 ${K} 个`, sub: '这一周该复习的词 · 一关清掉', icon: GLYPHS.reset, cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', tilt: 1.2,
           accept: () => this._startLearn({ week: T.week, day: T.day, kind: 'review' }, rb) });
         rb.classList.add('iw-in', 'iw-in--left');
         const after = el.querySelector('.iw-btn[data-id="map"]') || b.closest('.iw-btn');
@@ -1179,7 +1187,7 @@ export class Menus {
     const model = () => courseMap({ weeks: LEARN.weeks, days: LEARN.days, today: T,
       progress: (w, d) => (this._cmapProg[w] ? this._cmapProg[w][d - 1] : null),
       plan: (w, d) => (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null });
-    const stage = h('div', { class: 'iw-cmap__stage' + (portrait ? ' is-portrait' : ''), style: { '--ar': `${L.w} / ${L.h}` } });
+    const stage = h('div', { class: 'iw-cmap__stage' + (portrait ? ' is-portrait' : ''), style: { '--ar': `${L.w} / ${L.h}`, '--arn': (L.w / L.h).toFixed(4) } });
     const scroll = h('div', { class: 'iw-cmap__scroll' }, stage);
     const weekSub = h('div', { class: 'iw-cmap__weeksub' });
     let nodes = [], cur = null, scr = null;
