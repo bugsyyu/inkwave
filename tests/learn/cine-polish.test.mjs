@@ -215,3 +215,25 @@ test('the right plate gets a white tick on an ink badge, stamped on with an over
   const B = rig(); step(B, 0.6); B.burst(0); B.update(1 / 120);
   assert.equal(B.plates.aBox.getW(0), 0);
 });
+
+// (the main session's dpr-3 check of the merged dev branch: today's ring and glow covered its own 「第 3 天」)
+test('the course map: every node\'s label hangs below its drawn ring and its tick sticker — today\'s (drawn 1.14 ×) too — over its ink and halo; the nodes stay ≥ 44 pt', () => {
+  const C = src('styles/ui.css'), M = C.slice(C.indexOf('游戏为主体 第二期: the course map'));
+  const lab = rule(M, '.iw-cmap__label');
+  const m = /top: calc\(50% \+ \(var\(--ns\) \/ 2 \+ ([\d.]+)px\) \* var\(--nsc\)\);/.exec(lab);
+  assert.ok(m, 'the label is hung from the node\'s size and scale'); assert.match(lab, /z-index: 1;/, 'over the node\'s ink and halo');
+  const off = +m[1];
+  const nsc = +/--nsc: ([\d.]+);/.exec(rule(M, '.iw-cmap__node.is-today'))[1];
+  assert.match(rule(M, '.iw-cmap__node.is-today .iw-cmap__core'), /scale: var\(--nsc\);/, 'today is drawn at the scale its label is hung by');
+  assert.match(rule(M, '.iw-cmap__node'), /--nsc: 1;/);
+  const ringIn = -/inset: (-?[\d.]+)px/.exec(rule(M, '.iw-cmap__ring'))[1];
+  // (a day node is 52–72 px, the 周考 64–88 px — it has no ring drawn and never the tick: no 「学完」 of its own, LEARN §34)
+  for (const [ns, boss] of [[52], [60], [64], [72], [64, 1], [76, 1], [88, 1]]) for (const k of [1, nsc]) {
+    const ring = (ns / 2 + ringIn) * (29 + 6.5 / 2) / 32 * k, tick = boss ? 0 : (0.6 * ns + 5.5) * k, top = (ns / 2 + off) * k;
+    assert.ok(top >= ring + 3 && top >= tick + 2, `${ns} px × ${k}: the label ${top.toFixed(1)} under the ring ${ring.toFixed(1)} and the tick ${tick.toFixed(1)}`);
+    assert.ok(top - ns / 2 * k <= 20, 'and still close to its node');
+  }
+  assert.ok(nsc > 1.1, 'today is the bigger one');
+  assert.match(rule(M, '.iw-cmap'), /--ns: clamp\(52px, /, 'a node is ≥ 52 px (a thumb) on its side');
+  assert.match(M, /\.iw-cmap \{ --u: min\(2\.2vw, 1\.1vh\); --ns: 60px; \}/, 'and 60 px upright');
+});
