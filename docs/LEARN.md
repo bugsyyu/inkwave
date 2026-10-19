@@ -1808,7 +1808,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 5. **`?lazycompile`** 保留旧的「第一次画时编」那条路（整个 `_warmBoot` / `_warmStage` 都跳过，小巷照旧闲时建），给真机对比用。
 6. **不降画质、不减效果、不加每帧分配**：只改了什么时候编；每帧的代码一行没加（`_loop` 只多一句 `if (this._warming) return;`）。标题的入场动画、主菜单的入场节奏一个没动。
 
-**改了什么**（`dd8cce1`、`28dda68` 两个提交 + 这一节；代码 +186 / −34，测试 +166，探针 +156）：
+**改了什么**（`dd8cce1`、`28dda68` 两个提交 + 这一节；代码 +152 / −34，测试 +166，探针 +156）：
 - `src/core/shader-warm.js`（新，65 行）：`warmTarget` / `freshPrograms` / `useProgram` / `warmList` / `usePrograms` / `warmScene`。
 - `src/main.js`：启动 0.85 那一段换成 `_warmBoot`；热身帧之后报 `__gfBeat`；闲时建小巷只留给 `?lazycompile`；新的 `_warmBoot` / `_warmStage`、`MAIN_PORTRAIT`；`startMatch` 淡入前 `await this._warmStage()`；`_loop` 一行。
 - `src/game/showcase.js`：`warm(o)`、`_warmup(o)` 改成按目标的 `warmScene` + 返回 promise；`preloadLobby(o)` / `_lobEnsure(o)` / `_lobLoad(L, o)`（`L.loading`）、小巷按 HDR 目标编。
