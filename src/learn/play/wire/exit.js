@@ -20,6 +20,7 @@ import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { EchoBooth } from '../echo/booth.js';
 import { Signs } from '../board/signs.js';
+import { openCheckin, checkinFor } from '../../../ui/checkin-card.js';   // 打卡 (LEARN §39): the check-in card on the pad
 
 const _v = new THREE.Vector3();
 
@@ -27,7 +28,7 @@ export class ExitStation {
   constructor(host) {
     this.host = host; this.flow = host.flow; this.match = host.match;
     this.echo = null; this.signs = null; this.on = false; this.spots = []; this.log = [];
-    this.echoAt = null; this.padAt = null; this.checked = false; this.spoke = false;
+    this.echoAt = null; this.padAt = null; this.checked = false; this.spoke = false; this.wantCard = false;
   }
   get still() { return false; }
   get pose() { return (this.echo && this.echo.framing) || (this.signs && this.signs.framing) || null; }
@@ -116,12 +117,27 @@ export class ExitStation {
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'checkin' });
     this.host.strip?.show({ text: '这一天走完了 ★', zh: sg && sg.title ? sg.title : '', tts: null }, {});
     this.flow._emit('learn:sign', { id: sg && sg.id, kind: 'checkin' });
+    // 打卡 (LEARN §39): her account is here and this day's check-in is not made yet → the card, once the level is over
+    // (flow.js _results: the match is held for the results card there; the results come after the card)
+    const F = this.flow, v = F.week && F.day ? checkinFor(F.week, F.day) : null;
+    this.wantCard = !!(v && !v.done);
+  }
+  // the level is over: the check-in card the pad asked for → true when it opened (then(): once it has gone)
+  card(then) {
+    const F = this.flow;
+    if (!this.wantCard) return false;
+    this.wantCard = false;
+    const c = openCheckin({ week: F.week, day: F.day, from: 'level', onClose: (r) => {
+      this.log.push({ t: +F.t.toFixed(2), ev: 'checkin-card', saved: !!(r && r.saved) });
+      then && then(r);
+    } });
+    return !!c;
   }
   _classic(kind, sg) {
     // the classic page is the host App's (LEVELS §1.3): the game only says so and tells the page
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'classic', kind });
     this.flow._emit('learn:classic', { kind, id: sg && sg.id });
-    G.game?.menus?.toast?.(kind === 'speak' ? '口语评分在经典页（课本）' : kind === 'weekly' ? '周报在经典页（课本）' : '入门小测在经典页（课本）');
+    G.game?.menus?.toast?.(kind === 'speak' ? '口语评分在经典页（课本）' : kind === 'weekly' ? '周报在经典页（课本）' : kind === 'checkin' ? '打卡在经典页（课本）' : '入门小测在经典页（课本）');
   }
   // the auto-walk's next stop: the booth (until she has spoken, or the walk has stopped in it), the weekly / placement
   // boards (until read), then the check-in pad. (No switching by distance while she walks: a stop is passed once reached —

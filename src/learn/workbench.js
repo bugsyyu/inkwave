@@ -162,6 +162,91 @@ export function covered(ls, id, doc) {
   return keys(doc.it).every((item) => isObj(doc.it[item]) && keys(doc.it[item]).every((date) => isObj(hit[item]) && isObj(hit[item][date]) && keys(hit[item][date]).length > 0));
 }
 
+/* ───────────────────────────── 打卡 (游戏为主体 第二期, LEARN §39) ───────────────────────────── */
+// The lesson page's check-in (app/index.html rCheckin / saveCheckin, then the step's 做完: completeStep), written from the
+// game exactly as the page writes it:
+//   profile.ci[dayId] = { mood, note (trimmed, ≤ 500), date: her wall-clock today }    (saveCheckin)
+//   profile.cp['<dayId>:<step id>'] = date, once                                        (completeStep: the step is done)
+//   days['<YYYY-MM>'].days['<DD>'].done['c:<dayId>:<step id>'] = { m, k }, with it      (completeStep: the day's log)
+// Same empty-value rules: a mood outside MOODS is no mood, no mood keeps the saved one; a note not given keeps the saved
+// one. The step comes from her own packs first (the page's weeks(): a teacher's pack wins over the built-in week), else
+// from the caller (the game's course, design.js DAY_PLAN); a day without a check-in step has no check-in.
+// app/index.html MOODS ids (the page's labels and faces are the card's: src/ui/checkin-card.js)
+export const MOOD_IDS = ['easy', 'ok', 'hard'];
+export const NOTE_MAX = 500;
+// (app/index.html MODULES: completeStep files the minutes under the step's k when it is one of these, else 'other')
+const MODULE_IDS = ['vocab', 'grammar', 'pron', 'listening', 'reading', 'writing', 'speaking', 'mock', 'review', 'other'];
+const DAY_ID_RE = /^[A-Za-z0-9._~-]{1,80}$/;
+
+// her saved check-in for a day: { mood, note, date } | null (date set = 「已保存」, the page's own test)
+export function herCheckin(ls, dayId) {
+  const b = readBlob(ls), ci = b && isObj(b.o.profile.ci) ? b.o.profile.ci[dayId] : null;
+  return isObj(ci) ? { mood: typeof ci.mood === 'string' ? ci.mood : '', note: typeof ci.note === 'string' ? ci.note : '', date: typeof ci.date === 'string' ? ci.date : '' } : null;
+}
+export function checkedIn(ls, dayId) { const c = herCheckin(ls, dayId); return !!(c && c.date); }
+
+// the check-in step of a day in one of her packs (blob.packs[id].week): { id, m, k }; null when her pack has the day and
+// no check-in step in it (the page shows none); undefined when no pack of hers has the day (the game's course decides)
+export function packCheckinStep(o, dayId) {
+  const packs = o && isObj(o.packs) ? o.packs : null;
+  if (!packs) return undefined;
+  for (const id of keys(packs)) {
+    const w = isObj(packs[id]) && isObj(packs[id].week) ? packs[id].week : null;
+    const day = w && Array.isArray(w.days) ? w.days.find((d) => isObj(d) && d.id === dayId) : null;
+    if (!day) continue;
+    for (const s of ['a', 'b', 'c']) for (const st of Array.isArray(day[s]) ? day[s] : []) if (isObj(st) && st.type === 'checkin' && st.id != null) return { id: String(st.id), m: st.m, k: st.k };
+    return null;   // (the pack has the day and no check-in step: the page shows none)
+  }
+  return undefined;
+}
+
+// what the page's saveCheckin stores, from the saved one and what she gave (pure)
+export function checkinEntry(old, given, date) {
+  const o = isObj(old) ? old : {}, g = isObj(given) ? given : {};
+  const mood = (MOOD_IDS.includes(g.mood) ? g.mood : '') || (typeof o.mood === 'string' ? o.mood : '') || '';
+  const note = g.note != null ? g.note : (o.note || '');
+  return { mood, note: String(note).trim().slice(0, NOTE_MAX), date };
+}
+
+// saveCheckin(ls, dayId, { mood, note }, now, { step }) → { ok: true, changed, entry, stepDone, date } | { ok: false, reason }
+//   reason: 'no-workbench' (nothing is created), 'no-day', 'no-step' (the day has no check-in), 'save' (storage full)
+// Reads her latest blob (the 课本's page may have written it), changes only those three places — every other field and
+// document is the same value, so the same JSON text — and writes nothing when nothing changed (the same check-in saved
+// again the same day). After a write: the cache goes (invalidate) and her App's mirror follows (mirror).
+export function saveCheckin(ls, dayId, given, now, opt) {
+  if (!DAY_ID_RE.test(String(dayId || ''))) return { ok: false, reason: 'no-day' };
+  const b = readBlob(ls, { fresh: true });
+  if (!b) return { ok: false, reason: 'no-workbench' };
+  const ps = packCheckinStep(b.o, dayId), st = ps !== undefined ? ps : opt && isObj(opt.step) && opt.step.id != null ? opt.step : null;
+  if (!st) return { ok: false, reason: 'no-step' };
+  const p = wallParts(now, wallZone(ls)), date = p.y + '-' + pad2(p.m) + '-' + pad2(p.d);
+  const prof = b.o.profile, ci = isObj(prof.ci) ? prof.ci : {}, cp = isObj(prof.cp) ? prof.cp : {};
+  const entry = checkinEntry(ci[dayId], given, date), key = dayId + ':' + st.id;
+  const sameCi = same(ci[dayId], entry), stepDone = !cp[key];
+  if (sameCi && !stepDone) return { ok: true, changed: false, entry, stepDone: false, date };
+  const profile = Object.assign({}, prof);
+  if (!sameCi) profile.ci = Object.assign({}, ci, { [dayId]: entry });
+  const o = Object.assign({}, b.o, { profile });
+  if (stepDone) {
+    profile.cp = Object.assign({}, cp, { [key]: date });
+    // (ensureDay: the month's document, its days, the day with done and extra)
+    const ym = date.slice(0, 7), dd = date.slice(8, 10), days = isObj(b.o.days) ? b.o.days : {};
+    const month = isObj(days[ym]) ? Object.assign({}, days[ym]) : {};
+    month.days = isObj(month.days) ? Object.assign({}, month.days) : {};
+    const day = isObj(month.days[dd]) ? Object.assign({}, month.days[dd]) : {};
+    day.done = isObj(day.done) ? Object.assign({}, day.done) : {};
+    if (!Array.isArray(day.extra)) day.extra = [];
+    day.done['c:' + key] = { m: Number(st.m) || 0, k: MODULE_IDS.includes(st.k) ? st.k : 'other' };
+    month.days[dd] = day;
+    o.days = Object.assign({}, days, { [ym]: month });
+  }
+  try { ls.setItem(DATA_KEY, JSON.stringify(o)); } catch (e) { return { ok: false, reason: 'save' }; }
+  invalidate();
+  mirror(ls);
+  return { ok: true, changed: true, entry, stepDone, date };
+}
+const pad2 = (n) => (n < 10 ? '0' : '') + n;
+
 /* ───────────────────────────── her App's mirror ───────────────────────────── */
 // 游戏为主体 (IELTS-Base docs/GAME-FIRST.md 第一期): in her App the lesson page mirrors her data into the App's own folder
 // after its saves (app/native.js mirrorFlush posts { type: 'mirror', text } — text = the blob exactly as stored under

@@ -3583,3 +3583,173 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-book__tab.is-on { transform: translateY(-6px); }
   .iw-book__blot { animation: none; }
 }
+
+/* =====================================================================================
+   游戏为主体 第二期: 打卡 (docs/LEARN.md §39, src/ui/checkin-card.js) — the lesson page's check-in as a card of the
+   game's own: a sticker card (white rim in the ink outline, the solid offset shadow, a varnish line), the three moods as
+   sticker discs, a paper-white note, 保存打卡 in her ink; saving brings a rubber stamp down on it (anticipation, the slam,
+   a hit-stop, an ink spatter, the card gives under it). Its own .iw-ui host over the menus and the level's HUD; the box
+   follows the visual viewport (the soft keyboard). Only transform / opacity move; reduced motion: fades only.
+   ===================================================================================== */
+.iw-ui.iw-ci-host { z-index: 40; }
+.iw-ci { position: absolute; inset: 0; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.iw-ci__scrim { position: absolute; inset: 0; opacity: 0; transition: opacity .3s var(--out);
+  background: radial-gradient(rgba(255, 255, 255, .05) 1.2px, transparent 1.7px) 0 0 / 11px 11px, radial-gradient(120% 90% at 50% 45%, rgba(12, 9, 22, .62), rgba(12, 9, 22, .9)); }
+.iw-ci.is-in .iw-ci__scrim { opacity: 1; }
+.iw-ci.is-out .iw-ci__scrim { opacity: 0; transition-duration: .26s; }
+.iw-ci__vp { position: absolute; left: 0; right: 0; top: 0; height: 100%; display: flex; align-items: center; justify-content: center;
+  padding: calc(14px + var(--sat, 0px)) max(16px, var(--sar, 0px)) calc(14px + var(--sab, 0px)) max(16px, var(--sal, 0px)); box-sizing: border-box; }
+.iw-ci.is-kb .iw-ci__vp { align-items: flex-end; padding-top: 10px; padding-bottom: 10px; }
+
+.iw-ci__card { position: relative; width: min(440px, 100%); max-height: 100%; overflow: hidden auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 22px 18px 18px; border-radius: 22px 18px 24px 20px; color: #fff; text-align: left; isolation: isolate;
+  background: radial-gradient(rgba(255, 255, 255, .045) 1.3px, transparent 1.8px) 0 0 / 12px 12px, radial-gradient(110% 60% at 20% 0%, rgba(255, 255, 255, .1), transparent 60%), linear-gradient(175deg, #2f2650, #1c1531 70%, #171125);
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--k), 0 9px 0 6px var(--k), 0 26px 44px rgba(0, 0, 0, .55), inset 0 1.5px 0 rgba(255, 255, 255, .16), inset 0 -10px 18px rgba(0, 0, 0, .22);
+  rotate: -.8deg; opacity: 0; transform: translateY(48px) scale(.86) rotate(4deg); transition: transform .5s var(--spring2), opacity .16s linear; }
+.iw-ci.is-in .iw-ci__card { opacity: 1; transform: none; }
+.iw-ci.is-out .iw-ci__card { opacity: 0; transform: translateY(36px) scale(.94); transition: transform .28s var(--in), opacity .22s linear .04s; }
+.iw-ci__card.is-hit { animation: iw-ci-hit .3s linear; }
+.iw-ci__card.is-nope { animation: iw-shake .32s linear; }
+@keyframes iw-ci-hit { 0% { transform: none; } 18% { transform: translateY(6px) scale(1.012, .978); } 46% { transform: translateY(-2px) scale(.996, 1.008); } 100% { transform: none; } }
+.iw-ci__splat { position: absolute; z-index: -1; right: -34px; top: -40px; width: 150px; opacity: .22; rotate: 18deg; pointer-events: none; }
+.iw-ci__splat svg { width: 100%; height: 100%; }
+
+.iw-ci__tape { display: inline-block; margin: 0 0 10px -2px; padding: 6px 14px 5px; border-radius: 5px; rotate: -2.5deg; background: linear-gradient(180deg, var(--a-light), var(--a) 55%, var(--a-dark));
+  color: var(--k); font: 400 13px / 1 'Titan One', 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; letter-spacing: .04em;
+  box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .55); }
+.iw-ci__tape span { font-weight: 800; font-family: 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; }
+.iw-ci__title { margin: 0 0 14px; font: 800 25px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; color: #fff;
+  -webkit-text-stroke: .15em var(--k); paint-order: stroke fill; text-shadow: 0 .09em 0 var(--k), 0 .2em .14em rgba(0, 0, 0, .3); }
+
+/* the moods: three sticker discs; the picked one in her ink, lifted, springs as it is picked */
+.iw-ci__moods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 2px 2px 8px; }
+.iw-ci__mood { position: relative; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 10px 4px 9px;
+  border: 0; border-radius: 18px; cursor: pointer; color: #fff; font: 800 15px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: linear-gradient(180deg, #43396a, #2c2445 70%, #251e3a); rotate: var(--tilt, 0deg); touch-action: manipulation;
+  box-shadow: 0 0 0 2.5px var(--k), 0 5px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .18), inset 0 -4px 0 rgba(0, 0, 0, .2);
+  transition: transform .34s var(--spring), filter .2s; animation: iw-ci-in .5s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 60ms + 160ms); }
+@keyframes iw-ci-in { from { opacity: 0; transform: translateY(18px) scale(.7); } }
+.iw-ci__face { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  background: radial-gradient(80% 70% at 35% 25%, #fff, #e7e2f2 60%, #c9c2db); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 -3px 0 rgba(0, 0, 0, .1); }
+.iw-ci__emoji { font: 30px / 1 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; translate: 0 1px; }
+.iw-ci__mood b { font-weight: inherit; text-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
+.iw-ci__moods:has(.is-on) .iw-ci__mood:not(.is-on) { filter: saturate(.7) brightness(.82); }
+.iw-ci__mood.is-on { transform: translateY(-4px) scale(1.04); color: var(--k);
+  background: radial-gradient(90% 60% at 30% 12%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%), linear-gradient(170deg, var(--a-light), var(--a) 48%, var(--a-dark));
+  box-shadow: 0 0 0 2.5px var(--k), 0 8px 0 2.5px var(--k), 0 0 22px rgba(var(--a-rgb), .45), inset 0 2px 0 rgba(255, 255, 255, .6), inset 0 -5px 0 rgba(0, 0, 0, .16); }
+.iw-ci__mood.is-on b { text-shadow: none; }
+.iw-ci__mood.is-down { transform: translateY(3px) scale(.95, .92); box-shadow: 0 0 0 2.5px var(--k), 0 1px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .18); transition-duration: 0s; }
+.iw-ci__mood.is-pick .iw-ci__face { animation: iw-ci-pick .46s var(--spring2); }
+@keyframes iw-ci-pick { 0% { transform: scale(.7) rotate(-16deg); } 55% { transform: scale(1.2) rotate(8deg); } 100% { transform: none; } }
+.iw-ci__mood:focus-visible, .iw-ci__save:focus-visible, .iw-ci__later:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+
+/* the note: paper white in an ink outline; ≥ 16 px so a phone does not zoom on focus; one line growing to three */
+.iw-ci__field { position: relative; display: block; margin-top: 12px; }
+.iw-ci__lab { display: block; margin: 0 0 8px 2px; font: 700 14px / 1.35 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: #e9e5f4; }
+.iw-ci__note { display: block; width: 100%; min-height: 48px; margin: 0; padding: 12px 14px; border: 0; border-radius: 14px; resize: none; overflow-y: auto;
+  font: 500 16px / 1.45 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: var(--k); caret-color: var(--a-dark);
+  background: linear-gradient(180deg, #ffffff, #f3f0f9); user-select: text; -webkit-user-select: text;
+  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-ci__note::placeholder { color: #8a83a0; }
+.iw-ci__note:focus { outline: none; box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), 0 0 0 7px rgba(var(--a-rgb), .55), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-ci__count { position: absolute; right: 6px; bottom: -20px; font: 700 12px / 1 'Rubik', sans-serif; color: var(--muted); font-variant-numeric: tabular-nums; }
+.iw-ci__was { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; font: 700 13px / 1.2 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: var(--muted); }
+.iw-ci__was i { width: 16px; height: 16px; color: var(--a); }
+.iw-ci__msg { margin: 10px 0 0; min-height: 0; font: 700 14px / 1.35 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: #f08a7a; }
+.iw-ci__msg:empty { display: none; }
+
+/* 先不写 · 保存打卡: ≥ 44 pt; the press sinks into its shadow the frame the finger lands */
+.iw-ci__foot { display: flex; gap: 12px; margin-top: 18px; }
+.iw-ci__later { flex: none; min-width: 96px; height: 50px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer; color: #fff; background: rgba(255, 255, 255, .06);
+  font: 800 16px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .34); transition: transform .3s var(--spring); }
+.iw-ci__save { flex: 1; height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 999px; cursor: pointer; color: var(--k);
+  font: 800 18px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none;
+  background: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 55%), linear-gradient(175deg, var(--a-light), var(--a) 50%, var(--a-dark));
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -4px 0 rgba(0, 0, 0, .16); transition: transform .3s var(--spring); }
+.iw-ci__save i { display: grid; place-items: center; width: 30px; height: 30px; padding: 6px; border-radius: 50%; background: var(--k); color: var(--a-light); }
+.iw-ci__save i svg { width: 100%; height: 100%; }
+.iw-ci__save.is-down, .iw-ci__later.is-down { transform: translateY(4px) scale(.98, .95); transition-duration: 0s; }
+.iw-ci__save.is-down { box-shadow: 0 0 0 3px var(--k), 0 1px 0 3px var(--k), inset 0 2px 0 rgba(255, 255, 255, .55); }
+.iw-ci__save:disabled { cursor: default; }
+
+/* the stamp: a rubber seal in her ink comes down hard over the title (34 %: the slam, held 2–3 frames), settles tilted;
+   the ink spatters round it */
+.iw-ci__stamp { position: absolute; z-index: 3; right: 16px; top: 18px; width: 128px; height: 128px; pointer-events: none; opacity: 0; transform: translateY(-40px) scale(2.3) rotate(-32deg); }
+.iw-ci.is-stamped .iw-ci__stamp { animation: iw-ci-stamp .5s cubic-bezier(.2, .9, .3, 1) forwards; }
+@keyframes iw-ci-stamp {
+  0% { opacity: 0; transform: translateY(-40px) scale(2.3) rotate(-32deg); }
+  22% { opacity: 1; transform: translateY(-14px) scale(1.5) rotate(-20deg); }
+  34% { opacity: 1; transform: translateY(0) scale(.86) rotate(-11deg); }
+  44% { opacity: 1; transform: translateY(0) scale(.86) rotate(-11deg); }
+  70% { opacity: 1; transform: scale(1.06) rotate(-13deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+}
+.iw-ci__stampink { position: absolute; inset: -18%; opacity: 0; color: var(--a); }
+.iw-ci__stampink svg { width: 100%; height: 100%; }
+.iw-ci.is-stamped .iw-ci__stampink { animation: iw-ci-ink .5s var(--out) .17s forwards; }
+@keyframes iw-ci-ink { from { opacity: .7; transform: scale(.5); } to { opacity: .3; transform: none; } }
+.iw-ci__seal { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 50%;
+  border: 5px solid var(--a); background: radial-gradient(closest-side, rgba(21, 18, 28, .78), rgba(21, 18, 28, .55));
+  box-shadow: 0 0 0 3px var(--k), inset 0 0 0 4px var(--k), inset 0 0 0 7px rgba(var(--a-rgb), .9), 0 6px 0 3px rgba(21, 18, 28, .7); }
+.iw-ci__seal b { font: 900 27px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; letter-spacing: .06em; color: var(--a-light);
+  -webkit-text-stroke: .1em var(--k); paint-order: stroke fill; }
+.iw-ci__seal small { font: 400 12px / 1 'Titan One', 'Rubik', -apple-system, 'PingFang SC', sans-serif; letter-spacing: .04em; color: var(--a-light); }
+
+/* the soft keyboard on a phone on its side: only the note and the buttons (the moods come back as it goes) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .iw-ci__card { width: min(620px, 100%); padding: 14px 16px 14px; }
+  .iw-ci__tape { margin-bottom: 6px; }
+  .iw-ci__title { font-size: 20px; margin-bottom: 10px; }
+  .iw-ci__mood { min-height: 60px; flex-direction: row; gap: 10px; padding: 6px 8px; }
+  .iw-ci__face { width: 40px; height: 40px; }
+  .iw-ci__emoji { font-size: 24px; }
+  .iw-ci__field { margin-top: 6px; }
+  .iw-ci__lab { margin-bottom: 6px; font-size: 13px; }
+  .iw-ci__foot { margin-top: 12px; }
+  .iw-ci__stamp { width: 100px; height: 100px; top: 10px; }
+  .iw-ci__seal b { font-size: 22px; }
+  .iw-ci.is-kb .iw-ci__tape, .iw-ci.is-kb .iw-ci__title, .iw-ci.is-kb .iw-ci__moods, .iw-ci.is-kb .iw-ci__was { display: none; }
+}
+
+/* reduced motion: everything fades, nothing moves */
+.iw-ci.is-reduced .iw-ci__card, .iw-ci.is-reduced.is-out .iw-ci__card { transform: none; transition: opacity .18s linear; }
+.iw-ci.is-reduced .iw-ci__mood { animation: iw-fade .18s linear backwards; transition: filter .15s; }
+.iw-ci.is-reduced .iw-ci__mood.is-on, .iw-ci.is-reduced .iw-ci__mood.is-down, .iw-ci.is-reduced .iw-ci__save.is-down, .iw-ci.is-reduced .iw-ci__later.is-down { transform: none; }
+.iw-ci.is-reduced .iw-ci__card.is-hit, .iw-ci.is-reduced .iw-ci__card.is-nope, .iw-ci.is-reduced .iw-ci__mood.is-pick .iw-ci__face { animation: none; }
+.iw-ci.is-reduced .iw-ci__stamp { transform: rotate(-12deg); transition: opacity .2s linear; }
+.iw-ci.is-reduced.is-stamped .iw-ci__stamp { animation: none; opacity: 1; }
+.iw-ci.is-reduced.is-stamped .iw-ci__stampink { animation: none; opacity: .3; }
+@media (prefers-reduced-motion: reduce) {
+  .iw-ci__card, .iw-ci.is-out .iw-ci__card { transform: none !important; transition: opacity .18s linear !important; }
+  .iw-ci__mood, .iw-ci__mood.is-on, .iw-ci__mood.is-down, .iw-ci__save.is-down, .iw-ci__later.is-down { transform: none !important; animation: iw-fade .18s linear backwards !important; }
+  .iw-ci__card.is-hit, .iw-ci__card.is-nope, .iw-ci__face { animation: none !important; }
+  .iw-ci__stamp { transform: rotate(-12deg) !important; }
+  .iw-ci.is-stamped .iw-ci__stamp { animation: iw-fade .2s linear forwards !important; opacity: 1; }
+}
+
+/* the ways in: the main menu's 今天的打卡, the map's 「今天还没打卡」 pill, a check-in mark on each checked day */
+.iw-btn--checkin .iw-btn__icon { color: var(--a); }
+.iw-btn--checkin.is-checked .iw-btn__icon { color: #fff; }
+.iw-btn--checkin.is-stamp .iw-btn__icon { animation: iw-ci-pick .46s var(--spring2); }
+.iw-cmap__cibtn { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px 0 10px; border: 0; border-radius: 999px; cursor: pointer;
+  color: var(--k); font: 800 14px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: linear-gradient(180deg, var(--a-light), var(--a) 60%, var(--a-dark)); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .5);
+  touch-action: manipulation; transition: transform .3s var(--spring); }
+.iw-cmap__cibtn > i { display: grid; place-items: center; width: 28px; height: 28px; padding: 5px; border-radius: 50%; background: var(--k); color: var(--a-light); }
+.iw-cmap__cibtn > i svg { width: 100%; height: 100%; }
+.iw-cmap__cibtn b { padding: 7px 12px; border-radius: 999px; background: var(--k); color: #fff; font-weight: 800; }
+.iw-cmap__cibtn.is-done { color: #fff; background: rgba(21, 18, 28, .72); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .14), 0 3px 0 rgba(0, 0, 0, .35); }
+.iw-cmap__cibtn.is-done b { background: rgba(255, 255, 255, .12); }
+.iw-cmap__cibtn.is-down { transform: translateY(3px) scale(.97); transition-duration: 0s; }
+.iw-cmap__cibtn.is-stamp > i { animation: iw-ci-pick .46s var(--spring2); }
+.iw-cmap__ci { position: absolute; left: -14%; bottom: -10%; display: grid; place-items: center; width: 44%; height: 44%; border-radius: 50%; background: #fff; color: var(--k);
+  font: 800 calc(var(--ns) * .24) / 1 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Rubik', sans-serif; box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k);
+  opacity: 0; transform: scale(.2) rotate(30deg); }
+.iw-cmap__node.is-ci .iw-cmap__ci { opacity: 1; transform: rotate(8deg); transition: opacity .12s, transform .42s var(--spring2); transition-delay: calc(var(--d, 0ms) + .36s); }
+.iw-cmap__node.is-cistamp .iw-cmap__ci { animation: iw-ci-pick .46s var(--spring2); }
+@media (prefers-reduced-motion: reduce) {
+  .iw-cmap__node.is-ci .iw-cmap__ci { transition: opacity .2s linear; transform: rotate(8deg); }
+  .iw-btn--checkin.is-stamp .iw-btn__icon, .iw-cmap__cibtn.is-stamp > i, .iw-cmap__node.is-cistamp .iw-cmap__ci { animation: none; }
+  .iw-cmap__cibtn.is-down { transform: none; }
+}
+.iw-cmap.is-portrait .iw-cmap__cibtn { align-self: center; }
