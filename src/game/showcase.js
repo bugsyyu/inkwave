@@ -1610,7 +1610,7 @@ export class Showcase {
     L.loading = import('./lobbySet.js').then(async (mod) => {
       if (this.lob !== L) return;
       const q = G.settings?.quality || 'high';
-      const set = new mod.LobbySet(this.r, { quality: q, texlib: G.game?.texlib || null });
+      const set = new mod.LobbySet(this.r, { quality: q, texlib: G.game?.texlib || null, colors: [this._lobRowColor(0), this._lobRowColor(1)] });
       L.set = set; L.quality = q;
       L.scene.add(set.root);
       await set.ready;

@@ -150,3 +150,10 @@ test('probe: the watchdog\'s beats recorded and the longest stretch without one 
   assert.match(PROBE, /framebufferTextureLayer\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT0, wt, lv, layer\)/);
   assert.match(MAIN, /window\.__progKeys\.push\(\[Math\.round\(performance\.now\(\)\), a\[0\]\?\.name \|\| '', a\[0\]\?\.cacheKey \|\| ''\]\)/);
 });
+
+test('lobby set: built in the colours it will be shown in (one environment bake at boot, not one in the defaults first)', () => {
+  assert.match(LOB, /constructor\(renderer, \{ quality = 'high', texlib = null, colors = null \} = \{\}\) \{[^]*?this\.U = makeUniforms\(\);\s*\/\/[^\n]*\n[^\n]*\n\s*if \(colors\) \{ if \(colors\[0\]\) this\.U\.uTeamA\.value\.set\(colors\[0\]\); if \(colors\[1\]\) this\.U\.uTeamB\.value\.set\(colors\[1\]\); \}/);
+  const ctor = LOB.slice(LOB.indexOf('  constructor(renderer, {'), LOB.indexOf('this.ready = Promise.all('));
+  assert.ok(ctor.indexOf('if (colors)') < ctor.indexOf('this.environment = this._bakeEnv();'), 'the colours are in before the first bake');
+  assert.match(SHOW, /new mod\.LobbySet\(this\.r, \{ quality: q, texlib: G\.game\?\.texlib \|\| null, colors: \[this\._lobRowColor\(0\), this\._lobRowColor\(1\)\] \}\)/, 'the same colours _lobColors sends next (so its setTeamColors is a no-op)');
+});

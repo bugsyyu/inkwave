@@ -57,11 +57,14 @@ const QUALITY = {
 };
 
 export class LobbySet {
-  constructor(renderer, { quality = 'high', texlib = null } = {}) {
+  constructor(renderer, { quality = 'high', texlib = null, colors = null } = {}) {
     this.renderer = renderer; this.texlib = texlib;
     this.quality = QUALITY[quality] ? quality : 'high';
     this.Q = QUALITY[this.quality];
     this.U = makeUniforms();
+    // (colors: [a, b] — the team colours it will be shown in, so the environment is baked once in them, not first in the
+    // defaults and again on the first setTeamColors; LEARN §42)
+    if (colors) { if (colors[0]) this.U.uTeamA.value.set(colors[0]); if (colors[1]) this.U.uTeamB.value.set(colors[1]); }
     this.root = new THREE.Group(); this.root.name = 'lobbySet';
     const D = ALLEY.dock;
     this.spots = [...FRONT.map(([x, z]) => ({ pos: V(x, 0, z), yaw: faceCam(x, z) })), ...BACK.map(([x, z]) => ({ pos: V(x, D.h, z), yaw: faceCam(x, z, 0.6) }))];
