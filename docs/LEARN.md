@@ -1795,3 +1795,51 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 3. 真机（iPhone 13 的 WKWebView）。
 
 **交接**：分支 `cine-polish`（从 dev `9f19767` 建出），10 个提交。合并后 IELTS-Base 那边 `app/game` 要重新同步。`docs/DEVLOG.md` 没改（主会话合并时写）。
+
+## 40. menu-hitch 交付（2026-10-19，子代理，分支 `menu-hitch`：主菜单一出来就卡住——着色器编译挪到加载画面后面，开局的挪到黑场里）
+
+**先读了什么**：§33（render-gov：档位只在启动时套、对局里不换档，因为换档要重编着色器）；IELTS-Base `docs/GAME-FIRST.md` 第一期（App 打开就是游戏、`index.html` 的启动看门狗：60 秒里没有一步报 `__gfBeat` 就回课本，启动完就不再看）；`main.js` 的启动（`progress` 每步报一声 `__gfBeat`；0.85「热身中」那一段：有 `KHR_parallel_shader_compile` 才整场景 `compileAsync`，没有就全留给第一次画——Adreno 730 上一次编一大串会丢 WebGL 上下文）、`startMatch` / `_warmCharacters`、`_loop`；`showcase.js` 的 `_warmup`（第一次 `update` 时 `compileAsync` 展示台 + 头像的 resolve）、`preloadLobby` / `_lobLoad`（菜单显示 2.5 秒后建联机小巷、`compileAsync`）、`portrait`；`character.js` 的 `warmAll`（按合成器的 HDR 目标编所有档位 + 交叉淡化的双胞胎）；three r186 的 `compile` / `compileAsync` / `WebGLProgram`（没有扩展时 `isReady()` 直接是 true，`compileAsync` 只是同步的 `compile`；程序真正编译在第一次 `getUniforms()`；程序按**画进去的目标**分：渲染目标是线性、不做色调映射，画布是 sRGB、做色调映射）；`renderer.js`（场景总是画进合成器的 HalfFloat 目标）；`tools/learn/parity-shots.mjs`。
+
+**先定的**：
+1. **毛病在哪**（「改之前」的探针，见实测）：WebKit 和 SwiftShader 都没有 `KHR_parallel_shader_compile`，所以启动时根本没编——标题画面的第一帧编出场小鱿鱼的各档（`warmAll` 的兜底：第一次看见时）和展示台；菜单显示 2.5 秒后联机小巷又交了一串；这些都只是 `linkProgram`，真正的编译（和 GPU 进程里排着的活）压在**主菜单第一帧**的第一次使用上：一次 24 秒的第一次使用、37.9 秒的长任务，主菜单出来 46.3 秒后第一帧才画完。另外两处一直是错的：展示台和小巷按**画布**编（`compileAsync` 时没设目标），可它们画进 HDR 目标——编的是没人用的那一套，真画的时候再编一遍。
+2. **一个程序一个程序地编、用一次**（`src/core/shader-warm.js`，新）：`warmScene(renderer, scene, camera, { target, beat, pause, slice })`——场景里每种材质找一个带它的物体（`warmList`），对着它真正画进去的目标 `compile(物体, camera, scene)`（灯光照场景算），新出来的程序马上 `getUniforms()` 用一次（`usePrograms`：先把以前 `compile` 留下没用过的用掉，比如 `warmAll` 的）；每攒够 24 ms 就 `beat()`（`__gfBeat` + 加载条往前挪一点）、`await pause()`（让一帧）。所以慢机器上编得再久，也是「一直在动的启动」，看门狗不会当成卡死；也不是 Adreno 那种一口气的一大串。
+3. **加载画面里编完**（`main.js` `_warmBoot`，0.85 → 0.93 之间，加载条在 0.85–0.925 之间慢慢走）：先整个舞台（每种材质，不只是加载时镜头看见的——标题画面的镜头会绕）→ 出场的每个小鱿鱼 `warmAll`（一个一个来，每个之后报一声、把它留下的程序一片一片用掉；舞台先编，所以 `warmAll` 一口气编的只剩它独有的档位）→ 展示台 `showcase.warm()`（展示台 → HDR 目标、头像的 resolve → 它的 8 位目标、合成 → 画布）→ 菜单接下来会出来时（不是 `?autostart` / `?learn`）联机小巷 `preloadLobby(o)`（同样按 HDR 目标编、用一次；现在返回一个 promise，等它好）→ 主菜单那张头像（`menus._portraitInto(…, { kind: 'head', size: 160 })`，接着的 3 个热身帧把它画好、放进缓存，主菜单出来直接用缓存）。3 个热身帧每帧之后也报一声（合成器的后期、阴影那一趟在这里编）。原来「菜单闲下来 2.5 秒后建小巷」只在 `?lazycompile` 时还有。
+4. **开局的在黑场里**（`main.js` `_warmStage`）：`startMatch` 里 `m.start()` 之后、淡入之前：`_warming` 让循环停着（不画、不动、表不走），`warmScene` 编这一局场上所有的东西（小鱿鱼 `warmAll` 留下的、关卡自己的板子 / 题物 / 这一关的天色），再真画一帧（阴影、后期），然后才淡入。第一版在暂停时让循环接着画（帧之间编），探针看出 SwiftShader 上每个程序都要等上一帧 7.5 秒的 GPU——所以改成停循环。
+5. **`?lazycompile`** 保留旧的「第一次画时编」那条路（整个 `_warmBoot` / `_warmStage` 都跳过，小巷照旧闲时建），给真机对比用。
+6. **不降画质、不减效果、不加每帧分配**：只改了什么时候编；每帧的代码一行没加（`_loop` 只多一句 `if (this._warming) return;`）。标题的入场动画、主菜单的入场节奏一个没动。
+
+**改了什么**（`dd8cce1`、`28dda68` 两个提交 + 这一节；代码 +152 / −34，测试 +166，探针 +156）：
+- `src/core/shader-warm.js`（新，65 行）：`warmTarget` / `freshPrograms` / `useProgram` / `warmList` / `usePrograms` / `warmScene`。
+- `src/main.js`：启动 0.85 那一段换成 `_warmBoot`；热身帧之后报 `__gfBeat`；闲时建小巷只留给 `?lazycompile`；新的 `_warmBoot` / `_warmStage`、`MAIN_PORTRAIT`；`startMatch` 淡入前 `await this._warmStage()`；`_loop` 一行。
+- `src/game/showcase.js`：`warm(o)`、`_warmup(o)` 改成按目标的 `warmScene` + 返回 promise；`preloadLobby(o)` / `_lobEnsure(o)` / `_lobLoad(L, o)`（`L.loading`）、小巷按 HDR 目标编。
+- `tools/learn/hitch-probe.mjs`（新）：她 App 的路（`index.html?from=app&today=w1d3`，`--native iphone16`，390 × 844 @ 3）：加载 → 标题（停 6 秒、≥ 3 帧）→ 真的点一下 → 主菜单（停 10 秒）→ 点「开始今天的关」→ 关卡（淡入以后 8 秒、≥ 3 帧）；每个阶段记 `gl.linkProgram`（每个按片元着色器标上名字）、第一次使用（three 的 `ACTIVE_UNIFORMS`：串行驱动真正编译、整页停住的地方）、长任务（`PerformanceObserver('longtask')`）、帧，和 `renderer.info.programs.length`；看门狗跳走了就算失败。不截图。
+- `tests/learn/menu-hitch.test.mjs`（新，7 条）。
+
+**动了别人地盘的**：`main.js` 的 `startMatch`（淡入前一行 `await this._warmStage();`）和 `_loop`（一行，单独成句——`book.test` 量的那一行原样）；不在表里的这两处都只加不改。`menus.js` 一行没动（只从 `main.js` 调它的 `_portraitInto`，尺寸写成 `MAIN_PORTRAIT`，测试核对它和主菜单那张一样大）。`character.js`、`renderer.js`、`texlib.js` 没动。
+
+**测试**：`npm run test:learn` 314 → 321（新 `menu-hitch.test` 7 条：`warmList` 一种材质一个物体（数组材质各算）；`warmScene` 对着给的目标编、每个新程序正好用一次、目标放回去（编的时候抛错也放回去）、画布是另一套程序；每片之间报一声、让一下，替身时钟上两次报之间不超过「一片 + 一个程序」，`usePrograms` 先用掉以前留下的、不重复用；启动的顺序（0.85 → 预热 → 0.93 → 标题）、预热清单（舞台 → 每个出场的小鱿鱼 → 展示台 → 小巷 → 主菜单的头像，舞台按合成器的目标）、每片报 `__gfBeat` 并挪加载条、热身帧之后报、闲时建小巷只在 `?lazycompile`、头像尺寸 = 主菜单那张；看门狗本身（60 秒没报才回课本、启动完不再看）；展示台三处各按自己的目标、小巷按 HDR 目标而且编好才 `ready`、`preloadLobby` 返回 promise、头像仍等预热；关卡 `m.start()` → `_warmStage` → 淡入、在黑场里、循环停着、先编再画一帧）。`npm run check` 297 个文件。
+
+**实测**（浏览器 4 次，都在锁里、一次一个，每次 ≤ 10 分钟；探针不截图）。`hitch-probe --native iphone16`（390 × 844 @ 3，today = w1d3，SwiftShader，4 核；秒数只看相对，程序数和设备无关）：
+
+| 阶段 | 改之前：程序 / 第一次使用（阻塞） / 最长的长任务 | 改之后：程序 / 第一次使用（阻塞） / 最长的长任务 |
+|---|---|---|
+| 加载（到标题） | 122 / 94（57.7 s） / 26.2 s，共 85.9 s | 163 / 163（99.4 s） / 31.6 s，共 122.4 s（预热 45.1 s、89 个程序、100 片） |
+| 标题（停 6 秒 + 3 帧） | 36 / 4（38.9 s） / 33.5 s | 1 / 1（26 ms） / 58 ms |
+| **主菜单出来后 10 秒** | **1 / 1（24.3 s） / 37.9 s** | **0 / 0 / 188 ms** |
+| 主菜单之后到点开局 | 11 / 11（13.4 s） | 0 / 0 |
+| 点「开始今天的关」→ 淡入 | 27 / 0 / 58.9 s | 59 / 55（14.9 s） / 50.7 s（黑场里那一帧真画） |
+| **关卡淡入以后** | **33 / 40（17.3 s）** | **0 / 0 / 没有长任务** |
+
+- `renderer.info.programs.length`：改之前 加载完 103 · 标题 130 · 主菜单 10 秒 136 · 关卡 166；改之后 131 · 132 · 132 · 161。**到主菜单为止编的程序一样多（136 → 132）**，只是从标题 / 主菜单挪到了加载画面里（小巷也在里面——以前它在标题画面的 2.5 秒时建）。
+- 主菜单出来到它第一帧画完：46.3 s → 8.7 s；剩下的 8.7 s 里主线程几乎是空的（长任务一共 0.48 s、帧的 CPU 27 ms），是 SwiftShader 在 dpr 3 下画一帧本身就要几秒（标题画面上也是每 4–5 秒一帧）——在 iPhone 上就是一帧。关卡淡入到第一帧：58.9 s → 11.4 s（同样没有长任务）。
+- 加载在 SwiftShader 上长了 36 s（85.9 → 122.4 s）：同样那些程序挪进来了，加上 `compile` 和真画对不上的那几十个（热身帧又编了 42 个：后期、阴影、路灯这些随帧变的；它们以前也在这里编）。**看门狗**：三次改后的跑都没跳走；加载里最长的一段不报 `__gfBeat` 的是 31.6 s（第一次使用在等 GPU 进程里排着的环境烘焙 / 上传，改之前同一处是 26.2 s），远在 60 s 以内；iPhone 上是毫秒级。IELTS-Base `tests/game-first-e2e.mjs` 的启动等 240 秒（dpr 1），够。
+- 中间两次：第 2 次（暂停时让循环接着画）主菜单已经是 0，但开局 280 s——每个程序都排在上一帧 7.5 s 的 GPU 后面 → 改成停循环；第 3 次关卡淡入后还剩 1 个程序 → 把预热挪到 `m.start()` 之后、再真画一帧；第 4 次是上表。
+
+**拿不准的（自己定了）**：
+1. 小巷在她的 App 里也在加载画面建（她很少联机）：以前反正是标题画面的 2.5 秒时建，内存一样；挪进来以后启动长一点、主菜单不再被它压住。要省启动可以 `from=app` 不建（第一次进联机时现建，那时会先看见场地一下）——一处判断。
+2. 标题画面还剩 1 个程序（SwiftShader 上 26 ms，一个没名字的 ShaderMaterial，多半是出场比赛里机器人第一次用到的某个效果——效果是第一次用时才建的）；主菜单那 10 秒四次都是 0，但出场比赛一直在打，理论上哪个特殊武器第一次放出来还会编一个。没去追。
+3. 联机开局（`startNetMatch`）没加 `_warmStage`：那边淡入是「等别人加载时先看着场地」，不是黑场；它还是 `warmAll`。
+
+**没做的**：真机（iPhone 13 / 16 的 WKWebView 里加载画面长了多少，要真机看；用 `?lazycompile` 可以对比）；`texlib.js` 没动——它的生成是 GPU 渲染 + 一次回读，在加载的 15–40 秒那一段（SwiftShader 上 20 多秒的长任务），不是菜单的事；热身帧里那 42 个（`compile` 和真画对不上的：随帧改的定义、后期、阴影）还是一帧里一起编，没拆。
+
+**交接**：分支 `menu-hitch`（从 dev `3559fc8` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；`tests/game-first-e2e.mjs`、`tests/book-e2e.mjs` 主会话合并时跑。`docs/DEVLOG.md` 没改。

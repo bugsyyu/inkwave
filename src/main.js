@@ -30,6 +30,7 @@ import { CameraRig } from './game/cameraRig.js';
 import { Match } from './game/match.js';
 import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
+import { warmScene, warmTarget, usePrograms } from './core/shader-warm.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
 import { buildLearn, buildNetLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
@@ -41,6 +42,7 @@ const params = new URLSearchParams(location.search);
 // solo offline (never with bots); without it such a stage only ever loads for an online match
 const DEV_STAGE = params.has('devstage');
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const MAIN_PORTRAIT = 160;   // the main menu's head portrait (menus.js _scr_main): rendered in the loading screen, cached for it
 const REFRESH_RATES = [30, 48, 50, 60, 75, 90, 100, 120, 144, 165, 240]; // common display rates (Hz)
 
 // ------------------------------------------------------------------------------------------ persistence
@@ -297,24 +299,20 @@ class Game {
     // warm up: compile every shader now so the first shot/splat never hitches
     await progress(0.85, t('boot.warm'));
     this._warmup();
-    // Shader compile. three.js's compileAsync calls compile() SYNCHRONOUSLY as its first statement — the extension
-    // only lets the driver do the work in the background while the main thread carries on. Without
-    // KHR_parallel_shader_compile (true of most Android phones, including the Adreno 730 this was debugged on) that
-    // becomes one blocking burst building every program in the scene back to back, and on that device the burst is
-    // what kills the WebGL context. Where the extension is absent, skip the burst: each material then builds its
-    // program the first time it is actually drawn, spread over the warm-up frames and the first seconds of the
-    // attract match — a few hitches instead of a dead context. ?lazycompile forces this path on a desktop that has
-    // the extension, so it can still be exercised without a phone.
-    const parallelCompile = !!G.renderer.getContext().getExtension('KHR_parallel_shader_compile');
-    if (parallelCompile && !params.has('lazycompile')) {
-      try { await G.renderer.compileAsync(scene, camera); } catch { G.renderer.compile(scene, camera); }
-    } else {
-      console.info('[inkwave] compiling shaders lazily (no KHR_parallel_shader_compile)');
-    }
+    // Shader compile (LEARN §40). three.js's compileAsync calls compile() SYNCHRONOUSLY as its first statement — the
+    // extension only lets the driver do the work in the background while the main thread carries on. Without
+    // KHR_parallel_shader_compile (WebKit — her iPhone —, SwiftShader, most Android phones, including the Adreno 730 this
+    // was debugged on) a program is really built the first time it is used, and one blocking burst building every
+    // program in the scene back to back is what killed that device's WebGL context. Leaving it all to first draw put it
+    // on the title's and the main menu's first frames instead (38 s of SwiftShader before the main menu's first frame).
+    // So everything the title, the main menu and the online alley will draw is built here, behind the loading bar, a
+    // program at a time with a frame between slices (_warmBoot). ?lazycompile keeps the old first-draw path.
+    if (!params.has('lazycompile')) await this._warmBoot(!params.has('autostart') && !params.has('learn'));
+    else console.info('[inkwave] compiling shaders lazily (?lazycompile)');
     for (const m of this._warmMeshes || []) { G.scene.remove(m); }
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
     await progress(0.93, t('boot.warm'));
-    for (let i = 0; i < 3; i++) { this._frame(1 / 60); await nextFrame(); }
+    for (let i = 0; i < 3; i++) { this._frame(1 / 60); window.__gfBeat?.(); await nextFrame(); }   // (the post passes and the shadow pass build here)
     await progress(1, t('boot.ready'));
     await new Promise((r) => setTimeout(r, 250));
 
@@ -330,8 +328,9 @@ class Game {
     });
     G.mode = 'menu';
     this.menus?.show(params.has('skipTitle') ? 'main' : 'title');
-    // the online hub / lobby set loads in the background once the menus are idle (no arena flash on the first visit)
-    if (!params.has('autostart')) setTimeout(() => { if (G.mode === 'menu') this.showcase.preloadLobby?.(); }, 2500);
+    // the online hub / lobby set: built in the loading screen (_warmBoot); with ?lazycompile in the background once the menus
+    // are idle, as before (no arena flash on the first visit)
+    if (params.has('lazycompile') && !params.has('autostart')) setTimeout(() => { if (G.mode === 'menu') this.showcase.preloadLobby?.(); }, 2500);
     this._applyAudioVolumes();
     requestAnimationFrame((t) => this._loop(t));
     // ?learn=w1d1&kind=puzzle — straight into a learning level (the main menu's 学习 · Learn does the same by hand);
@@ -452,6 +451,34 @@ class Game {
     return level.blocks.filter((b) => (b.aligned || Math.abs(b.axes[1].y) > 0.9999) && b.aabbMax.y < 0.01 && b.aabbMax.y > -2.5 && b.aabbMin.y < -1)
       .map((b) => ({ minX: b.aabbMin.x, maxX: b.aabbMax.x, minZ: b.aabbMin.z, maxZ: b.aabbMax.z,
         ...(b.aligned ? {} : { cx: b.center.x, cz: b.center.z, hx: b.half.x, hz: b.half.z, ax: b.axes[0].x, az: b.axes[0].z }) }));
+  }
+
+  // Boot shader warm-up (LEARN §40), behind the loading bar: the attract match's kids (every tier, a kid at a time), the
+  // whole stage (every material, not only what the loading camera saw — the title orbits), the showcase studio and its
+  // portraits, the online alley when the menus come next (lobby), and the main menu's own head portrait (rendered by the
+  // warm frames, cached for the menu). Each a program at a time; every slice beats her App's boot watchdog (index.html
+  // __gfBeat — a slow device's long compile is a moving boot, not a hung one) and nudges the bar on from 0.85.
+  async _warmBoot(lobby) {
+    const t0 = performance.now(), label = t('boot.warm');
+    let n = 0;
+    const beat = () => { window.__gfBeat?.(); this.menus?.setLoading(0.85 + 0.075 * (1 - 1 / (1 + ++n / 30)), label); };
+    const o = { beat, pause: nextFrame };
+    const p0 = G.renderer.info.programs.length;
+    const target = this.R.composer?.readBuffer || warmTarget();
+    try {
+      // the stage first (the kids' own tier among it, a material at a time), so each kid's warmAll — every tier and its
+      // cross-fade twins in one compile, the one burst left here — only adds what is still missing
+      await warmScene(G.renderer, G.scene, G.camera, { ...o, target });
+      for (const a of this.match?.actors || []) {
+        if (!a.character?.warmAll) continue;
+        try { await a.character.warmAll(); } catch (e) { console.warn('[inkwave] warm', e); }
+        beat(); await usePrograms(G.renderer, o);
+      }
+      await this.showcase.warm(o);
+      if (lobby) await this.showcase.preloadLobby(o);
+      this.menus?._portraitInto?.(document.createElement('span'), { kind: 'head', size: MAIN_PORTRAIT });
+    } catch (e) { console.warn('[inkwave] boot warm-up', e); }
+    this.bootWarm = { ms: Math.round(performance.now() - t0), programs: G.renderer.info.programs.length - p0, slices: n };
   }
 
   _warmup() {
@@ -897,7 +924,20 @@ class Game {
       this.rig.yaw = 0; this.rig.pitch = -0.12; this.rig.dioFlip = false;
       this.hud?.setVisible(true);
     }
+    await this._warmStage();
     this._fade(0, 500);
+  }
+
+  // Before the fade-in (LEARN §40): every program the started round has (its kids' — warmed above, not yet used —, the
+  // level's own props) built and used once, then one real frame (shadow and post passes too) — all while the screen is
+  // still black, instead of in the round's first frames. The loop holds meanwhile (_warming): no frame draws, nothing moves.
+  async _warmStage() {
+    if (params.has('lazycompile')) return;
+    this._warming = true;
+    try {
+      await warmScene(G.renderer, G.scene, G.camera, { target: this.R.composer?.readBuffer || warmTarget(), pause: nextFrame });
+      this._frame(1 / 60);
+    } catch (e) { console.warn('[inkwave] stage warm-up', e); } finally { this._warming = false; }
   }
 
   // 关卡学习: build the day's level (or the week's boss) in the asked form and start it as a 'learn' match on the
@@ -1255,6 +1295,7 @@ class Game {
     this._lastTs = ts;
     this.timer.update(ts); let dt = Math.max(0, this.timer.getDelta());
     if (this.frozen || this._building || this._bookHold) return;
+    if (this._warming) return;   // (a round's shaders being built behind the black, _warmStage)
     this.fpsAcc += dt; this.fpsN++;
     if (this.fpsAcc > 0.5) {
       this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0;
