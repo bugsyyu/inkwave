@@ -2,8 +2,9 @@
 // Pure (Node tests import it): the menu's 'map' screen (src/ui/menus.js _scr_map) asks it what each node is and where it
 // sits; the store / the plan come in as functions, so nothing here loads a week.
 //
-//   courseMap({ weeks, days, progress(week, day) → { done, total }, plan(week, day) → { form } | null, today })
-//     → [{ week, days: [{ day, form, done, total, state, complete, now }], boss: { state } }]
+//   courseMap({ weeks, days, progress(week, day) → { done, total }, plan(week, day) → { form } | null, today,
+//               checkin(week, day) → 'done' | 'todo' | null })
+//     → [{ week, days: [{ day, form, done, total, state, complete, now, ci }], boss: { state } }]
 //   state:  'today'  her course's today (whatever its progress: the map's one "you are here")
 //           'done'   total > 0 and done ≥ total        'part'  0 < done < total
 //           'todo'   nothing yet — and a day with no scored items (total 0: a lesson, nothing to prove)
@@ -11,21 +12,25 @@
 //   complete: done ≥ total > 0 (and today when the lesson page says it is done: ?done=1) — the node's tick
 //   no today (plain INKWAVE, development): nothing is locked
 //   boss:   the week's 周考, open ('todo') once that week's day 7 is not locked
-export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null } = {}) {
+//   ci:     打卡 (LEARN §39) — her check-in for the day as the lesson page has it (profile.ci: 'done'), one still to make
+//           ('todo'), or none (no workbench here, no check-in step that day, or a locked day)
+export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null, checkin = null } = {}) {
   const T = today && today.week > 0 && today.day > 0 ? today : null;
   const after = (w, d) => !!T && (w > T.week || (w === T.week && d > T.day));
   const out = [];
   for (let w = 1; w <= weeks; w++) {
     const list = [];
     for (let d = 1; d <= days; d++) {
-      let p = null, f = null;
+      let p = null, f = null, c = null;
       try { p = progress ? progress(w, d) : null; } catch (e) { p = null; }
       try { f = plan ? plan(w, d) : null; } catch (e) { f = null; }
+      try { c = checkin ? checkin(w, d) : null; } catch (e) { c = null; }
       const total = Math.max(0, (p && +p.total) | 0), done = Math.min(total, Math.max(0, (p && +p.done) | 0));
       const now = !!T && w === T.week && d === T.day;
       const full = total > 0 && done >= total;
       const state = after(w, d) ? 'locked' : now ? 'today' : full ? 'done' : done > 0 ? 'part' : 'todo';
-      list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now });
+      const ci = c === 'done' ? 'done' : c === 'todo' && state !== 'locked' ? 'todo' : null;
+      list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now, ci });
     }
     out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo' } });
   }

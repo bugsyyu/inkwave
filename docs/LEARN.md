@@ -1796,6 +1796,58 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 
 **交接**：分支 `cine-polish`（从 dev `9f19767` 建出），10 个提交。合并后 IELTS-Base 那边 `app/game` 要重新同步。`docs/DEVLOG.md` 没改（主会话合并时写）。
 
+## 39. gf-checkin 交付（2026-10-19，子代理，分支 `gf-checkin`：游戏为主体 第二期——打卡写进她的账号，和经典页的打卡同一份记录）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md` 第二期；本文件 §16（她的账号怎么读写：`readBlob` 写前总是重读、其余字节不变、不建键、她的时区）、§32（贴纸画风）、§34（课程地图）、§37（课本：同源 iframe，书开着时书页的经典页内存里拿着她的数据）；`workbench.js` 开头；经典页 `app/index.html` 的 `rCheckin` / `saveCheckin` / `saveStepDrafts` / `stepDoneAct` / `completeStep` / `ensureDay` / `MOODS` / `MODULES` / `todayStr`（`nowWall` = 她的墙钟）/ `weeks()`（她的课程包先于内置第 1 周）、`core.js`（`t: 'checkin'` 的 evidence 不进 ev 文档）、`app/sync.js` 的 `localDocs` / `pendingChanges`（对内存里 `S` 的每篇算摘要）；游戏这边 `play/wire/exit.js`、`board/signs.js`、`flow.js` 的 `_results`、`touch.js`（`match.paused` 时触屏层不接手指）、`core/input.js`（键盘在 window 冒泡阶段收）、`play8.test` 的守则（学习层里 `match.paused = true` 只许在 `_results`：关卡结束了）。
+
+**先定的**：
+1. **写成和经典页一模一样**：经典页的打卡是两步——「保存打卡」只存 `profile.ci[dayId] = { mood, note, date }`；这一步「做完」（`stepDoneAct`：先 `saveStepDrafts` → `saveCheckin`，再 `completeStep`）另记 `profile.cp['<dayId>:<步骤>'] = date` 和 `days['YYYY-MM'].days['DD'].done['c:<dayId>:<步骤>'] = { m, k }`。游戏里没有单独的「做完」，**保存打卡 = 经典页的保存 + 这一步做完**，三处都写（简报：「这一步做完另有记录，也照写」）。同样的空值规则（不在 MOODS 里的心情算没选、没选沿用存过的；没给备注沿用存过的；去首尾空白、≤ 500 字；什么都没填也能存，经典页也是）；日期按她的时区（`wallZone` / `wallParts`，没设 = 新加坡）。`cp` 只在第一次写（改备注时只改 `ci`、日期跟着改成今天——经典页也这样），`days` 那一笔跟着 `cp`。步骤从哪来：她的课程包里有这一天就用包里的（包里这一天没有打卡步骤 = 这一天没有打卡），否则用游戏的课程（`design.js` `DAY_PLAN` 的 signs）；第 1 周第 7 天本来就没有打卡步骤，不出卡片。
+2. **其余字节不变**：读最新的 blob（`readBlob(…, { fresh: true })`）、换掉 `profile`（浅拷贝、只换 `ci` / `cp`）和 `days`（只换这个月这一天）、`JSON.stringify`——别的字段和文档是同一个值、同一段 JSON 文本（测试逐字节比）；没有她的 key（没有带 `profile` 的 blob）什么也不写、不建；同样的内容同一天存第二次一个字节都不写。存完 `invalidate()` + `mirror(ls)`（App 里 5 秒内把 blob 镜像进 App 目录，和 `native.js` 一样的格式；切后台时 `store` 的 pagehide 照旧 `mirrorFlush`）。
+3. **同步**：经典页的同步只看内存里的 `S`（`pendingChanges` 对每篇本机文档算摘要）——游戏写了 localStorage 以后，经典页下次载入（App 启动先跑经典页、课本打开、另一个标签页的 `storage` 事件）读进来的就是新的，`profile/main` 和 `days/YYYY-MM` 两篇的摘要变了，下一轮同步推上去。IELTS-Base 那边加了单元测试证明（见下）。
+4. **课本开着不弹**：书页是同源 iframe、里面的经典页拿着同一份数据；`openCheckin` 先问 `checkinGate({ view, book: bookOpen() })`（书的 `.iw-book__frame` 在页面上、或者菜单在 'book' 屏）→ 'book' 就不出卡片。打卡的三个入口（打卡垫、主菜单、课程地图）书开着时本来都碰不到；书合上后游戏 `invalidateWorkbench`，再读就是书页写过的。写之前总是重读，书页的改动（别的天的打卡、日志）原样留着。
+5. **打卡垫：关卡结束时出卡片**（不在关卡中途停）：踩上垫子照旧墨灌满、光圈、`refill_full`、题条「这一天走完了 ★」；如果她的账号在、这一天还没打卡，`ExitStation` 记下 `wantCard`；0.9 秒后 `flow._results`（它本来就把比赛停住、交还鼠标）先出打卡卡片，卡片收起再出结果卡。所以学习层里 `match.paused = true` 还是只在 `_results` 里（play8 的守则），触屏层在卡片下面也不接手指（`match.paused`）。已经打过卡的那天（经典页打的也算）不再弹，结果照旧。
+6. **卡片**（`src/ui/checkin-card.js`）：自己的 `.iw-ui` 宿主（z 40，压在菜单和关卡 HUD 上面，用菜单的墨色）；「打卡 · 第 N 周第 M 天」斜贴的彩带、「今天感觉怎么样？」（中文 800 + 墨描边）、三个心情贴纸（经典页的 😊 轻松 / 🙂 还行 / 😵 有点难：圆脸贴纸 + 字，选中的那个换成她的墨色、抬起来、脸弹一下，别的压暗）、「今天最难的地方，或者想问老师的问题」（纸白的输入框、墨描边、16 px——iPhone 聚焦不放大；一行长到三行，再多在框里滚；快到 500 字才显示字数）、「先不写 / 保存打卡」（打过卡的是「关上 / 保存修改」，下面一行「已保存 · 10 月 19 日」）。**落章**：一枚她墨色的圆章从上面砸下来（先抬、22% 处在半空、34% 砸到 0.86 倍并停两三帧、回弹到 1.06、落定斜 12°），`stamp_slam`，章落下的那一帧卡片被砸得一沉（`is-hit`）、章周围溅墨（`inkBurst`），1.1 秒后卡片收起。按下当帧：`pointerdown` 就加 `is-down`（沉进自己的投影、`transition-duration: 0s`）。减少动态效果：只淡入淡出（卡片、心情、章都不动，章直接淡出来）。
+7. **键盘和软键盘**：卡片上的 `keydown` / `keyup` 在卡片根上 `stopPropagation`（游戏的 `core/input.js` 在 window 冒泡阶段收，所以打的字不会变成 WASD / Esc / 暂停）；Esc 关、⌘ / Ctrl + Enter 存。卡片的框跟着 `visualViewport`（`top = offsetTop`、`height = height`）：软键盘弹起时框缩到键盘上面、卡片贴底；横屏手机键盘弹起时只留备注和两个按钮（彩带、标题、心情先藏起来，键盘收起就回来）。
+8. **课程地图 / 主菜单**：`courseMap` 多一个 `checkin(week, day)` 输入、每天多一个 `ci`（'done' 经典页的 `profile.ci` 有日期、'todo' 有打卡步骤还没打、null 没有她的账号 / 没有打卡步骤 / 锁着的天）；地图上打过卡的那天节点左下角盖一枚白色小贴纸，贴的是她选的心情脸（没选心情是 ✓）；地图顶上一颗「今天还没打卡 · 打卡」的胶囊（打过了是「今天打过卡了 😵 · 改一改」）；主菜单（App 里、有今天）在「课程地图」下面多一颗「今天的打卡」（第二行「还没打卡 · 心情和想问老师的话」/「打过了 · 😵 有点难 · 点开可以改」），存完当场改字、图标弹一下。
+
+**改了什么**：
+- `src/learn/workbench.js`（只加）：`MOOD_IDS`、`NOTE_MAX`、`herCheckin`、`checkedIn`、`packCheckinStep`、`checkinEntry`、`saveCheckin`。
+- `src/learn/checkin.js`（新，纯）：`MOODS`、`dayIdOf`、`planCheckinStep`、`checkinView`、`checkinGate`。
+- `src/ui/checkin-card.js`（新）：`openCheckin`、`bookOpen`、`checkinFor`、`isOpen`。
+- `src/learn/course-map.js`：`checkin` 输入、每天的 `ci`。
+- `src/ui/menus.js`：主菜单 `_checkinItem`、`MOOD_FACE`；课程地图 `checkin` / 节点上的贴纸 / 顶上的胶囊。
+- `src/learn/play/wire/exit.js`：`_checkin` 记 `wantCard`、`card(then)`；`_classic` 的提示给打卡一句自己的（原来落到「入门小测在经典页」）。
+- `src/learn/flow.js`：`_results` 先问 `play.exit.card`，结果卡挪进 `_resultsCard`（内容一字没改）。
+- `styles/ui.css` 末尾一节「游戏为主体 第二期: 打卡」。
+- `tests/learn/checkin.test.mjs`（新）；`tests/learn/course-map.test.mjs` 三个 `deepEqual` 的期望多一个 `ci: null`（字段多了，断言一样严）。
+
+**动了别人地盘的**：`flow.js`（`_results` 拆成两段，结果卡的内容一字没动）、`play/wire/exit.js`（只加 + 一句提示）、`course-map.test.mjs`（见上）。`src/main.js`、`showcase.js`、`texlib.js`（menu-hitch 的）一行没动。
+
+**IELTS-Base 那边**（分支 `gf-checkin`）：`tests/base/game-checkin.test.mjs`（新，3 条：经典页自己打一次卡写下的正是游戏写的三处、心情选项一样；经典页载入游戏写过的数据——表单里是那句、心情按下、「已保存」、这一步做完、周报里有；同步把 `profile/main` 和 `days/2026-10` 两篇推上去、别的不推）——和本仓库 `checkin.test.mjs` 用同一份 `CONTRACT` 字面量；`tests/base/load-host.cjs` 的 `EXTRA` 只加三个名字（`MOODS`、`rCheckin`、`saveStepDrafts`）；`tests/checkin-e2e.mjs`（新，浏览器）；`docs/GAME-FIRST.md` 第二期「打卡」打勾。
+
+**测试**：`npm run test:learn` 314 → 324（+10 `checkin.test.mjs`：写对位置且逐字节只多这三处、镜像跟上；没有 key 不建、没有打卡步骤 / 坏的 day id 不写；同样的内容存两次只写一次、改备注只改 ci；空值规则；四个时区的日期；她的课程包优先、包里没有打卡的那天没有；课本开着 'book' 不弹、书页写过的不被盖掉；课程地图读经典页的记录；入口接线 / 按键不漏 / 可见视口 / ≥ 44 / 当帧按下 / 落章 / 减少动态只淡入 / 动画只动 transform 和 opacity），`npm run check` 297 个文件。
+
+**实测**（浏览器 3 次，都在锁里、一次一个、每次 ≤ 10 分钟；本仓库 `python3 tools/build-dist.py` 打的 dist/ 当游戏，用完删了；截图看完按路径删了）：
+1. IELTS-Base `tests/checkin-e2e.mjs --game <dist>`（390 × 844 触屏，新加坡时间，现编的今天才开始的课程）：13 / 14——横屏那一条没过：转成 844 × 390 以后量到卡片还在 844 高的框里居中（y 264、高 315，下沿出屏）；截图（晚一点拍的）里卡片是在屏内的。原因：卡片的框原来一直写死成 `visualViewport` 的高度，转屏时那一下 `visualViewport` 的 resize 来得晚。改成：没有软键盘时框不写行内尺寸（就是 CSS 的整屏），软键盘弹起才跟 `visualViewport`；`window` 的 resize 也听。其余 13 条都过：主菜单「今天的打卡」在「课程地图」下面写着「还没打卡」；卡片的字、三种心情、竖屏在屏内、没有横向滚动、点按区 ≥ 44、备注 16 px；`pointerdown` 当帧 `is-down`；打的字进备注、游戏没把它当按键；落章、卡片收起；她的账号里 `ci.w1d1` / `cp['w1d1:c3']` / 当天 `done['c:w1d1:c3'] = { m: 5, k: 'review' }`；按钮马上写着「打过了 · 😵 有点难」；课程地图今天的节点盖了 😵、顶上「今天打过卡了」；课本开着 `openCheckin` 回 null、页面上没有卡片；书合上后打卡还在；回课本：经典页的打卡表单里是那句、「有点难」按下、「已保存。」、这一步打了勾。截图看过：竖屏卡片（她的青色墨、贴纸描边、三张心情贴纸、纸白的备注、保存打卡）、横屏卡片（一排三张心情、备注、按钮都在屏内）、经典页的打卡那一步（第 03 步打了勾、表单里是游戏写的那句）。
+2. 同一个 e2e（改了框以后）：**14 / 14 过、没有页面错误**（约 3 分 16 秒）。落章和课程地图的截图都拍晚了（SwiftShader 下一张截图要一秒多：拍到的是卡片收起以后的主菜单——按钮已经是「打过了 · 😵 有点难」；地图那张拍到的是菜单层没画上的 3D 背景），DOM 的检查都过。
+3. 草稿目录里的一个看图脚本（不提交；dist 直接起、`debug.freeze()` 停住 3D 背景、dpr 2、第 1 / 2 天在经典页那边打过卡、今天第 3 天）：课程地图第 1 天的节点左下角 😊、第 2 天 😵、别的天没有，顶上「今天还没打卡 · 打卡」的胶囊（她的黄墨、墨描边、往下的实色投影）；从胶囊打开卡片、选「还行」、写一句、把章的状态加上：一枚她墨色的圆章斜盖在标题右边、「已打卡 · 10 月 19 日」、章下溅墨，卡片的白边 + 墨边 + 投影清楚。0 个页面错误。
+- **打卡垫那条路没在浏览器里走**（要整关走到出口，SwiftShader 下一关几分钟，三次给了菜单 / 地图 / 经典页这条主线）：接线由单元测试守着（`wantCard` 只在没打过卡时记、`_results` 先出卡片、结果卡在卡片收起后、学习层里 `match.paused = true` 仍只在 `_results`）。
+
+**拿不准的（自己定了）**：
+1. 游戏里「保存打卡」同时算这一步做完（写 `cp` 和 `days`）。不写的话，经典页里打卡那一步一直是没做完的样子、这一天永远差一步；写了以后和她在经典页「保存打卡 → 做完」一样（也会算进小红花：那一节其余步骤也做完时）。经典页的「做完」还会在页面里发 `step-done` / `evidence` 事件——那是页面内存里给页面自己的模块听的，不落盘，游戏不发（经典页下次载入时按 cp 算）。
+2. 什么都没选、没写也能存（经典页的「保存打卡」也能）；只有「先不写」不存。
+3. 落章停在卡片上 1.1 秒（减少动态时 0.7 秒）再收起：太快看不见章，太慢挡她的路。
+4. 打卡垫只在这一天还没打卡时出卡片（重玩以前的天、经典页里已经打过的，不再弹）；要改从主菜单 / 地图进。
+5. 手柄：卡片开着时菜单的手柄导航没有接管（键盘、鼠标、触屏都在卡片里）；她用 iPhone，不碰手柄。
+
+**没做的**：
+1. 真机（iPhone 13 的 WKWebView）：软键盘弹起时卡片跟着 `visualViewport` 贴到键盘上面——headless 模拟不了软键盘，代码路径在、单元测试只看接线；横屏手机键盘弹起时只留备注和按钮。要在真机上看一次。
+2. 打卡垫那条路的浏览器实测（见上）。
+3. 她的课程走到第 4 周以后（游戏只有三周的关）：主菜单那颗按钮在 `APP_TODAY.inGame` 时才有；`saveCheckin` / `checkinView` 本身认她课程包里的天（单元测试有 w5d2），只是游戏里还没有入口。
+4. `docs/DEVLOG.md` 没改（主会话合并时写）。
+
+**交接**：inkwave 分支 `gf-checkin`（从 dev `3559fc8` 建出）；IELTS-Base 分支 `gf-checkin`（从 `origin/main` `396218e3` 建出：只有测试和文档，没动 `app/`）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/checkin-e2e.mjs`（不带 `--game`）。IELTS-Base 那边的单元测试不依赖 `app/game/`（契约是两边各写一份的同一个字面量），先合哪边都不会红。
+
 ## 40. menu-hitch 交付（2026-10-19，子代理，分支 `menu-hitch`：主菜单一出来就卡住——着色器编译挪到加载画面后面，开局的挪到黑场里）
 
 **先读了什么**：§33（render-gov：档位只在启动时套、对局里不换档，因为换档要重编着色器）；IELTS-Base `docs/GAME-FIRST.md` 第一期（App 打开就是游戏、`index.html` 的启动看门狗：60 秒里没有一步报 `__gfBeat` 就回课本，启动完就不再看）；`main.js` 的启动（`progress` 每步报一声 `__gfBeat`；0.85「热身中」那一段：有 `KHR_parallel_shader_compile` 才整场景 `compileAsync`，没有就全留给第一次画——Adreno 730 上一次编一大串会丢 WebGL 上下文）、`startMatch` / `_warmCharacters`、`_loop`；`showcase.js` 的 `_warmup`（第一次 `update` 时 `compileAsync` 展示台 + 头像的 resolve）、`preloadLobby` / `_lobLoad`（菜单显示 2.5 秒后建联机小巷、`compileAsync`）、`portrait`；`character.js` 的 `warmAll`（按合成器的 HDR 目标编所有档位 + 交叉淡化的双胞胎）；three r186 的 `compile` / `compileAsync` / `WebGLProgram`（没有扩展时 `isReady()` 直接是 true，`compileAsync` 只是同步的 `compile`；程序真正编译在第一次 `getUniforms()`；程序按**画进去的目标**分：渲染目标是线性、不做色调映射，画布是 sRGB、做色调映射）；`renderer.js`（场景总是画进合成器的 HalfFloat 目标）；`tools/learn/parity-shots.mjs`。

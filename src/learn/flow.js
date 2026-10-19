@@ -459,6 +459,11 @@ export class LearnFlow {
     this.finishT = -1;
     this.match.paused = true;
     G.input?.exitLock?.();
+    // 打卡 (LEARN §39): the check-in card the 打卡垫 asked for comes first (the level is over and held); the results after it
+    if (this.play?.exit?.card?.(() => this._resultsCard())) return;
+    this._resultsCard();
+  }
+  _resultsCard() {
     let dueIds = []; try { dueIds = store.due(this.level.weekRef || this.week); } catch (e) { dueIds = []; }   // (A's store wants the week object: the level carries it as weekRef)
     const byId = new Map(); for (const g of this.level.gates) for (const it of g.items) byId.set(it.id, it);
     const due = dueIds.map((id) => byId.get(id)).filter(Boolean).map((it) => ({ en: it.en, zh: it.zh }));
