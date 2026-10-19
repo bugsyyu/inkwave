@@ -272,6 +272,12 @@ test('wiring: the duel tells the answer, the quiz run is loaded, the main menu /
   assert.match(Q, /addEventListener\('pagehide'/, 'a pending leaf goes when the page hides');
   assert.match(M, /const qz = this\._quizItem\(T\);\n\s+if \(qz\) items\.splice\(items\.indexOf\(ci \|\| mapBtn\) \+ 1, 0, qz\);/);
   assert.match(M, /this\._startLearn\(\{ week: T\.week, day: T\.day, kind: 'quiz' \}/);
+  // (regression, e2e run 1: her clock needs the engine the first week brings — on the very first main menu it is not
+  // there yet: quizFor says null instead of throwing, and the button comes once loadWeek has resolved)
+  const V = src('src/learn/exam-view.js');
+  assert.match(V, /try \{ return o \? quizOffer\(o, \{ week: T\.week, day: T\.day \}, todayDate\(store, now\), planOf\) : null; \} catch \(e\) \{ return null; \}/);
+  assert.match(V, /try \{ return o \? weekExam\(o, week, todayDate\(store, now\), planOf\) : null; \} catch \(e\) \{ return null; \}/);
+  assert.match(M, /loadWeek\(T\.week\)\.then\(\(wk\) => \{[\s\S]*?if \(!el\.querySelector\('\.iw-btn--quiz'\)\) \{\n\s+const q = this\._quizItem\(T\);/);
   assert.match(M, /exam: \(w\) => examFor\(w\), quiz: \(\) => \(T \? quizFor\(T\) : null\)/);
   assert.match(M, /this\._bookAt = \{ page: 'exam' \}; this\._go\('book'\);/, 'the pill opens the 课本 at 考试');
   assert.match(M, /if \(x\.boss\) this\._startLearn\(\{ week: W, day: LEARN\.days, kind: 'boss' \}, node\)/, 'the 周考 node still opens the game\'s boss');

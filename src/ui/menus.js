@@ -1145,6 +1145,16 @@ export class Menus {
       if (p && p.total > 0) bits.push(`今天 ${p.done} / ${p.total}`);
       if (n > 0) bits.push(`要复习 ${n} 个`);
       b.textContent = bits.join(' · ');
+      // (今日小考, LEARN §41: her clock needs the engine the week brought — the button comes now if it could not before)
+      if (!el.querySelector('.iw-btn--quiz')) {
+        const q = this._quizItem(T);
+        if (q) {
+          const qb = this._btn({ ...q, tilt: -1.1 });
+          qb.classList.add('iw-in', 'iw-in--left');
+          const at = el.querySelector('.iw-btn--checkin') || el.querySelector('.iw-btn[data-id="map"]') || b.closest('.iw-btn');
+          if (at) at.after(qb);
+        }
+      }
       const K = reviewK(wk, due);
       if (REVIEW_OK && K > 0 && !el.querySelector('.iw-btn--review')) {
         const rb = this._btn({ id: 'review', label: `复习 ${K} 个`, sub: '这一周该复习的词 · 一关清掉', icon: GLYPHS.reset, cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', tilt: 1.2,

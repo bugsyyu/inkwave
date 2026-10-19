@@ -12,14 +12,16 @@ export function todayDate(store = ls(), now = Date.now()) { const p = wallParts(
 function blob(store) { if (!present(store)) return null; const b = readBlob(store); return b ? b.o : null; }
 
 // today's quiz on the main menu / her today's node: exams.js quizOffer (null: none today, or no account)
+// (both need IELTS-Base's engine for her clock — loaded with the first week: until then they say null, and the menu
+// asks again once loadWeek has resolved)
 export function quizFor(T, store = ls(), now = Date.now()) {
   const o = T && T.inGame ? blob(store) : null;
-  return o ? quizOffer(o, { week: T.week, day: T.day }, todayDate(store, now), planOf) : null;
+  try { return o ? quizOffer(o, { week: T.week, day: T.day }, todayDate(store, now), planOf) : null; } catch (e) { return null; }
 }
 // the week's 周考 / 满月月考 as the page has it (exams.js weekExam), null without her account
 export function examFor(week, store = ls(), now = Date.now()) {
   const o = blob(store);
-  return o ? weekExam(o, week, todayDate(store, now), planOf) : null;
+  try { return o ? weekExam(o, week, todayDate(store, now), planOf) : null; } catch (e) { return null; }
 }
 
 // the words on the map: the node's second line, the pill over the map, the node's label for a screen reader
