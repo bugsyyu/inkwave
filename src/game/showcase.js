@@ -1615,6 +1615,8 @@ export class Showcase {
       L.scene.add(set.root);
       await set.ready;
       if (this.lob !== L) { set.dispose(); return; }
+      // (the set's first environment bake finishes here, with a beat; the bake in the team colours below gets its own, §42)
+      if (o.beat) await settle(this.r, { beat: o.beat, pause: o.pause || nextTick });
       this._lobDecks(L);
       this._lobColors();
       const warm = new this.CharacterClass({ color: L.colors[0].clone(), weapon: 'shooter', style: this._profileStyle(), name: 'warm', isLocal: false });
