@@ -1913,7 +1913,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 6. **小巷的环境图烘了 3 次只用最后一次**：构造里 `_bakeEnv` 烘一次（默认队色）、构造里 `setTeamColors(自己的颜色)` 又烘一次（一样的颜色）、`showcase._lobColors` 换成真的队色再烘一次。→ `lobbySet.js` 两处只加：`_rebakeEnv` 颜色和手里这张一样就直接用；构造多一个 `colors` 选项，`showcase` 传进要显示的两种队色——启动时只烘一次，结果和以前最后那次一样（同样的输入）。
 7. **她的 App 里（from=app）小巷要不要在加载里建**——§40「要主会话定的」第 1 条：**只量、没改行为**。见实测。
 
-**改了什么**（4 个提交 + 这一节；代码 +157 / −24，测试 +179，探针 +50）：
+**改了什么**（4 个提交 + 这一节；代码 +139 / −18，测试 +179，探针 +44 / −6）：
 - `src/core/shader-warm.js`：`variantKey`（新）、`warmList` 按材质 × 变体、`settle`（新）、`warmDraw`（新）。
 - `src/main.js`：贴图库传 `pause` / `sync: false`；环境之前 `settle`；`_warmBoot`：`settle` → `warmScene` → `warmDraw` → `_warmPaint` → 小鱿鱼……、`bootWarm.parts`；热身帧之前 `settle`；`_warmStage` 里 `_warmPaint`；新的 `_warmPaint`；`?proglog` 多记程序键。
 - `src/game/showcase.js`：热身的小鱿鱼留到第一张头像（`_warmKeep`）；小巷：建的时候带队色、两次 `settle`。
@@ -1921,7 +1921,7 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 - `tools/learn/hitch-probe.mjs`：心跳、带名字的第一次使用、`texHash`、`progKeys`。
 - `tests/learn/boot-polish.test.mjs`（新，10 条）。
 
-**动了别人地盘的**：`src/game/lobbySet.js`（这一批没人认领，只加）：`_rebakeEnv` 一行早退 + 注释、构造多一个 `colors` 选项和一行。`environment.js`、`paint.js`、`menus.js`、`character.js`、`renderer.js` 没动。
+**动了别人地盘的**：`src/game/lobbySet.js`（这一批没人认领）：`_rebakeEnv` 加一行早退 + 注释；构造的签名那一行多一个 `colors = null`（唯一改了的一行），下面加一行套颜色。`environment.js`、`paint.js`、`menus.js`、`character.js`、`renderer.js` 没动。
 
 **测试**：`npm run test:learn` 331 → 341（新 `boot-polish.test` 10 条：`variantKey` / `warmList`（一个材质在普通网格、实例化（有 / 没有实例颜色）、蒙皮、带顶点色上 = 5 个，第二个普通网格不算）；`warmDraw` 在替身渲染器上：一次一个物体、其余藏起来、它自己不裁剪、画进给的目标、让帧时全部放回、抛错也放回、可见性和裁剪原样、画过的不再「用一次」；`settle`：没有心跳 = 1 像素读画布（不是 finish）再报再让、有心跳 + WebGL2 = fence 轮询（每次一声、不读像素）、永不完成时到点就走；贴图库：`pause` 在层的 uniform 设之前、前后放回状态、回读只在 `sync`、启动传 `sync: false`；启动的顺序（贴图库 → settle → 0.4 → 环境；0.93 → settle → 热身帧；`_warmBoot` 里 settle → warmScene → warmDraw → `_warmPaint` → 小鱿鱼 → 展示台；`_warmPaint` 按墨图集的目标；关卡的 `_warmPaint` 在那一帧真画之前）；展示台：热身小鱿鱼不释放、第一张头像画完才释放、小巷两次 settle 的位置；小巷：`_rebakeEnv` 的源码拿出来在替身上跑（同色不烘、换色才烘、材质换上新图）、构造的 `colors` 在第一次烘焙之前、`showcase` 传的是 `_lobColors` 接着要发的颜色；探针的心跳 / 哈希 / 程序键）。`menu-hitch.test` 7 条一字没动、照样过。`npm run check` 299 个文件。
 
