@@ -220,7 +220,8 @@ test('the ways in: the pad\'s card comes as the level ends, the menu and the map
   // the card: keys stay in it; the box follows the visual viewport (the soft keyboard); the note ≥ 16 px (no zoom on focus)
   assert.match(card, /el\.addEventListener\('keydown', \(e\) => \{\s*\n\s*e\.stopPropagation\(\);/);
   assert.match(card, /visualViewport/);
-  assert.match(card, /vp\.style\.height = vv\.height \+ 'px'/);
+  assert.match(card, /vp\.style\.height = kb \? vv\.height \+ 'px' : ''/);
+  assert.match(card, /addEventListener\('resize', fit\);/);
   const css = src('styles/ui.css'), sec = css.slice(css.indexOf('游戏为主体 第二期: 打卡'));
   assert.match(sec, /\.iw-ci__note \{[^}]*font: 500 16px/);
   // ≥ 44 pt everywhere she taps

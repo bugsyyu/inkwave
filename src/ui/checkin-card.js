@@ -84,13 +84,15 @@ export function openCheckin({ week, day, from = 'menu', onClose = null } = {}) {
   };
   // the visual viewport: the card's box follows it (the soft keyboard shrinks it on a phone; WKWebView may scroll it)
   const vv = typeof visualViewport !== 'undefined' ? visualViewport : null;
+  // (no keyboard: the CSS box, the whole screen — a turn of the phone lays it out again whichever event comes first)
   const fit = () => {
-    if (!vv) return;
-    vp.style.top = Math.max(0, vv.offsetTop) + 'px';
-    vp.style.height = vv.height + 'px';
-    el.classList.toggle('is-kb', innerHeight - vv.height > 120);
+    const kb = !!vv && innerHeight - vv.height > 120;
+    el.classList.toggle('is-kb', kb);
+    vp.style.top = kb ? Math.max(0, vv.offsetTop) + 'px' : '';
+    vp.style.height = kb ? vv.height + 'px' : '';
   };
   if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
+  addEventListener('resize', fit);
   fit();
 
   const pick = (b) => {
@@ -112,6 +114,7 @@ export function openCheckin({ week, day, from = 'menu', onClose = null } = {}) {
     if (gone) return;
     gone = true;
     if (vv) { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }
+    removeEventListener('resize', fit);
     try { if (document.activeElement && el.contains(document.activeElement)) document.activeElement.blur(); } catch (e) { /* ignore */ }
     el.classList.add('is-out');
     setTimeout(() => { host.remove(); if (live === api) live = null; try { onClose && onClose(res); } catch (e) { console.error('[checkin]', e); } }, reduced ? 180 : 300);
