@@ -21,9 +21,9 @@ test('the five states: done / part / today / todo / locked — today wins over i
   assert.equal(m.length, 3);
   assert.equal(states(m, 1), 'done part today locked locked locked locked');
   assert.equal(states(m, 2), 'locked locked locked locked locked locked locked', 'a later week: all locked');
-  assert.deepEqual(m[0].days[0], { day: 1, form: 'puzzle', done: 10, total: 10, state: 'done', complete: true, now: false, ci: null });
-  assert.deepEqual(m[0].days[1], { day: 2, form: 'race', done: 4, total: 10, state: 'part', complete: false, now: false, ci: null });
-  assert.deepEqual(m[0].days[2], { day: 3, form: 'puzzle', done: 0, total: 10, state: 'today', complete: false, now: true, ci: null });
+  assert.deepEqual(m[0].days[0], { day: 1, form: 'puzzle', done: 10, total: 10, state: 'done', complete: true, now: false, ci: null, qz: null });
+  assert.deepEqual(m[0].days[1], { day: 2, form: 'race', done: 4, total: 10, state: 'part', complete: false, now: false, ci: null, qz: null });
+  assert.deepEqual(m[0].days[2], { day: 3, form: 'puzzle', done: 0, total: 10, state: 'today', complete: false, now: true, ci: null, qz: null });
   assert.equal(m[0].days[4].complete, false, 'a locked day never shows a tick, whatever the store says');
   // today done in the store, or the lesson page's ?done=1: still 'today', with the tick
   const d = courseMap({ progress, plan, today: { week: 1, day: 5 } });

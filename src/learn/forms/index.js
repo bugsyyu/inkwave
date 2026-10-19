@@ -28,6 +28,7 @@ import { Versus2Flow } from './versus2.js';
 import { Coop2Flow } from './coop2.js';
 import { shortenLevel, shortenBoss, phaseTimeTotal } from './common.js';
 import { RunnerFlow } from '../play/runner/runner.js';   // 墨浪跑酷 (LEARN §20, §23): the race as a lane runner
+import '../quiz-run.js';   // 今日小考 into her account (LEARN §41): the quiz's answers as the lesson page's quiz record
 
 // ['puzzle', 'race', 'duel', 'boss'] + the 今日小考 (one duel round, LEVELS §1.2) + 'runner' (play-4's ?kind=runner: the
 // same as 'race' now — the race IS the runner) + 'review' (复习关, LEARN §36: the main menu's 「复习 K 个」)

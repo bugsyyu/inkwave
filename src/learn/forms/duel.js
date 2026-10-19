@@ -26,6 +26,7 @@ import { duelFlood, streakKind, propOnRight, useProp, relearnPlan, starsOf, writ
 import { gateSpecs } from '../play/wire/boards.js';   // the step's M6 boards (the 备战 between rounds, play-8)
 import { noteSpec } from '../play/board/paint.js';
 import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
+import { answerText } from '../exams.js';   // (今日小考: her answer as text for the page's record, LEARN §41)
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
@@ -276,7 +277,7 @@ export class DuelFlow extends LearnFlow {
     const { r, first, hinted } = judgeRecord({ item, p, ans, o: { judged: o.judged, hinted: o.hinted }, store });
     if (first) { this.firsts++; if (r.ok) this.firstRight++; }
     if (r.ok) this.right.add(item.id);
-    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, flip: !!p._flip });
+    this._emit('learn:answer', { itemId: item.id, ok: r.ok, first, gate: g.id, hinted, relearn: !!item._relearn, flip: !!p._flip, pct: r.pct ?? null, ...answerText(item, p, ans) });   // (pct / resp / key: the 今日小考's record, LEARN §41)
     let again = false;
     if (r.ok) { if (item._relearn) this.relearnRight++; this.streak++; this.rightN++; this._onRight(); }
     else if (p._flip) { item._flipTyped = true; g.queue.unshift(item); again = true; G.audio?.play?.('ui_toggle', { volume: 0.5 }); }   // 不记得: type it right away

@@ -22,6 +22,7 @@
 // this is off and the game keeps its own evidence only. Everything here takes the storage object (getItem / setItem), so a
 // Node test hands in a Map-backed one; nothing reads app/my-progress.*.
 import { ieltsNow } from './ielts.js';
+import { EXAM_RE, DOC_V, quizToday, docForNew, tierOf } from './exams.js';
 
 export const DATA_KEY = 'ielts-workbench:data:v1';
 export const PREF_KEY = 'ielts-workbench:prefs:v1';
@@ -246,6 +247,60 @@ export function saveCheckin(ls, dayId, given, now, opt) {
   return { ok: true, changed: true, entry, stepDone, date };
 }
 const pad2 = (n) => (n < 10 ? '0' : '') + n;
+
+/* ───────────────────────────── 今日小考 (游戏为主体 第二期, LEARN §41) ───────────────────────────── */
+// The game's quiz written as the lesson page writes one (app/exam/store.js newSession + commit + the end), into the
+// page's exam document base['exam-<Monday>'] (src/learn/exams.js has the page's rules):
+//   s[sid] = { k: 'quiz', d, t0, n, bv, tier, ch, seed, p }   with the first answer (a session without an answer the page
+//                                                             would pick up as today's half-done quiz: §41 先定的 2)
+//   a[sid][q][hms] = leaf                                       one a question, the first answer of this run
+//   e[sid][hms] = answered                                      when the level ends
+// run = { sid, d, t0, week, rows, answers: { q: [hms, leaf] }, end: hms | null }. Today already has a quiz with an answer
+// (the page's, or an earlier run's) → this run is practice: nothing is written ({ practice: true }). Reads her latest
+// blob, replaces only that document (every other field and document: the same value, the same JSON text), writes nothing
+// when nothing changed, never creates her blob.
+// saveQuiz(ls, run) → { ok: true, changed, practice?, doc?, right, of } | { ok: false, reason: 'no-workbench' | 'empty' | 'save' }
+export function saveQuiz(ls, run) {
+  if (!isObj(run) || !/^q\d{6}-\d{4}-[0-9a-z]{4}$/.test(String(run.sid || '')) || !YMD_RE.test(String(run.d || '')) || !Array.isArray(run.rows)) return { ok: false, reason: 'empty' };
+  const b = readBlob(ls, { fresh: true });
+  if (!b) return { ok: false, reason: 'no-workbench' };
+  const base = isObj(b.o.base) ? b.o.base : {};
+  const qs = keys(isObj(run.answers) ? run.answers : {}).filter((q) => Array.isArray(run.answers[q]) && HMS_RE.test(run.answers[q][0]) && Array.isArray(run.answers[q][1]));
+  let docId = keys(base).find((id) => EXAM_RE.test(id) && isObj(base[id]) && isObj(base[id].s) && isObj(base[id].s[run.sid])) || null;
+  if (!docId) {
+    const q = quizToday(base, run.d);
+    if (q) return { ok: true, changed: false, practice: true, right: q.right, of: q.of };
+    if (!qs.length) return { ok: false, reason: 'empty' };
+    docId = docForNew(base, run.d);
+  }
+  const old = isObj(base[docId]) ? base[docId] : null, doc = Object.assign({}, old || { v: DOC_V });
+  if (doc.v == null) doc.v = DOC_V;
+  let changed = !old || old.v == null;
+  if (!(isObj(doc.s) && isObj(doc.s[run.sid]))) {
+    doc.s = Object.assign({}, isObj(doc.s) ? doc.s : {}, { [run.sid]: { k: 'quiz', d: run.d, t0: String(run.t0), n: run.rows.length, bv: 1, tier: tierOf(+run.week || 1), ch: +run.week || 1, seed: 'game', p: run.rows } });
+    changed = true;
+  }
+  const A = isObj(doc.a) && isObj(doc.a[run.sid]) ? doc.a[run.sid] : {}, A2 = Object.assign({}, A);
+  let added = 0;
+  qs.forEach((q) => {
+    if (isObj(A[q]) && keys(A[q]).length) return;   // (this question has its leaf: the first answer stands)
+    const [hms, leaf] = run.answers[q];
+    A2[q] = { [hms]: leaf };
+    added++;
+  });
+  if (added) { doc.a = Object.assign({}, isObj(doc.a) ? doc.a : {}, { [run.sid]: A2 }); changed = true; }
+  if (run.end && HMS_RE.test(run.end) && !(isObj(doc.e) && isObj(doc.e[run.sid]) && keys(doc.e[run.sid]).length)) {
+    doc.e = Object.assign({}, isObj(doc.e) ? doc.e : {}, { [run.sid]: { [run.end]: keys(A2).length } });
+    changed = true;
+  }
+  const mine = quizToday({ [docId]: doc }, run.d) || { right: 0, of: 0 };
+  if (!changed) return { ok: true, changed: false, doc: docId, right: mine.right, of: mine.of };
+  const o = Object.assign({}, b.o, { base: Object.assign({}, base, { [docId]: doc }) });
+  try { ls.setItem(DATA_KEY, JSON.stringify(o)); } catch (e) { return { ok: false, reason: 'save' }; }
+  invalidate();
+  mirror(ls);
+  return { ok: true, changed: true, doc: docId, right: mine.right, of: mine.of };
+}
 
 /* ───────────────────────────── her App's mirror ───────────────────────────── */
 // 游戏为主体 (IELTS-Base docs/GAME-FIRST.md 第一期): in her App the lesson page mirrors her data into the App's own folder
