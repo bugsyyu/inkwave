@@ -18,14 +18,25 @@ export function freshPrograms(renderer) { return renderer.info.programs.filter((
 /** Use a program once (three's own first use: where a serial driver compiles it). */
 export function useProgram(p) { _used.add(p); if (p.getUniforms) p.getUniforms(); }
 
-/** The objects to compile so that every material in `scene` is seen once (the first object that carries each). */
+/** What an object adds to its material's program key (three keys a program by it too): its kind, instancing (and instance
+ *  colours), skinning, batching, morphs, the geometry's optional attributes. (LEARN §42: one material on a mesh and on an
+ *  InstancedMesh is two programs — the second used to be built by the first real frame.) */
+export function variantKey(o) {
+  const g = o.geometry, a = (g && g.attributes) || {}, mo = (g && g.morphAttributes) || {};
+  return [o.type, o.isInstancedMesh ? (o.instanceColor ? 2 : 1) : 0, o.isSkinnedMesh ? 1 : 0, o.isBatchedMesh ? 1 : 0,
+    Object.keys(mo).map((k) => k + mo[k].length).join(' '), a.color ? a.color.itemSize : 0,
+    a.normal ? 1 : 0, a.tangent ? 1 : 0, a.uv1 ? 1 : 0, a.uv2 ? 1 : 0, a.uv3 ? 1 : 0].join();
+}
+
+/** The objects to compile so that every material in `scene` is seen once per variant (the first object that carries each
+ *  material × variantKey). */
 export function warmList(scene) {
-  const objs = [], mats = new Set();
+  const objs = [], seen = new Set();
   scene.traverse((o) => {
     if (!(o.isMesh || o.isPoints || o.isLine || o.isSprite) || !o.material) return;
-    const list = Array.isArray(o.material) ? o.material : [o.material];
+    const list = Array.isArray(o.material) ? o.material : [o.material], v = variantKey(o);
     let fresh = false;
-    for (const m of list) if (m && !mats.has(m)) { mats.add(m); fresh = true; }
+    for (const m of list) if (m && !seen.has(m.uuid + '|' + v)) { seen.add(m.uuid + '|' + v); fresh = true; }
     if (fresh) objs.push(o);
   });
   return objs;
@@ -62,4 +73,54 @@ export async function warmScene(renderer, scene, camera, o = {}) {
   }
   if (beat) beat();
   return { objects: objs.length, programs: made };
+}
+
+const _px = new Uint8Array(4);
+/** Let the GPU catch up — a one-pixel read of the canvas (WebGL's finish() is only a flush in Chrome): a draw or a bake
+ *  queued earlier (the texture library's layers, an environment PMREM) is waited for here, not inside the next program's
+ *  first use — then beat() and await pause(): a queued bake and a compile are two stretches of the boot, each with its own
+ *  beat, instead of one long silent one. */
+export async function settle(renderer, { beat = null, pause = null } = {}) {
+  const gl = renderer.getContext && renderer.getContext();
+  if (gl && gl.readPixels) {
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(null);
+    try { gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, _px); } finally { renderer.setRenderTarget(prev); }
+  }
+  if (beat) beat();
+  if (pause) await pause();
+}
+
+/** Draw `scene` for real into `target` (a tiny HDR target by default), an object at a time — the objects of warmList, every
+ *  other renderable hidden, culling off for the one drawn — so what compile() cannot see is built a program at a time too:
+ *  the shadow pass's depth programs (three picks them per object inside its shadow map), the lights as a frame counts them.
+ *  A draw is its programs' first use; once `slice` ms are spent, beat() and await pause() (everything shown again
+ *  meanwhile). → { objects, programs } */
+export async function warmDraw(renderer, scene, camera, o = {}) {
+  const { target = warmTarget(), beat = null, pause = null, slice = 24, now = () => performance.now() } = o;
+  const objs = warmList(scene), shown = [];
+  scene.traverse((x) => { if ((x.isMesh || x.isPoints || x.isLine || x.isSprite) && x.visible) shown.push(x); });
+  const p0 = renderer.info.programs.length, prev = renderer.getRenderTarget();
+  const hide = (on) => { for (const x of shown) x.visible = !on; };
+  let t0 = now();
+  hide(true);
+  try {
+    for (const ob of objs) {
+      const cull = ob.frustumCulled;
+      ob.visible = true; ob.frustumCulled = false;
+      renderer.setRenderTarget(target);
+      try { renderer.render(scene, camera); } finally { ob.visible = false; ob.frustumCulled = cull; renderer.setRenderTarget(prev); }
+      if (now() - t0 > slice) {
+        if (beat) beat();
+        if (pause) { hide(false); await pause(); hide(true); }
+        t0 = now();
+      }
+    }
+  } finally {
+    hide(false);   // (each drawn object was put back hidden; the ones shown before are shown again, the rest stay hidden)
+    renderer.setRenderTarget(prev);
+  }
+  for (const p of freshPrograms(renderer)) _used.add(p);   // (drawn: already used)
+  if (beat) beat();
+  return { objects: objs.length, programs: renderer.info.programs.length - p0 };
 }

@@ -30,7 +30,7 @@ import { CameraRig } from './game/cameraRig.js';
 import { Match } from './game/match.js';
 import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
-import { warmScene, warmTarget, usePrograms } from './core/shader-warm.js';
+import { warmScene, warmTarget, usePrograms, warmDraw, settle } from './core/shader-warm.js';
 import { ZoneMarks } from './fx/zoneMarks.js';
 import { BOSS_MODE } from './boss/bossMode.js';
 import { buildLearn, buildNetLearn, LEARN_KINDS } from './learn/forms/index.js';   // 关卡学习 (docs/LEARN.md, LEVELS.md): a day (or the week's boss) as a level of one of the four forms
@@ -181,8 +181,8 @@ class Game {
     if (params.has('proglog')) {
       const info = this.R.renderer.info;
       const push = info.programs.push.bind(info.programs);
-      window.__progLog = [];
-      info.programs.push = (...a) => { window.__progLog.push(a[0]?.name || '(unnamed)'); return push(...a); };
+      window.__progLog = []; window.__progKeys = [];   // (keys: [ms, name, three's cache key] — what a warm-up and a real draw disagree on)
+      info.programs.push = (...a) => { window.__progLog.push(a[0]?.name || '(unnamed)'); window.__progKeys.push([Math.round(performance.now()), a[0]?.name || '', a[0]?.cacheKey || '']); return push(...a); };
     }
     const scene = (G.scene = new THREE.Scene());
     const camera = (G.camera = new THREE.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.15, 6500));
@@ -256,10 +256,13 @@ class Game {
     this.murals = await createMuralTexture();
     try {
       const { createTextureLibrary } = await import('./world/texlib.js');
-      this.texlib = await createTextureLibrary(G.renderer, { size: (q.paintAtlas >= 4096 ? 512 : 256) * this.memK });
+      // (LEARN §42: a beat and a frame between layers once a slice is spent, and no closing readback — the GPU finishes the
+      // layers while the world builds; the same texels)
+      this.texlib = await createTextureLibrary(G.renderer, { size: (q.paintAtlas >= 4096 ? 512 : 256) * this.memK, pause: async () => { window.__gfBeat?.(); await nextFrame(); }, sync: false });
     } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
     this.zoneMarks = new ZoneMarks(scene);   // Zone Control ground markings: build / clear themselves on 'match:state'
+    await settle(G.renderer);   // (the texture library's last layers finish here, before this beat — not inside the environment's bakes)
     await progress(0.4, t('boot.harbor'));
     const B = G.level.bounds;
     G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: (this.R.q || q).shadowSize, footprint: this._footprint(G.level), forceDeckField: this.touchMode });
@@ -312,6 +315,7 @@ class Game {
     for (const m of this._warmMeshes || []) { G.scene.remove(m); }
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
     await progress(0.93, t('boot.warm'));
+    await settle(G.renderer, { beat: () => window.__gfBeat?.(), pause: nextFrame });
     for (let i = 0; i < 3; i++) { this._frame(1 / 60); window.__gfBeat?.(); await nextFrame(); }   // (the post passes and the shadow pass build here)
     await progress(1, t('boot.ready'));
     await new Promise((r) => setTimeout(r, 250));
@@ -465,20 +469,37 @@ class Game {
     const o = { beat, pause: nextFrame };
     const p0 = G.renderer.info.programs.length;
     const target = this.R.composer?.readBuffer || warmTarget();
+    const parts = {}, part = (k, t) => { parts[k] = Math.round(performance.now() - t); };   // (ms a part, for the probe)
     try {
       // the stage first (the kids' own tier among it, a material at a time), so each kid's warmAll — every tier and its
       // cross-fade twins in one compile, the one burst left here — only adds what is still missing
+      let t1 = performance.now();
+      await settle(G.renderer, o);   // (the environment's bakes and the attract match's set-up finish before the first compile)
       await warmScene(G.renderer, G.scene, G.camera, { ...o, target });
+      // then drawn for real, an object at a time: the shadow pass's depth programs and per-object variants (LEARN §42)
+      await warmDraw(G.renderer, G.scene, G.camera, o);
+      // and the ink atlas's own little scene (the splats, the drying pass — its first splat on the title built them, §42)
+      await this._warmPaint(o);
+      part('stage', t1); t1 = performance.now();
       for (const a of this.match?.actors || []) {
         if (!a.character?.warmAll) continue;
         try { await a.character.warmAll(); } catch (e) { console.warn('[inkwave] warm', e); }
         beat(); await usePrograms(G.renderer, o);
       }
+      part('kids', t1); t1 = performance.now();
       await this.showcase.warm(o);
+      part('showcase', t1); t1 = performance.now();
       if (lobby) await this.showcase.preloadLobby(o);
+      part('lobby', t1);
       this.menus?._portraitInto?.(document.createElement('span'), { kind: 'head', size: MAIN_PORTRAIT });
     } catch (e) { console.warn('[inkwave] boot warm-up', e); }
-    this.bootWarm = { ms: Math.round(performance.now() - t0), programs: G.renderer.info.programs.length - p0, slices: n };
+    this.bootWarm = { ms: Math.round(performance.now() - t0), programs: G.renderer.info.programs.length - p0, slices: n, parts };
+  }
+
+  // the ink atlas's scene (splats, the drying pass) compiled for the atlas it draws into (LEARN §42)
+  _warmPaint(o) {
+    const P = G.paint;
+    return P && P.scene && P.rt ? warmScene(G.renderer, P.scene, P.cam, { ...o, target: P.rt }) : null;
   }
 
   _warmup() {
@@ -936,6 +957,7 @@ class Game {
     this._warming = true;
     try {
       await warmScene(G.renderer, G.scene, G.camera, { target: this.R.composer?.readBuffer || warmTarget(), pause: nextFrame });
+      await this._warmPaint({ pause: nextFrame });   // (a level's world has its own ink atlas: its drying pass came after the fade-in, §42)
       this._frame(1 / 60);
     } catch (e) { console.warn('[inkwave] stage warm-up', e); } finally { this._warming = false; }
   }

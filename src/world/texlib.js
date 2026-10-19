@@ -1329,7 +1329,11 @@ float texlibCoverage(float a, vec2 uv, float texSize) {
 // Library construction
 // ---------------------------------------------------------------------------------------------------------------
 
-export async function createTextureLibrary(renderer, { size = 512 } = {}) {
+// opts.pause: awaited between layers once `slice` ms are spent (the boot: a beat of her App's watchdog + a frame — a layer
+// whose group program is used for the first time is where a driver without KHR_parallel_shader_compile compiles it); the
+// renderer's state is put back around each pause. opts.sync = false skips the closing one-pixel readback (a GPU stall
+// that only made stats.ms honest): the GPU finishes the layers while the boot goes on. Neither changes a texel.
+export async function createTextureLibrary(renderer, { size = 512, pause = null, slice = 24, sync = true } = {}) {
   const t0 = performance.now();
   const L = MATERIALS.length;
   const aniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
@@ -1384,7 +1388,14 @@ export async function createTextureLibrary(renderer, { size = 512 } = {}) {
   renderer.initRenderTarget(out);
   for (const t of out.textures) t.generateMipmaps = false;   // build the mip chain once, after the last layer
 
+  let tSlice = performance.now();
   for (let i = 0; i < L; i++) {
+    if (pause && i && performance.now() - tSlice > slice) {
+      renderer.setRenderTarget(prevRT); renderer.autoClear = prevAutoClear; renderer.xr.enabled = prevXR;
+      await pause();
+      renderer.autoClear = false; renderer.xr.enabled = false;
+      tSlice = performance.now();
+    }
     const m = MATERIALS[i];
     quads.forEach((q, k) => { q.visible = k === groupOf.get(i); });
     uniforms.uMat.value = i;
@@ -1395,8 +1406,8 @@ export async function createTextureLibrary(renderer, { size = 512 } = {}) {
     renderer.setRenderTarget(out, i);
     renderer.render(scene, cam);
   }
-  // wait for the GPU so the reported time is honest (one-pixel readback)
-  renderer.readRenderTargetPixels(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
+  // wait for the GPU so the reported time is honest (one-pixel readback) — not in the boot (sync: false)
+  if (sync) renderer.readRenderTargetPixels(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
 
   renderer.setRenderTarget(prevRT);
   renderer.autoClear = prevAutoClear;
@@ -1418,7 +1429,7 @@ export async function createTextureLibrary(renderer, { size = 512 } = {}) {
     meta,
     names: MATERIALS.map((m) => m.name),
     size,
-    stats: { ms: +(t1 - t0).toFixed(1), compileMs: +(tCompiled - t0).toFixed(1), size },
+    stats: { ms: +(t1 - t0).toFixed(1), compileMs: +(tCompiled - t0).toFixed(1), size, sync },
     dispose() { out.dispose(); },
   };
 }
