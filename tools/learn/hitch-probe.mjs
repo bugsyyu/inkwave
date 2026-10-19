@@ -45,13 +45,21 @@ const base = `http://127.0.0.1:${srv.address().port}/game/`;
 // in the page, before anything runs: long tasks, program links / first uses, and (once the game is up) menus.show + every frame
 function instrument(nat) {
   if (nat) window.__IELTS_NATIVE = nat;
-  const H = (window.__hp = { lt: [], link: [], use: [], marks: [], frames: [], prog: [] });
+  const H = (window.__hp = { lt: [], link: [], use: [], marks: [], frames: [], prog: [], names: [] });
   const now = () => performance.now();
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) H.lt.push([e.startTime, e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { H.noLT = String(e); }
   for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!C) continue;
-    const lp = C.prototype.linkProgram, gp = C.prototype.getProgramParameter;
-    C.prototype.linkProgram = function (p) { H.link.push(now()); return lp.call(this, p); };
+    const lp = C.prototype.linkProgram, gp = C.prototype.getProgramParameter, ss = C.prototype.shaderSource, at = C.prototype.attachShader;
+    // (each link labelled from its fragment shader: three's SHADER_NAME (the material's name), else the built-in it is,
+    // else its first uniform — enough to tell what a stage built)
+    const src = new WeakMap(), frag = new WeakMap();
+    C.prototype.shaderSource = function (sh, s) { src.set(sh, s); return ss.call(this, sh, s); };
+    C.prototype.attachShader = function (p, sh) { const s = src.get(sh) || ''; if (/gl_FragColor|out highp vec4|pc_fragColor|layout\(location/.test(s) || !frag.has(p)) frag.set(p, s); return at.call(this, p, sh); };
+    const label = (s) => { const n = /#define SHADER_NAME (\S+)/.exec(s); if (n) return n[1];
+      const b = /#define (STANDARD|PHYSICAL|LAMBERT|PHONG|TOON|MATCAP|DEPTH_PACKING|DISTANCE|USE_SHADOWMAP|BASIC)\b/.exec(s); if (b) return 'three:' + b[1];
+      const u = /uniform\s+\w+\s+(\w+)/.exec(s); return 'raw:' + (u ? u[1] : '?'); };
+    C.prototype.linkProgram = function (p) { const t = now(); H.link.push(t); H.names.push([t, label(frag.get(p) || '')]); return lp.call(this, p); };
     // (three's WebGLUniforms asks ACTIVE_UNIFORMS once per program, on its first use: where a serial driver blocks)
     C.prototype.getProgramParameter = function (p, k) {
       if (k !== 0x8B86) return gp.call(this, p, k);
@@ -64,7 +72,9 @@ function instrument(nat) {
     clearInterval(iv);
     H.booted = now(); H.marks.push(['booted', H.booted, g.menus.current]);
     H.prog.push(['booted', window.__G.renderer.info.programs.length]);
-    H.bootWarm = g.bootWarm || null;
+    H.bootWarm = g.bootWarm || null; H.bootMarks = g.bootMarks || null;
+    const fade = g._fade.bind(g);
+    g._fade = (to, ms) => { H.marks.push(['fade:' + to, now()]); return fade(to, ms); };
     const show = g.menus.show.bind(g.menus);
     g.menus.show = (name, o) => { H.marks.push(['show:' + name, now()]); return show(name, o); };
     const frame = g._frame.bind(g);
@@ -108,8 +118,10 @@ try {
   T.today = await pnow();
   const bb = await page.locator('.iw-btn--today').boundingBox({ timeout: 300000 });
   await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
-  await waitFor(() => __hp.marks.some((m) => m[0] === 'state:match:playing'), null, 600, 'the level never went live');
-  T.go = await page.evaluate(() => __hp.marks.find((m) => m[0] === 'state:match:playing')[1]);
+  // (live = the round playing and the fade-in begun: what she sees from then on is the level)
+  const live = (t0) => { const M = __hp.marks, p = M.find((m) => m[0] === 'state:match:playing' && m[1] > t0), f = M.find((m) => m[0] === 'fade:0' && m[1] > t0); return p && f ? Math.max(p[1], f[1]) : 0; };
+  await waitFor(([src, t0]) => (0, eval)(src)(t0) > 0, [live.toString(), T.today], 600, 'the level never went live');
+  T.go = await page.evaluate(([src, t0]) => (0, eval)(src)(t0), [live.toString(), T.today]);
   await waitFor(([t0, s]) => performance.now() - t0 > s * 1000 && __hp.frames.filter((f) => f[0] > t0).length >= 3, [T.go, LEVEL], 600, 'the level never drew 3 frames');
   await progs('level+' + LEVEL + 's');
 } catch (e) { code = 1; console.log('[hitch] ' + e.message); }
@@ -126,15 +138,15 @@ const ms = (x) => Math.round(x);
 const rows = cuts.map(([name, a, b]) => {
   const lt = H.lt.filter((l) => inR(l[0], a, b)), use = H.use.filter((u) => inR(u[0], a, b)), fr = H.frames.filter((f) => inR(f[0], a, b));
   return { stage: name, secs: +((b - a) / 1000).toFixed(1), links: H.link.filter((t) => inR(t, a, b)).length, firstUse: use.length, useMs: ms(use.reduce((s, u) => s + u[1], 0)),
-    longTasks: lt.length, longMs: ms(lt.reduce((s, l) => s + l[1], 0)), longMax: ms(Math.max(0, ...lt.map((l) => l[1]))), frames: fr.length, frameMax: ms(Math.max(0, ...fr.map((f) => f[1]))) };
+    made: H.names.filter((x) => inR(x[0], a, b)).map((x) => x[1]), longTasks: lt.length, longMs: ms(lt.reduce((s, l) => s + l[1], 0)), longMax: ms(Math.max(0, ...lt.map((l) => l[1]))), frames: fr.length, frameMax: ms(Math.max(0, ...fr.map((f) => f[1]))) };
 });
 // the first frame after the main menu shows / the level goes live: how long from that moment to the end of it
 const firstAfter = (t) => { const f = t != null && H.frames.find((x) => x[0] >= t); return f ? ms(f[0] + f[1] - t) : null; };
 const out = { native: opt('native', 'iphone16'), dpr: DPR, view: VIEW, today: TODAY, programs: H.prog, stages: rows, mainFirstFrameMs: firstAfter(T.main), levelFirstFrameMs: firstAfter(T.go),
-  marks: H.marks.map((m) => [m[0], ms(m[1])]), bootWarm: H.bootWarm, noLongTaskObserver: H.noLT || undefined, left, errors: errs,
+  marks: H.marks.map((m) => [m[0], ms(m[1])]), bootWarm: H.bootWarm, bootMarks: H.bootMarks, names: H.names.map((n) => [ms(n[0]), n[1]]), noLongTaskObserver: H.noLT || undefined, left, errors: errs,
   // (the raw timeline, page ms: links, first uses [at, ms], long tasks [at, ms], frames [at, ms])
   raw: { link: H.link.map(ms), use: H.use.map((u) => [ms(u[0]), ms(u[1])]), lt: H.lt.map((l) => [ms(l[0]), ms(l[1])]), frames: H.frames.map((f) => [ms(f[0]), ms(f[1])]) } };
-for (const r of rows) console.log(`[hitch] ${r.stage.padEnd(6)} ${String(r.secs).padStart(6)} s · links ${r.links} · first use ${r.firstUse} (${r.useMs} ms) · long tasks ${r.longTasks} (${r.longMs} ms, max ${r.longMax}) · frames ${r.frames} (max ${r.frameMax} ms)`);
+for (const r of rows) console.log(`[hitch] ${r.stage.padEnd(6)} ${String(r.secs).padStart(6)} s · links ${r.links} · first use ${r.firstUse} (${r.useMs} ms) · long tasks ${r.longTasks} (${r.longMs} ms, max ${r.longMax}) · frames ${r.frames} (max ${r.frameMax} ms)${r.made.length && r.stage !== 'boot' ? ' · made ' + r.made.slice(0, 8).join(', ') + (r.made.length > 8 ? ' …' : '') : ''}`);
 console.log(`[hitch] programs ${H.prog.map((p) => p[0] + ' ' + p[1]).join(' · ')}`);
 if (out.bootWarm) console.log(`[hitch] boot warm-up ${JSON.stringify(out.bootWarm)}`);
 console.log(`[hitch] main menu: first frame done ${out.mainFirstFrameMs} ms after it showed · level: first frame done ${out.levelFirstFrameMs} ms after it went live`);

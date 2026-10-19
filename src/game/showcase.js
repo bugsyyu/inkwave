@@ -28,9 +28,11 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { G, damp, lerp, rng } from '../core/ctx.js';
 import { WEAPONS } from '../config.js';
+import { warmScene, warmTarget } from '../core/shader-warm.js';
 
 // ================================================================================================ helpers
 const TAU = Math.PI * 2;
+const nextTick = () => new Promise((r) => setTimeout(r, 0));   // (a warm-up's pause between slices when no frame is asked for)
 const c01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const sstep = (a, b, x) => { const t = c01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const eOut3 = (t) => { t = 1 - c01(t); return 1 - t * t * t; };
@@ -1572,11 +1574,13 @@ export class Showcase {
     return !!(L && L.ready && L.k >= 1 && SET_MODES.has(this.mode));
   }
 
-  // Build and compile the alley ahead of time (main.js calls this once the main menu is idle), so the first visit to
-  // the online hub opens straight onto the set instead of the arena while it loads. Kept until it's first shown.
-  preloadLobby() { if (!this.lob) this._lobEnsure().preload = true; }
+  // Build and compile the alley ahead of time (main.js: in the loading screen, LEARN §40 — it used to be once the menus were
+  // idle, and its compile landed on the main menu's first frame), so the first visit to the online hub opens straight onto
+  // the set instead of the arena while it loads. Kept until it's first shown. o: { beat, pause } (core/shader-warm.js).
+  // → a promise, settled once the set is ready (or failed).
+  preloadLobby(o) { if (!this.lob) this._lobEnsure(o).preload = true; return this.lob.loading; }
 
-  _lobEnsure() {
+  _lobEnsure(o) {
     if (this.lob) return this.lob;
     const scene = new THREE.Scene();
     const kids = new THREE.Group(), fxRoot = new THREE.Group();
@@ -1595,14 +1599,15 @@ export class Showcase {
       decks: [], fits: {}, shot: null, shotFrom: null, shotT: 9, cs: null, setT: -1, launchT: -1, seq: 0, nextIn: 0, reduced: false,
       kFront: 150, bg: new THREE.Color(0x0a0f1c), U: null,
     });
-    this._lobLoad(L);
+    this._lobLoad(L, o);
     return L;
   }
 
   // The set module loads lazily; everything it will draw (the alley, a squidkid in both forms under its lights, the FX)
-  // is compiled off the critical path before it may dissolve in, so its first frame never hitches.
-  _lobLoad(L) {
-    import('./lobbySet.js').then(async (mod) => {
+  // is compiled — for the HDR target it draws into, and used once — off the critical path before it may dissolve in, so
+  // its first frame never hitches.
+  _lobLoad(L, o = {}) {
+    L.loading = import('./lobbySet.js').then(async (mod) => {
       if (this.lob !== L) return;
       const q = G.settings?.quality || 'high';
       const set = new mod.LobbySet(this.r, { quality: q, texlib: G.game?.texlib || null });
@@ -1621,7 +1626,7 @@ export class Showcase {
       const C = set.camera;
       this._placeLook(L.cam, C.pos, C.target, C.fov, innerWidth / 2, innerHeight / 2, innerWidth, innerHeight);
       this._lobEnv(L);
-      try { if (this.r.compileAsync) await this.r.compileAsync(L.scene, L.cam); else this.r.compile(L.scene, L.cam); } catch (e) { console.warn('[showcase] lobby set warm-up', e); }
+      try { await warmScene(this.r, L.scene, L.cam, { target: warmTarget(), beat: o.beat, pause: o.pause || nextTick }); } catch (e) { console.warn('[showcase] lobby set warm-up', e); }
       L.kids.remove(warm.root); warm.dispose?.();
       if (this.lob !== L) return;
       L.ready = true;
@@ -3007,10 +3012,13 @@ export class Showcase {
     });
   }
 
-  // Compile every showcase shader (pedestal, ink, FX pools, a squidkid under these lights, the portrait resolve)
-  // asynchronously once, right after boot, so the first loadout / locker / portrait never hitches on a compile.
-  _warmup() {
-    if (this._warmState) return;
+  // Compile every showcase shader (pedestal, ink, FX pools, a squidkid under these lights, the portrait resolve, the
+  // composite) once — in the loading screen (main.js → warm(), LEARN §40), else at the first update — so the first loadout /
+  // locker / portrait never hitches on a compile. Each for what it draws into (the studio and the portrait: HDR targets;
+  // the composite: the canvas) and used once (core/shader-warm.js). o: { beat, pause }. → a promise, settled when done.
+  warm(o = {}) { return this._warmup(o); }
+  _warmup(o = {}) {
+    if (this._warmState) return this._warmP;
     this._warmState = 'busy';
     const r = this.r;
     try {
@@ -3028,10 +3036,14 @@ export class Showcase {
         if (!PEDESTAL.has(this.mode)) this.stageL.group.visible = stageWas && PEDESTAL.has(this.mode);
         this._warmState = 'done';
       };
-      const p1 = r.compileAsync ? r.compileAsync(this.scene, this.camera) : Promise.resolve(r.compile(this.scene, this.camera));
-      const p2 = r.compileAsync ? r.compileAsync(this._presScene, this.compCam) : Promise.resolve(r.compile(this._presScene, this.compCam));
-      Promise.all([p1, p2]).then(done, (e) => { console.warn('[showcase] warm-up', e); done(); });
-    } catch (e) { console.warn('[showcase] warm-up', e); this._warmState = 'done'; }
+      const w = { beat: o.beat, pause: o.pause || nextTick };
+      this._warmP = (async () => {
+        await warmScene(r, this.scene, this.camera, { ...w, target: warmTarget() });
+        await warmScene(r, this._presScene, this.compCam, { ...w, target: this._prt8 });
+        await warmScene(r, this.compScene, this.compCam, { ...w, target: null });
+      })().then(done, (e) => { console.warn('[showcase] warm-up', e); done(); });
+    } catch (e) { console.warn('[showcase] warm-up', e); this._warmState = 'done'; this._warmP = Promise.resolve(); }
+    return this._warmP;
   }
 
   // ---------------------------------------------------------------------------------------------- render
