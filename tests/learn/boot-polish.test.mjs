@@ -86,6 +86,24 @@ test('settle: a real wait for the GPU (a one-pixel read of the canvas, not finis
   await settle({ getContext: () => null });   // (no context: nothing to wait for)
 });
 
+test('settle with a beat on WebGL2: a fence polled without blocking, a beat each poll until the GPU is done; capped; no read', async () => {
+  const log = [];
+  let polls = 0;
+  const gl = { SYNC_GPU_COMMANDS_COMPLETE: 1, SYNC_STATUS: 2, SIGNALED: 3, fenceSync: () => { log.push('fence'); return { s: 1 }; }, flush: () => log.push('flush'),
+    getSyncParameter: () => (++polls >= 4 ? 3 : 0), deleteSync: () => log.push('delete'), readPixels: () => log.push('read'), isContextLost: () => false };
+  const R = { getContext: () => gl, getRenderTarget: () => null, setRenderTarget() {} };
+  let beats = 0;
+  await settle(R, { beat: () => beats++, poll: 1 });
+  assert.deepEqual(log, ['fence', 'flush', 'delete'], 'no blocking read');
+  assert.equal(polls, 4);
+  assert.equal(beats, 4, 'a beat per unsignalled poll, and one when done');
+  // a GPU that never signals: on after `cap`
+  const never = { ...gl, getSyncParameter: () => 0 };
+  const t0 = Date.now();
+  await settle({ getContext: () => never }, { beat: () => {}, poll: 5, cap: 40 });
+  assert.ok(Date.now() - t0 < 1000);
+});
+
 test('texture library: a pause between layers once a slice is spent (state put back around it), the closing readback only with sync', () => {
   const F = TEX.slice(TEX.indexOf('export async function createTextureLibrary('), TEX.indexOf('\n}\n', TEX.indexOf('export async function createTextureLibrary(')));
   assert.match(F, /\{ size = 512, pause = null, slice = 24, sync = true \} = \{\}/);
@@ -100,7 +118,7 @@ test('texture library: a pause between layers once a slice is spent (state put b
 
 test('boot: the GPU caught up before the environment and before the warm frames; the stage drawn for real and the ink atlas warmed; a level\'s atlas too', () => {
   const boot = body(MAIN, '  async boot() {');
-  const iTex = boot.indexOf('createTextureLibrary('), iSettle = boot.indexOf('await settle(G.renderer);'), iEnv = boot.indexOf('new envMod.Environment(');
+  const iTex = boot.indexOf('createTextureLibrary('), iSettle = boot.indexOf('await settle(G.renderer, { beat: () => window.__gfBeat?.() });'), iEnv = boot.indexOf('new envMod.Environment(');
   assert.ok(iTex < iSettle && iSettle < boot.indexOf("await progress(0.4") && iSettle < iEnv, 'texture library → settle → the 0.4 beat → the environment');
   const i93 = boot.indexOf('await progress(0.93'), iS2 = boot.indexOf('await settle(G.renderer, { beat: () => window.__gfBeat?.(), pause: nextFrame });'), iFrames = boot.indexOf('for (let i = 0; i < 3; i++) { this._frame(1 / 60);');
   assert.ok(i93 < iS2 && iS2 < iFrames);
@@ -121,9 +139,11 @@ test('showcase: the warm kid kept (not disposed) until the first portrait is dra
   const P = body(SHOW, '  _portraitStep() {');
   assert.ok(P.indexOf('this._renderPortrait(job.req)') < P.indexOf('if (this._warmKeep) { this._warmKeep.dispose?.(); this._warmKeep = null; }'), 'disposed right after the first portrait drew with its programs');
   const L = SHOW.slice(SHOW.indexOf('  _lobLoad(L, o = {}) {'), SHOW.indexOf('  _lobEnv(L) {'));
-  const order = ['await set.ready;', 'if (o.beat) await settle(this.r', 'this._lobColors();', '\n        await settle(this.r, { beat: o.beat', 'await warmScene(this.r, L.scene, L.cam'];
+  const order = ['await set.ready;', 'if (o.beat) await settle(this.r', 'this._lobColors();', 'await warmScene(this.r, L.scene, L.cam'];
   let at = -1;
   for (const k of order) { const i = L.indexOf(k); assert.ok(i > at, k); at = i; }
+  const s2 = L.lastIndexOf('if (o.beat) await settle(this.r, { beat: o.beat');
+  assert.ok(s2 > L.indexOf('this._lobColors();') && s2 < L.indexOf('await warmScene(this.r, L.scene, L.cam'), 'the colour bake waited for too, before the alley compiles');
 });
 
 test('lobby set: a re-bake in the colours of the bake in hand is skipped (the constructor asked for a second identical PMREM)', () => {

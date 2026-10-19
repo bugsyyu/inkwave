@@ -1631,7 +1631,7 @@ export class Showcase {
       try {
         // (the set's environment bake finishes first, with its own beat: it and the alley's first program used to be one
         // 35 s stretch with no beat on SwiftShader, LEARN §42)
-        await settle(this.r, { beat: o.beat, pause: o.pause || nextTick });
+        if (o.beat) await settle(this.r, { beat: o.beat, pause: o.pause || nextTick });
         await warmScene(this.r, L.scene, L.cam, { target: warmTarget(), beat: o.beat, pause: o.pause || nextTick });
       } catch (e) { console.warn('[showcase] lobby set warm-up', e); }
       L.kids.remove(warm.root); warm.dispose?.();

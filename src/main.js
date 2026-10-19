@@ -262,7 +262,7 @@ class Game {
     } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
     this.zoneMarks = new ZoneMarks(scene);   // Zone Control ground markings: build / clear themselves on 'match:state'
-    await settle(G.renderer);   // (the texture library's last layers finish here, before this beat — not inside the environment's bakes)
+    await settle(G.renderer, { beat: () => window.__gfBeat?.() });   // (the texture library's last layers finish here, beating — not inside the environment's bakes)
     await progress(0.4, t('boot.harbor'));
     const B = G.level.bounds;
     G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: (this.R.q || q).shadowSize, footprint: this._footprint(G.level), forceDeckField: this.touchMode });

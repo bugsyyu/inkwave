@@ -76,13 +76,24 @@ export async function warmScene(renderer, scene, camera, o = {}) {
 }
 
 const _px = new Uint8Array(4);
-/** Let the GPU catch up — a one-pixel read of the canvas (WebGL's finish() is only a flush in Chrome): a draw or a bake
- *  queued earlier (the texture library's layers, an environment PMREM) is waited for here, not inside the next program's
- *  first use — then beat() and await pause(): a queued bake and a compile are two stretches of the boot, each with its own
- *  beat, instead of one long silent one. */
-export async function settle(renderer, { beat = null, pause = null } = {}) {
+const _wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Let the GPU catch up: a draw or a bake queued earlier (the texture library's layers, an environment PMREM — on a slow GPU
+ *  its first draw alone can be tens of seconds) is waited for here, not inside the next program's first use. With a beat
+ *  (WebGL2): a fence polled every `poll` ms, a beat each time — the page stays responsive and her App's watchdog sees a
+ *  moving boot while the GPU works (at most `cap` ms, then on as if done). Without: a one-pixel read of the canvas (WebGL's
+ *  finish() is only a flush in Chrome). Then beat() and await pause(). */
+export async function settle(renderer, { beat = null, pause = null, poll = 100, cap = 45000 } = {}) {
   const gl = renderer.getContext && renderer.getContext();
-  if (gl && gl.readPixels) {
+  if (gl && beat && gl.fenceSync) {
+    const s = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (s) {
+      gl.flush();
+      const t0 = performance.now();
+      try {
+        while (!(gl.isContextLost && gl.isContextLost()) && gl.getSyncParameter(s, gl.SYNC_STATUS) !== gl.SIGNALED && performance.now() - t0 < cap) { beat(); await _wait(poll); }
+      } finally { gl.deleteSync(s); }
+    }
+  } else if (gl && gl.readPixels) {
     const prev = renderer.getRenderTarget();
     renderer.setRenderTarget(null);
     try { gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, _px); } finally { renderer.setRenderTarget(prev); }
