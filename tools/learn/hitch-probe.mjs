@@ -45,8 +45,11 @@ const base = `http://127.0.0.1:${srv.address().port}/game/`;
 // in the page, before anything runs: long tasks, program links / first uses, and (once the game is up) menus.show + every frame
 function instrument(nat) {
   if (nat) window.__IELTS_NATIVE = nat;
-  const H = (window.__hp = { lt: [], link: [], use: [], marks: [], frames: [], prog: [], names: [] });
+  const H = (window.__hp = { lt: [], link: [], use: [], marks: [], frames: [], prog: [], names: [], beats: [] });
   const now = () => performance.now();
+  // (every beat of her App's boot watchdog, index.html __gfBeat: the longest gap between two is what the watchdog sees)
+  let beatFn;
+  Object.defineProperty(window, '__gfBeat', { configurable: true, get: () => beatFn, set: (f) => { beatFn = function () { H.beats.push(now()); return f.apply(this, arguments); }; } });
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) H.lt.push([e.startTime, e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { H.noLT = String(e); }
   for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!C) continue;
@@ -58,12 +61,14 @@ function instrument(nat) {
     C.prototype.attachShader = function (p, sh) { const s = src.get(sh) || ''; if (/gl_FragColor|out highp vec4|pc_fragColor|layout\(location/.test(s) || !frag.has(p)) frag.set(p, s); return at.call(this, p, sh); };
     const label = (s) => { const n = /#define SHADER_NAME (\S+)/.exec(s); if (n) return n[1];
       const b = /#define (STANDARD|PHYSICAL|LAMBERT|PHONG|TOON|MATCAP|DEPTH_PACKING|DISTANCE|USE_SHADOWMAP|BASIC)\b/.exec(s); if (b) return 'three:' + b[1];
-      const u = /uniform\s+\w+\s+(\w+)/.exec(s); return 'raw:' + (u ? u[1] : '?'); };
+      // (a ShaderMaterial without a name: its first own uniforms — three's built-ins skipped)
+      const own = [...s.matchAll(/uniform\s+(?:\w+\s+)?\w+\s+(\w+)/g)].map((m) => m[1]).filter((n) => !/^(viewMatrix|cameraPosition|isOrthographic|modelMatrix|modelViewMatrix|projectionMatrix|normalMatrix|toneMappingExposure)$/.test(n));
+      return 'raw:' + (own.slice(0, 3).join('+') || '?'); };
     C.prototype.linkProgram = function (p) { const t = now(); H.link.push(t); H.names.push([t, label(frag.get(p) || '')]); return lp.call(this, p); };
     // (three's WebGLUniforms asks ACTIVE_UNIFORMS once per program, on its first use: where a serial driver blocks)
     C.prototype.getProgramParameter = function (p, k) {
       if (k !== 0x8B86) return gp.call(this, p, k);
-      const a = now(), v = gp.call(this, p, k); H.use.push([a, now() - a]); return v;
+      const a = now(), v = gp.call(this, p, k); H.use.push([a, now() - a, label(frag.get(p) || '')]); return v;
     };
   }
   const iv = setInterval(() => {
@@ -103,7 +108,7 @@ const progs = async (name) => page.evaluate((n) => { const H = __hp; H.prog.push
 const T = {};
 let code = 0;
 try {
-  await page.goto(base + `index.html?from=app&today=${TODAY}` + (NAT ? '&applegpu' : ''), { waitUntil: 'load', timeout: 180000 });
+  await page.goto(base + `index.html?from=app&today=${TODAY}&proglog` + (NAT ? '&applegpu' : ''), { waitUntil: 'load', timeout: 180000 });
   await waitFor(() => window.__hp && __hp.booted && __inkwave.menus.current === 'title', null, 300, 'never reached the title screen');
   T.booted = await page.evaluate(() => __hp.booted);
   // a few seconds on the title (≥ 3 frames), as she looks at it
@@ -125,6 +130,32 @@ try {
   await waitFor(([t0, s]) => performance.now() - t0 > s * 1000 && __hp.frames.filter((f) => f[0] > t0).length >= 3, [T.go, LEVEL], 600, 'the level never drew 3 frames');
   await progs('level+' + LEVEL + 's');
 } catch (e) { code = 1; console.log('[hitch] ' + e.message); }
+// the generated texture library, read back after the run (every layer, every mip level, all three attachments; FNV-1a 32 a
+// layer): LEARN §42 changes when it is generated, never what — this must come out the same before and after
+const texHash = await page.evaluate(() => {
+  const lib = window.__inkwave?.texlib, r = window.__G?.renderer;
+  if (!lib || !r) return null;
+  const gl = r.getContext(), fb = gl.createFramebuffer(), out = { size: lib.size, layers: lib.names.length, stats: lib.stats, hash: {} };
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  for (const k of ['albedo', 'normal', 'orm']) {
+    const wt = r.properties.get(lib[k]).__webglTexture, per = [];
+    for (let layer = 0; layer < lib.names.length; layer++) {
+      let h = 0x811c9dc5;
+      for (let lv = 0, s = lib.size; s >= 1; lv++, s >>= 1) {
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, wt, lv, layer);
+        const buf = new Uint8Array(s * s * 4);
+        gl.readPixels(0, 0, s, s, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        for (let i = 0; i < buf.length; i++) h = Math.imul(h ^ buf[i], 16777619) >>> 0;
+      }
+      per.push(h.toString(16).padStart(8, '0'));
+    }
+    out.hash[k] = per;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); r.resetState();
+  return out;
+}).catch((e) => ({ error: e.message }));
+// every program three made, in order, with its cache key (main.js ?proglog): what a warm-up compile and the real draw disagree on
+const progKeys = await page.evaluate(() => window.__progKeys || null).catch(() => null);
 const H = await page.evaluate(() => window.__hp).catch(() => null);
 await browser.close(); srv.close();
 if (!H) { console.log('[hitch] no data'); process.exit(1); }
@@ -141,14 +172,21 @@ const rows = cuts.map(([name, a, b]) => {
     made: H.names.filter((x) => inR(x[0], a, b)).map((x) => x[1]), longTasks: lt.length, longMs: ms(lt.reduce((s, l) => s + l[1], 0)), longMax: ms(Math.max(0, ...lt.map((l) => l[1]))), frames: fr.length, frameMax: ms(Math.max(0, ...fr.map((f) => f[1]))) };
 });
 // the first frame after the main menu shows / the level goes live: how long from that moment to the end of it
+const fnvAll = (list) => { let h = 0x811c9dc5; for (const c of list.join('')) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h.toString(16).padStart(8, '0'); };
 const firstAfter = (t) => { const f = t != null && H.frames.find((x) => x[0] >= t); return f ? ms(f[0] + f[1] - t) : null; };
-const out = { native: opt('native', 'iphone16'), dpr: DPR, view: VIEW, today: TODAY, programs: H.prog, stages: rows, mainFirstFrameMs: firstAfter(T.main), levelFirstFrameMs: firstAfter(T.go),
+// the longest stretch of the boot with no __gfBeat (from the page's start to the title): her App's watchdog gives up at 60 s
+const bb = [0, ...H.beats.filter((t) => T.booted == null || t <= T.booted), ...(T.booted != null ? [T.booted] : [])];
+let beatGap = [0, 0];
+for (let i = 1; i < bb.length; i++) if (bb[i] - bb[i - 1] > beatGap[1]) beatGap = [ms(bb[i - 1]), ms(bb[i] - bb[i - 1])];
+const out = { native: opt('native', 'iphone16'), beatGapMs: beatGap[1], beatGapAt: beatGap[0], texHash, progKeys, dpr: DPR, view: VIEW, today: TODAY, programs: H.prog, stages: rows, mainFirstFrameMs: firstAfter(T.main), levelFirstFrameMs: firstAfter(T.go),
   marks: H.marks.map((m) => [m[0], ms(m[1])]), bootWarm: H.bootWarm, bootMarks: H.bootMarks, names: H.names.map((n) => [ms(n[0]), n[1]]), noLongTaskObserver: H.noLT || undefined, left, errors: errs,
   // (the raw timeline, page ms: links, first uses [at, ms], long tasks [at, ms], frames [at, ms])
-  raw: { link: H.link.map(ms), use: H.use.map((u) => [ms(u[0]), ms(u[1])]), lt: H.lt.map((l) => [ms(l[0]), ms(l[1])]), frames: H.frames.map((f) => [ms(f[0]), ms(f[1])]) } };
+  raw: { beats: H.beats.map(ms), link: H.link.map(ms), use: H.use.map((u) => [ms(u[0]), ms(u[1]), u[2]]), lt: H.lt.map((l) => [ms(l[0]), ms(l[1])]), frames: H.frames.map((f) => [ms(f[0]), ms(f[1])]) } };
 for (const r of rows) console.log(`[hitch] ${r.stage.padEnd(6)} ${String(r.secs).padStart(6)} s · links ${r.links} · first use ${r.firstUse} (${r.useMs} ms) · long tasks ${r.longTasks} (${r.longMs} ms, max ${r.longMax}) · frames ${r.frames} (max ${r.frameMax} ms)${r.made.length && r.stage !== 'boot' ? ' · made ' + r.made.slice(0, 8).join(', ') + (r.made.length > 8 ? ' …' : '') : ''}`);
 console.log(`[hitch] programs ${H.prog.map((p) => p[0] + ' ' + p[1]).join(' · ')}`);
 if (out.bootWarm) console.log(`[hitch] boot warm-up ${JSON.stringify(out.bootWarm)}`);
+console.log(`[hitch] boot: longest stretch with no __gfBeat ${beatGap[1]} ms (from ${beatGap[0]} ms) · beats ${bb.length - 2}`);
+if (texHash) console.log(`[hitch] texture library ${texHash.error ? 'read failed: ' + texHash.error : texHash.size + 'px × ' + texHash.layers + ' · ' + ['albedo', 'normal', 'orm'].map((k) => k + ' ' + fnvAll(texHash.hash[k])).join(' · ')}`);
 console.log(`[hitch] main menu: first frame done ${out.mainFirstFrameMs} ms after it showed · level: first frame done ${out.levelFirstFrameMs} ms after it went live`);
 if (left) { code = 1; console.log('[hitch] the page left for ' + left + ' (watchdog?)'); }
 if (errs.length) { code = 1; console.log('[hitch] errors: ' + errs.join(' | ').slice(0, 600)); }

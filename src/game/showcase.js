@@ -28,7 +28,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { G, damp, lerp, rng } from '../core/ctx.js';
 import { WEAPONS } from '../config.js';
-import { warmScene, warmTarget } from '../core/shader-warm.js';
+import { warmScene, warmTarget, settle } from '../core/shader-warm.js';
 
 // ================================================================================================ helpers
 const TAU = Math.PI * 2;
@@ -1610,11 +1610,13 @@ export class Showcase {
     L.loading = import('./lobbySet.js').then(async (mod) => {
       if (this.lob !== L) return;
       const q = G.settings?.quality || 'high';
-      const set = new mod.LobbySet(this.r, { quality: q, texlib: G.game?.texlib || null });
+      const set = new mod.LobbySet(this.r, { quality: q, texlib: G.game?.texlib || null, colors: [this._lobRowColor(0), this._lobRowColor(1)] });
       L.set = set; L.quality = q;
       L.scene.add(set.root);
       await set.ready;
       if (this.lob !== L) { set.dispose(); return; }
+      // (the set's first environment bake finishes here, with a beat; the bake in the team colours below gets its own, §42)
+      if (o.beat) await settle(this.r, { beat: o.beat, pause: o.pause || nextTick });
       this._lobDecks(L);
       this._lobColors();
       const warm = new this.CharacterClass({ color: L.colors[0].clone(), weapon: 'shooter', style: this._profileStyle(), name: 'warm', isLocal: false });
@@ -1626,7 +1628,12 @@ export class Showcase {
       const C = set.camera;
       this._placeLook(L.cam, C.pos, C.target, C.fov, innerWidth / 2, innerHeight / 2, innerWidth, innerHeight);
       this._lobEnv(L);
-      try { await warmScene(this.r, L.scene, L.cam, { target: warmTarget(), beat: o.beat, pause: o.pause || nextTick }); } catch (e) { console.warn('[showcase] lobby set warm-up', e); }
+      try {
+        // (the set's environment bake finishes first, with its own beat: it and the alley's first program used to be one
+        // 35 s stretch with no beat on SwiftShader, LEARN §42)
+        if (o.beat) await settle(this.r, { beat: o.beat, pause: o.pause || nextTick });
+        await warmScene(this.r, L.scene, L.cam, { target: warmTarget(), beat: o.beat, pause: o.pause || nextTick });
+      } catch (e) { console.warn('[showcase] lobby set warm-up', e); }
       L.kids.remove(warm.root); warm.dispose?.();
       if (this.lob !== L) return;
       L.ready = true;
@@ -2881,6 +2888,7 @@ export class Showcase {
     const t0 = performance.now();
     let read = null;
     try { read = this._renderPortrait(job.req); } catch (e) { console.error('[showcase] portrait', e); }
+    if (this._warmKeep) { this._warmKeep.dispose?.(); this._warmKeep = null; }   // (its programs are the portrait's: drawn now)
     this.portraitMs = performance.now() - t0;
     const finish = (cv) => {
       if (cv) { this._pcache.set(job.key, cv); if (this._pcache.size > 96) this._pcache.delete(this._pcache.keys().next().value); }
@@ -3032,7 +3040,9 @@ export class Showcase {
       this._place(this._tgt.set(0, 0.8, 0), 0, -0.1, 6, 25, innerWidth / 2, innerHeight / 2, innerWidth, innerHeight);
       this._renderPortraitSetup(128);
       const done = () => {
-        if (this._warmChar) { this.scene.remove(this._warmChar.root); this._warmChar.dispose?.(); this._warmChar = null; }
+        // (kept, not disposed, until the first portrait is drawn: a portrait kid is this kid's look under these lights — the
+        // same programs; disposed here they were built again by the main menu's portrait in the boot's warm frames, LEARN §42)
+        if (this._warmChar) { this.scene.remove(this._warmChar.root); this._warmKeep = this._warmChar; this._warmChar = null; }
         if (!PEDESTAL.has(this.mode)) this.stageL.group.visible = stageWas && PEDESTAL.has(this.mode);
         this._warmState = 'done';
       };

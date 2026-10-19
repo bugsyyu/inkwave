@@ -1955,3 +1955,60 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：真机（iPhone 13 的 WKWebView）；B 段（周考地图 / 胶囊）的浏览器实测（见上）；满月月考只在第 4、8、12、16 周——游戏的地图只有三周，所以现在地图上看不到，单元测试用她课程包里的第 4 周验过；游戏里的 Boss 打完不写考试记录（见「要主会话定的」第 1 条）；`docs/DEVLOG.md` 没改。
 
 **交接**：inkwave 分支 `gf-exams`（从 dev `e4d2bec` 建出）；IELTS-Base 分支 `gf-exams`（从 `origin/main` `82c79909` 建出：只有测试和文档）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `NODE_PATH=$(npm root -g) node tests/exams-e2e.mjs`（不带 `--game`；B 段这一次会真的进地图）。IELTS-Base 的单元测试不依赖 `app/game/`（契约是两边各写一份的同一个字面量），先合哪边都不会红。
+
+## 42. boot-polish 交付（2026-10-19，子代理，分支 `boot-polish`：menu-hitch 之后的加载画面——热身帧里的一大串、贴图库的长任务和回读、标题画面那 1 个、看门狗看不见心跳的长段）
+
+**先读了什么**：§40（menu-hitch：`shader-warm.js`、`_warmBoot` / `_warmStage`、探针、「没做完的」三条）、§33（render-gov：对局里不换档）；`main.js` 启动那一段、`texlib.js` 的 `createTextureLibrary`、`showcase.js` 的 `_warmup` / `_portraitStep` / `_lobLoad`、`lobbySet.js` 的 `_bakeEnv` / `_rebakeEnv` / `setTeamColors`、`environment.js` 的构造和 `setTheme`（只读）、`paint.js` 的墨图集小场景（只读）；three r186 的 `compile`、`getProgramCacheKey`（程序键里有什么）、`WebGLShadowMap`（深度材质按物体挑）。
+
+**先定的**：
+1. **先把探针补成能找原因的**（`tools/learn/hitch-probe.mjs`，加的都是只记不改）：记每一次 `__gfBeat`（`Object.defineProperty` 包住 index.html 的那个），报「加载里不报心跳的最长一段」——这才是看门狗看见的（§40 用最长长任务代替，等 GPU 的空等不是长任务，会漏）；第一次使用也带上程序名；没名字的 ShaderMaterial 用它自己的前几个 uniform 当名字（`raw:uDry` 一眼就知道是墨图集的晾干）；跑完把贴图库三张数组贴图的**每一层、每一级 mip** 读回来逐层算 FNV-1a（`texHash`），改前改后对比；URL 加 `&proglog`，`main.js` 的 `?proglog` 多记一份 `[ms, 名字, three 的程序键]`（`window.__progKeys`），拿来对「热身编的」和「真画编的」到底差在哪一个参数。`_warmBoot` 多记每一块的毫秒（`bootWarm.parts`：舞台 / 小鱿鱼 / 展示台 / 小巷）。
+2. **热身帧里那 42 个是什么**（「改之前」的程序键逐个和更早的同名程序对比）：
+   - 6 个是**重编**：展示台热身的那只小鱿鱼（`iw-skin4|iwRim`、`cloth4`、`hair4`、`eye4`、`fill3`、`iw-lamp`）热身完就 `dispose()`，程序跟着释放；热身帧里画主菜单那张头像，头像小鱿鱼的程序键一模一样，又编了一遍（SwiftShader 上 5.6 s）。→ 热身的小鱿鱼留着（从场景里拿掉、不释放），第一张头像画完再释放（`_warmKeep`）。
+   - 约 10 个是**阴影的深度程序**（`depth`，按物体：实例化 / 带贴图的 alphaTest 克隆 / 旗子的 `customDepthMaterial`）——`compile()` 根本不走阴影那一趟。还有**同一个材质在普通网格和 InstancedMesh 上**是两个程序（键里差一个 instancing 位），`warmList` 按材质去重只编了前一个（其中一个第一次使用 8 s）。→ `warmList` 按「材质 × 物体变体」去重（`variantKey`：类型、实例化（有没有实例颜色）、蒙皮、批量、morph、几何体的可选属性）；新的 `warmDraw`：舞台**真画**，一次只让一个物体可见（其余的藏起来、它自己关掉视锥裁剪），画进 4×4 的 HDR 目标——阴影那一趟和主那一趟都按真画的样子编，一片一片报心跳、让一帧，让帧的时候全部放回原样。
+   - 约 20 个是**后期**（GTAO 的法线覆盖材质按物体 5 个、GTAO / 降噪 / 混合、辉光的高通 + 5 档模糊核 + 合成、调色、输出、SMAA 三趟）。**拆不开（没拆）**：这些材质的 defines 有的在第一次 `render` 时才按尺寸 / 相机定（GTAO），最后一趟画到画布还是画进目标要看链里谁在最后，GTAO 的法线是 `overrideMaterial` 盖在整个场景上；在后期链外面按猜的样子编，猜错一个就多一个没人用的程序（§33 的规矩：不加程序）。留在 3 个热身帧里，帧和帧之间有心跳。
+   - 剩下几个是**第一帧自己才造出来的**：特效池的 InstancedMesh 第一次发射才有实例颜色（实例颜色那一位）、一个武器零件（`iw-blade-edge`）、它们的深度程序——热身时场景里还没有。没追。
+3. **标题画面那 1 个**：是**墨图集自己的小场景**（`paint.js` 的 `this.scene`：涂墨的 `PAINT_FS`——没有自己的 uniform，所以 §40 的标签是 `raw:viewMatrix`——和晾干的 `uDry`），它画进墨图集、不在 `G.scene` 里，出场比赛第一次溅墨时编。关卡淡入后的那 1 个（`raw:uDry`）也是它：关卡的世界有自己的墨图集。→ `_warmPaint`：`_warmBoot` 和 `_warmStage` 里都按墨图集这个目标编一遍（晾干那块平时藏着，`compile` 照样看得见）。
+4. **贴图库**（`texlib.js`）：生成本身不动（同样的程序、同样的层序、同样的 uniform、最后一层生成 mip）。加两个选项：`pause`——每层之前，过了 `slice`（24 ms）就把渲染器状态放回去、`await pause()`（启动时 = 一声心跳 + 一帧）、再接着画（第一次用到某组程序的那一层就是驱动真编译的地方，所以 17 s 的一整段变成每段 ≤ 4.5 s）；`sync: false`——不做最后那次 1 像素回读（它只为让 `stats.ms` 准；GPU 在建世界的时候把剩下的层画完）。实验室（`tools/texlib-lab.js`）不传，照旧回读、照旧量。**逐像素没变**：5 次浏览器跑的 `texHash` 一样（46 层 × 256 px，三张贴图每层每级 mip：albedo `74ba0a68` · normal `a5990eb8` · orm `b5322262`）。
+5. **等 GPU 的那几段**（`settle`）：探针看出加载里最长的两段**不是编译**，是 GPU 在跑之前排着的烘焙，主线程在下一个程序的第一次使用里干等：联机小巷的环境图（PMREM，GGX 256 采样；SwiftShader 上它第一次画就要 35–40 s——它自己的着色器第一次画时才 JIT），环境的云图 + 天空 PMREM（20 多秒，在 `SkyEnv` 的第一次使用里）。WebGL 的 `finish()` 在 Chrome 里只是 flush（第一版用它，探针证明没等）；`settle` 现在：有心跳时用 WebGL2 的 **fence**，每 100 ms 看一次（`setTimeout`，不卡主线程）、每次报一声，最多 45 s；没有心跳时 1 像素读画布（真等）。放在：贴图库之后、环境之前；`_warmBoot` 开头；小巷第一次烘焙之后、换队色之后；3 个热身帧之前。
+6. **小巷的环境图烘了 3 次只用最后一次**：构造里 `_bakeEnv` 烘一次（默认队色）、构造里 `setTeamColors(自己的颜色)` 又烘一次（一样的颜色）、`showcase._lobColors` 换成真的队色再烘一次。→ `lobbySet.js` 两处只加：`_rebakeEnv` 颜色和手里这张一样就直接用；构造多一个 `colors` 选项，`showcase` 传进要显示的两种队色——启动时只烘一次，结果和以前最后那次一样（同样的输入）。
+7. **她的 App 里（from=app）小巷要不要在加载里建**——§40「要主会话定的」第 1 条：**只量、没改行为**。见实测。
+
+**改了什么**（4 个提交 + 这一节；代码 +139 / −18，测试 +179，探针 +44 / −6）：
+- `src/core/shader-warm.js`：`variantKey`（新）、`warmList` 按材质 × 变体、`settle`（新）、`warmDraw`（新）。
+- `src/main.js`：贴图库传 `pause` / `sync: false`；环境之前 `settle`；`_warmBoot`：`settle` → `warmScene` → `warmDraw` → `_warmPaint` → 小鱿鱼……、`bootWarm.parts`；热身帧之前 `settle`；`_warmStage` 里 `_warmPaint`；新的 `_warmPaint`；`?proglog` 多记程序键。
+- `src/game/showcase.js`：热身的小鱿鱼留到第一张头像（`_warmKeep`）；小巷：建的时候带队色、两次 `settle`。
+- `src/world/texlib.js`：`pause` / `slice` / `sync` 三个选项（默认和以前一样）、`stats.sync`。
+- `tools/learn/hitch-probe.mjs`：心跳、带名字的第一次使用、`texHash`、`progKeys`。
+- `tests/learn/boot-polish.test.mjs`（新，10 条）。
+
+**动了别人地盘的**：`src/game/lobbySet.js`（这一批没人认领）：`_rebakeEnv` 加一行早退 + 注释；构造的签名那一行多一个 `colors = null`（唯一改了的一行），下面加一行套颜色。`environment.js`、`paint.js`、`menus.js`、`character.js`、`renderer.js` 没动。
+
+**测试**：`npm run test:learn` 331 → 341（新 `boot-polish.test` 10 条：`variantKey` / `warmList`（一个材质在普通网格、实例化（有 / 没有实例颜色）、蒙皮、带顶点色上 = 5 个，第二个普通网格不算）；`warmDraw` 在替身渲染器上：一次一个物体、其余藏起来、它自己不裁剪、画进给的目标、让帧时全部放回、抛错也放回、可见性和裁剪原样、画过的不再「用一次」；`settle`：没有心跳 = 1 像素读画布（不是 finish）再报再让、有心跳 + WebGL2 = fence 轮询（每次一声、不读像素）、永不完成时到点就走；贴图库：`pause` 在层的 uniform 设之前、前后放回状态、回读只在 `sync`、启动传 `sync: false`；启动的顺序（贴图库 → settle → 0.4 → 环境；0.93 → settle → 热身帧；`_warmBoot` 里 settle → warmScene → warmDraw → `_warmPaint` → 小鱿鱼 → 展示台；`_warmPaint` 按墨图集的目标；关卡的 `_warmPaint` 在那一帧真画之前）；展示台：热身小鱿鱼不释放、第一张头像画完才释放、小巷两次 settle 的位置；小巷：`_rebakeEnv` 的源码拿出来在替身上跑（同色不烘、换色才烘、材质换上新图）、构造的 `colors` 在第一次烘焙之前、`showcase` 传的是 `_lobColors` 接着要发的颜色；探针的心跳 / 哈希 / 程序键）。`menu-hitch.test` 7 条一字没动、照样过。`npm run check` 299 个文件。
+
+**实测**（浏览器 5 次，都在锁里、一次一个、每次 ≤ 10 分钟；探针不截图）。`hitch-probe --native iphone16`（390 × 844 @ 3，today = w1d3，SwiftShader，4 核）。**这台机器今天比 §40 那天慢、而且忙**：同一份代码（e4d2bec）今天量出加载 137.3 s（§40 是 122.4 s）；一行没动的「点开始 → 关卡」那一段 5 次是 68.6 / 79.6 / 73.5 / 89.9 / 76.2 s——秒数的噪声有 ±15%，只能看程序数和最长段的大致变化。
+
+| | 改之前（第 1 次：e4d2bec + 只加了探针） | 第 4 次（d958d86） | 第 5 次（6ef1e1e，最终） |
+|---|---|---|---|
+| 加载总时长 | 137.3 s | 147.0 s | 157.0 s |
+| **不报 `__gfBeat` 的最长一段** | **35.1 s**（小巷，等它的环境图） | 39.5 s（小巷：等 rAF，GPU 在烘） | **26.5 s**（环境的构造） |
+| 其余 > 8 s 的段 | 贴图库 + 建世界 17.2 · 环境 28.0 · 热身帧 23.0 · 9.1 | 环境 28.0 · 热身帧 16.2 | 热身帧 16.0 |
+| 热身帧里编的程序（第一次使用合计） | 45（28.5 s） | 35（15.9 s） | 36（15.9 s） |
+| 预热里：舞台 / 小巷 | 2.9 s / 40.1 s | 13.1 s / 43.9 s | 13.3 s / 48.5 s |
+| 标题画面新编 | 1（墨图集） | 0 | 0 |
+| 主菜单出来后 10 秒：新编 / 最长长任务 | 0 / 326 ms | 0 / 170 ms | 0 / 297 ms |
+| 关卡淡入以后新编 | 1（`raw:uDry`） | 0 | 0 |
+| 贴图库哈希 | 74ba0a68 · a5990eb8 · b5322262 | 一样 | 一样 |
+
+- 中间两次：第 2 次（只有分片、`warmDraw`、留小鱿鱼）小巷那段变成 44 s——这时 `settle` 用的是 `finish()`，探针看出它没等；第 3 次改成读 1 像素，等的 35 s 落在 `settle` 里（证明是烘焙不是编译：之后小巷第一个程序只用 65 ms），标题和关卡淡入后都是 0 了。第 4 次加了「只烘一次」：等法变成主线程空着等下一帧（GPU 在 JIT 那个 PMREM 着色器，一次烘焙就 35 s 以上——三次烘焙的大头是第一次）；第 5 次用 fence 轮询，这一段每 100 ms 一声，最长一段落到环境构造的 26.5 s。
+- **主菜单 10 秒的最长长任务**：5 次是 326 / 228 / 175 / 170 / 297 ms，都是主菜单刚出来那 0.5 秒里同样的 3 个任务（+30、+200、+500 ms），0 个程序——菜单自己的 DOM / 入场，不是着色器；改之前那次就是 326 ms。第 5 次的 297 ms 超了 0.25 s 的线，我没法在这台机器上把它和噪声分开（菜单那几处不在我的文件里）。
+- **小巷（from=app 要不要在加载里建）**：预热里的小巷一段 40.1 / 51.3 / 40.6 / 43.9 / 48.5 s，占整个加载的 30% 上下；几乎全是 GPU：它的环境图（PMREM 128，GGX 256 采样）在 SwiftShader 上第一次画就 35–40 s，它自己的 18 个程序编起来共 2 s 左右。iPhone 上 PMREM 是毫秒级，要真机量。
+- 加载总时长**没有变短**（这台机器上看不出来）：去掉的——6 个重编（5.6 s）、小巷的两次多余烘焙、贴图库的回读；加上的——`warmDraw` 一个物体画一次（舞台那块 2.9 → 13 s，其中墨图集 1.5 s 和 7 个深度程序本来就要编），换来热身帧 32.4 → 21 s。舞台 + 热身帧合起来 35.3 → 34.4 s，基本打平；剩下的差（小巷、贴图库、开局都长了 10%–30%）和没动的开局一起涨，我判断是机器忙，但浏览器次数用完了，没法再证。
+
+**拿不准的（自己定了）**：
+1. `warmDraw` 只在启动的舞台上用（展示台、小巷、关卡的黑场里没用）：它在 SwiftShader 上贵（每画一个物体要画一遍 2048² 的阴影图、每片让一帧），换来的是阴影的深度程序不再挤在热身帧里。关卡的黑场里已经是真画一帧，没必要。
+2. `settle` 的 fence 最多等 45 s 就当作好了往下走（一个永远不回的 GPU 不会让启动永远「在动」：之后的第一次使用会卡住，看门狗 60 秒后照样回课本）。
+3. 热身的小鱿鱼留到第一张头像画完：如果哪天启动后很久都没人要头像，它多占一只小鱿鱼的内存，直到第一张头像。
+
+**没做的**：后期链那 ~20 个、第一帧才造出来的特效 / 武器零件（原因见先定的第 2 条）；环境的构造（`environment.js` 不是我的：一次同步的构造里先烘云图（10 条）、再在 `SkyEnv` 的第一次使用里等它、再烘 PMREM——要拆得在 `setTheme` 里的云图和环境图之间放一个 `settle`，构造就得变成 async）；联机开局的预热（同 §40）；开局黑场里小鱿鱼的程序又编一遍（出场比赛的小鱿鱼散了、程序释放，关卡的小鱿鱼一样的键又编——开局那一段的事，不在这次的判据里，可以照第 2 条的「留到用上」做）；真机。
+
+**交接**：分支 `boot-polish`（从开发分支 `e4d2bec` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；`tests/game-first-e2e.mjs`（启动等 240 秒，dpr 1）主会话合并时跑。`docs/DEVLOG.md` 没改。
