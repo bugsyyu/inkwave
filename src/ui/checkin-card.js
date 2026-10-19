@@ -49,7 +49,7 @@ export function openCheckin({ week, day, from = 'menu', onClose = null } = {}) {
     b.dataset.mood = id;
     return b;
   });
-  const note = h('textarea', { class: 'iw-ci__note', rows: '1', maxlength: String(NOTE_MAX), placeholder: '写一句就好，也可以不写', enterkeyhint: 'done', autocomplete: 'off' });
+  const note = h('textarea', { class: 'iw-ci__note', rows: '1', maxlength: String(NOTE_MAX), placeholder: '写一句就好，也可以不写', autocomplete: 'off' });
   note.value = (saved && saved.note) || '';
   const count = h('span', { class: 'iw-ci__count', 'aria-live': 'polite' });
   const msg = h('p', { class: 'iw-ci__msg', role: 'status' });
