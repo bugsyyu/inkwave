@@ -3753,3 +3753,54 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-cmap__cibtn.is-down { transform: none; }
 }
 .iw-cmap.is-portrait .iw-cmap__cibtn { align-self: center; }
+
+/* ------------------------------------------------------------------
+   游戏为主体 第二期: 今日小考 · 周考的进度 (docs/LEARN.md §41, menus.js _quizItem / _scr_map, learn/quiz-run.js) — the
+   lesson page's exam records in the game: the main menu's 今日小考, a 考 sticker on her today's node, the 周考 node's state
+   from the page (open breathes, done is lacquered with its tick), the pill over the map, the results card's record line.
+   Same sticker language as the check-in (--k outline, the offset solid shadow, Titan One numbers); transform / opacity
+   only; reduced motion → fades. */
+.iw-btn--quiz .iw-btn__icon { color: var(--a); }
+.iw-btn--quiz.is-done .iw-btn__icon { color: #fff; }
+/* 考 on her today's node (top left: the form is top right, the tick bottom right, the check-in bottom left) */
+.iw-cmap__qz { position: absolute; left: -16%; top: -12%; display: grid; place-items: center; width: 40%; height: 40%; border-radius: 50%;
+  font: 900 calc(var(--ns) * .2) / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: #fff; color: var(--k); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k); opacity: 0; transform: scale(.2) rotate(-30deg); }
+.iw-cmap__node.is-qz .iw-cmap__qz { opacity: 1; transform: rotate(-10deg); transition: opacity .12s, transform .42s var(--spring2); transition-delay: calc(var(--d, 0ms) + .42s); }
+.iw-cmap__node.is-qzdone .iw-cmap__qz { background: linear-gradient(180deg, var(--a-light), var(--a) 60%, var(--a-dark)); color: var(--k); }
+/* the 周考 node: open breathes in her ink like today; soon a faint glow; closed greyed a little */
+.iw-cmap__node.is-boss.is-ex-open .iw-cmap__halo { opacity: .8; animation: iw-cmap-breathe 2.6s ease-in-out calc(var(--d, 0ms) + .8s) infinite; }
+.iw-cmap__node.is-boss.is-ex-soon .iw-cmap__halo { opacity: .35; }
+.iw-cmap__node.is-boss.is-ex-open .iw-cmap__count, .iw-cmap__node.is-boss.is-ex-done .iw-cmap__count { color: var(--a-light); }
+.iw-cmap__node.is-boss.is-ex-closed .iw-cmap__disc { filter: saturate(.55) brightness(.85); }
+/* the pill: the week's exam on the page (open: her ink; taken / soon / closed: the dark glass with white) */
+.iw-cmap__expill { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; padding: 0 6px 0 8px; border: 0; border-radius: 999px; cursor: pointer;
+  color: #fff; font: 800 14px / 1.15 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; text-align: left;
+  background: rgba(21, 18, 28, .72); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .14), 0 3px 0 rgba(0, 0, 0, .35); touch-action: manipulation; transition: transform .3s var(--spring); }
+.iw-cmap__expill[hidden] { display: none; }
+.iw-cmap__expill > i { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 4px; border-radius: 50%; background: var(--k); color: #fff; }
+.iw-cmap__expill > i svg { width: 100%; height: 100%; }
+.iw-cmap__expill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iw-cmap__expill b { flex: none; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, .12); font-weight: 800; }
+.iw-cmap__expill.is-open { color: var(--k); background: linear-gradient(180deg, var(--a-light), var(--a) 60%, var(--a-dark));
+  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .5); }
+.iw-cmap__expill.is-open > i { color: var(--a-light); }
+.iw-cmap__expill.is-open b { background: var(--k); color: #fff; }
+.iw-cmap__expill.is-month > i { color: #ffd21a; }
+.iw-cmap__expill.is-down { transform: translateY(3px) scale(.97); transition-duration: 0s; }
+.iw-cmap.is-portrait .iw-cmap__expill { align-self: center; }
+/* the results card: what went into her record (the score in Titan One on her ink), or that this run was practice */
+.iw-qrec { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px auto 8px; padding: 6px 14px 6px 6px; width: fit-content; max-width: 100%; border-radius: 999px;
+  color: var(--k); font: 800 14px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: #fff; box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k); transform: rotate(-1.2deg); animation: iw-qrec-in .46s var(--spring2) .35s backwards; }
+.iw-qrec__score { flex: none; padding: 6px 12px; border-radius: 999px; font: 400 18px / 1 'Titan One', sans-serif; letter-spacing: .02em; font-variant-numeric: tabular-nums;
+  color: #fff; -webkit-text-stroke: .16em var(--k); paint-order: stroke fill; background: linear-gradient(180deg, var(--a-light), var(--a) 60%, var(--a-dark)); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .45); }
+.iw-qrec.is-practice { background: #ece8f6; }
+.iw-qrec.is-practice .iw-qrec__score { background: #8d879e; }
+@keyframes iw-qrec-in { 0% { opacity: 0; transform: scale(.4) rotate(8deg); } 60% { opacity: 1; transform: scale(1.08) rotate(-1.2deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .iw-cmap__node.is-qz .iw-cmap__qz { transition: opacity .2s linear; transform: rotate(-10deg); }
+  .iw-cmap__node.is-boss.is-ex-open .iw-cmap__halo { animation: none; }
+  .iw-cmap__expill.is-down { transform: none; }
+  .iw-qrec { animation: iw-fade .3s linear .2s backwards; }
+}

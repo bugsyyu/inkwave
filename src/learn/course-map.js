@@ -3,8 +3,9 @@
 // sits; the store / the plan come in as functions, so nothing here loads a week.
 //
 //   courseMap({ weeks, days, progress(week, day) → { done, total }, plan(week, day) → { form } | null, today,
-//               checkin(week, day) → 'done' | 'todo' | null })
-//     → [{ week, days: [{ day, form, done, total, state, complete, now, ci }], boss: { state } }]
+//               checkin(week, day) → 'done' | 'todo' | null, exam(week) → exams.js weekExam | null,
+//               quiz(week, day) → exams.js quizOffer | null })
+//     → [{ week, days: [{ day, form, done, total, state, complete, now, ci, qz }], boss: { state, exam } }]
 //   state:  'today'  her course's today (whatever its progress: the map's one "you are here")
 //           'done'   total > 0 and done ≥ total        'part'  0 < done < total
 //           'todo'   nothing yet — and a day with no scored items (total 0: a lesson, nothing to prove)
@@ -12,9 +13,12 @@
 //   complete: done ≥ total > 0 (and today when the lesson page says it is done: ?done=1) — the node's tick
 //   no today (plain INKWAVE, development): nothing is locked
 //   boss:   the week's 周考, open ('todo') once that week's day 7 is not locked
+//   exam:   the week's 周考 / 满月月考 as the lesson page has it (LEARN §41: locked · soon · open · done · closed, its parts
+//           and scores); null without her account. The node still opens the game's boss (practice) whatever it says
+//   qz:     今日小考 (LEARN §41) on her today's node: 'done' (the page's record has today's quiz) · 'open' · null
 //   ci:     打卡 (LEARN §39) — her check-in for the day as the lesson page has it (profile.ci: 'done'), one still to make
 //           ('todo'), or none (no workbench here, no check-in step that day, or a locked day)
-export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null, checkin = null } = {}) {
+export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null, checkin = null, exam = null, quiz = null } = {}) {
   const T = today && today.week > 0 && today.day > 0 ? today : null;
   const after = (w, d) => !!T && (w > T.week || (w === T.week && d > T.day));
   const out = [];
@@ -30,9 +34,12 @@ export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, t
       const full = total > 0 && done >= total;
       const state = after(w, d) ? 'locked' : now ? 'today' : full ? 'done' : done > 0 ? 'part' : 'todo';
       const ci = c === 'done' ? 'done' : c === 'todo' && state !== 'locked' ? 'todo' : null;
-      list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now, ci });
+      let q = null; if (now && quiz) { try { q = quiz(w, d); } catch (e) { q = null; } }
+      const qz = q && q.state === 'done' ? 'done' : q && (q.state === 'open' || q.state === 'later') ? 'open' : null;
+      list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now, ci, qz });
     }
-    out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo' } });
+    let x = null; try { x = exam ? exam(w) : null; } catch (e) { x = null; }
+    out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo', exam: x || null } });
   }
   return out;
 }

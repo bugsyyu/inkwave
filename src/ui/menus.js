@@ -32,6 +32,7 @@ import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the f
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
 import { BOOK_TABS, bookTab, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本
 import { openCheckin, checkinFor } from './checkin-card.js';   // 第二期 打卡 (LEARN §39): the lesson page's check-in, a card of the game's own
+import { quizFor, examFor, examLine, examPill, examAria } from '../learn/exam-view.js';   // 第二期 今日小考 · 周考的进度 (LEARN §41): the page's exam records
 import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
 import { t, isZh, gameName, teamName, TIPS_ZH, TITLE_ZH, botNames, lookName, presetText } from './i18n.js';   // 中文化 (docs/LEARN.md §15): the shell in Chinese, ?lang=en the original
 
@@ -201,7 +202,7 @@ const LOCKER_TABS = [
 const MENU_DESC = {
   play: t('desc.play'), learn: t('desc.learn'), book: t('desc.book'), textbook: t('desc.textbook'), online: t('desc.online'), loadout: t('desc.loadout'),
   locker: t('desc.locker'), settings: t('desc.settings'), howto: t('desc.howto'), credits: t('desc.credits'),
-  today: t('desc.today'), map: t('desc.map'), review: t('desc.review'),
+  today: t('desc.today'), map: t('desc.map'), review: t('desc.review'), quiz: t('desc.quiz'),
 };
 
 const pctFmt = (v) => Math.round(v * 100) + '%';
@@ -955,6 +956,9 @@ export class Menus {
         // without a check-in step today)
         const ci = this._checkinItem(T);
         if (ci) items.splice(2, 0, ci);
+        // (今日小考, LEARN §41: under the check-in when the lesson page would offer a quiz today; done → her score, a replay)
+        const qz = this._quizItem(T);
+        if (qz) items.splice(items.indexOf(ci || mapBtn) + 1, 0, qz);
         items.splice(items.indexOf(book), 0, textbook);   // (第三期第一步: 课本 — the lesson page's pages in a book, over 选关 · 回课本)
         this._appTodayDue(T, where);
       } else {
@@ -1113,6 +1117,18 @@ export class Menus {
     return item;
   }
 
+  // 今日小考 (LEARN §41): the main menu's way into the game's quiz (one duel round, forms/index.js buildQuiz) when the lesson
+  // page offers a quiz today (exams.js quizOffer: something learned, not the review day, no 周考 recommended); once today
+  // has a quiz on the page's record (taken here or there) it says her score and the run is practice (quiz-run.js)
+  _quizItem(T) {
+    const q = quizFor(T);
+    if (!q) return null;
+    const done = q.state === 'done';
+    return { id: 'quiz', label: done ? '今日小考考过了' : '今日小考', icon: GLYPHS.swords, cls: 'iw-btn--menu iw-btn--quiz' + (done ? ' is-done' : ''), sound: 'ui_confirm',
+      sub: done ? `对 ${q.right} / ${q.of} · 再练一次（不改成绩）` : q.state === 'later' ? '今天说过改天 · 想考也行' : `${LEARN.quiz.n} 题 · 约 ${LEARN.quiz.minutes} 分钟 · 傍晚一轮对抗赛`,
+      accept: () => { const b = this._scr && this._scr.el.querySelector('.iw-btn--quiz'); this._startLearn({ week: T.week, day: T.day, kind: 'quiz' }, b || undefined); } };
+  }
+
   // 游戏为主体: once the week has loaded, the today button's second line gains today's progress (store.progress) and the
   // week's due words (store.due: the memory model over her history and the game's); with kind 'review' (gf-review) and
   // K > 0, a 复习 K 个 button under 课程地图 — DOM writes on the menu that is up, nothing when it has moved on. (Both take
@@ -1129,6 +1145,16 @@ export class Menus {
       if (p && p.total > 0) bits.push(`今天 ${p.done} / ${p.total}`);
       if (n > 0) bits.push(`要复习 ${n} 个`);
       b.textContent = bits.join(' · ');
+      // (今日小考, LEARN §41: her clock needs the engine the week brought — the button comes now if it could not before)
+      if (!el.querySelector('.iw-btn--quiz')) {
+        const q = this._quizItem(T);
+        if (q) {
+          const qb = this._btn({ ...q, tilt: -1.1 });
+          qb.classList.add('iw-in', 'iw-in--left');
+          const at = el.querySelector('.iw-btn--checkin') || el.querySelector('.iw-btn[data-id="map"]') || b.closest('.iw-btn');
+          if (at) at.after(qb);
+        }
+      }
       const K = reviewK(wk, due);
       if (REVIEW_OK && K > 0 && !el.querySelector('.iw-btn--review')) {
         const rb = this._btn({ id: 'review', label: `复习 ${K} 个`, sub: '这一周该复习的词 · 一关清掉', icon: GLYPHS.reset, cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', tilt: 1.2,
@@ -1220,7 +1246,9 @@ export class Menus {
       progress: (w, d) => (this._cmapProg[w] ? this._cmapProg[w][d - 1] : null),
       plan: (w, d) => (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null,
       // (打卡, LEARN §39: the lesson page's record — a day she checked in on the page shows here too)
-      checkin: (w, d) => { const v = T ? checkinFor(w, d) : null; return v ? (v.done ? 'done' : 'todo') : null; } });
+      checkin: (w, d) => { const v = T ? checkinFor(w, d) : null; return v ? (v.done ? 'done' : 'todo') : null; },
+      // (LEARN §41: the 周考 / 满月月考 as the lesson page has it; 今日小考 on her today's node)
+      exam: (w) => examFor(w), quiz: () => (T ? quizFor(T) : null) });
     const stage = h('div', { class: 'iw-cmap__stage' + (portrait ? ' is-portrait' : ''), style: { '--ar': `${L.w} / ${L.h}`, '--arn': (L.w / L.h).toFixed(4) } });
     const scroll = h('div', { class: 'iw-cmap__scroll' }, stage);
     const weekSub = h('div', { class: 'iw-cmap__weeksub' });
@@ -1233,19 +1261,22 @@ export class Menus {
     };
     const paint = () => {
       const wk = model()[st.week - 1];
-      cur = [...wk.days, { ...wk.boss, boss: true, done: 0, total: 0, complete: false }];
+      cur = [...wk.days, { ...wk.boss, boss: true, done: 0, total: 0, complete: !!(wk.boss.exam && wk.boss.exam.state === 'done') }];
       cur.forEach((x, i) => {
         const n = nodes[i]; if (!n) return;
         for (const s of STATES) n.classList.toggle('is-' + s, s === x.state);
         n.classList.toggle('is-complete', !!x.complete);
         n.classList.toggle('is-ci', x.ci === 'done');
+        n.classList.toggle('is-qz', !!x.qz); n.classList.toggle('is-qzdone', x.qz === 'done');
+        if (x.boss) for (const s of ['locked', 'soon', 'open', 'done', 'closed']) n.classList.toggle('is-ex-' + s, !!x.exam && x.exam.state === s);
         const ci = n.querySelector('.iw-cmap__ci');
         if (ci) { const v = x.ci === 'done' ? checkinFor(st.week, x.day) : null, f = v && v.saved && MOOD_FACE[v.saved.mood]; ci.textContent = f ? f.split(' ')[0] : '✓'; }
         n.style.setProperty('--p', x.total > 0 ? (x.done / x.total).toFixed(3) : '0');
         const c = n.querySelector('.iw-cmap__count');
-        c.textContent = x.boss ? (x.state === 'locked' ? '学完第 7 天开' : '听 读 写 说') : x.state === 'locked' ? '' : x.total > 0 ? `${x.done} / ${x.total}` : '';
-        n.setAttribute('aria-label', x.boss ? `第 ${st.week} 周 周考` : `第 ${st.week} 周 第 ${x.day} 天 · ${FORM_ZH[x.form] || ''}${x.total ? ` · ${x.done} / ${x.total}` : ''}${x.ci === 'done' ? ' · 打过卡' : ''}`);
+        c.textContent = x.boss ? (examLine(x.exam) || (x.state === 'locked' ? '学完第 7 天开' : '听 读 写 说')) : x.state === 'locked' ? '' : x.total > 0 ? `${x.done} / ${x.total}` : '';
+        n.setAttribute('aria-label', x.boss ? (x.exam ? examAria(x.exam) : `第 ${st.week} 周 周考`) : `第 ${st.week} 周 第 ${x.day} 天 · ${FORM_ZH[x.form] || ''}${x.total ? ` · ${x.done} / ${x.total}` : ''}${x.ci === 'done' ? ' · 打过卡' : ''}${x.qz ? ' · 今日小考' + (x.qz === 'done' ? '考过了' : '') : ''}`);
       });
+      exPaint(wk.boss.exam);
       const share = weekShare(wk), tt = titles[st.week];
       weekSub.textContent = `${tt ? tt + ' · ' : ''}这一周学了 ${Math.round(share * 100)}%` + (T && st.week === T.week ? ` · 今天第 ${T.day} 天` : '');
     };
@@ -1293,6 +1324,7 @@ export class Menus {
             !boss && x.form && ICON[x.form] ? h('span', { class: 'iw-cmap__form', html: ICON[x.form] }) : null,
             h('span', { class: 'iw-cmap__tick', html: GLYPHS.check }),
             boss ? null : h('span', { class: 'iw-cmap__ci', 'aria-hidden': 'true' }),
+            boss ? null : h('span', { class: 'iw-cmap__qz', 'aria-hidden': 'true' }, '考'),
             h('span', { class: 'iw-cmap__lock', html: GLYPHS.lock })),
           h('span', { class: 'iw-cmap__label' },
             h('span', { class: 'iw-cmap__day' }, boss ? '周考' : `第 ${x.day} 天`),
@@ -1331,13 +1363,25 @@ export class Menus {
         } });
       } });
     }
+    // 周考 (LEARN §41): the week's exam on the lesson page — open, taken, or its window gone — as a pill over the map; a tap
+    // opens the 课本 at 考试 (the page itself: what she takes there is the page's own record)
+    const exPill = h('button', { class: 'iw-cmap__expill iw-in iw-in--down', hidden: true });
+    const exPaint = (x) => {
+      const v = examPill(x);
+      exPill.hidden = !v;
+      exPill.className = 'iw-cmap__expill iw-in iw-in--down' + (x ? ' is-' + x.state : '') + (x && x.month ? ' is-month' : '');
+      exPill.textContent = '';
+      if (v) exPill.append(h('i', { html: BOSS_GLYPH }), h('span', null, v.text), h('b', null, v.go + ' ›'));
+    };
+    this._fx(exPill);
+    this._bind(exPill, { id: 'cmap-exam', accept: () => { if (exPill.hidden) return; this._sfx('ui_confirm'); this._bookAt = { page: 'exam' }; this._go('book'); } });
     build();
     // the first focus: her today in this week, else the first open node
     const first = () => nodes.find((n) => n.classList.contains('is-today')) || nodes.find((n) => !n.classList.contains('is-locked')) || nodes[0];
     const el = h('div', { class: 'iw-screen iw-setup iw-cmap' + (portrait ? ' is-portrait' : '') },
       h('div', { class: 'iw-ss__scrim' }),
       this._header('课程地图', { sub: '三周的课 · 一天一关 · 点一天就开局' }),
-      h('div', { class: 'iw-cmap__body' }, h('div', { class: 'iw-cmap__top' }, weekRow, h('div', { class: 'iw-in iw-in--down' }, weekSub), ciBtn), scroll),
+      h('div', { class: 'iw-cmap__body' }, h('div', { class: 'iw-cmap__top' }, weekRow, h('div', { class: 'iw-in iw-in--down' }, weekSub), ciBtn, exPill), scroll),
       this._prompts([[['Q', 'E'], 'LB', '换周'], ['Enter', 'A', '开局'], ['Esc', 'B', '返回']]));
     // a turn of the phone: the other layout (the road runs down in portrait, across in landscape)
     const mq = typeof matchMedia === 'function' ? matchMedia('(orientation: portrait)') : null;
