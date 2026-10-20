@@ -2117,3 +2117,51 @@ IELTS-Base（分支 `gf-weeks`）：`tests/base/game-weeks.test.mjs` 3 / 3（真
 - **生成的墨浪跑酷 / 对抗赛各跑一小段**：第 4 周第 2 天墨浪跑酷（halyard，`runner-audit --query '?learn=w4d2&kind=race&short=1' --pack …`）exit 0：4 行、5 段滑行打字、PLAY §1 第 1 条 1 086 次采样都守住、首答只记一次、到结果卡、0 个错误、0 个 4xx（有 1 次打字镜位被挡、照设计换成追身镜头——`glide.js` 原来就有的退路，不算错）；第 4 周第 3 天对抗赛（saltpan，`arena-audit --form duel --learn w4d3 --views portrait --pack …`）all checks passed：4 题、0 个错误、0 个 4xx。
 - 地图在她账号里没有课程包时也显示 17 周（第 4–17 周灰着）：照现在，不改。
 
+
+## 45. gf-guides 交付（2026-10-20，子代理，分支 `gf-guides`：游戏为主体 第三期第三步（一）——课本里的「学习方法」（连同资源）换成游戏原生的）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md`（§1 第 5 条业主 10-17 的三句和验收标准、§4 第三期「做法」、§5）；本文件 §2（导出工具）、§16（她的账号怎么读写）、§32（贴纸画风）、§37（课本）、§38（精修）、§39 / §41（写她账号的规矩、「同一份记录」的对照测试）、§43（原生页的约定）、§44；代码：`book.js`、`menus.js` 的 `_scr_book` / `_bind` / `_fx`、`book-pages/kit.js` / `notes.js` / `log.js`、`learn/notes.js`、`workbench.js`、`export-ielts.mjs`、`styles/ui.css` 的 token 和课本那两节；经典页 `app/index.html` 的 `GRAMMAR` / `REASONS` / 三张换算表 / `PROMPTS` / `GUIDE_TABS` / `GUIDES` / `RESOURCES` / `dailyHours` / `activeBlocks` / `phasePlan` / `PHASES` / `DEFAULT_PROFILE` / `normalizeProfile` / `checkItemHTML` / `convertTableHTML` / `guideHTML` / `mountGuides` / `refreshGuides` / `mountResources` / `toggleFlag` / `ready` / `Save.profile` / `saveLocal` / `copyText` / `showCopyBox` / `S.guide`（`prefsSet({ guide })`）/ `LF_STAGE`；外链在 App 里怎么开（IELTS-Base `ios/IELTSBase/WebView.swift`：`target=_blank` 和 http(s) 一律交给 Safari，主框架不离开 App）。
+
+**先定的**：
+1. **内容走导出工具，`{{PLAN}}` 原样拷**：`content/guides.json` = 经典页的 `GUIDE_TABS`、`GUIDES`、`GRAMMAR`、`PROMPTS`、`REASONS`、`RESOURCES`、三张换算表、`DEFAULT_PROFILE` 的时段和目标分、两页开头那一句（从活宿主的 `mountGuides` / `mountResources` 里取）和 `LF_STAGE` 那两行（英文一句 + 中文）。`phasePlan` / `dailyHours` 和它们读的 `PHASES`、`T`、`MOCK_SAT`、`BLOCK_DEFS`、`activeBlocks`、`toMin`、`parseYmd`、`addDays`，加上 `guideHTML` 要的 `diffDays`、`fmtH`，都是纯函数（`PHASES` 是常量表），原样拷进 `vendor/ielts/host.js`（`HOST_NAMES`，表在读它的函数前面：`T` → `MOCK_SAT` → `PHASES`）。`normalizeProfile` 不是纯的（读设置、今天、`WB.hooks`），学习方法用到的那几条（时段、傍晚开关、开始 / 考试日期、目标分、语法清单）在游戏里照写（`guideProfile`），由对照钉住。
+2. **正文和 `guideHTML` 一字不差**：`fillGuide(g, p, T, Host)` 是同一串 `.replace`（`{{CONVERT}}` `{{PLAN}}` `{{TARGET}}` `{{GRAMMAR}}` `{{REASONS:k}}` `{{PROMPT:k}}`，用拷来的 `esc`），输出就是经典页那段字符串；页再把其中几样画成游戏的（换算表、错误原因、指令框、语法清单），经典页标记里的 `id` 和 `data-act="copy"` 按钮都换掉、不留。只有导出的表进 `innerHTML`（经典页自己的正文）；她的数据只给数字（每天几小时、几周、目标分、勾了哪几条）。
+3. **语法清单写她账号 = `toggleFlag('grammar', i)`**：勾上 `profile.grammar[i] = true`，去掉删掉那个 key（经典页 `if (m[id]) delete m[id]; else m[id] = true`：真值都算勾着）。每一下都 `readBlob(ls, { fresh: true })` 读最新的、按存下来的翻转（连点每一下都切换，显示的永远是读回来的）；只换 `profile.grammar`（浅拷贝），其余字段和文档同一段 JSON 文本；没有她的数据不建（页上一句「先在课本里开始学习……」和「翻到今天的课」）；`setGrammar(ls, i, on)` 同样的状态不写；写完 `invalidate()` + `mirror(ls)`。数字键按升序序列化，所以插入顺序不影响文本。
+4. **书把要看的那一页交给页**：`mount(host, ctx, view)` 第三个参数（`guides` / `resources`）；书已经翻在学习方法时又要「资源」（`ielts:go resources`、书签），`turn` 先问页（`native.api.show(view)`，在「已经在这一页」的判断之前——她可能在页里点过别的标签），不翻页、不重新挂。
+5. **停在哪个标签**：这次会话记住（模块里的 `S.tab` / `S.guide`，照经典页的 `S.guide`）；第一次「考试概览」；从「资源」来开在「资源」；书签「学习方法」回到上一个学习方法的标签。**不读、不写**她设置里的 `prefs.guide`（见「拿不准的」1）。
+6. **复制**：照 `copyText`——`navigator.clipboard.writeText` → 页面外一个 16 px、只读的隐藏输入框 `select()` + `setSelectionRange` + `execCommand('copy')`（WKWebView）→ 一张「请手动复制」的卡片（经典页 `showCopyBox` 的两句话，App 里和浏览器里各一句），toast 是经典页的原话；复制的是 `PROMPTS[k]` 原文（不是框里的字）。按钮「已复制」1.8 秒、弹一下、溅墨。
+7. **外链**：`<a href target="_blank" rel="noopener noreferrer">`（经典页的写法；App 里 `WebView.swift` 交给 Safari，浏览器开新窗口）；点一下由链接自己开（`_bind` 的 click 不再点一次），手柄 / 键盘 `accept` 才 `a.click()`。正文里以后有 `#页` 的站内链接，一律 `ctx.go(view)`。游戏里没有 `location =` / `window.open`。
+8. **画风和手感**：一排贴纸标签停在书页顶上（sticky，正文从下面滚过；滚动框 `scroll-padding-top`，拉进视野的东西落在标签下面）；正文 16 px / 1.65（≥ 16 px），小标题是斜贴的胶带（标签的颜色、墨描边、错开的实色投影），列表是墨描边的小圆点 / 编号贴纸；表格在自己的贴纸框里横着滚（`touch-action: pan-x pan-y`），书页不横向滚动；错误原因是斜贴的签；指令框是能滚的深色纸 + 她墨色的「复制这段指令」；语法清单：「已学完 n / 16」的胶囊（变的时候弹一下）+ 墨条，每条一张贴纸（勾的方块、序号、名字、说明），勾上时勾弹簧落进来、方块弹一下、溅墨。切标签：旧正文脱离排版原地淡出（不跳，220 ms 后撤），新正文前 10 块隔 45 ms 弹进来。按下当帧沉（`is-down` + `transition-duration: 0s`）；只动 transform / opacity，没有每帧的 JS；减少动态效果时只淡入。点按区：标签 44、勾 48、外链 44、按钮 48。竖屏、横屏（844 × 390：标签一排、正文最宽 44em）。没加任何素材文件（外链箭头是几行内联 SVG，复制、勾用游戏自己的 `GLYPHS`）。
+
+**改了什么**（inkwave，`6e8c880..gf-guides`）：
+- `tools/learn/export-ielts.mjs`：多导 `content/guides.json`、`HOST_NAMES` 多 12 个、`EXTRA_NAMES` 多 17 个；自检（写 `SOURCE.json` 之前）：表和活宿主的一样、`convertTable` = `convertTableHTML()`、8 份现编的 profile（含坏时段、9.7 分、`'7'`、没有开始日期、考试日期 `soon`、每天 30 分钟、每天十几小时）× 8 个标签 = 64 页 `fillGuide` 和活宿主 `guideHTML` 一字不差，`phasePlan` / `dailyHours` 逐个比。对 IELTS-Base `gf-guides` 最后的 `863cb6f` 重跑：`content/w*.json`、`symbols.json` 一字没变（`git diff --stat 6e8c880` 只有 `guides.json`、`host.js`、`SOURCE.json`、工具本身）。
+- `content/guides.json`（新，29 797 字节）、`vendor/ielts/host.js`（14 896 → 32 211 字节）、`vendor/ielts/SOURCE.json`。
+- `src/learn/guides.js`（新，纯 + 写）：`loadGuides`、`guideProfile`、`convertTable`、`planLine`、`fillGuide`、`grammarView`、`doneText`、`setGrammar`、`toggleGrammar`。
+- `src/ui/book-pages/guides.js`（新）：页、`copyText`（导出，老师页以后可以用）。
+- `src/learn/book.js`：`NATIVE_PAGES` 加 `guides` 一行。`src/ui/menus.js` 的 `_scr_book`：`m.mount(box, ctx, view)`、`turn` 里一行同页切换。
+- `styles/ui.css` 末尾一节「游戏为主体 第三期第三步: 学习方法 · 资源」。
+- `tests/learn/guides.test.mjs`（新，11 条）；`tests/learn/notes.test.mjs` 的登记表断言（`['notes', 'log', 'guides']`、`nativeOf('resources') === 'guides'`，同样严）。
+
+**动了别人地盘的**：`menus.js` 只动了 `_scr_book` 的两处（见上）；`book.js` 只加一行；`kit.js` 一行没动（复制放在自己的页模块里，免得和 gf-teacher 在 `kit.js` 末尾撞）；`notes.test.mjs` 登记表那条（gf-teacher 也会改同一行：合并时三个都在，`['notes', 'log', 'guides', 'teacher']`、`BOOK_TABS.map(nativeOf)` 的第 7、8 位）。`workbench.js`、`notes.js`、`content.js`、`judge.js` 一行没动。
+
+**IELTS-Base 那边**（分支 `gf-guides`，只有测试和文档，没动 `app/`）：`tests/base/game-guides.test.mjs`（新，4 条，和 `tests/learn/guides.test.mjs` 同一份 `BEFORE` / `CONTRACT` / `recipe()`：4 份 profile × 8 个标签经典页 `guideHTML` = recipe(经典页的表, 同一句 {{PLAN}}, 目标分)；经典页自己 `toggleFlag('grammar', '3')`、再 `('0')` 存下的整段文本就是游戏写的；`refreshGuides` 读得出、「已学完」3 / 16、2 / 16）；`tests/base/load-host.cjs` 的 `EXTRA` 末尾加名字（带注释）；`tests/guides-e2e.mjs`（新，16 项）；`docs/GAME-FIRST.md` 第三期记一行。`tests/book-e2e.mjs` 没有学习方法的断言，没改。
+
+**测试**：`npm run test:learn` 376 → **387 / 387**；`npm run check` 308 → **310** 个文件；证据快照 sha256 仍是 `bae04357…c84f`（128 270 个情形，改前改后、重跑导出以后各一次）。IELTS-Base：`game-guides.test.mjs` 4 / 4；`bash tests/run-unit.sh`（锁里）1067 → **1071 / 1071，0 跳过**（KTX-Software 照 §43 从主仓库的 `.cache/tools/` 拷进工作树，不进 git）。
+
+**实测**（IELTS-Base 的浏览器测试，锁里一次一个；本仓库 `python3 tools/build-dist.py` 打的 dist/）：`tests/guides-e2e.mjs --game <dist>` 跑了 4 次，第 4 次 **16 / 16、没有页面错误**。前三次：
+1. 走到「点一条外链」时 `tap` 超时、脚本异常退出（输出被 `tail` 截掉了前面的结果）；Playwright 说点的位置被标签那一排和正文盖着——加了 `scroll-padding-top`（真正的原因是第 2 次查出来的那一条）。
+2. 15 / 16：外链点不到——**真毛病**：旧正文的移除共用一个计时器，220 ms 里再切一次标签，上一段的移除被取消，那段（透明、不接手指）一直留在下面、盖住同一位置的外链；改成各自一个计时器，测试多量「接连切过的旧正文都撤掉了」。
+3. 15 / 16：横屏那条是新加的「正文看得见」量法不对（写作页滚到底，指令框占满书页，量的只有 p / li / h3）；改成量正文的每一块、转屏后翻回「考试概览」再量。那次横屏截图书页是空的（标签和正文都没画出来），量到的位置却在书页里——SwiftShader 下大块滚动层转屏后的栅格化慢（见「拿不准的」4）；第 4 次的横屏截图正常。
+同一个 dist：`tests/book-e2e.mjs` **19 / 19**、`tests/notes-e2e.mjs` **23 / 23**，都没有页面错误（断言一个没改）。截图（看过，没提交）在 `/tmp/claude-0/-home-user-IELTS-Base/81e16695-bb25-5b35-889a-6a6732fc3954/scratchpad/gf-guides-shots/`：`1-guides-portrait.png`、`2-guides-resources.png`、`3-guides-grammar.png`、`4-guides-landscape.png`。
+
+**拿不准的（自己定了）**：
+1. 停在哪个标签只记这次会话。经典页点标签时还会写设置里的 `prefs.guide`、下次启动读回来；游戏不读也不写它（简报：「这次会话里记住」「第一次开在考试概览」），两边各记各的。
+2. 语法清单是 **16 条**（简报写 17；`GRAMMAR.length` 是 16，正文也说「前 10 项……后 6 项」），一律按 `GRAMMAR.length`。
+3. 她的 `profile.grammar` 不是对象时（不是经典页存下的样子），游戏只放进 `grammar` 这一个 key；经典页会把整个规范化后的 profile 写回去。只在不是经典页存的 blob 上才有差别。
+4. 第 3 次实测横屏截图是空的书页：DOM 里正文在书页里（量到的框对），第 4 次（转屏后切了一次标签、多等两帧）截图正常。没在真机上看过转屏，要真机看一次。
+5. 资源每组的小标题颜色按组轮换标签的颜色（经典页没有颜色）；「资源」标签自己是淡紫白（书签条里「设置」的颜色）。
+6. 学习方法页头随标签换：资源时标题「资源」、`LIBRARY`、经典页的开头那句放在正文第一段；学习方法时「学习方法」、`HOW TO LEARN` + 那句开头。英文一句 + 中文一句是 `LF_STAGE` 的。
+7. 没有她的数据时，正文照样能看（`{{PLAN}}` 用默认的时段、今天开始），只有语法清单不能勾（变暗 + 一句话 + 「翻到今天的课」）。
+
+**没做的**：真机（iPhone 13 的 WKWebView）——复制走哪条路（`ielts-base://` 下 `navigator.clipboard` 在不在）、外链交给 Safari、横屏；手柄在页里实际走一遍（焦点都接上了，`data-nav` 在浏览器里量过，没用手柄按）；同步：游戏改的是 `profile`，经典页下次载入时 `profile/main` 的摘要变、推上去（§39 的 `game-checkin.test` 已经证明 profile 这一篇会推），这次没另写同步测试。
+
+**交接**：inkwave 分支 `gf-guides`（从 `6e8c880` 建出）；IELTS-Base 分支 `gf-guides`（从 `59b5233` 建出：只有测试和文档）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/guides-e2e.mjs`、`tests/book-e2e.mjs`、`tests/notes-e2e.mjs`（不带 `--game`）。IELTS-Base 的单元测试不依赖 `app/game/`（契约是两边各写一份的同一个字面量），先合哪边都不会红。和 gf-teacher 并行：`book.js` 的 `NATIVE_PAGES`、`notes.test.mjs` 的登记表断言、`load-host.cjs` 的 `EXTRA` 末尾、`styles/ui.css` 末尾、本文件末尾（§45 / §46）会挨在一起，合并时都是两段接上。IELTS-Base 的 DEVLOG / BACKLOG 留给主会话。

@@ -1,7 +1,7 @@
 {
  "repo": "bugsyyu/IELTS-Base",
- "commit": "e88109619158d752e6f9d176c780a3da82019cd1",
- "date": "2026-10-15T17:28:07-07:00",
+ "commit": "863cb6ff23a7d7e1a4f70af4a1c6bbc4da4f6b75",
+ "date": "2026-10-20T10:41:59+00:00",
  "tool": "tools/learn/export-ielts.mjs",
  "files": {
   "model.js": {
@@ -33,91 +33,139 @@
  "host": {
   "file": "host.js",
   "from": "app/index.html",
-  "indexSha256": "318f8eff0bf7f67a63c9f801b91562eebf1a0682ca572a84f2247d04568a93fc",
+  "indexSha256": "2295358f5dd6b3cfc297d36af534cf50491ee3697cfe5acae029e5763ca2b334",
   "lines": {
    "esc": [
-    2420,
-    2420
+    2493,
+    2493
    ],
    "fdUs": [
-    7245,
-    7255
+    7386,
+    7396
    ],
    "toks": [
-    7768,
-    7768
+    7909,
+    7909
    ],
    "normTok": [
-    7769,
-    7771
+    7910,
+    7912
    ],
    "lcsOk": [
-    7772,
-    7782
+    7913,
+    7923
    ],
    "NUM_1": [
-    8459,
-    8460
+    8600,
+    8601
    ],
    "NUM_10": [
-    8461,
-    8461
+    8602,
+    8602
    ],
    "NUM_ORD": [
-    8462,
-    8462
+    8603,
+    8603
    ],
    "numWords": [
-    8463,
-    8473
+    8604,
+    8614
    ],
    "dictWords": [
-    7783,
-    7792
+    7924,
+    7933
    ],
    "tokMarks": [
-    7793,
-    7801
+    7934,
+    7942
    ],
    "dictScore": [
-    7802,
-    7806
+    7943,
+    7947
    ],
    "speechChunks": [
-    5393,
-    5427
+    5534,
+    5568
    ],
    "CLIP_SILENT": [
-    5551,
-    5551
+    5692,
+    5692
    ],
    "TZ_PLACES": [
-    2433,
-    2462
+    2506,
+    2535
    ],
    "TZ_DEFAULT": [
-    2463,
-    2463
+    2536,
+    2536
    ],
    "tzFmt": [
-    2464,
-    2467
+    2537,
+    2540
    ],
    "tzDevice": [
-    2468,
-    2468
+    2541,
+    2541
    ],
    "tzParts": [
-    2469,
-    2477
+    2542,
+    2550
    ],
    "tzPlaceOf": [
-    2493,
-    2502
+    2566,
+    2575
+   ],
+   "BLOCK_DEFS": [
+    1280,
+    1280
+   ],
+   "T": [
+    1282,
+    1282
+   ],
+   "MOCK_SAT": [
+    1299,
+    1313
+   ],
+   "PHASES": [
+    1315,
+    1471
+   ],
+   "parseYmd": [
+    2499,
+    2499
+   ],
+   "addDays": [
+    2500,
+    2500
+   ],
+   "diffDays": [
+    2501,
+    2501
+   ],
+   "toMin": [
+    2503,
+    2503
+   ],
+   "fmtH": [
+    2594,
+    2594
+   ],
+   "activeBlocks": [
+    2941,
+    2947
+   ],
+   "dailyHours": [
+    2948,
+    2952
+   ],
+   "phasePlan": [
+    2953,
+    2963
    ]
   },
-  "bytes": 14896,
-  "sha256": "8d2ac33fb2f0168467f60fc5eb52eda9d789976c8e61f2af774c40970e009940"
+  "bytes": 32211,
+  "sha256": "61a04362328707f55b3cd2e8c1a1ad0af340bca2c7be054646cd263d7f8944c2"
  },
  "content": {
   "w1.json": {
@@ -129,6 +177,11 @@
    "from": "app/index.html SYMBOLS, SYM_GROUPS, SYM_LIST (WB), SYM_US",
    "bytes": 19160,
    "sha256": "68f08d818279f37d73fea853a0068e1425348f506523be430710d9f2e785c856"
+  },
+  "guides.json": {
+   "from": "app/index.html GUIDE_TABS, GUIDES, GRAMMAR, PROMPTS, REASONS, RESOURCES, L_TABLE, RA_TABLE, RG_TABLE, DEFAULT_PROFILE, LF_STAGE, mountGuides / mountResources leads",
+   "bytes": 29797,
+   "sha256": "95aceec16552fa49853c76154d3c3667c9386cebecc66b7b4985ea41bdee8141"
   },
   "w2.json": {
    "from": "docs/courses/w2.json",
