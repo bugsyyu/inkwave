@@ -24,7 +24,10 @@ test('her course\'s today from the lesson page: ?from=app&today=wXdY[&done=1]; a
 
 test('the main menu in her App: today\'s level first (its planned form, the due words once the week loads), 选关 next, 回课本 with ?classic', () => {
   const M = src('src/ui/menus.js');
-  assert.ok(/const APP_TODAY = typeof location !== 'undefined' \? appToday\(location\.search\) : null;/.test(M));
+  // (let: the book's 老师 page moves it on after an import — the lesson page says her today again, LEARN §46)
+  assert.ok(/\nlet APP_TODAY = typeof location !== 'undefined' \? appToday\(location\.search\) : null;/.test(M));
+  assert.equal((M.match(/APP_TODAY = /g) || []).length, 2, 'set at load, and only by the book\'s ctx.today');
+  assert.match(M, /if \(!T \|\| \(APP_TODAY && [^\n]*\)\) return false;\n\s*APP_TODAY = T;/);
   assert.ok(/id: 'today', label: T\.done \? '今天学完了 · 再练一关' : '开始今天的关'/.test(M), 'the today button');
   assert.ok(/accept: \(\) => this\._startLearn\(\{ week: T\.week, day: T\.day, kind: 'plan' \}\)/.test(M), 'it starts the day\'s planned form');
   assert.ok(/items\.unshift\(today, \{ \.\.\.learn, label: '选关'/.test(M), '选关 right after');

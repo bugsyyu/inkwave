@@ -31,7 +31,7 @@ import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her 
 import { FORM_ZH, planFor, SYLLABUS_MECHANICS } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2); a day's table (gf-weeks: a loaded week's own)
 import { courseWeeks } from '../learn/weeks.js';   // gf-weeks (LEARN §44): every week of her course — her packs, content/, the ones still to come
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
-import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages
+import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage, makeAsker } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages; 老师 asks the page (§46)
 import { openCheckin, checkinFor } from './checkin-card.js';   // 第二期 打卡 (LEARN §39): the lesson page's check-in, a card of the game's own
 import { quizFor, examFor, examLine, examPill, examAria } from '../learn/exam-view.js';   // 第二期 今日小考 · 周考的进度 (LEARN §41): the page's exam records
 import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
@@ -50,8 +50,9 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 // 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web and ?lang=en (the
 // original INKWAVE, even inside the App) never change.
 const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
-// 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js)
-const APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
+// 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js);
+// the book's 老师 page moves it on after she imports the week her course goes on to (LEARN §46: the lesson page says it again)
+let APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
 // her today's line: 第 N 周 · 第 M 天 · its form (gf-weeks: a pack's week knows its form once it has loaded)
 const whereOf = (T) => { const plan = planFor(T.week, T.day); return `第 ${T.week} 周 · 第 ${T.day} 天` + (plan && FORM_ZH[plan.form] ? ` · ${FORM_ZH[plan.form]}` : ''); };
 // gf-weeks: a week segment of many weeks (her course's 17) scrolls sideways in its row; weekInView keeps the picked one in sight
@@ -1462,6 +1463,8 @@ export class Menus {
   // 第三期第二步 (LEARN §43): a bookmark in book.js NATIVE_PAGES (积累本, 学习日志) is a page the game draws itself, in the
   // same leaf (no iframe); the iframe is made the first time one of the lesson page's bookmarks is open. Leaving the lesson
   // page for a native one asks it to save first (ielts:flush); closing the book, the native page saves first (flush()).
+  // 第三期第三步 (LEARN §46): a native page can ask the lesson page what only it can say (ctx.ask → ielts:ask / ielts:answer,
+  // 老师's weekly report) — the same iframe, made hidden under the native page when there is none yet.
   _scr_book() {
     const reduced = prefersReducedMotion();
     const st = this._bookAt || (this._bookAt = { page: 'today' });
@@ -1469,6 +1472,9 @@ export class Menus {
     safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench());
     let want = st.page, tab = bookTab(want) || 'today', loaded = false, closing = false, flushed = null, turnT = 0, leafT = 0;
     let frame = null, native = null, seq = 0;
+    // 老师 (LEARN §46): questions to the lesson page by id — sent once it has loaded, again after every load, null after
+    // ASK_MS or when the book closes (book.js makeAsker)
+    const asker = makeAsker((m) => { if (!loaded || !frame || !frame.contentWindow) return false; try { frame.contentWindow.postMessage(m, TO); return true; } catch (e) { return false; } });
     for (const id in NATIVE_PAGES) NATIVE_PAGES[id]().catch(() => {});   // (fetched while the book rises: a turn never waits on it)
     const leaf = h('div', { class: 'iw-book__leaf' }, h('i', { class: 'iw-book__leafshade' }));
     const wait = h('div', { class: 'iw-book__wait' }, h('i', { class: 'iw-book__blot', html: splatSVG({ seed: 23, cls: 'iw-fa', r: 40, arms: 7, drops: 3 }) }), h('span', null, '翻开课本……'));
@@ -1477,7 +1483,7 @@ export class Menus {
     // the lesson page: one iframe, made the first time one of its bookmarks is open (at the address of that page)
     const frameUp = () => {
       frame = h('iframe', { class: 'iw-book__frame', title: '课本', src: pageUrl(want), allow: 'microphone; autoplay; clipboard-write' });
-      frame.addEventListener('load', () => { loaded = true; el.classList.add('is-loaded'); });
+      frame.addEventListener('load', () => { loaded = true; el.classList.add('is-loaded'); asker.send(true); });
       page.prepend(frame);
     };
     const rings = h('div', { class: 'iw-book__rings' }, Array.from({ length: 9 }, () => h('i')));
@@ -1517,6 +1523,16 @@ export class Menus {
       nav: (dir) => this._nav(dir),
       modal: (n, onBack) => { n.dataset.keys = '1'; n._onBack = onBack; this._modalPrev = this._focus; this._modal = n; },
       unmodal: (n) => { if (this._modal !== n) return; this._modal = null; if (this._modalPrev && this._modalPrev.isConnected) this._setFocus(this._modalPrev, { snap: true }); },
+      // the lesson page's answer to what (LEARN §46): its own iframe — made now, hidden under this page, when there is none yet
+      ask: (what) => { if (closing) return Promise.resolve(null); if (!frame) frameUp(); return asker.ask(what); },
+      // her course's today as the lesson page says it now (?from=app&today=wXdY[&done=1]): the menu and the map follow
+      today: (search) => {
+        const T = appToday(search);
+        if (!T || (APP_TODAY && APP_TODAY.week === T.week && APP_TODAY.day === T.day && APP_TODAY.done === T.done && APP_TODAY.inGame === T.inGame)) return false;
+        APP_TODAY = T;
+        try { const q = new URLSearchParams(location.search); q.delete('today'); q.delete('done'); new URLSearchParams(search).forEach((v, k) => { if (k === 'today' || k === 'done') q.set(k, v); }); history.replaceState(history.state, '', location.pathname + '?' + q + location.hash); } catch (e) { /* the menu follows anyway */ }
+        return true;
+      },
     };
     const unmount = () => {
       seq++;
@@ -1590,6 +1606,7 @@ export class Menus {
       const m = pageMessage(e, frame && frame.contentWindow, ORIGIN);
       if (!m) return;
       if (m.flushed) { if (flushed) flushed(); return; }
+      if (m.answer) { asker.answer(m.answer.id, m.answer); return; }
       if (m.go === 'game') shut(); else if (bookTab(m.go)) turn(m.go);
     };
     if (typeof window !== 'undefined') window.addEventListener('message', onMsg);
@@ -1614,6 +1631,7 @@ export class Menus {
       },
       destroy: () => {
         clearTimeout(turnT); clearTimeout(leafT);
+        asker.drop();
         unmount();
         if (typeof window !== 'undefined') window.removeEventListener('message', onMsg);
         safeCall(() => learnStore.invalidateWorkbench && learnStore.invalidateWorkbench());
