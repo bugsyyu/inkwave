@@ -3804,3 +3804,275 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-cmap__expill.is-down { transform: none; }
   .iw-qrec { animation: iw-fade .3s linear .2s backwards; }
 }
+
+/* =====================================================================================
+   游戏为主体 第三期第二步: 课本里自己画的页 — 积累本 · 学习日志 (docs/LEARN.md §43, src/ui/book-pages/) — the lesson page's two
+   pages drawn by the game in the book's leaf (no iframe): sticker cards and chips (--k outlines, the solid offset shadow, a
+   varnish line), Titan One kickers over the Chinese titles, ink bars that rise on a spring; 记一条 / 补记一条 are a sheet over
+   the book that follows the visual viewport (the soft keyboard). Layered entrances 40–60 ms apart, presses sink on the
+   frame they land, ≥ 44 pt to tap. Only transform / opacity move; reduced motion: fades.
+   ===================================================================================== */
+.iw-book__native { position: absolute; inset: 0; z-index: 1; }
+.iw-book.is-native .iw-book__frame { opacity: 0; visibility: hidden; transition: opacity .12s, visibility 0s linear .12s; }
+.iw-book.is-native .iw-book__wait { opacity: 0; pointer-events: none; }
+
+.iw-bp { position: absolute; inset: 0; color: #fff; text-align: left;
+  font: 500 15px / 1.45 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; }
+.iw-bp__scroll { position: absolute; inset: 0; overflow: hidden auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  padding: 18px 16px 34px 34px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .22) transparent; }
+.iw-bp__in { animation: iw-bp-in .52s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 45ms + 70ms); }
+@keyframes iw-bp-in { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+.is-quiet > .iw-bp__in:not(.is-new) { animation: none; }
+
+/* the head: an English kicker in Titan One, the Chinese title in an ink outline, the lead, the page's action */
+.iw-bp__head { display: grid; justify-items: start; gap: 6px; margin: 0 0 16px; }
+.iw-bp__kicker { font: 400 12px / 1 'Titan One', 'Rubik', sans-serif; letter-spacing: .16em; color: var(--a); }
+.iw-bp__title { margin: 0; font: 800 30px / 1.12 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; color: #fff;
+  -webkit-text-stroke: .14em var(--k); paint-order: stroke fill; text-shadow: 0 .09em 0 var(--k), 0 .2em .14em rgba(0, 0, 0, .3); }
+.iw-bp__lead { margin: 0; max-width: 40em; font-size: 14px; color: #cfc8e2; }
+.iw-bp__acts { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+.iw-bp__count { font: 700 13px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: var(--muted); }
+
+/* buttons: white stickers; 记一条 / 加入积累本 / 记录 in her ink; 收起 a ghost; the − / + keys round */
+.iw-bp-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 999px; cursor: pointer;
+  color: var(--k); font: 800 17px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(180deg, #ffffff, #e6e2f0);
+  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), inset 0 2px 0 rgba(255, 255, 255, .7), inset 0 -4px 0 rgba(0, 0, 0, .1); transition: transform .3s var(--spring); }
+.iw-bp-btn:has(.iw-bp-btn__ic) { padding-left: 8px; }
+.iw-bp-btn__ic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; padding: 8px; border-radius: 50%; background: var(--k); color: var(--a-light); }
+.iw-bp-btn__ic svg { width: 100%; height: 100%; }
+.iw-bp-btn__t { display: grid; gap: 3px; }
+.iw-bp-btn__t:empty { display: none; }
+.iw-bp-btn--add, .iw-bp-btn--go {
+  background: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 55%), linear-gradient(175deg, var(--a-light), var(--a) 50%, var(--a-dark)); }
+.iw-bp-btn--ghost { color: #fff; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .34); min-width: 92px; }
+.iw-bp-btn--step { width: 48px; height: 48px; padding: 0; flex: none; }
+.iw-bp-btn--step .iw-bp-btn__ic { width: 30px; height: 30px; padding: 6px; }
+.iw-bp-btn.is-down { transform: translateY(4px) scale(.98, .95); transition-duration: 0s; box-shadow: 0 0 0 3px var(--k), 0 1px 0 3px var(--k), inset 0 2px 0 rgba(255, 255, 255, .6); }
+.iw-bp-btn--ghost.is-down { box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .5); }
+.iw-bp-btn.is-done { animation: iw-bp-done .42s var(--spring2); }
+@keyframes iw-bp-done { 0% { transform: scale(.9, .86); } 55% { transform: scale(1.06); } 100% { transform: none; } }
+.iw-bp-btn[hidden], .iw-bp-filters[hidden], .iw-bp-charts[hidden] { display: none; }
+.iw-bp-btn:focus-visible, .iw-bp-tab:focus-visible, .iw-bp-chip:focus-visible, .iw-bp-del:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+/* 积累本: the type tabs (a count in each), the search */
+.iw-bp-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 18px; }
+.iw-bp-tabs { flex: 1 1 100%; display: flex; gap: 8px; margin: -6px -6px -8px; padding: 6px 6px 10px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.iw-bp-tabs::-webkit-scrollbar { display: none; }
+.iw-bp-tab { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 7px 0 14px; border: 0; border-radius: 999px; cursor: pointer; color: #fff;
+  font: 800 15px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(180deg, #3d3460, #2a2342 75%); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .16);
+  transition: transform .3s var(--spring); }
+.iw-bp-tab b { font-weight: inherit; }
+.iw-bp-tab__n { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 7px; border-radius: 14px; background: rgba(0, 0, 0, .36); color: #fff;
+  font: 400 13px / 1 'Titan One', 'Rubik', sans-serif; font-style: normal; font-variant-numeric: tabular-nums; }
+.iw-bp-tab.is-on { color: var(--k); transform: translateY(-3px);
+  background: radial-gradient(90% 60% at 30% 12%, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 60%), linear-gradient(175deg, color-mix(in srgb, var(--c) 72%, #fff), var(--c) 50%, color-mix(in srgb, var(--c) 82%, #000));
+  box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .55); }
+.iw-bp-tab.is-on .iw-bp-tab__n { background: var(--k); }
+.iw-bp-tab.is-down { transform: translateY(3px) scale(.96); transition-duration: 0s; }
+.iw-bp-search, .iw-bp-field.iw-bp-search { flex: 1 1 240px; display: flex; gap: 0; align-items: center; min-height: 48px; border-radius: 999px; color: var(--k); cursor: text;
+  background: linear-gradient(180deg, #ffffff, #f2eff9); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-bp-search:focus-within { box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), 0 0 0 7px rgba(var(--a-rgb), .5), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-bp-search .iw-bp-field__lab { display: grid; place-items: center; flex: none; width: 46px; height: 46px; color: #6b6383; }
+.iw-bp-search__ic { width: 20px; height: 20px; }
+.iw-bp-search__ic svg { width: 100%; height: 100%; }
+.iw-bp-search__in { flex: 1; min-width: 0; height: 46px; margin: 0; padding: 0 18px 0 0; border: 0; background: transparent; outline: none; -webkit-appearance: none; appearance: none;
+  font: 500 16px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: var(--k); user-select: text; -webkit-user-select: text; }
+.iw-bp-search__in::placeholder { color: #8a83a0; }
+.iw-bp-search__in::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* 积累本: a note is a sticker card — its type's colour down the left, the type on a slanted tag, English over Chinese, the
+   example in a quote, its date and 删除 at the foot; the cards stand a hair off straight, each its own way */
+.iw-bp-notes { display: grid; gap: 14px; }
+.iw-bp-note { position: relative; padding: 14px 12px 6px 20px; border-radius: 16px 14px 18px 15px; transform: rotate(var(--tilt, 0deg));
+  background: radial-gradient(rgba(255, 255, 255, .04) 1.2px, transparent 1.7px) 0 0 / 12px 12px, radial-gradient(110% 70% at 15% 0%, rgba(255, 255, 255, .09), transparent 60%), linear-gradient(175deg, #352c57, #241d3b 70%, #1e1832);
+  box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .15), inset 0 -8px 14px rgba(0, 0, 0, .2);
+  transition: transform .26s var(--in), opacity .2s linear; }
+.iw-bp-note::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 7px; border-radius: 0 5px 5px 0; background: var(--c); box-shadow: 2px 0 0 var(--k); }
+.iw-bp-note__type { display: inline-block; margin: 0 0 9px -2px; padding: 4px 10px 3px; border-radius: 6px; transform: rotate(-2.5deg); color: var(--k); background: var(--c);
+  font: 800 12px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; box-shadow: 0 0 0 2px var(--k), 0 2.5px 0 2px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .5); }
+.iw-bp-note__pair { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.iw-bp-note__en { font: 700 19px / 1.3 'Rubik', -apple-system, sans-serif; color: #fff; overflow-wrap: anywhere; text-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+.iw-bp-note__sep { font: 800 16px / 1 'Rubik', sans-serif; color: var(--c); }
+.iw-bp-note__sep:empty { display: none; }
+.iw-bp-note__zh { font: 600 15px / 1.45 -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Rubik', sans-serif; color: #e6e0f4; overflow-wrap: anywhere; }
+.iw-bp-note__ex { margin: 9px 0 0; padding: 8px 10px 8px 12px; border-radius: 10px; background: rgba(0, 0, 0, .26); box-shadow: inset 3px 0 0 var(--c);
+  font-size: 14px; line-height: 1.5; color: #d2cbe5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.iw-bp-note__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.iw-bp-note__d { font: 700 12.5px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: var(--muted); }
+.iw-bp-note.is-new { animation: iw-bp-new .62s var(--spring2) backwards; }
+@keyframes iw-bp-new { 0% { opacity: 0; transform: translateY(-12px) scale(.84) rotate(-4deg); } 60% { opacity: 1; } }
+.iw-bp-note.is-new::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; pointer-events: none; box-shadow: 0 0 0 3px var(--a), 0 0 22px rgba(var(--a-rgb), .6);
+  opacity: 0; animation: iw-bp-glow 1.6s var(--out) .2s; }
+@keyframes iw-bp-glow { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+.iw-bp-note.is-gone, .iw-bp-entry.is-gone { opacity: 0; transform: translateX(18px) scale(.9); pointer-events: none; }
+
+/* 删除: a quiet coral pill; armed (再点一次确认删除) it fills coral in an ink outline and pops */
+.iw-bp-del { position: relative; flex: none; min-width: 64px; min-height: 44px; margin-right: -4px; padding: 0 14px; border: 0; border-radius: 999px; cursor: pointer; background: none;
+  color: #f7a798; font: 700 14px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform .3s var(--spring); }
+.iw-bp-del::before { content: ''; position: absolute; inset: 7px 0; border-radius: 999px; box-shadow: inset 0 0 0 2px rgba(240, 138, 122, .42); }
+.iw-bp-del__t { position: relative; display: inline-block; }
+.iw-bp-del.is-armed { color: var(--k); }
+.iw-bp-del.is-armed::before { background: linear-gradient(180deg, #ffb3a5, #f08a7a 55%, #d8705f); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .5); }
+.iw-bp-del.is-armed .iw-bp-del__t { animation: iw-bp-arm .34s var(--spring2); }
+@keyframes iw-bp-arm { 0% { transform: scale(.8); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+.iw-bp-del.is-down { transform: translateY(2px) scale(.95); transition-duration: 0s; }
+
+/* nothing here yet / no data on this device */
+.iw-bp-empty { display: grid; justify-items: center; gap: 14px; padding: 26px 10px 18px; text-align: center; color: #d9d3ea; font-weight: 600; }
+.iw-bp-empty__splat { width: 92px; height: 92px; opacity: .9; transform: rotate(-10deg); }
+.iw-bp-empty__splat svg { width: 100%; height: 100%; }
+.iw-bp-empty p { margin: 0; max-width: 24em; }
+.iw-bp-muted { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+/* 学习日志: two panels — 14 days of ink bars (today lit, an ink dot on a day without), 7 days by 科目 — then the 60 days */
+.iw-bp-charts { display: grid; gap: 14px; margin: 0 0 20px; }
+.iw-bp-panel { padding: 14px 14px 12px; border-radius: 18px 16px 20px 17px;
+  background: radial-gradient(rgba(255, 255, 255, .04) 1.2px, transparent 1.7px) 0 0 / 12px 12px, linear-gradient(175deg, #30284f, #221b37 75%);
+  box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .14), inset 0 -8px 14px rgba(0, 0, 0, .2); }
+.iw-bp-sec { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font: 800 17px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; color: #fff; }
+.iw-bp-sec small { font: 400 11px / 1 'Titan One', 'Rubik', sans-serif; letter-spacing: .15em; color: var(--a); }
+.iw-bp-days > .iw-bp-sec { margin: 4px 0 2px; }
+.iw-bp-chart { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); align-items: end; gap: 4px; height: 136px; }
+.iw-bp-bar { display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; gap: 6px; height: 100%; }
+.iw-bp-bar__w { position: relative; width: 100%; max-width: 24px; height: 100%; padding: 3px 2px 0; overflow: hidden; }
+.iw-bp-bar__b { display: block; height: 100%; border-radius: 7px 7px 2px 2px; transform: translateY(calc((1 - var(--h, 0)) * 100% + 3px));
+  background: linear-gradient(180deg, var(--a-light), var(--a) 45%, var(--a-dark)); filter: saturate(.72) brightness(.82);
+  box-shadow: 0 0 0 2px var(--k), inset 0 2px 0 rgba(255, 255, 255, .45); transition: transform .5s var(--spring);
+  animation: iw-bp-rise .7s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 32ms + 240ms); }
+@keyframes iw-bp-rise { from { transform: translateY(calc(100% + 3px)); } }
+.iw-bp-bar.is-today .iw-bp-bar__b { filter: none; box-shadow: 0 0 0 2px var(--k), inset 0 2px 0 rgba(255, 255, 255, .6), 0 0 14px rgba(var(--a-rgb), .55); }
+.iw-bp-bar.is-zero .iw-bp-bar__w::after { content: ''; position: absolute; left: 50%; bottom: 0; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: rgba(255, 255, 255, .22); }
+.iw-bp-bar__l { min-width: 20px; padding: 2px 3px 1px; border-radius: 7px; text-align: center; font: 400 11px / 1.1 'Titan One', 'Rubik', sans-serif; color: var(--muted); font-variant-numeric: tabular-nums; }
+.iw-bp-bar.is-today .iw-bp-bar__l { color: var(--k); background: var(--a); box-shadow: 0 0 0 1.5px var(--k); }
+.iw-bp-cap { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.iw-bp-mods { display: grid; gap: 10px; }
+.iw-bp-hbar { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; align-items: center; gap: 10px; font: 700 14px / 1.2 'Rubik', -apple-system, 'PingFang SC', sans-serif; }
+.iw-bp-hbar__t { height: 18px; padding: 3px; border-radius: 999px; overflow: hidden; background: rgba(0, 0, 0, .34); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .07); }
+.iw-bp-hbar__t i { display: block; height: 100%; border-radius: 999px; transform: translateX(calc((var(--w, 0) - 1) * 100%));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 66%, #fff), var(--c) 60%); box-shadow: inset 0 0 0 1.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .4);
+  transition: transform .5s var(--spring); animation: iw-bp-fill .7s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 55ms + 300ms); }
+@keyframes iw-bp-fill { from { transform: translateX(-100%); } }
+.iw-bp-hbar__v { font-size: 13px; color: #e9e5f4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.iw-bp-days { display: grid; gap: 12px; }
+.iw-bp-day { padding: 12px 10px 4px 14px; border-radius: 16px 15px 17px 14px;
+  background: linear-gradient(175deg, #2d2549, #211a35 80%); box-shadow: 0 0 0 2.5px var(--k), 0 5px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .13); }
+.iw-bp-day__h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 0 4px 8px 0; }
+.iw-bp-day__d { font: 800 17px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; }
+.iw-bp-day__w { font-size: 13px; font-weight: 600; color: var(--muted); }
+.iw-bp-day__n { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--a-light); background: rgba(var(--a-rgb), .16); }
+.iw-bp-day__t { margin-left: auto; font: 800 15px / 1.2 'Rubik', -apple-system, 'PingFang SC', sans-serif; color: var(--a-light); white-space: nowrap; }
+.iw-bp-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding: 2px 0; border-top: 1.5px dashed rgba(255, 255, 255, .1); transition: transform .26s var(--in), opacity .2s linear; }
+.iw-bp-entry__k { padding: 4px 9px 3px; border-radius: 6px; color: var(--k); background: var(--c); font: 800 12px / 1.2 'Rubik', -apple-system, 'PingFang SC', sans-serif; box-shadow: 0 0 0 2px var(--k); }
+.iw-bp-entry__m { font: 700 14px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; white-space: nowrap; }
+.iw-bp-entry__n { flex: 1 1 7em; min-width: 0; color: #d9d3ea; font-size: 14px; overflow-wrap: anywhere; }
+.iw-bp-entry.is-new { animation: iw-bp-new .62s var(--spring2) backwards; }
+
+/* the sheet (记一条 / 补记一条): a sticker card over the book, its box the visual viewport's (the soft keyboard) */
+.iw-bps { position: absolute; inset: 0; z-index: 8; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.iw-bps__scrim { position: absolute; inset: 0; opacity: 0; transition: opacity .3s var(--out);
+  background: radial-gradient(rgba(255, 255, 255, .05) 1.2px, transparent 1.7px) 0 0 / 11px 11px, radial-gradient(120% 90% at 50% 45%, rgba(12, 9, 22, .6), rgba(12, 9, 22, .9)); }
+.iw-bps.is-in .iw-bps__scrim { opacity: 1; }
+.iw-bps.is-out .iw-bps__scrim { opacity: 0; transition-duration: .24s; }
+.iw-bps__vp { position: absolute; left: 0; right: 0; top: 0; height: 100%; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  padding: calc(14px + var(--sat, 0px)) max(14px, var(--sar, 0px)) calc(14px + var(--sab, 0px)) max(14px, var(--sal, 0px)); }
+.iw-bps.is-kb .iw-bps__vp { align-items: flex-end; padding-top: 8px; padding-bottom: 8px; }
+.iw-bps__card { position: relative; width: min(480px, 100%); max-height: 100%; overflow: hidden auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 20px 18px 18px; border-radius: 22px 18px 24px 20px; color: #fff; text-align: left; isolation: isolate;
+  font: 500 15px / 1.4 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: radial-gradient(rgba(255, 255, 255, .045) 1.3px, transparent 1.8px) 0 0 / 12px 12px, radial-gradient(110% 60% at 20% 0%, rgba(255, 255, 255, .1), transparent 60%), linear-gradient(175deg, #2f2650, #1c1531 70%, #171125);
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--k), 0 9px 0 6px var(--k), 0 26px 44px rgba(0, 0, 0, .55), inset 0 1.5px 0 rgba(255, 255, 255, .16), inset 0 -10px 18px rgba(0, 0, 0, .22);
+  opacity: 0; transform: translateY(44px) scale(.88) rotate(3deg); transition: transform .48s var(--spring2), opacity .16s linear; }
+.iw-bps.is-in .iw-bps__card { opacity: 1; transform: rotate(-.6deg); }
+.iw-bps.is-out .iw-bps__card { opacity: 0; transform: translateY(34px) scale(.94); transition: transform .26s var(--in), opacity .2s linear .04s; }
+.iw-bps__card.is-nope { animation: iw-bp-nope .34s linear; }
+@keyframes iw-bp-nope { 20% { transform: translateX(-6px) rotate(-.6deg); } 40% { transform: translateX(6px) rotate(-.6deg); } 60% { transform: translateX(-4px) rotate(-.6deg); } 80% { transform: translateX(3px) rotate(-.6deg); } }
+.iw-bps__splat { position: absolute; z-index: -1; right: -34px; top: -40px; width: 150px; opacity: .22; transform: rotate(18deg); pointer-events: none; }
+.iw-bps__splat svg { width: 100%; height: 100%; }
+.iw-bps__tape { display: inline-flex; align-items: baseline; gap: 10px; margin: 0 0 14px -2px; padding: 7px 14px 6px; border-radius: 5px; transform: rotate(-2.5deg); color: var(--k);
+  background: linear-gradient(180deg, var(--a-light), var(--a) 55%, var(--a-dark)); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .55);
+  font: 800 16px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; }
+.iw-bps__tape small { font: 400 11px / 1 'Titan One', 'Rubik', sans-serif; letter-spacing: .12em; }
+.iw-bps__lab { margin: 0 0 9px 2px; font-size: 14px; font-weight: 700; color: #e9e5f4; }
+.iw-bps__grid { display: grid; gap: 14px; margin-top: 16px; }
+.iw-bps__msg { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: #f08a7a; }
+.iw-bps__msg:empty { display: none; }
+.iw-bps__foot { display: flex; gap: 12px; margin-top: 18px; }
+.iw-bps__foot .iw-bp-btn--go { flex: 1; min-height: 54px; font-size: 18px; }
+
+/* chips (a note's type, a 补记's 科目): stickers in a radio row; the picked one in its colour, lifted, springs as it is picked */
+.iw-bp-chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.iw-bp-chips.is-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.iw-bp-chip { min-height: 44px; padding: 0 13px; border: 0; border-radius: 12px; cursor: pointer; color: #fff; touch-action: manipulation;
+  font: 800 15px / 1 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: linear-gradient(180deg, #43396a, #2c2445 70%); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .16);
+  transition: transform .3s var(--spring); }
+.iw-bp-chips.is-grid .iw-bp-chip { padding: 0 4px; }
+.iw-bp-chip b { font-weight: inherit; white-space: nowrap; }
+.iw-bp-chip.is-on { color: var(--k); transform: translateY(-3px);
+  background: radial-gradient(90% 60% at 30% 12%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 60%), linear-gradient(175deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c) 50%, color-mix(in srgb, var(--c) 82%, #000));
+  box-shadow: 0 0 0 2.5px var(--k), 0 7px 0 2.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .6); }
+.iw-bp-chip.is-down { transform: translateY(3px) scale(.95, .92); transition-duration: 0s; }
+.iw-bp-chip.is-pick { animation: iw-bp-pick .42s var(--spring2); }
+@keyframes iw-bp-pick { 0% { transform: scale(.84); } 60% { transform: translateY(-4px) scale(1.08); } 100% { transform: translateY(-3px); } }
+
+/* fields: paper white in an ink outline, ≥ 16 px (a phone does not zoom on focus), the caret in her ink */
+.iw-bp-field { display: grid; gap: 7px; min-width: 0; }
+.iw-bp-field__lab { padding-left: 2px; font-size: 14px; font-weight: 700; color: #e9e5f4; }
+.iw-bp-field__hint { padding-left: 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.iw-bp-in { display: block; width: 100%; min-height: 48px; margin: 0; padding: 12px 14px; border: 0; border-radius: 14px; -webkit-appearance: none; appearance: none;
+  font: 500 16px / 1.4 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: var(--k); caret-color: var(--a-dark);
+  background: linear-gradient(180deg, #ffffff, #f3f0f9); user-select: text; -webkit-user-select: text;
+  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-bp-in::placeholder { color: #8a83a0; }
+.iw-bp-in:focus { outline: none; box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), 0 0 0 7px rgba(var(--a-rgb), .55), inset 0 3px 0 rgba(21, 18, 28, .07); }
+.iw-bp-in--area { min-height: 76px; resize: none; overflow-y: auto; }
+.iw-bp-in--num { text-align: center; font: 400 22px / 1 'Titan One', 'Rubik', sans-serif; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.iw-bp-in--num::-webkit-inner-spin-button, .iw-bp-in--num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.iw-bp-stepper { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: end; gap: 10px; }
+.iw-bp-mins { display: grid; gap: 7px; min-width: 0; }
+.iw-bp-field.is-tick .iw-bp-in { animation: iw-bp-tick .26s var(--spring2); }
+@keyframes iw-bp-tick { 50% { transform: scale(1.06); } }
+
+@media (min-width: 560px) {
+  .iw-bps__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .iw-bp-field.is-wide { grid-column: 1 / -1; }
+}
+@media (min-width: 720px) {
+  .iw-bp-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .iw-bp-charts { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+}
+/* a phone on its side (844 × 390): a smaller head; the sheet wide; with the keyboard up only the fields and the buttons */
+@media (orientation: landscape) and (max-height: 520px) {
+  .iw-bp__scroll { padding: 12px 14px 24px 32px; }
+  .iw-bp__head { grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; margin-bottom: 12px; }
+  .iw-bp__kicker, .iw-bp__title, .iw-bp__lead { grid-column: 1; }
+  .iw-bp__acts { grid-column: 2; grid-row: 1 / span 3; align-self: center; margin: 0; }
+  .iw-bp__title { font-size: 24px; }
+  .iw-bp__lead { font-size: 13px; }
+  .iw-bp-chart { height: 104px; }
+  .iw-bps__card { width: min(660px, 100%); padding: 14px 16px; }
+  .iw-bps__tape { margin-bottom: 8px; }
+  .iw-bps__grid { margin-top: 10px; gap: 10px; }
+  .iw-bp-chips.is-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  .iw-bps__chipset { display: flex; align-items: center; gap: 12px; }
+  .iw-bps__lab { margin: 0; flex: none; }
+  .iw-bps__chipset .iw-bp-chips { flex: 1; min-width: 0; }
+  .iw-bp-field { gap: 5px; }
+  .iw-bp-in--area { min-height: 48px; }
+  .iw-bps__foot { margin-top: 12px; }
+}
+.iw-bps.is-kb .iw-bps__tape, .iw-bps.is-kb .iw-bps__chipset { display: none; }
+.iw-bps.is-kb .iw-bps__grid { margin-top: 0; }
+
+/* reduced motion: everything fades, nothing moves (the bars and fills keep their length) */
+.iw-bps.is-reduced .iw-bps__card, .iw-bps.is-reduced.is-in .iw-bps__card, .iw-bps.is-reduced.is-out .iw-bps__card { transform: none; transition: opacity .18s linear; }
+@media (prefers-reduced-motion: reduce) {
+  .iw-bp__in, .iw-bp-note.is-new, .iw-bp-entry.is-new, .iw-bp-bar__b, .iw-bp-hbar__t i { animation: iw-fade .22s linear backwards !important; }
+  .iw-bp-note, .iw-bp-note__type, .iw-bp-tab.is-on, .iw-bp-chip.is-on, .iw-bps__tape, .iw-bp-note.is-gone, .iw-bp-entry.is-gone { transform: none; }
+  .iw-bp-bar__b, .iw-bp-hbar__t i { transition-duration: 0s; }
+  .iw-bp-btn.is-down, .iw-bp-tab.is-down, .iw-bp-chip.is-down, .iw-bp-del.is-down { transform: none; }
+  .iw-bp-btn.is-done, .iw-bp-chip.is-pick, .iw-bp-del.is-armed .iw-bp-del__t, .iw-bps__card.is-nope, .iw-bp-field.is-tick .iw-bp-in, .iw-bp-note.is-new::after { animation: none; }
+}

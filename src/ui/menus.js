@@ -30,7 +30,7 @@ import * as learnApi from '../learn/api.js';   // (游戏为主体 第二期: re
 import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
 import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
-import { BOOK_TABS, bookTab, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本
+import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages
 import { openCheckin, checkinFor } from './checkin-card.js';   // 第二期 打卡 (LEARN §39): the lesson page's check-in, a card of the game's own
 import { quizFor, examFor, examLine, examPill, examAria } from '../learn/exam-view.js';   // 第二期 今日小考 · 周考的进度 (LEARN §41): the page's exam records
 import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
@@ -1416,16 +1416,27 @@ export class Menus {
   // → the leaf turns and the page shows it (ielts:show). One copy of her data: the game pushes what it holds before the
   // page loads (store.flushWorkbench), the page saves what it holds before the book closes (ielts:flush → ielts:flushed,
   // 400 ms at most), and the game reads her blob again afterwards (store.invalidateWorkbench).
+  // 第三期第二步 (LEARN §43): a bookmark in book.js NATIVE_PAGES (积累本, 学习日志) is a page the game draws itself, in the
+  // same leaf (no iframe); the iframe is made the first time one of the lesson page's bookmarks is open. Leaving the lesson
+  // page for a native one asks it to save first (ielts:flush); closing the book, the native page saves first (flush()).
   _scr_book() {
     const reduced = prefersReducedMotion();
     const st = this._bookAt || (this._bookAt = { page: 'today' });
     const ORIGIN = typeof location !== 'undefined' ? location.origin : '', TO = sameOrigin(typeof location !== 'undefined' ? location : null);
     safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench());
     let want = st.page, tab = bookTab(want) || 'today', loaded = false, closing = false, flushed = null, turnT = 0, leafT = 0;
-    const frame = h('iframe', { class: 'iw-book__frame', title: '课本', src: pageUrl(want), allow: 'microphone; autoplay; clipboard-write' });
+    let frame = null, native = null, seq = 0;
+    for (const id in NATIVE_PAGES) NATIVE_PAGES[id]().catch(() => {});   // (fetched while the book rises: a turn never waits on it)
     const leaf = h('div', { class: 'iw-book__leaf' }, h('i', { class: 'iw-book__leafshade' }));
     const wait = h('div', { class: 'iw-book__wait' }, h('i', { class: 'iw-book__blot', html: splatSVG({ seed: 23, cls: 'iw-fa', r: 40, arms: 7, drops: 3 }) }), h('span', null, '翻开课本……'));
-    const page = h('div', { class: 'iw-book__page' }, frame, wait, h('i', { class: 'iw-book__gloss' }), leaf);
+    const gloss = h('i', { class: 'iw-book__gloss' });
+    const page = h('div', { class: 'iw-book__page' }, wait, gloss, leaf);
+    // the lesson page: one iframe, made the first time one of its bookmarks is open (at the address of that page)
+    const frameUp = () => {
+      frame = h('iframe', { class: 'iw-book__frame', title: '课本', src: pageUrl(want), allow: 'microphone; autoplay; clipboard-write' });
+      frame.addEventListener('load', () => { loaded = true; el.classList.add('is-loaded'); });
+      page.prepend(frame);
+    };
     const rings = h('div', { class: 'iw-book__rings' }, Array.from({ length: 9 }, () => h('i')));
     const cover = h('div', { class: 'iw-book__cover' },
       h('div', { class: 'iw-book__front' }, h('span', { class: 'iw-book__splat', html: splatSVG({ seed: 7, cls: 'iw-fa', r: 62, arms: 9, drops: 4 }) }),
@@ -1450,15 +1461,62 @@ export class Menus {
       if (on && strip.scrollTo) strip.scrollTo({ left: Math.max(0, on.offsetLeft + on.offsetWidth / 2 - strip.clientWidth / 2), behavior: reduced ? 'auto' : 'smooth' });
     };
     mark();
+    // a native page's world (src/ui/book-pages/kit.js): her storage, the menus' focus / press / sounds, the book's turns, the
+    // screen to put a sheet over, the menus' modal for that sheet
+    let ls = null;
+    try { ls = typeof localStorage !== 'undefined' ? localStorage : null; } catch (e) { ls = null; }
+    const ctx = {
+      ls, reduced, now: () => new Date(), layer: el,
+      bind: (n, o) => { this._fx(n, { press: true }); return this._bind(n, o); },
+      sfx: (n) => this._sfx(n), toast: (text, o) => this.toast(text, o), burst: (n, o) => this._burstAt(n, o),
+      go: (view) => { if (view === 'game') shut(); else if (bookTab(view)) turn(view); },
+      focus: (n) => { if (n && n.isConnected) this._setFocus(n, { snap: true }); },
+      nav: (dir) => this._nav(dir),
+      modal: (n, onBack) => { n.dataset.keys = '1'; n._onBack = onBack; this._modalPrev = this._focus; this._modal = n; },
+      unmodal: (n) => { if (this._modal !== n) return; this._modal = null; if (this._modalPrev && this._modalPrev.isConnected) this._setFocus(this._modalPrev, { snap: true }); },
+    };
+    const unmount = () => {
+      seq++;
+      if (!native) return;
+      const n = native; native = null;
+      if (n.api) safeCall(() => n.api.destroy && n.api.destroy());
+      n.box.remove();
+    };
+    // a page of the game's own into the leaf (its module may still be on its way: the newest turn wins); a module that will
+    // not load falls back to the lesson page's own page
+    const mountNative = (id, view) => {
+      unmount();
+      const my = seq, box = h('div', { class: 'iw-book__native', 'data-page': id });
+      page.insertBefore(box, gloss);
+      native = { id, box, api: null };
+      el.classList.add('is-native');
+      NATIVE_PAGES[id]().then((m) => {
+        if (my !== seq || closing || !native) return;
+        native.api = m.mount(box, ctx) || null;
+      }).catch((e) => {
+        console.error('[book] native page', id, e);
+        if (my !== seq || closing) return;
+        unmount(); el.classList.remove('is-native'); want = view; classic(view, true);
+      });
+    };
     // the page under the leaf changes: by message once it is up, by address before (or when the message cannot go)
-    const show = (view) => {
-      try { if (loaded && frame.contentWindow) { frame.contentWindow.postMessage({ type: 'ielts:show', view }, TO); return; } } catch (e) { /* the address then */ }
+    const classic = (view, force) => {
+      if (!frame) { frameUp(); return; }
+      try { if (!force && loaded && frame.contentWindow) { frame.contentWindow.postMessage({ type: 'ielts:show', view }, TO); return; } } catch (e) { /* the address then */ }
       loaded = false; el.classList.remove('is-loaded'); frame.src = pageUrl(view);
+    };
+    const show = (view) => {
+      const id = nativeOf(view);
+      if (id) { mountNative(id, view); return; }
+      unmount(); el.classList.remove('is-native');
+      classic(view);
     };
     const turn = (view) => {
       const to = bookTab(view);
       if (closing || !to || (view === want && to === tab)) return;
       const dir = flipDir(tab, to);
+      // from the lesson page to one of the game's: the page saves what it holds first (the native page reads her blob)
+      if (nativeOf(view) && !native && loaded && frame) { try { frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); } catch (e) { /* gone */ } }
       want = view; tab = to; st.page = view; mark(); reveal();
       clearTimeout(turnT); clearTimeout(leafT);
       if (reduced) { page.classList.add('is-fade'); turnT = setTimeout(() => { show(view); page.classList.remove('is-fade'); }, 140); return; }
@@ -1470,6 +1528,9 @@ export class Menus {
     const shut = () => {
       if (closing) return;
       closing = true;
+      // a page of the game's own first: what it holds goes now (a sheet's draft is kept for next time)
+      if (native && native.api && native.api.flush) safeCall(() => native.api.flush());
+      if (this._modal && el.contains(this._modal)) { const m = this._modal; safeCall(() => m._onBack && m._onBack()); }
       this._sfx('ui_back');
       el.classList.add('is-closing');
       let t = 0;
@@ -1480,25 +1541,27 @@ export class Menus {
         setTimeout(() => { el.classList.add('is-down'); setTimeout(() => this.show('main', { back: true, instantLeave: true }), reduced ? 160 : 330); }, reduced ? 0 : 360);
       };
       flushed = down; t = setTimeout(down, 400);
-      try { if (loaded && frame.contentWindow) frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); else down(); } catch (e) { down(); }
+      try { if (loaded && frame && frame.contentWindow) frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); else down(); } catch (e) { down(); }
     };
     const onMsg = (e) => {
-      const m = pageMessage(e, frame.contentWindow, ORIGIN);
+      const m = pageMessage(e, frame && frame.contentWindow, ORIGIN);
       if (!m) return;
       if (m.flushed) { if (flushed) flushed(); return; }
       if (m.go === 'game') shut(); else if (bookTab(m.go)) turn(m.go);
     };
-    frame.addEventListener('load', () => { loaded = true; el.classList.add('is-loaded'); });
     if (typeof window !== 'undefined') window.addEventListener('message', onMsg);
+    show(want);
     return {
       el, noCursor: false, initial: () => tabs[BOOK_TABS.findIndex((b) => b.id === tab)] || close,
       onBack: () => shut(),
       onNav: (dir) => {
         if (dir !== 'tab_prev' && dir !== 'tab_next') return false;
+        if (this._modal) return true;   // (a native page's sheet is up: the bookmarks wait)
         const i = BOOK_TABS.findIndex((b) => b.id === tab), j = clamp(i + (dir === 'tab_prev' ? -1 : 1), 0, BOOK_TABS.length - 1);
         if (j !== i) { this._sfx('ui_click'); turn(BOOK_TABS[j].id); this._setFocus(tabs[j]); }
         return true;
       },
+      onFocus: (f) => { if (native && native.api && native.api.onFocus) safeCall(() => native.api.onFocus(f, !!this._navFocus)); },
       // up from the bottom (spring), then the cover swings open on the spine; the page fades in once it has loaded
       afterMount: () => {
         void el.offsetWidth;
@@ -1508,6 +1571,7 @@ export class Menus {
       },
       destroy: () => {
         clearTimeout(turnT); clearTimeout(leafT);
+        unmount();
         if (typeof window !== 'undefined') window.removeEventListener('message', onMsg);
         safeCall(() => learnStore.invalidateWorkbench && learnStore.invalidateWorkbench());
       },
