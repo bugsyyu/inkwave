@@ -27,6 +27,7 @@
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/arena-audit.mjs …
 import http from 'node:http';
 import fs from 'node:fs';
+import { packAccount } from './pack-account.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -89,6 +90,7 @@ for (const viewName of VIEWS_WANT) { try {
   const CO = { viewport: { width: V.w, height: V.h }, deviceScaleFactor: +(process.argv.includes('--dpr') ? process.argv[process.argv.indexOf('--dpr') + 1] : 1),   /* (--dpr 3: a phone's real density, for the visual-parity shots) */ isMobile: V.touch, hasTouch: V.touch };
   const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
+  await packAccount(ctx, opt('pack', null));   // (gf-weeks: --pack <week.json>, a week past content/ — pack-account.mjs)
   const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
   const bad = [], errs = [], fails = [], report = { form: FORM, view: VIEW, size: `${V.w}x${V.h}`, query: QUERY, learn: LEARN_Q, gate: GATE, skip: SKIPN, full: FULL, questions: [] };
   reports[VIEW] = report;

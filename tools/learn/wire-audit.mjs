@@ -28,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { packAccount } from './pack-account.mjs';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -77,10 +78,9 @@ const browser = PROFILE ? null : await chromium.launch(LAUNCH);
 const watchdog = setTimeout(() => { say('WATCHDOG — out of budget'); finish(2); }, BUDGET);
 const ctx = PROFILE ? await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CTXO }) : await browser.newContext(CTXO);
 await ctx.addInitScript((touch) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off' }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, V.touch);
-// (--pack <week.json>, gf-weeks LEARN §44: a made-up account on this origin holding that course pack — a week past content/
-// plays from it; set once, so the evidence the segments push into it carries on; her clock is the device's)
+// (--pack <week.json>, gf-weeks LEARN §44: a made-up account holding that course pack — pack-account.mjs)
 const PACK = opt('pack', null);
-if (PACK) await ctx.addInitScript((w) => { try { if (!localStorage.getItem('ielts-workbench:data:v1')) { localStorage.setItem('ielts-workbench:data:v1', JSON.stringify({ profile: { v: 1, setup: true, startDate: '2026-09-21', cp: {}, ci: {} }, packs: { [w.id]: { week: w, at: '2026-10-19' } } })); localStorage.setItem('ielts-workbench:prefs:v1', JSON.stringify({ tz: 'device' })); } } catch (e) { /* none */ } }, JSON.parse(fs.readFileSync(PACK, 'utf8')));
+await packAccount(ctx, PACK);
 const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
 const bad = [], errs = [], fails = [], report = { view: VIEW, size: `${V.w}x${V.h}`, learn: LEARN_Q, gate: GATE, skip: SKIP, full: FULL, questions: [], boards: [] };
 page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/game/')); });

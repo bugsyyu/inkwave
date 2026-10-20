@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ielts } from '../../src/learn/ielts.js';
 import { loadWeek, daySteps, isCustom, loadedWeek, weekIndex } from '../../src/learn/content.js';
-import { DAY_PLAN, dayPlanFor, planFor, planDay, coverage, mechanicOf, playOf, bossPlan, quizPlan, MECHANICS } from '../../src/learn/design.js';
+import { DAY_PLAN, dayPlanFor, planFor, planDay, coverage, mechanicOf, playOf, bossPlan, quizPlan, MECHANICS, FORM_STAGES } from '../../src/learn/design.js';
 import { weekError, herPacks, hasWeek, courseWeeks, canon, setPackStore } from '../../src/learn/weeks.js';
 import { setBackend } from '../../src/learn/store.js';
 import { appToday } from '../../src/learn/app.js';
@@ -155,6 +155,30 @@ test('a generated week 4: every asking step is a gate and every lesson step a si
   assert.equal(B.month, true, 'week 4 is the 满月月考');
   assert.ok(B.phases.every((ph) => ph.items.length > 0));
   assert.equal(quizPlan(w4, 2, []).n, 8);
+});
+
+test('a generated week\'s stages: each form only where the hand tables put it (no puzzle on kelpline), every stage once a week when it can be, else the fewest repeats', async () => {
+  // the hand tables of weeks 1–3, read back
+  const used = { puzzle: new Set(), race: new Set(), duel: new Set() };
+  for (const w of ['w1', 'w2', 'w3']) for (let d = 1; d <= 7; d++) used[DAY_PLAN[w][d].form].add(DAY_PLAN[w][d].stage);
+  for (const f of ['puzzle', 'race', 'duel']) assert.deepEqual(new Set(FORM_STAGES[f]), used[f], f);
+  assert.ok(!FORM_STAGES.puzzle.includes('kelpline') && FORM_STAGES.duel.join() === 'kelpline,saltpan');
+  use(null); await loadWeek(1);
+  const seen = new Set();
+  for (let n = 4; n <= 17; n++) {
+    const w = clone(W4); w.id = 'w' + n; w.n = n; w.days.forEach((d) => { d.id = d.id.replace(/^w4d/, 'w' + n + 'd'); });
+    const P = [1, 2, 3, 4, 5, 6, 7].map((d) => dayPlanFor(w, d));
+    for (const x of P) assert.ok(FORM_STAGES[x.form].includes(x.stage), `w${n} ${x.form} on ${x.stage}`);
+    assert.equal(new Set(P.map((x) => x.stage)).size, 7, `w${n}: every stage once`);
+    seen.add(P.map((x) => x.stage).join());
+  }
+  assert.ok(seen.size >= 4, 'the weeks differ');
+  // a week that cannot have every stage once: three duel days (days 3, 6, 9) on the duel's two stages — one repeat
+  const odd = clone(W4); odd.id = 'w9'; odd.n = 9; odd.days = [2, 5, 1].map((k, i) => ({ ...clone(W4.days[k]), id: 'w9d' + [3, 6, 9][i], n: [3, 6, 9][i] }));
+  const S = [3, 6, 9].map((d) => dayPlanFor(odd, d));
+  assert.deepEqual(S.map((x) => x.form), ['duel', 'duel', 'duel']);
+  assert.ok(S.every((x) => FORM_STAGES.duel.includes(x.stage)));
+  assert.equal(new Set(S.map((x) => x.stage)).size, 2, 'both duel stages, one of them twice');
 });
 
 test('the ids: week 4\'s items are the ones IELTS-Base\'s index gives the same pack among all her weeks (what the lesson page reads her evidence by)', async () => {
