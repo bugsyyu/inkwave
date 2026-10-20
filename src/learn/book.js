@@ -5,6 +5,19 @@
 // 'storage'). Later the pages go native one by one and leave the book. Pure: the bookmarks, the page's URL, the messages
 // the page sends (app/index.html embedTell). Node tests import it.
 
+// 第三期第二步 (LEARN §43): the pages the game draws itself — bookmark id → its module, loaded when first wanted. A module is
+// { mount(host, ctx) → { destroy(), flush?(), onFocus?(el, nav) } } (src/ui/book-pages/kit.js has ctx). The other bookmarks
+// stay the lesson page's iframe, made only when one of them is open. A page that goes native is one line here.
+export const NATIVE_PAGES = Object.freeze({
+  notes: () => import('../ui/book-pages/notes.js'),
+  log: () => import('../ui/book-pages/log.js'),
+});
+// a lesson-page id → the native page that shows it (null: the lesson page's own, in the iframe)
+export function nativeOf(view) {
+  const t = bookTab(view);
+  return t && Object.prototype.hasOwnProperty.call(NATIVE_PAGES, t) ? t : null;
+}
+
 // the bookmarks, in the book's order (the lesson page's Views ids); c: the sticker's colour (dark --k text on all of them)
 export const BOOK_TABS = Object.freeze([
   { id: 'today', label: '今天的课', c: '#ff8a14' },
