@@ -10,7 +10,7 @@
 
 - **为什么**：GAME-FIRST §4 第三期「做法」第 2 步——课本里的经典页一页一页换成游戏自己的；业主 10-17 的三句（融为一体、更精细、3A 的交互节奏）。
 - **改了什么**：`book.js` 一张登记表 `NATIVE_PAGES`（以后换一页只加一行）；`_scr_book` 里原生页画在同一张书页里、iframe 只在翻到经典页时才建、离开经典页先 `ielts:flush`、合上先 `flush()`；`src/learn/notes.js`（照经典页读写：`notes[id]`、`logs[月].entries`，写前重读、只换那一处、不建、幂等、她的时区、写完镜像）；`src/ui/book-pages/`（贴纸卡片、书签式筛选、墨色柱子、跟着软键盘的「记一条」卡片、两步删除）；`styles/ui.css` 末尾一节。
-- **怎么验证的**：`test:learn` 349 → 364、`check` 306；IELTS-Base `tests/base/game-notes.test.mjs` 6 / 6（经典页自己写的整段文本和游戏写的一样、读得出、同步只推那一篇）、`tests/notes-e2e.mjs` 23 / 23 没有页面错误；`tests/book-e2e.mjs` 改了翻到这两页的断言（结果在 LEARN §43）。
+- **怎么验证的**：`test:learn` 349 → 364、`check` 306；IELTS-Base `tests/base/game-notes.test.mjs` 6 / 6（经典页自己写的整段文本和游戏写的一样、读得出、同步只推那一篇）、`tests/notes-e2e.mjs` 23 / 23 没有页面错误；`tests/book-e2e.mjs` 改了翻到这两页的断言、19 / 19（第 1 次 17 / 19 是量得太早，LEARN §43）。
 - **没做的**：真机（软键盘、iOS 的日期滚轮）；手柄在页里实际走一遍。
 
 ## 2026-10-17
