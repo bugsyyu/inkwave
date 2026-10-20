@@ -10,7 +10,10 @@ import { register } from 'node:module';
 register(new URL('./three-hook.mjs', import.meta.url));
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { ielts } from '../../src/learn/ielts.js';
+import { NATIVE_PAGES, nativeOf, BOOK_TABS } from '../../src/learn/book.js';
+import { armed, ARM_MS, ARM_RESET } from '../../src/ui/book-pages/kit.js';
 import { DATA_KEY, PREF_KEY, mirrorFlush, _reset } from '../../src/learn/workbench.js';
 import {
   NOTE_TYPES, NOTE_HINTS, NOTE_MAX, noteLabels, MODULES, LOG_MODULES, uid, posInt, fmtH, fmtDur, fmtMD, weekdayOf, todayOf, repeatGuard,
@@ -248,4 +251,86 @@ test('the lesson page in the book wrote her blob meanwhile: the game reads the l
   b.m.set(DATA_KEY, JSON.stringify(o2));
   deleteLog(b, 'l1', '2026-10');
   assert.deepEqual(blobOf(b).logs['2026-10'].entries.map((e) => e.id), ['mgw1k2abc3d4', 'mgw1m9xyz8w7', 'p2']);
+});
+
+// ---------- the book: which pages are the game's own, how the leaf shows them ----------
+const src = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+const MENUS = src('src/ui/menus.js'), BOOK = MENUS.slice(MENUS.indexOf('  _scr_book() {'), MENUS.indexOf('  _startLearn(st, from = null) {'));
+const PAGES = { kit: src('src/ui/book-pages/kit.js'), notes: src('src/ui/book-pages/notes.js'), log: src('src/ui/book-pages/log.js') };
+const CSS = src('styles/ui.css'), css = CSS.slice(CSS.indexOf('游戏为主体 第三期第二步: 课本里自己画的页'));
+
+test('the register: 积累本 and 学习日志 are the game\'s own pages (one line each, loaded when wanted); every other bookmark is the lesson page\'s', async () => {
+  assert.deepEqual(Object.keys(NATIVE_PAGES), ['notes', 'log']);
+  assert.ok(Object.keys(NATIVE_PAGES).every((id) => BOOK_TABS.some((b) => b.id === id)), 'a native page is a bookmark');
+  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id)), [null, null, null, null, 'notes', 'log', null, null, null]);
+  assert.equal(nativeOf('resources'), null); assert.equal(nativeOf('constructor'), null); assert.equal(nativeOf(undefined), null);
+  for (const id of Object.keys(NATIVE_PAGES)) {
+    assert.equal(typeof NATIVE_PAGES[id], 'function', 'lazy: nothing is loaded until the book wants it');
+    const m = await NATIVE_PAGES[id]();
+    assert.equal(typeof m.mount, 'function', id + ': mount(host, ctx)');
+  }
+});
+
+test('the book: a native page is drawn in the same leaf (no iframe); the iframe is made only for a lesson-page bookmark; leaving the lesson page asks it to save; closing, the native page saves first', () => {
+  assert.match(BOOK, /const frameUp = \(\) => \{\s*frame = h\('iframe'/, 'the iframe is made on demand');
+  assert.equal((BOOK.match(/frameUp\(\)/g) || []).length, 1, 'by one caller: the lesson page\'s show');
+  assert.match(BOOK, /const show = \(view\) => \{\s*const id = nativeOf\(view\);\s*if \(id\) \{ mountNative\(id, view\); return; \}/);
+  assert.match(BOOK, /if \(nativeOf\(view\) && !native && loaded && frame\) \{ try \{ frame\.contentWindow\.postMessage\(\{ type: 'ielts:flush' \}, TO\);/);
+  assert.match(BOOK, /turnT = setTimeout\(\(\) => show\(view\), 200\);/, 'the page changes mid-turn, under the leaf');
+  const shut = BOOK.slice(BOOK.indexOf('const shut = () => {'));
+  assert.ok(shut.indexOf('native.api.flush()') > 0 && shut.indexOf('native.api.flush()') < shut.indexOf("el.classList.add('is-closing')"), 'flush() before the book closes');
+  assert.match(BOOK, /for \(const id in NATIVE_PAGES\) NATIVE_PAGES\[id\]\(\)\.catch/, 'fetched while the book rises');
+  assert.match(BOOK, /if \(my !== seq \|\| closing \|\| !native\) return;/, 'the newest turn wins');
+  assert.match(BOOK, /unmount\(\); el\.classList\.remove\('is-native'\); want = view; classic\(view, true\);/, 'a page that will not load: the lesson page\'s own');
+  assert.match(BOOK, /if \(this\._modal\) return true;/, 'a sheet up: LB / RB do not turn the page under it');
+  assert.match(BOOK, /destroy: \(\) => \{[\s\S]*unmount\(\);[\s\S]*learnStore\.invalidateWorkbench\(\)/);
+  assert.match(BOOK, /bind: \(n, o\) => \{ this\._fx\(n, \{ press: true \}\); return this\._bind\(n, o\); \}/, 'every button of a page in the menus\' focus (pad / keys) and press');
+});
+
+test('the pages: her words never as markup; keys typed are the page\'s; the sheet follows the visual viewport; 删除 asks twice', () => {
+  for (const f of ['notes', 'log']) {
+    assert.doesNotMatch(PAGES[f].replace(/html: (PLUS|CHECK|MINUS_SVG|SEARCH_SVG|GLYPHS\.\w+|splatSVG\([^)]*\))/g, ''), /html:/, f + ': only icons go in as markup');
+    assert.match(PAGES[f], /ownKeys\(fr\.el\)/);
+    assert.match(PAGES[f], /readBlob\(ls, \{ fresh: true \}\)/, f + ': her latest blob when the page opens');
+    assert.match(PAGES[f], /addEventListener\('storage', onStore\)/, f + ': the page in the book wrote it: read again');
+    assert.match(PAGES[f], /if \(again\(/, f + ': a second press within 1.5 s is not a new entry');
+  }
+  assert.match(PAGES.kit, /e\.stopPropagation\(\);/);
+  assert.match(PAGES.kit, /vv\.addEventListener\('resize', fit\); vv\.addEventListener\('scroll', fit\);/);
+  assert.match(PAGES.kit, /vp\.style\.height = kb \? vv\.height \+ 'px' : '';/);
+  assert.match(PAGES.kit, /ctx\.modal\(el, \(\) => onBack\(\)\);/);
+  // armed: the page's own rule
+  assert.deepEqual([ARM_MS, ARM_RESET], [450, 3000]);
+  const timers = [], label = { textContent: '删除' };
+  const el = { dataset: {}, isConnected: true, classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); } }, querySelector: () => label };
+  const later = (f, ms) => timers.push([f, ms]);
+  assert.equal(armed(el, 1000, later), false);
+  assert.equal(label.textContent, '再点一次确认删除');
+  assert.ok(el.classList.s.has('is-armed'));
+  assert.equal(armed(el, 1300, later), false, 'a double tap does not delete');
+  assert.equal(armed(el, 1451, later), true, 'more than 450 ms after: it goes');
+  timers[0][0]();
+  assert.deepEqual([timers[0][1], label.textContent, el.dataset.armed, el.classList.s.has('is-armed')], [3000, '删除', '', false], 'back after 3 s');
+});
+
+test('look: the sticker language (ink outline, offset solid shadow), ≥ 44 pt, pressed on the frame, staggered, reduced motion fades', () => {
+  assert.ok(css.length > 2000, 'found the section');
+  assert.match(css, /\.iw-bp-btn \{[^}]*min-height: 48px[^}]*box-shadow: 0 0 0 3px var\(--k\), 0 5px 0 3px var\(--k\)/);
+  assert.match(css, /\.iw-bp-tab \{[^}]*min-height: 44px/);
+  assert.match(css, /\.iw-bp-del \{[^}]*min-width: 64px; min-height: 44px/);
+  assert.match(css, /\.iw-bp-chip \{ min-height: 44px/);
+  assert.match(css, /\.iw-bp-in \{[^}]*min-height: 48px[^}]*font: 500 16px/, '16 px: a phone does not zoom on focus');
+  assert.match(css, /\.iw-bp-in \{[^}]*user-select: text; -webkit-user-select: text;/);
+  for (const c of ['btn', 'tab', 'chip', 'del']) assert.match(css, new RegExp('\\.iw-bp-' + c + '\\.is-down \\{[^}]*transition-duration: 0s'), c + ' pressed on the frame');
+  assert.match(css, /\.iw-bp__in \{ animation: iw-bp-in [^}]*animation-delay: calc\(var\(--i, 0\) \* 45ms \+ 70ms\)/);
+  assert.match(css, /\.iw-bp__title \{[^}]*-webkit-text-stroke: \.14em var\(--k\)/);
+  assert.match(css, /\.iw-bp__kicker \{ font: 400 12px \/ 1 'Titan One'/);
+  assert.match(css, /\.iw-bps\.is-kb \.iw-bps__tape, \.iw-bps\.is-kb \.iw-bps__chipset \{ display: none; \}/, 'the keyboard up: the fields and the buttons');
+  assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\) \{[\s\S]*\.iw-bp-chips\.is-grid \{ grid-template-columns: repeat\(10/);
+  assert.doesNotMatch(css, /backdrop-filter/);
+  const rm = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(rm, /animation: iw-fade \.22s linear backwards !important/);
+  assert.match(css, /\.iw-bp-bar__b \{[^}]*transform: translateY\(calc\(\(1 - var\(--h, 0\)\) \* 100% \+ 3px\)\)/, 'a bar is its height by a transform (no layout per frame)');
+  assert.match(PAGES.log, /x\.bar\.style\.setProperty\('--h', \(d\.m \/ max\)\.toFixed\(4\)\)/, 'the classic page\'s scale: max(240, …)');
+  assert.match(PAGES.log, /const max = Math\.max\(240, \.\.\.v\.days\.map\(\(d\) => d\.m\)\);/);
 });
