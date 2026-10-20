@@ -245,4 +245,30 @@ test('a new week has no recordings: the lesson\'s clips say null and the device 
   assert.equal(C.plan(it.tts), null, 'no clip: the device voice');
 });
 
+test('the menus: her today\'s line and form from the loaded week, the picker over the weeks the game can load, the map over her course\'s weeks (grey ones wait and say why), any loadable week starts', () => {
+  const M = src('src/ui/menus.js'), C = src('styles/ui.css'), MAIN = src('src/main.js');
+  assert.ok(!/DAY_PLAN/.test(M), 'no hand table read directly: planFor (a loaded week\'s own, else the hand table)');
+  assert.match(M, /const whereOf = \(T\) => \{ const plan = planFor\(T\.week, T\.day\);/);
+  assert.match(M, /const bits = \[whereOf\(T\) \|\| where\];/, 'the today line again once the week has loaded (week 4: its form)');
+  assert.match(M, /sub: `\$\{courseWeeks\(\)\.total\} 周 · 每天的进度 · 点一天就开局`/);
+  // the picker
+  assert.match(M, /const CW = courseWeeks\(\), weeks = Array\.from\(\{ length: CW\.total \}, \(_, i\) => i \+ 1\)\.filter\(CW\.has\);/);
+  assert.match(M, /this\._seg\(weeks\.map\(\(n\) => \[n, `第 \$\{n\} 周`\]\)/);
+  // the map
+  assert.match(M, /courseMap\(\{ weeks: CW\.total, days: LEARN\.days, today: T, has: CW\.has,/);
+  assert.match(M, /plan: \(w, d\) => planFor\(w, d\),/);
+  assert.match(M, /this\._seg\(Array\.from\(\{ length: CW\.total \}, \(_, i\) => \[i \+ 1, `第 \$\{i \+ 1\} 周`\]\)/);
+  assert.match(M, /o\.classList\.toggle\('is-wait', !CW\.has\(i \+ 1\)\)/);
+  assert.match(M, /this\.toast\(`第 \$\{st\.week\} 周的课还没来 — 等老师的课程包`/);
+  assert.match(M, /if \(this\._cmapProg\[W\] \|\| !CW\.has\(W\)\) return;/, 'a week still to come is never loaded');
+  assert.match(M, /boss \? \(wk\.boss\.month \? '满月月考' : '周考'\)/);
+  assert.match(M, /this\._header\('课程地图', \{ sub: `\$\{CW\.total\} 周的课/);
+  assert.match(C, /\.iw-cmap__node\.is-wait \.iw-cmap__disc/); assert.match(C, /\.iw-cmap__node\.is-boss\.is-month/); assert.match(C, /\.iw-wscroll\.is-many \{ overflow-x: auto;/);
+  assert.match(C.slice(C.indexOf('gf-weeks: every week of her course')), /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.iw-cmap__wait/);
+  // main.js: a week past content/ is not cut back to week 3
+  assert.match(MAIN, /const week = Math\.max\(1, Math\.floor\(\+o\.week\) \|\| 1\), day = clamp\(\+o\.day \|\| 1, 1, LEARN\.days\);/);
+  // the two-player forms stay on content/'s weeks (the other player has no pack of hers)
+  assert.match(src('src/net/session.js'), /clampInt\(o && o\.week != null \? o\.week : prev\.week, 1, LEARN\.weeks\)/);
+});
+
 test.after(() => { setPackStore(undefined); _reset(); });

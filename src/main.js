@@ -965,7 +965,7 @@ class Game {
   // 关卡学习: build the day's level (or the week's boss) in the asked form and start it as a 'learn' match on the
   // level's stage, at the level's time of day — { week, day, kind: puzzle | race | duel | boss, short? }
   async startLearn(o = {}) {
-    const week = clamp(+o.week || 1, 1, LEARN.weeks), day = clamp(+o.day || 1, 1, LEARN.days);
+    const week = Math.max(1, Math.floor(+o.week) || 1), day = clamp(+o.day || 1, 1, LEARN.days);   // (gf-weeks: any week loadWeek can load — her packs')
     const kind = LEARN_KINDS.includes(o.kind) ? o.kind : 'plan';   // ('plan': buildLearn takes the day's planned form)
     let learn = null;
     // (an error that says why in her words — the review with nothing due: 「现在没有要复习的」 — is toasted as it is)
