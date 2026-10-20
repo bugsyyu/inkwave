@@ -3321,7 +3321,7 @@ html.iw-glass {
   --glass-blur: 22px;     /* how soft the stage is behind a panel (≤ 24 px) */
   --glass-rim: .7;        /* the lit top edge and the glow inside every glass face (0 = none, .9 = very bright) */
   --glass-spec: .18;      /* the slanted specular streak across a glass face (0 = none; panels take .35 of it) */
-  --glass-btn: .46;       /* the tint of a dark glass button (lower = more of the panel's blur through it) */
+  --glass-btn: .5;        /* the tint of a dark glass button (lower = more of the panel's blur through it) */
   --clay-depth: 1.25;     /* volume: the light inside top left, the shade inside at the bottom, the soft drop (0 = flat) */
   /* ---- the system: four radii, one hairline, one ring gap ---- */
   --r-1: 10px; --r-2: 14px; --r-3: 20px; --r-4: 28px;
@@ -3368,12 +3368,14 @@ html.iw-glass .iw-ui { font-synthesis: none; }
 
 /* ---- Chinese display text: no stroke (the counters of 字 fill in), a soft lift instead; the display face */
 html.iw-glass .iw-display { font-family: var(--f-display); -webkit-text-stroke: 0; letter-spacing: .01em;
-  text-shadow: 0 2px 0 rgba(10, 7, 20, .55), 0 4px 14px rgba(10, 7, 20, .5); }
+  text-shadow: 0 0 2px rgba(10, 7, 20, .9), 0 2px 0 rgba(10, 7, 20, .7), 0 0 14px rgba(10, 7, 20, .75); }
+html.iw-glass :is(.iw-head__blob, .iw-learn__rsplat) { opacity: .38; }
+html.iw-glass .iw-head__sub { text-shadow: 0 0 2px rgba(10, 7, 20, .85), 0 1px 0 rgba(10, 7, 20, .7), 0 0 10px rgba(10, 7, 20, .7); }
 html.iw-glass .iw-btn { font-family: var(--f-display); letter-spacing: 0; }
 html.iw-glass .iw-btn__sub { font-family: var(--f-text); font-weight: 600; letter-spacing: 0; }
 html.iw-glass :is(.iw-bp__title, .iw-ci__title) { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; letter-spacing: .02em;
   text-shadow: 0 2px 0 rgba(10, 7, 20, .5), 0 6px 18px rgba(10, 7, 20, .55), 0 0 1px rgba(255, 255, 255, .4); }
-html.iw-glass .iw-learn__rhead .iw-learn__rtitle { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(10, 7, 20, .55), 0 6px 18px rgba(10, 7, 20, .5); }
+html.iw-glass .iw-learn__rhead .iw-learn__rtitle { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; text-shadow: 0 0 2px rgba(10, 7, 20, .95), 0 2px 0 rgba(10, 7, 20, .75), 0 0 16px rgba(10, 7, 20, .8); }
 html.iw-glass :is(.iw-book__tab, .iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-ci__mood b, .iw-ci__save, .iw-ci__later, .iw-book__close, .iw-cmap__day, .iw-bps__tape span, .iw-ci__tape span, .iw-learn__btn, .iw-seg__opt) {
   font-family: var(--f-ui); font-weight: 600; letter-spacing: .01em; }
 html.iw-glass .iw-cmap__day { font-family: var(--f-display); -webkit-text-stroke: 0; text-shadow: 0 1px 0 rgba(10, 7, 20, .8), 0 2px 6px rgba(10, 7, 20, .7); }
@@ -3392,7 +3394,7 @@ html.iw-glass .iw-main__menu { left: calc(var(--u) * 2.65); width: calc(var(--u)
 /* her phone upright: thirteen buttons did not fit (the last ones ran off the bottom); the six that are not her course
    (联机 stays a whole row) share rows two by two */
 @media (orientation: portrait) and (max-width: 720px) {
-  html.iw-glass .iw-main .iw-scrim-left { background: linear-gradient(180deg, rgba(12, 9, 22, .26), rgba(12, 9, 22, .42) 30%, rgba(12, 9, 22, .55)); }
+  html.iw-glass .iw-main .iw-scrim-left { background: linear-gradient(180deg, rgba(12, 9, 22, .3), rgba(12, 9, 22, .48) 30%, rgba(12, 9, 22, .6)); }
   html.iw-glass .iw-main__menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; align-content: start;
     left: 7px; right: 7px; width: auto; top: calc(108px + var(--sat, 0px)); padding: 10px 9px; border-radius: var(--r-4); }
   html.iw-glass .iw-main__menu .iw-btn--menu, html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl), html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl):not(.iw-btn--online) {
@@ -3410,7 +3412,8 @@ html.iw-glass .iw-panel { border-radius: var(--r-3); background: var(--glass-bg)
   box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l); }
 html.iw-glass .iw-panel::before { display: none; }
 html.iw-glass .iw-prompts { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--gb-dark), rgba(18, 14, 30, .6); box-shadow: var(--g-item); }
-html.iw-glass .iw-profile__stats div { border-radius: var(--r-1); background: var(--gb-sheen), rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 0 0 1px rgba(255, 255, 255, .06); }
+html.iw-glass .iw-profile__stats span { opacity: .9; }
+html.iw-glass .iw-profile__stats div { border-radius: var(--r-1); background: var(--gb-sheen), rgba(12, 9, 22, .3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 0 0 1px rgba(255, 255, 255, .06); }
 html.iw-glass .iw-lvl { border-radius: var(--r-1); background: var(--gb-milk); box-shadow: var(--g-btn-l); }
 html.iw-glass .iw-chip { background: var(--gb-sheen), rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 0 0 1px rgba(255, 255, 255, .08); }
 /* bars: glass tubes, the fill lit (experience, loading, the log's 科目, 语法清单's count) */
@@ -3447,8 +3450,11 @@ html.iw-glass .iw-btn {
 html.iw-glass .iw-btn.is-down, html.iw-glass .iw-btn:active { scale: 1.018 .93; translate: 0 calc(var(--u) * .28); transition: scale 0s, translate 0s, box-shadow 0s; }
 html.iw-glass .iw-btn--menu { --fill: rgba(var(--a-rgb), .82); border-radius: var(--r-2); background: var(--gb-dark); box-shadow: var(--g-btn); }
 html.iw-glass .iw-btn--menu:is(.iw-btn--primary, .iw-btn--online) { --fill: rgba(255, 255, 255, .86);
-  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), calc(var(--glass-btn) + .4)), rgba(var(--gh), calc(var(--glass-btn) + .5))); }
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, color-mix(in srgb, rgba(var(--gh), .9) 78%, rgba(20, 15, 36, .9)), color-mix(in srgb, rgba(var(--gh), .95) 68%, rgba(20, 15, 36, .95))); }
 html.iw-glass .iw-btn--menu.iw-btn--primary { --gh: var(--a-rgb); }
+html.iw-glass .iw-btn--menu:is(.iw-btn--primary, .iw-btn--online) .iw-btn__sub { opacity: .96; }
+/* (a hued face is the hue with a fifth to a third of the ink-purple in it: a light hue keeps its dark text readable, a deep
+   one — magenta, blue — gets dark enough for its white text) */
 html.iw-glass .iw-btn--menu.iw-btn--online { --gh: var(--b-rgb); }
 html.iw-glass .iw-btn--menu.iw-btn--online::before { opacity: .3; }
 html.iw-glass .iw-btn--menu.is-focus { box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop); }
@@ -3461,7 +3467,9 @@ html.iw-glass .iw-backbtn__arrow { background: var(--gb-milk); box-shadow: var(-
 html.iw-glass .iw-seg { background: rgba(0, 0, 0, .42); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 3px 7px rgba(0, 0, 0, .45), 0 1px 0 rgba(255, 255, 255, .12); }
 html.iw-glass .iw-seg__hl { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, var(--a-light) -40%, var(--a) 45%);
   box-shadow: var(--g-line), var(--g-edge-on), inset 0 -4px 6px rgba(0, 0, 0, .2), 0 0 14px rgba(var(--a-rgb), .4); }
-html.iw-glass .iw-seg__opt { letter-spacing: .02em; }
+html.iw-glass .iw-seg__opt { letter-spacing: .02em; color: rgba(255, 255, 255, .9); }
+html.iw-glass .iw-seg__opt.is-sel { color: var(--a-ink); }
+html.iw-glass .iw-seg__opt.is-wait:not(.is-sel) { color: rgba(255, 255, 255, .5); }
 
 /* ---- the loading screen: the bar a glass tube with its fill lit, the tip a glass strip, its tag a label */
 html.iw-glass .iw-progress__track { background: rgba(10, 8, 20, .62); box-shadow: var(--g-line), inset 0 0 0 1px rgba(255, 255, 255, .16), inset 0 3px 6px rgba(0, 0, 0, .55), 0 0 0 4px rgba(255, 255, 255, .08), var(--g-drop); }
@@ -3469,7 +3477,7 @@ html.iw-glass .iw-tip { border-radius: var(--r-3); background: var(--glass-bg); 
 html.iw-glass .iw-tip__text { font-family: var(--f-text); font-weight: 500; }
 
 /* ---- toasts: smoked glass (no blur: small, and it flies in and out) */
-html.iw-glass .iw-toast { border-radius: var(--r-2); rotate: 0deg; background: var(--gb-dark), rgba(16, 12, 28, .7); box-shadow: var(--g-btn); font-family: var(--f-text); font-weight: 600; }
+html.iw-glass .iw-toast { border-radius: var(--r-2); rotate: 0deg; background: var(--gb-dark), rgba(16, 12, 28, .9); box-shadow: var(--g-btn); font-family: var(--f-text); font-weight: 600; }
 html.iw-glass .iw-toast.is-error { background: var(--glass-streak), var(--gb-sheen), rgba(76, 14, 32, .86); }
 html.iw-glass .iw-toast__icon { border-radius: 50%; rotate: 0deg; box-shadow: var(--g-line), var(--clay); }
 
@@ -3484,8 +3492,9 @@ html.iw-glass .iw-book__gloss { background: linear-gradient(90deg, rgba(0, 0, 0,
 html.iw-glass .iw-book__leaf { background: var(--glass-streak), linear-gradient(90deg, rgba(60, 48, 96, .9), rgba(34, 26, 56, .86) 40%, rgba(42, 33, 68, .9)); }
 html.iw-glass .iw-book__rings i { box-shadow: var(--g-line), inset 0 1px 0 #fff, 2px 4px 6px rgba(0, 0, 0, .35); }
 html.iw-glass .iw-book__tab { border-radius: var(--r-2) var(--r-2) 4px 4px; filter: none; color: var(--k);
-  background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 64%, transparent), color-mix(in srgb, var(--c) 52%, transparent));
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 86%, rgba(255, 255, 255, .9)), color-mix(in srgb, var(--c) 90%, transparent));
   box-shadow: var(--g-line), var(--g-edge), inset 0 -10px 12px -8px rgba(0, 0, 0, .25); }
+html.iw-glass .iw-book__tab:not(.is-on) { opacity: .9; }
 html.iw-glass .iw-book__tab.is-on { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c) 70%);
   box-shadow: var(--g-line), var(--g-edge-on), 0 -4px 18px color-mix(in srgb, var(--c) 55%, transparent); }
 html.iw-glass .iw-book__tab:active { box-shadow: var(--g-btn-down); }
@@ -3516,6 +3525,7 @@ html.iw-glass :is(.iw-bp-tab, .iw-bp-chip).is-down { transform: translateY(2px) 
 html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip) { box-shadow: var(--g-line), var(--g-edge), var(--clay-d); }
 html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip).is-on { box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 10px color-mix(in srgb, var(--c) 45%, transparent); }
 html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip).is-down { box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-bt-pill { background: rgba(12, 9, 22, .45); box-shadow: inset 0 0 0 1px rgba(var(--a-rgb), .45), inset 0 1px 0 rgba(255, 255, 255, .14); }
 html.iw-glass .iw-bp-tab__n { background: rgba(0, 0, 0, .34); box-shadow: inset 1px 2px 3px rgba(0, 0, 0, .35), inset 0 -1px 0 rgba(255, 255, 255, .14); }
 html.iw-glass .iw-bp-tab.is-on .iw-bp-tab__n { background: rgba(21, 18, 28, .82); color: #fff; }
 html.iw-glass :is(.iw-bp-note, .iw-bp-panel, .iw-bp-day, .iw-bg-table, .iw-bg-prompt, .iw-bg-group, .iw-bt-pack, .iw-bt-tpl, .iw-bg-check) {
@@ -3595,7 +3605,7 @@ html.iw-glass .iw-learn__rframe { border-radius: var(--r-4);
   background: var(--glass-streak-p), var(--glass-sheen), linear-gradient(175deg, rgba(44, 36, 68, .9), rgba(30, 25, 44, .9) 38%, rgba(24, 20, 36, .93));
   box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l), 0 30px 60px rgba(0, 0, 0, .4); }
 html.iw-glass .iw-learn__results { border-radius: 0 0 var(--r-4) var(--r-4); }
-html.iw-glass .iw-learn__rdue li { border-radius: var(--r-1); rotate: 0deg; background: var(--gb-dark); box-shadow: var(--g-item); }
+html.iw-glass .iw-learn__rdue li { border-radius: var(--r-1); rotate: 0deg; background: var(--gb-dark), rgba(18, 14, 30, .55); box-shadow: var(--g-item); }
 html.iw-glass .iw-learn__btn { border: 0; border-radius: 999px; background-image: var(--glass-streak), var(--gb-sheen); box-shadow: var(--g-line), var(--g-edge), var(--clay), var(--g-drop); }
 html.iw-glass .iw-learn__btn.is-dim { background-color: rgba(44, 37, 64, .8); box-shadow: var(--g-btn); }
 html.iw-glass .iw-learn__btn:active { translate: 0 3px; box-shadow: var(--g-btn-down); }
