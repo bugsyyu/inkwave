@@ -2012,3 +2012,59 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：后期链那 ~20 个、第一帧才造出来的特效 / 武器零件（原因见先定的第 2 条）；环境的构造（`environment.js` 不是我的：一次同步的构造里先烘云图（10 条）、再在 `SkyEnv` 的第一次使用里等它、再烘 PMREM——要拆得在 `setTheme` 里的云图和环境图之间放一个 `settle`，构造就得变成 async）；联机开局的预热（同 §40）；开局黑场里小鱿鱼的程序又编一遍（出场比赛的小鱿鱼散了、程序释放，关卡的小鱿鱼一样的键又编——开局那一段的事，不在这次的判据里，可以照第 2 条的「留到用上」做）；真机。
 
 **交接**：分支 `boot-polish`（从开发分支 `e4d2bec` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；`tests/game-first-e2e.mjs`（启动等 240 秒，dpr 1）主会话合并时跑。`docs/DEVLOG.md` 没改。
+
+## 44. gf-weeks 交付（2026-10-20，子代理，分支 `gf-weeks`：游戏能玩她课程里的每一周——第 4 周以后不再没有「开始今天的关」）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md` §1、§2、§4 第二期、§5；本文件 §1–§3（内容桥）、§16（她的账号怎么读写：写前重读、其余字节不变、不建键）、§34（课程地图）、§36（复习关）、§39（打卡「没做的 3」）、§41（「没做的」：地图只有三周、满月月考在第 4 / 8 / 12 / 16 周）；LEVELS §6.2（`dayPlanFor` 的生成规则）。代码：`content.js`（`loadWeek` / `readText` / `register`）、`design.js`（`DAY_PLAN`、`dayPlanFor`、`bossPlan`）、`app.js`（`appToday`）、`config.js` 的 `LEARN.weeks`、`course-map.js`、`menus.js` 的 `_scr_main` / `_scr_learn` / `_scr_map` / `_appTodayDue`、`workbench.js`（`readBlob`、`packCheckinStep`）、`review.js`、`exams.js`（`packWeek`、`hallSteps`、`quizOffer`）、`exam-view.js`、`checkin.js`、`quiz-run.js`、`main.js startLearn`、`net/session.js`、`audio.js`；IELTS-Base `app/index.html` 的 `weekError` / `packs()` / `weeks()` / `weekNum` / `courseToday()` / `gameFirstUrl()`、`TYPE_NAME`、`SYLLABUS`（17 周）、`app/base/model.js buildIndex`（每种题目 id 只看这一步自己的内容）、`app/base/core.js`（经典页的索引是她所有的周）。
+
+**先定的**：
+1. **第 n 周从哪里来**（`src/learn/weeks.js`，新）：她账号里 id 为 `w<n>` 的课程包（`blob.packs[键].week`，经典页 `packs()` 那一份：`weekError` 放行的；同一个周 id 只认第一个）→ 有就用她的；没有就 `content/wN.json`（只有 n ≤ `LEARN.weeks` = 3 才去读，第 4 周以后不发请求）；都没有就没有这一周（`loadWeek` 抛，`main.js` 照旧 toast「这一天的课还没准备好」）。`weekError` 照经典页逐条抄（同样的话），两边用同一份字面量 `WEEK_ERRORS`（九种坏包）对过。读她的账号只读、不写、不建。
+2. **判「一样」**：她的包和 `content/` 同一周按**键排序后的规范化 JSON**（`canon`：每一层的键排好、数组顺序不动）比。她存下来的那份经过经典页、同步、备份来回，键的顺序可能变（`content/w1.json` 是 `id, n, title, days`，w2 / w3 是 `days, id, n, title`），所以不按原文本比。一样 → 用 `content/` 的那个对象：手排的 `DAY_PLAN`、证据一个字节不变；不一样 → 她那份的**深拷贝**（她的 blob 是缓存的解析对象，`saveCheckin` / `saveQuiz` / `pushEvidence` 会把整个 blob 写回去：游戏手上的对象要是她的那个，改一点就进了她的数据）+ 记成 custom → `dayPlanFor` 生成表（第 1–3 周也一样：老师按她的周报改过的第 3 周走生成的表）。
+3. **inGame** = 这一周游戏载得进来（`hasWeek`：她的包或 `content/`）；`appToday(search, weeks)` 的 `weeks` 是函数（默认 `hasWeek`），给数字还是旧规则（`game-first.test` 原样）。存储跟着 `store.setBackend` 走（`setPackStore`），页面里就是 localStorage。
+4. **菜单和地图读日表**一律走 `design.js planFor(w, d)`：这一周载入过 → 它自己的表（她的包生成的）；没载入 → 手排的 `DAY_PLAN`（第 1–3 周照旧马上有）；第 4 周以后载入前是 null，载入后首屏「开始今天的关」第二行补上当天的形式（`_appTodayDue` 里重算 `whereOf`）、选关按她今天的形式选上（她自己点过形式就不动）、今日小考的按钮照 §41 的路子载入后再来。生成的表按周对象、按天只算一次（`WeakMap`）。
+5. **课程地图的周数**：她的账号在这台设备上（`present`）→ 她课程的长度 `LEARN.course` = 17（经典页 `SYLLABUS`），有包的周号比 17 大就到那一周；没有账号（普通 INKWAVE、开发）→ 游戏自己的三周，和以前一样。还没有包的周：节点和路灰着（新状态 `wait`），顶上一张贴纸「第 N 周 · 等老师的课程包」+ 大纲里这一周的内容（`SYLLABUS_MECHANICS`），点节点摇一下 + toast「第 N 周的课还没来 — 等老师的课程包」，不载入、不开局。满月月考：第 4、8、12、16 周（`exams.js MONTH_WEEKS`）**有那一周时**，周考节点叫「满月月考」，夜蓝底 + 一弯金月；等课程包的周不标。周那一排横着滚，选中的那周滚到中间，今天那周带一个点。
+6. **双人联机 / 合作**（`net/session.js`、`buildNetLearn`）照旧只用 `content/` 的三周：两台设备要用同一份内容，她的包只在她的设备上。
+7. **录音**：新周没有内置录音，`audio.js` 本来就是「有一段没录音就整段用设备的声音」，不改。
+
+**改了什么**（inkwave，`27b8098..gf-weeks`，src + styles +268 / −39，测试 +285，工具 +13 / −4）：
+- `src/learn/weeks.js`（新，86 行）：`weekError`、`herPacks`、`setPackStore`、`herPack`、`inContent`、`hasWeek`、`courseWeeks`、`canon`。
+- `src/learn/content.js`：`loadWeek` 先找她的包、比 `content/`、拷贝；`isCustom`、`loadedWeek`。
+- `src/learn/design.js`：`dayPlanFor` 认 custom、生成的表缓存；`planFor`；`week.n` 缺了按 id 算（经典页的 `weekNum`）。
+- `src/learn/app.js`（`appToday`）、`src/learn/store.js`（`setBackend` 一行）、`src/learn/exam-view.js`（`planOf` = `planFor`）、`src/learn/course-map.js`（`has`、`wait`、`boss.month`）、`src/config.js`（`LEARN.course: 17`）。
+- `src/ui/menus.js`：`whereOf`、`weekScroller` / `weekInView`；主菜单、`_appTodayDue`、`_scr_learn`、`_scr_map` 如上；`styles/ui.css` 末尾一节「gf-weeks: every week of her course」（周那一排、等课程包的周、满月月考、减少动态效果）。
+- `tools/learn/wire-audit.mjs` / `day-run.mjs` / `day-check.mjs`：`--pack <week.json>`（审计页面里现编一个装着这份包的账号；day-check 在 Node 里从同一份包载入）。
+- `tests/learn/weeks.test.mjs`（新，11 条）。IELTS-Base：`tests/base/game-weeks.test.mjs`（新，3 条）、`tests/weeks-e2e.mjs`（新，10 项）、`tests/base/load-host.cjs` 多取出 `gameFirstUrl`、`weekError`。
+
+**动了别人地盘的**：`src/main.js` `startLearn` 一行（周不再夹到 `LEARN.weeks`：`Math.max(1, Math.floor(+o.week) || 1)`，载不进来的周照旧 toast）；`store.js` 一行（`setPackStore(backend)`）；`exam-view.js` 的 `planOf`（`exams.test` 量的两行原样）；`course-map.js` 加参数（旧调用不变）。`menus.js` 的 `_scr_book`、`book.js` 没动（gf-notes 在改）。`weapons.js`、`actor.js`、`cameraRig.js` 没动。
+
+**测试**：`npm run test:learn` 349 → 360（+11 `weeks.test`：坏包和经典页一样的话、她的包优先 / `content/` / 没有、她的 blob 一个字节没写、键序不同算一样 → 手排表 / 改了一句 → 生成表、生成的第 4 周 7 天 × 三种形式每个要答的步骤都有门、每个课文步骤都有牌、每题有玩法（`coverage` missing 空、covered = steps）、Boss 是满月月考、题目 id 和 IELTS-Base 的索引（四周一起建）一样、`GAME_URL` 契约和 `appToday`、地图 17 周 / 等课程包 / 满月节点在 4 和 8、没有账号还是 3 周、第 4 周的打卡 / 今日小考 / 复习关 / 满月月考窗口、新周没有录音走设备的声音、菜单和样式接线）；`npm run check` 303 个文件（+1 `weeks.js`）。**证据快照**：改之前在 `27b8098` 上存的基线和改完的 `cmp` 相同（128 270 个情形、2 202 个解谜条目、sha256 `bae04357…c84f`）。
+IELTS-Base（分支 `gf-weeks`）：`tests/base/game-weeks.test.mjs` 3 / 3（真的经典页：她的周是 1 + 她的 2–4、今天第 4 周第 1 天、`gameFirstUrl()` = `GAME_URL`；第 3 周今天才学完是 `&done=1`；没有第 4 周的包就没有今天；经典页 `weekError` 对九种坏包的话和游戏的一样、坏包不进课程；同一个第 4 周的包，经典页的索引和游戏的内容桥（`app/game/src/learn/content.js`：题目 id 的算法没改，同步前后都对）每一步的题目 id 一样、游戏写的一笔 `Model.answers` 认得）。
+
+**实测**（浏览器都在锁里、一次一个；dist 是这个工作树 `python3 tools/build-dist.py` 打的）：
+- **IELTS-Base `tests/weeks-e2e.mjs --game <这个 dist>`：10 / 10，没有页面错误**（iPhone 竖屏 390 × 844、触屏；现编的账号：第 1–3 周昨天学完，第 2–4 周的包）：index.html → `game/index.html?from=app&today=w4d1` → 首屏「开始今天的关 · 第 4 周 · 第 1 天 · 解密闯关 · 今天 25 / 64 · 要复习 150 个」、「课程地图 · 17 周 …」、「复习 24 个」、「今天的打卡」→ 开局是第 4 周第 1 天的解密闯关（生成的表，kelpline）→ 第一个关口（a1 的 6 句听写）用游戏自己的判题路径答对 → 她账号的 `ev-<周一>` 里 6 笔、日期今天 → 课程地图 17 周、选中第 4 周、第 5–17 周灰着，今天的节点 31 / 64（25 + 6）、后面 6 天和满月月考锁着、周考节点叫「满月月考」→ 第 5 周灰着、贴纸「第 5 周 · 等老师的课程包 · 语调：升调和降调；…」、点节点 toast。（「今天 25 / 64」：现编的第 4 周是第 3 周的词挪过来的，同一个词就是同一个题目 id，经典页第一次启动时按她第 3 周学完推出来的证据已经算上了；真的第 4 周是新词。）**第一次跑 7 / 10**：三项都是测试这一侧的——菜单还在滑进来就量了按钮（改成等有限时长的动画放完）、「今天 0 / M」的假设（同上）——以及一处真毛病：竖屏地图里周那一段被 `min-width: 0`（4 个类）压住，17 周挤在一行宽里、选中的那周看不见，改了选择器（`d029153`），第二次的截图里周那一排横着滚、第 4 周在中间。
+- 同一个 dist：`tests/game-first-e2e.mjs` 12 / 12、`tests/exams-e2e.mjs` 16 / 16、`tests/checkin-e2e.mjs` 14 / 14（菜单顺序没变，断言一个没改）。IELTS-Base 单元 `bash tests/run-unit.sh`（锁里）：1060 条，1059 过、0 失败、1 跳过（第 731 条「ktx2 一套」：这台机器上没有 KTX-Software，原来就跳）。
+- **整天审计**（§27 的做法，`day-run.mjs --form puzzle --learn w4d1 --pack <现编的第 4 周> -- wire-audit.mjs --view portrait --learn w4d1 --full --segment 780 --budget 870`）：一段就跑完了一整天：9 / 9 道门、64 个计分条目全有首答、每个只记一次、每个首答一片叶子、没有一个没问到；PLAY §1 第 1 条 5 098 次采样都守住；0 个控制台错误、0 个 4xx；出口：回声亭说过、打卡垫要了**打卡卡片**（账号在、这一天没打卡：§39 那条路第一次在浏览器里走到，`先不写` 之后到结果卡）。**31 条 FAIL 都是同一种**：「M4: the ink word in view」——打字题射出去以后，墨字落点和镜头之间有东西挡着（`physics.los` 为假，落点在 (175,423) / (195,422)，在屏内）；这一天 42 次打字里 31 次挡着、11 次看得见。判分、证据都对，只是她看不见那个墨字。原因：生成的表按 §6.2 每周 7 张舞台各一次，第 4 周第 1 天落在 **kelpline 的解密闯关**，手排的三周里解密闯关从没放在 kelpline 上（解密闯关只在 tidewater、crossmarket、lockgate、terraces、halyard）。第一次跑（没处理打卡卡片）也是这 31 条。
+- **分清是舞台还是生成的表**：同样是生成的表、同样的内容，第 4 周第 4 天落在 crossmarket（手排的表里放过解密闯关的舞台）：`wire-audit --learn w4d4 --pack …`（短关、每步都画）exit 0、0 FAIL，4 次打字墨字都看得见。所以挡住的是 kelpline 的那几个点，不是生成的表本身。
+- 截图（看过，没提交）在 `/tmp/claude-0/-home-user-IELTS-Base/81e16695-bb25-5b35-889a-6a6732fc3954/scratchpad/gf-weeks-shots/`：`1-menu-w4.png`（首屏）、`2-level-w4d1.png`（开局）、`3-map-w4.png`（地图第 4 周）、`4-map-w5-wait.png`（第 5 周等课程包）。
+
+**拿不准的**（自己定了，记在这里）：
+1. 她的账号在、却一个包都没有（只有内置第 1 周）时，地图也是 17 周、第 4–17 周灰着（以前是 3 周）。简报第 6 条「没有任何包时行为和现在一样」我理解成能玩的、首屏、证据一样；地图多出来的灰周是「显示她课程里的每一周」要的。没有账号（普通 INKWAVE / 开发）还是 3 周。
+2. 包的周号比 17 大（`w18`）：地图延到那一周。经典页 `weekError` 允许 `w\d{1,3}`。
+3. 同一个周 id 存了两份（`packs` 里不同的键）：认第一个——经典页 `packs()` 按 `Object.keys` 顺序、`weeks()` 去重取第一个，一样。
+4. 她的第 1–3 周的包和 `content/` 不一样时，那一周载入之前首屏 / 选关先显示手排表的形式，载入以后换成生成表的（一般在主菜单出来的几百毫秒内）。
+5. custom 的第 1–3 周，Boss 的舞台还是按周 id 查 `BOSS_STAGE`（只决定在哪张图打，题照她的包出）。
+6. 审计的现编账号用设备的时钟（`tz: 'device'`），这样审计自己按设备日期查叶子的那条照旧对得上。
+7. 判「一样」只比 `week` 本身（`canon`），包外面的 `at`（导入日期）不算。
+
+**没做的**：
+1. kelpline 上解密闯关的打字墨字被挡（见实测）——要主会话 / 业主定怎么改（下面第 1 条），没动。
+2. 横屏的 17 周那一排没在浏览器里看（竖屏看过、截图在上面）；规则是同一条（`.iw-cmap__weeks:has(.is-many)` 可收缩、段按周数撑宽）。
+3. 真机（iPhone 13 的 WKWebView）。
+4. 双人联机 / 合作的第 4 周以后（见先定的 6）。
+5. 生成的表里道具赛、对抗赛落在没设计过的舞台上的组合（例如第 4 周第 2 天墨浪跑酷在 halyard 这类）只有单元测试（每个门、每题有玩法），整天审计只跑了第 4 周第 1 天的解密闯关和第 4 天的短关。
+
+**要主会话定的**：
+1. **生成的表怎么排舞台**：§6.2 的「每周 7 张各一次、按 (n × 7 + d) % 7 轮」会把解密闯关排到 kelpline（第 4 周第 1 天就是），那里 42 次打字有 31 次墨字被集装箱挡住（判分、证据都对）。三条路：a. 生成时按形式挑「手排的三周里这个形式用过的舞台」（解密闯关：tidewater、crossmarket、lockgate、terraces、halyard；对抗赛：kelpline、saltpan；道具赛：其余），仍然一周 7 张各一次——改动在 `design.js genDay`，十来行，`design.test` 的「每张一次」照样成立；b. 修 kelpline 上打字的取景（`cameraRig` / 打字机位，不是学习层的地盘）；c. 先不管。我倾向 a（不碰别人的地盘、一行规则讲得清），没做，等定。
+2. 简报第 6 条和「17 周的地图」之间的取舍（拿不准的 1）。
+
+**交接**：inkwave 分支 `gf-weeks`（从 `27b8098` 建出），IELTS-Base 分支 `gf-weeks`（从 `45b4cf1` 建出：只有测试，`app/` 没动）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/weeks-e2e.mjs`（不带 `--game`）和三个老的 e2e。`tests/base/game-weeks.test.mjs` 同步前后都对：它用游戏的 `content.js` 是先 `loadWeek(1)`、再 `daySteps(第 4 周)`（题目 id 的算法这次没改），不走 `loadWeek(4)`。整天审计再跑：`node tools/learn/day-run.mjs --name <n> --dir <dir> --form puzzle --learn w4d1 --pack <week.json> -- tools/learn/wire-audit.mjs --view portrait --learn w4d1 --full --segment 780 --budget 870`（`<week.json>` 是一个周对象，比如 `content/w3.json` 的 `week` 挪到 4）。`docs/DEVLOG.md` 写了一条；IELTS-Base 的 DEVLOG / BACKLOG / GAME-FIRST 留给主会话。
