@@ -3813,7 +3813,8 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 .iw-wscroll.is-many { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity; border-radius: 999px; }
 .iw-wscroll.is-many::-webkit-scrollbar { display: none; }
-.iw-wscroll.is-many .iw-seg { min-width: calc(var(--n) * 66px); }
+/* (as wide as its weeks: over the rows' own min-width: 0 / width: 100% for a segment, the upright map's among them) */
+.iw-setrow .iw-wscroll.is-many > .iw-seg.iw-seg { flex: none; width: auto; min-width: calc(var(--n) * 66px); }
 .iw-wscroll.is-many .iw-seg__opt { scroll-snap-align: center; padding-left: 6px; padding-right: 6px; }
 .iw-cmap__weeks:has(.iw-wscroll.is-many) { flex: 0 1 auto; min-width: 0; max-width: 100%; }
 .iw-seg__opt.is-wait:not(.is-sel) { color: rgba(255, 255, 255, .34); }

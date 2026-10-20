@@ -273,7 +273,8 @@ test('the menus: her today\'s line and form from the loaded week, the picker ove
   assert.match(M, /if \(this\._cmapProg\[W\] \|\| !CW\.has\(W\)\) return;/, 'a week still to come is never loaded');
   assert.match(M, /boss \? \(wk\.boss\.month \? '满月月考' : '周考'\)/);
   assert.match(M, /this\._header\('课程地图', \{ sub: `\$\{CW\.total\} 周的课/);
-  assert.match(C, /\.iw-cmap__node\.is-wait \.iw-cmap__disc/); assert.match(C, /\.iw-cmap__node\.is-boss\.is-month/); assert.match(C, /\.iw-wscroll\.is-many \{ overflow-x: auto;/);
+  assert.match(C, /\.iw-cmap__node\.is-wait \.iw-cmap__disc/); assert.match(C, /\.iw-setrow \.iw-wscroll\.is-many > \.iw-seg\.iw-seg \{ flex: none; width: auto; min-width: calc\(var\(--n\) \* 66px\); \}/); assert.match(C, /\.iw-cmap__node\.is-boss\.is-month/); assert.match(C, /\.iw-wscroll\.is-many \{ overflow-x: auto;/);
+  assert.match(C, /\.iw-setrow \.iw-wscroll\.is-many > \.iw-seg\.iw-seg \{ flex: none; width: auto; min-width: calc\(var\(--n\) \* 66px\); \}/, 'as wide as its weeks, over the upright map\'s min-width: 0');
   assert.match(C.slice(C.indexOf('gf-weeks: every week of her course')), /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.iw-cmap__wait/);
   // main.js: a week past content/ is not cut back to week 3
   assert.match(MAIN, /const week = Math\.max\(1, Math\.floor\(\+o\.week\) \|\| 1\), day = clamp\(\+o\.day \|\| 1, 1, LEARN\.days\);/);
