@@ -498,7 +498,10 @@ try { while (guard++ < MAXQ + 8) {
   }
 } } catch (e) { check(false, 'driver error', String(e && e.message || e)); }
 // (a whole day: the last stop ends the day — on to the results card, a moment later; its picture)
-if (FULL && !report.resume) { for (let i = 0; i < 120; i++) { if (await ev(() => !!document.querySelector('.iw-learn.is-done'))) break; await step(250); } await sleep(1500); await shot('results'); }   // (the card fades in, the walk bar out: CSS on wall time)
+// (with an account here — --pack — the day's check-in pad asks for her check-in card first (LEARN §39): it is up before the
+// results card; 「先不写」 and the results come)
+if (FULL && !report.resume) { for (let i = 0; i < 120; i++) { if (await ev(() => !!document.querySelector('.iw-learn.is-done'))) break; if (await ev(() => { const b = document.querySelector('.iw-ci.is-in .iw-ci__later'); if (b) b.click(); return !!b; })) { report.checkinCard = true; say('the check-in card was up: 先不写'); } await step(250); } await sleep(1500); await shot('results'); }
+if (FULL && !report.resume && PACK) check(report.checkinCard === true, 'exit: the check-in pad asked for her check-in card before the results (an account here, the day not checked in)');   // (the card fades in, the walk bar out: CSS on wall time)
 const end = await ev(() => { const F = __inkwave.match.learn; return { cur: F.cur, gates: F.gates.length, opened: F.gates.filter((g) => g.state === 'open').length, answers: F.log.filter((e) => e.name === 'learn:answer').map((e) => [e.itemId, e.ok ? 1 : 0, e.first ? 1 : 0]), evidence: (() => { try { return JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{}').ev || {}; } catch (e) { return {}; } })(), results: !!document.querySelector('.iw-learn.is-done'), log: F.log.map((e) => e.name.replace('learn:', '') + (e.kind ? ':' + e.kind : '') + (e.ok != null ? (e.ok ? '+' : '-') : '') + (e.first ? '*' : '') + (e.opened ? '(open)' : '')).join(' '), ev: Object.keys(JSON.parse(localStorage.getItem('inkwave:learn:v1') || '{"ev":{}}').ev), host: F.play.debug().log }; });
 report.end = end; report.seen = seen;
 say('end', JSON.stringify({ ...end, host: undefined, evidence: undefined, answers: end.answers.length }));
