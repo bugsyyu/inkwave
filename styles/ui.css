@@ -4123,7 +4123,8 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 }
 .iw-cmap.is-portrait .iw-cmap__wait { flex: none; }
 
-/* ==============================================================================   游戏为主体 第三期第三步: 学习方法 · 资源 (docs/LEARN.md §45, src/ui/book-pages/guides.js) — the lesson page's reading page
+/* =====================================================================================
+   游戏为主体 第三期第三步: 学习方法 · 资源 (docs/LEARN.md §45, src/ui/book-pages/guides.js) — the lesson page's reading page
    drawn by the game: a row of sticker tabs that stays at the top of the leaf, the page's own text set large (≥ 16 px on a
    phone) with ink-taped headings, sticker bullets and numbers, a score table in its own sideways scroller, the 错误原因 as
    slanted chips, a prompt box with its copy sticker, the 语法清单 as sticker checks (the tick springs in, the count pops),
@@ -4264,7 +4265,7 @@ a.iw-bg-res__n:focus-visible, .iw-bg-check:focus-visible { outline: 3px solid #f
   .iw-bg-check__box svg { transform: none; transition: opacity .16s linear; }
   .iw-bg-count__fill { transition-duration: 0s; }
   .iw-bg-count__n.is-pop, .iw-bg-check.is-tick .iw-bg-check__box, .iw-bg-check.is-untick .iw-bg-check__box, .iw-bg-copy.is-copied .iw-bp-btn__ic { animation: none; }
-=======
+}
 /* =====================================================================================
    游戏为主体 第三期第三步: 老师 (docs/LEARN.md §46, src/ui/book-pages/teacher.js) — the lesson page's 找老师 drawn by the
    game: five sticker panels in layers; the weekly report a letter on ruled cream paper, taped to the panel, that scrolls in
