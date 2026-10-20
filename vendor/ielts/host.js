@@ -8,7 +8,7 @@
  * game answer is dated on the same day as one in the lesson (src/learn/workbench.js); phasePlan / dailyHours and the
  * tables they read give 学习方法 the sentence its {{PLAN}} says (src/learn/guides.js).
  * UMD like the other files here: Node → module.exports; browser → BaseEngine.Host. `window` inside fdUs is the UMD root
- * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: 863cb6ff23a7d7e1a4f70af4a1c6bbc4da4f6b75. */
+ * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: 62a9a305494c83d51b602330f1c31c41ae9e273c. */
 (function (root, factory) {
   'use strict';
   var api = factory(root);
@@ -20,7 +20,7 @@
   // ── app/index.html L2493 ──
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // ── app/index.html L7386–7396 ──
+  // ── app/index.html L7409–7419 ──
   // ---------- 听写: checking (the patrol's rules, app/base/drill.js → BaseEngine.Model.spellCheck) ----------
   // Without model.js a small copy of the same rule: letters compared without case, British = American for the common patterns.
   function fdUs(w) {
@@ -33,15 +33,15 @@
     return /(?:exercis|advis|surpris|promis|premis|wis|ris|nois|pois|rais|prais|cruis|revis|supervis|televis|devis|comprom|enterpris|expertis|franchis|merchandis|chastis|despis|disguis|excis|incis|precis|concis)(?:e|es|ed|ing|ation|ations)$/.test(v) ? v : v.replace(/is(e|es|ed|ing|ation|ations)$/, 'iz$1');
   }
 
-  // ── app/index.html L7909 ──
+  // ── app/index.html L7932 ──
   function toks(s) { return String(s).split(/\s+/).filter(Boolean); }
 
-  // ── app/index.html L7910–7912 ──
+  // ── app/index.html L7933–7935 ──
   // a word as written, compared: no case, no accents (café = cafe), any apostrophe (’ ‘ ʼ) as ', no other marks; an apostrophe at
   // either end is a quotation mark (‘Thank you,’ she said.), not part of the word
   function normTok(t) { return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘ʼ]/g, "'").replace(/[^a-z0-9']/g, '').replace(/^'+|'+$/g, ''); }
 
-  // ── app/index.html L7913–7923 ──
+  // ── app/index.html L7936–7946 ──
   function lcsOk(ref, hyp) {
     const n = ref.length, m = hyp.length;
     const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
@@ -54,17 +54,17 @@
     return ok;
   }
 
-  // ── app/index.html L8600–8601 ──
+  // ── app/index.html L8623–8624 ──
   // Speech recognisers write numbers as digits ("3", "50", "6:30", "21st"): turn them into words before comparing.
   const NUM_1 = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split(' ');
 
-  // ── app/index.html L8602 ──
+  // ── app/index.html L8625 ──
   const NUM_10 = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 
-  // ── app/index.html L8603 ──
+  // ── app/index.html L8626 ──
   const NUM_ORD = { one: 'first', two: 'second', three: 'third', five: 'fifth', eight: 'eighth', nine: 'ninth', twelve: 'twelfth' };
 
-  // ── app/index.html L8604–8614 ──
+  // ── app/index.html L8627–8637 ──
   function numWords(t) {
     const m = /^(\d{1,4})(st|nd|rd|th)?$/.exec(t);
     if (!m) return [t];
@@ -77,7 +77,7 @@
     return w;
   }
 
-  // ── app/index.html L7924–7933 ──
+  // ── app/index.html L7947–7956 ──
   // The reference words matched in what she typed. A token of punctuation only (a dash, "…") is not a word: it is shown
   // but not scored (ok[j] is null), so a perfect answer scores 100%.
   // The words a written token stands for. A number written as digits is the number's words, the way the speech check reads
@@ -89,7 +89,7 @@
       .split(/\s+/).map(normTok).filter(Boolean).reduce((a, x) => a.concat(/^\d+(st|nd|rd|th)?$/.test(x) ? numWords(x) : [fdUs(x)]), []);
   }
 
-  // ── app/index.html L7934–7942 ──
+  // ── app/index.html L7957–7965 ──
   function tokMarks(ref, hyp) {
     const refT = toks(ref), at = [], refW = [];
     refT.forEach((t, j) => dictWords(t).forEach((w) => { at.push(j); refW.push(w); }));
@@ -100,14 +100,14 @@
     return { n: marked.length, good: marked.filter(Boolean).length, html };
   }
 
-  // ── app/index.html L7943–7947 ──
+  // ── app/index.html L7966–7970 ──
   // One typed sentence against the reference: words right, percent, and the marked-up reference.
   function dictScore(ref, hyp) {
     const m = tokMarks(ref, hyp);
     return { pct: Math.round(m.good / Math.max(1, m.n) * 100), good: m.good, n: m.n, html: m.html };
   }
 
-  // ── app/index.html L5534–5568 ──
+  // ── app/index.html L5557–5591 ──
   // sentences (never split "1.5", "Mr.", "e.g."), long ones again at , ; : so no piece runs much past 170 characters
   function speechChunks(text) {
     const t = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
@@ -144,7 +144,7 @@
     return fin;
   }
 
-  // ── app/index.html L5692 ──
+  // ── app/index.html L5715 ──
   const CLIP_SILENT = 'data:audio/mpeg;base64,//M0xAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//M0xDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//M0xHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
   // ── app/index.html L2506–2535 ──
