@@ -1556,9 +1556,10 @@ export class Menus {
     };
     const turn = (view) => {
       const to = bookTab(view);
-      if (closing || !to || (view === want && to === tab)) return;
       // the same native page, another of its own (学习方法 → 资源): the page switches itself — no leaf, no mounting again
-      if (native && native.api && native.api.show && nativeOf(view) === native.id) { want = view; st.page = view; native.api.show(view); return; }
+      // (asked before the check below: she may have tapped another of its tabs since the book last turned)
+      if (!closing && to && native && native.api && native.api.show && nativeOf(view) === native.id) { want = view; st.page = view; native.api.show(view); return; }
+      if (closing || !to || (view === want && to === tab)) return;
       const dir = flipDir(tab, to);
       // from the lesson page to one of the game's: the page saves what it holds first (the native page reads her blob)
       if (nativeOf(view) && !native && loaded && frame) { try { frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); } catch (e) { /* gone */ } }

@@ -225,7 +225,8 @@ test('the register: 学习方法 is the game\'s own page and 资源 opens it; th
   assert.equal(typeof m.mount, 'function');
   assert.match(BOOK, /native\.api = m\.mount\(box, ctx, view\) \|\| null;/, 'the view is the third argument');
   const turn = BOOK.slice(BOOK.indexOf('const turn = (view) => {'));
-  assert.match(turn, /if \(native && native\.api && native\.api\.show && nativeOf\(view\) === native\.id\) \{ want = view; st\.page = view; native\.api\.show\(view\); return; \}/);
+  assert.match(turn, /if \(!closing && to && native && native\.api && native\.api\.show && nativeOf\(view\) === native\.id\) \{ want = view; st\.page = view; native\.api\.show\(view\); return; \}/);
+  assert.ok(turn.indexOf('native.api.show(view)') < turn.indexOf('(view === want && to === tab)'), 'before the same-page check: another of its tabs may be up since the last turn');
   assert.ok(turn.indexOf('native.api.show(view)') < turn.indexOf('const dir = flipDir'), 'before the leaf turns');
   assert.match(PAGE, /show\(v\) \{ pick\(v === RES \? RES : S\.guide\); \}/);
   assert.match(PAGE, /pick\(view === RES \? RES : S\.tab \|\| 'overview'\);/, 'first 考试概览; from 资源 on 资源; else the tab of this session');
