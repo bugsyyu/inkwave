@@ -174,6 +174,16 @@ test('the ids: week 4\'s items are the ones IELTS-Base\'s index gives the same p
   assert.equal(weekIndex(w4).items.size > 0, true);
 });
 
+// the lesson page's link into the game once her course has reached week 4 (IELTS-Base game-weeks.test.mjs: its gameFirstUrl
+// gives exactly this for a learner with the packs of weeks 2, 3 and 4 and weeks 1–3 learned)
+export const GAME_URL = 'game/index.html?from=app&today=w4d1';
+test('her App opens the game on week 4: the lesson page\'s GAME_URL is week 4 day 1 and in the game (her packs of weeks 2–4)', () => {
+  use(account([JSON.parse(src('content/w2.json')).week, clone(W3), W4]));
+  const q = GAME_URL.slice(GAME_URL.indexOf('?'));
+  assert.deepEqual(appToday(q), { week: 4, day: 1, done: false, inGame: true });
+  assert.deepEqual(appToday(q + '&done=1'), { week: 4, day: 1, done: true, inGame: true });
+});
+
 test('appToday: inGame is a week the game can load — week 4 with her pack, not without; content/\'s three always; the old number rule still works', () => {
   use(account([W4]));
   assert.deepEqual(appToday('?from=app&today=w4d1'), { week: 4, day: 1, done: false, inGame: true });
