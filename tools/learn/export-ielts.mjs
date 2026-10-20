@@ -5,6 +5,9 @@
 //                          formatExampleWeek() (the course-pack format, FORMAT_NOTE: US IPA as words[3], pair Chinese)
 //   content/w2.json, w3    byte copies of docs/courses/w2.json, w3.json
 //   content/symbols.json   the host's SYMBOLS / SYM_GROUPS / SYM_LIST / SYM_US tables (Model.buildIndex needs them for s: items)
+//   content/guides.json    学习方法 · 资源 (LEARN §45, src/learn/guides.js): GUIDE_TABS, GUIDES, GRAMMAR, PROMPTS, REASONS,
+//                          RESOURCES, L_TABLE / RA_TABLE / RG_TABLE, DEFAULT_PROFILE's blocks and target, the two pages' leads
+//                          (mountGuides / mountResources) and their LF_STAGE lines
 //   vendor/ielts/*.js      bank.js gen.js sched.js mark.js model.js, verbatim
 //   vendor/ielts/host.js   page functions of the main script, copied verbatim (they are not a module) into a UMD wrapper like
 //                          the other files; line ranges in SOURCE.json:
@@ -12,7 +15,9 @@
 //                            speechChunks (how the lesson cuts a text into the pieces audio/index.json has recordings of)
 //                            and CLIP_SILENT (the silent MP3 its first tap plays to unlock <audio>) — src/learn/audio.js;
 //                            TZ_PLACES, TZ_DEFAULT, tzFmt, tzDevice, tzParts, tzPlaceOf (her wall clock: 设置 → 时区, Singapore
-//                            when unset) — src/learn/workbench.js dates the game's evidence on her clock, not the device's
+//                            when unset) — src/learn/workbench.js dates the game's evidence on her clock, not the device's;
+//                            phasePlan, dailyHours and what they read (PHASES, T, MOCK_SAT, BLOCK_DEFS, activeBlocks, toMin,
+//                            parseYmd, addDays) with diffDays and fmtH — the sentence 学习方法 puts in {{PLAN}} (guides.js)
 //   vendor/ielts/SOURCE.json  the IELTS-Base commit, sha256 of every copied file, the host line ranges
 //
 // The host is booted the way IELTS-Base's own tests boot it (tests/base/load-host.cjs in a vm), with `progress: null`:
@@ -26,9 +31,11 @@
 //        git -C <IELTS-Base> pull   # 或 checkout 某个提交
 //   2. 在这个仓库的根目录：
 //        node tools/learn/export-ielts.mjs <IELTS-Base 目录>
-//      它会覆盖 content/w1.json w2.json w3.json symbols.json、vendor/ielts/*.js 和 SOURCE.json。要等几十秒（vm 里起一遍宿主）。
+//      它会覆盖 content/w1.json w2.json w3.json symbols.json guides.json、vendor/ielts/*.js 和 SOURCE.json。要等几十秒（vm 里起一遍宿主）。
 //      自检不过就整个退出、什么也不写坏（检查在写 SOURCE.json 之前；已写的文件 git checkout 回去即可）：dictScore 和活宿主的
-//      分数一样、speechChunks 切得一样、她的时区读得一样、w1.json 的 378 个条目 id / 中文 / 音标和活宿主的索引一样。
+//      分数一样、speechChunks 切得一样、她的时区读得一样、w1.json 的 378 个条目 id / 中文 / 音标和活宿主的索引一样、
+//      guides.json 的表和活宿主的一样、几份现编的 profile 下学习方法每个标签游戏填出来的（guides.js fillGuide）和活宿主
+//      guideHTML 一字不差（{{PLAN}} 那一句、phasePlan 也逐个比）。
 //   3. 看 git diff --stat：
 //        · 只动了 SOURCE.json 和 host.js（提交号、日期、indexSha256、宿主函数的行号）= 课程没变，只是宿主别处改了；
 //        · content/w*.json 变了 = 课程改了：条目 id 是英文的哈希，改了英文的词 / 句会换 id（她旧的证据还在，只是不再画到这个条目上，
@@ -64,9 +71,13 @@ const VENDOR_FILES = [['model.js', 'app/base/model.js'], ['bank.js', 'app/exam/b
 // fdUs → BaseEngine.Model.usForm), lcsOk, esc; then the recordings' text pieces and silent unlock clip (audio.js) and her
 // wall clock (workbench.js): tzPlaceOf → TZ_PLACES, TZ_DEFAULT (also declares TZ_FMT), tzFmt, tzDevice; tzParts → tzFmt
 const HOST_NAMES = ['esc', 'fdUs', 'toks', 'normTok', 'lcsOk', 'NUM_1', 'NUM_10', 'NUM_ORD', 'numWords', 'dictWords', 'tokMarks', 'dictScore',
-  'speechChunks', 'CLIP_SILENT', 'TZ_PLACES', 'TZ_DEFAULT', 'tzFmt', 'tzDevice', 'tzParts', 'tzPlaceOf'];
+  'speechChunks', 'CLIP_SILENT', 'TZ_PLACES', 'TZ_DEFAULT', 'tzFmt', 'tzDevice', 'tzParts', 'tzPlaceOf',
+  // 学习方法's {{PLAN}}: the tables before what reads them (T before MOCK_SAT before PHASES: they run as they are defined)
+  'BLOCK_DEFS', 'T', 'MOCK_SAT', 'PHASES', 'parseYmd', 'addDays', 'diffDays', 'toMin', 'fmtH', 'activeBlocks', 'dailyHours', 'phasePlan'];
 // the extra internal names the loader hands out (same trick as IELTS-Base's tests/base/course-w3.test.mjs)
-const EXTRA_NAMES = ['formatExampleWeek', 'SYMBOLS', 'SYM_GROUPS', 'SYM_US', 'speechChunks', 'CLIP_SILENT', 'tzPlaceOf', 'tzParts'];
+const EXTRA_NAMES = ['formatExampleWeek', 'SYMBOLS', 'SYM_GROUPS', 'SYM_US', 'speechChunks', 'CLIP_SILENT', 'tzPlaceOf', 'tzParts',
+  'GUIDE_TABS', 'GUIDES', 'GRAMMAR', 'PROMPTS', 'REASONS', 'RESOURCES', 'L_TABLE', 'RA_TABLE', 'RG_TABLE', 'LF_STAGE', 'DEFAULT_PROFILE',
+  'guideHTML', 'convertTableHTML', 'mountGuides', 'mountResources', 'phasePlan', 'dailyHours'];
 
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 const git = (...a) => execFileSync('git', ['-C', SRC].concat(a), { encoding: 'utf8' }).trim();
@@ -120,7 +131,8 @@ function hostFile(parts, commit) {
     ' * scores a sentence (docs/DESIGN.md §7.13: percent and per-word marks are the host\'s, British = American, case never',
     ' * matters); speechChunks cuts a text into the pieces app/audio/index.json has recordings of and CLIP_SILENT is the clip',
     ' * that unlocks <audio> on her first tap (src/learn/audio.js); tzPlaceOf / tzParts read her wall clock (设置 → 时区) so a',
-    ' * game answer is dated on the same day as one in the lesson (src/learn/workbench.js).',
+    ' * game answer is dated on the same day as one in the lesson (src/learn/workbench.js); phasePlan / dailyHours and the',
+    ' * tables they read give 学习方法 the sentence its {{PLAN}} says (src/learn/guides.js).',
     ' * UMD like the other files here: Node → module.exports; browser → BaseEngine.Host. `window` inside fdUs is the UMD root',
     ' * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: ' + commit + '. */',
     '(function (root, factory) {',
@@ -170,6 +182,19 @@ async function main() {
   const symText = pretty(sym);
   fs.writeFileSync(path.join(CONTENT, 'symbols.json'), symText);
   source.content['symbols.json'] = { from: 'app/index.html SYMBOLS, SYM_GROUPS, SYM_LIST (WB), SYM_US', bytes: Buffer.byteLength(symText), sha256: sha256(symText) };
+
+  // 学习方法 · 资源: the page's tables as they are, and the leads its two pages open with (mountGuides / mountResources)
+  const leadOf = (f, n) => { const m = /<p class="lead">([^<]+)<\/p>/.exec(String(f)); if (!m) throw new Error(n + ' 里找不到 <p class="lead">'); return m[1]; };
+  const defP = X.DEFAULT_PROFILE();
+  const guides = {
+    tabs: X.GUIDE_TABS, guides: X.GUIDES, grammar: X.GRAMMAR, prompts: X.PROMPTS, reasons: X.REASONS, resources: X.RESOURCES,
+    tables: { L: X.L_TABLE, RA: X.RA_TABLE, RG: X.RG_TABLE },
+    profile: { blocks: defP.blocks, target: defP.target },
+    pages: { guides: { stage: X.LF_STAGE.guides, lead: leadOf(X.mountGuides, 'mountGuides') }, resources: { stage: X.LF_STAGE.resources, lead: leadOf(X.mountResources, 'mountResources') } },
+  };
+  const guidesText = pretty(guides);
+  fs.writeFileSync(path.join(CONTENT, 'guides.json'), guidesText);
+  source.content['guides.json'] = { from: 'app/index.html GUIDE_TABS, GUIDES, GRAMMAR, PROMPTS, REASONS, RESOURCES, L_TABLE, RA_TABLE, RG_TABLE, DEFAULT_PROFILE, LF_STAGE, mountGuides / mountResources leads', bytes: Buffer.byteLength(guidesText), sha256: sha256(guidesText) };
 
   for (const n of [2, 3]) {
     const from = 'docs/courses/w' + n + '.json';
@@ -247,11 +272,45 @@ async function main() {
   live.items.forEach((it, id) => { const m = mine.items.get(id); if (!m || m.zh !== it.zh || m.ipa !== it.ipa) diffs++; });
   if (diffs) throw new Error('w1.json 里有 ' + diffs + ' 个条目的中文或音标和宿主不一样');
 
+  // 学习方法 · 资源: the tables are the live host's; for made-up profiles (the awkward ones normalizeProfile mends among them)
+  // every tab the game fills (src/learn/guides.js, with the copied host.js) is the live guideHTML, byte for byte
+  const G = await import(pathToFileURL(path.join(ROOT, 'src', 'learn', 'guides.js')).href);
+  const T = JSON.parse(guidesText);
+  const same = (a, b, what) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error('guides.json 的 ' + what + ' 和宿主的不一样'); };
+  same(T.tabs, X.GUIDE_TABS, 'GUIDE_TABS'); same(T.guides, X.GUIDES, 'GUIDES'); same(T.grammar, X.GRAMMAR, 'GRAMMAR'); same(T.prompts, X.PROMPTS, 'PROMPTS');
+  same(T.reasons, X.REASONS, 'REASONS'); same(T.resources, X.RESOURCES, 'RESOURCES'); same([T.tables.L, T.tables.RA, T.tables.RG], [X.L_TABLE, X.RA_TABLE, X.RG_TABLE], '换算表');
+  if (G.convertTable(T) !== X.convertTableHTML()) throw new Error('guides.js 的换算表和宿主的 convertTableHTML 不一样');
+  if (T.tabs.length !== 8 || T.tabs.some((t) => typeof T.guides[t[0]] !== 'string')) throw new Error('学习方法的标签和正文对不上');
+  const B = (a, b, c) => ({ a, b, c });
+  const profiles = [
+    { startDate: '2026-10-13', target: 7, examDate: '', blocks: B(['09:30', '11:30'], ['14:00', '16:00'], ['17:30', '19:30']), eveningOn: true, grammar: { 0: true, 5: true } },
+    { startDate: '2026-09-01', target: '7', examDate: '2027-06-30', blocks: B(['08:00', '12:00'], ['13:30', '17:30'], ['19:00', '21:00']), eveningOn: false },
+    { startDate: '2026-10-01', target: 9.7, examDate: '2026-12-01', blocks: B(['09:30', '11:30'], ['9:5', '16:00'], ['19:30', '17:30']) },
+    {},
+    { startDate: '2026/10/01', target: 3, examDate: 'soon', blocks: [['09:00', '10:00']], eveningOn: null },
+    { startDate: '2026-10-15', target: 6, examDate: '2028-01-01', blocks: B(['09:00', '09:20'], ['14:00', '14:10'], ['18:00', '18:30']), eveningOn: false },
+    { startDate: '2026-08-03', target: 8.5, examDate: '2026-11-20', blocks: B(['06:00', '12:00'], ['12:30', '23:59'], ['05:00', '06:00']) },
+    { startDate: '2026-10-13', target: 0, examDate: '2027-02-08', blocks: { a: ['9:30', '11:30'], b: ['14:00', '16:00'] } },
+  ];
+  const today = X.DEFAULT_PROFILE().startDate;   // (the page's today on its clock: 2026-10-15)
+  let filled = 0;
+  for (const raw of profiles) {
+    h.load({ profile: JSON.parse(JSON.stringify(raw)) });
+    const live = h.WB.S.profile, p = G.guideProfile(raw, today, T.profile);
+    same(JSON.parse(JSON.stringify(Host.phasePlan(p))), JSON.parse(JSON.stringify(X.phasePlan(live))), 'phasePlan（' + JSON.stringify(raw) + '）');
+    if (Host.dailyHours(p) !== X.dailyHours(live)) throw new Error('dailyHours 和宿主算得不一样：' + JSON.stringify(raw));
+    for (const [g] of T.tabs) {
+      const a = G.fillGuide(g, p, T, Host), b = X.guideHTML(g);
+      if (a !== b) throw new Error('学习方法「' + g + '」游戏填出来的和宿主 guideHTML 不一样（' + JSON.stringify(raw) + '）\n' + a.slice(0, 300) + '\n' + b.slice(0, 300));
+      filled++;
+    }
+  }
+
   fs.writeFileSync(path.join(VENDOR, 'SOURCE.json'), pretty(source));
   console.log('IELTS-Base ' + commit.slice(0, 7) + ' (' + date + ')');
-  console.log('content/: w1.json (' + liveIds.length + ' 个条目，' + week.days.length + ' 天) w2.json w3.json symbols.json');
+  console.log('content/: w1.json (' + liveIds.length + ' 个条目，' + week.days.length + ' 天) w2.json w3.json symbols.json guides.json（' + T.tabs.length + ' 个标签、语法 ' + T.grammar.length + ' 条、资源 ' + T.resources.length + ' 组）');
   console.log('vendor/ielts/: ' + VENDOR_FILES.map((f) => f[0]).join(' ') + ' host.js (' + HOST_NAMES.join(', ') + ') SOURCE.json');
-  console.log('自检：dictScore ' + vectors.length + ' 组、speechChunks ' + passages.length + ' 段、tzPlaceOf / tzParts、w1 条目 id / 中文 / 音标，都和活宿主一样');
+  console.log('自检：dictScore ' + vectors.length + ' 组、speechChunks ' + passages.length + ' 段、tzPlaceOf / tzParts、w1 条目 id / 中文 / 音标、学习方法的表和 ' + profiles.length + ' 份 profile × ' + T.tabs.length + ' 个标签 = ' + filled + ' 页 guideHTML，都和活宿主一样');
 }
 
 await main();
