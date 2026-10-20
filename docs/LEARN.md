@@ -2012,3 +2012,44 @@ flip.on.typeIt = (it) => { /* _judgeRecord 已经 item._flipTyped = true 并排�
 **没做的**：后期链那 ~20 个、第一帧才造出来的特效 / 武器零件（原因见先定的第 2 条）；环境的构造（`environment.js` 不是我的：一次同步的构造里先烘云图（10 条）、再在 `SkyEnv` 的第一次使用里等它、再烘 PMREM——要拆得在 `setTheme` 里的云图和环境图之间放一个 `settle`，构造就得变成 async）；联机开局的预热（同 §40）；开局黑场里小鱿鱼的程序又编一遍（出场比赛的小鱿鱼散了、程序释放，关卡的小鱿鱼一样的键又编——开局那一段的事，不在这次的判据里，可以照第 2 条的「留到用上」做）；真机。
 
 **交接**：分支 `boot-polish`（从开发分支 `e4d2bec` 建出）。合并后 IELTS-Base 那边 `app/game` 要重新同步；`tests/game-first-e2e.mjs`（启动等 240 秒，dpr 1）主会话合并时跑。`docs/DEVLOG.md` 没改。
+
+## 43. gf-notes 交付（2026-10-20，子代理，分支 `gf-notes`：游戏为主体 第三期第二步——课本里的「积累本」「学习日志」换成游戏原生的）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md`（§1 第 5 条业主 10-17 的三句和验收标准、§4 第三期「做法」第 2 步、§5）；本文件 §16（她的账号怎么读写）、§32（贴纸画风）、§37（课本）、§38（精修）、§39 / §41（游戏写她账号的写法、「同一份记录」的对照测试）；`book.js`、`menus.js` 的 `_scr_book` / `_bind` / `_fx` / `_modal` / `_nav`、`workbench.js`（`readBlob` / `wallZone` / `wallParts` / `mirror` / `invalidate`）、`checkin-card.js`（游戏原生的卡片、软键盘让位）、`styles/ui.css` 的 token 和课本那一节；经典页 `app/index.html` 的 `NOTE_TYPES` / `NOTE_HINTS` / `mountNotes` / `notePlaceholders` / `refreshNotes` / `addNote` / `delItem` / `armed`、`mountLog` / `refreshLog` / `addLog` / `addLogFromForm` / `delLog` / `MODULES` / `LOG_MODULES` / `getDay` / `logEntries` / `minutesOn` / `moduleMinutes` / `uid` / `todayStr` / `posInt` / `fmtH` / `fmtDur`；`app/sync.js` 的 `localDocs` / `pendingChanges`（删掉的文档推 `null`）。
+
+**先定的**：
+1. **页模块的约定**：`book.js` 一张登记表 `NATIVE_PAGES = { notes: () => import(…), log: () => import(…) }`（书签 id → 页模块，用到才载入）；`nativeOf(view)` 说一个经典页 id 归不归原生页。页模块是 `mount(host, ctx) → { destroy(), flush?(), onFocus?(el, nav) }`；`ctx`（`_scr_book` 给）= `ls`（她的 storage）、`now()`、`reduced`、`bind(el, { id, accept, type })`（菜单的 `_fx` + `_bind`：手柄 / 键盘的焦点和按下当帧）、`sfx` / `toast` / `burst`、`go(view)`（让书翻页，`'game'` 合上）、`layer`（书的那一屏：卡片放这里，书页自己裁切又有 `will-change: transform`）、`modal(el, onBack)` / `unmodal(el)`（卡片开着时菜单的焦点和 Esc / B 归它，照 `_modal` 的老做法）、`focus` / `nav`。以后别的页换成原生，登记表加一行、写一个这样的模块。
+2. **书页怎么换**：原生页画在同一张书页里（`.iw-book__native`，不用 iframe），翻页动画、书签、`ielts:go`、合上都照旧——页在翻页纸盖住的那一下（200 ms）换。iframe **只在第一次翻到经典页的书签时才建**（地址就是那一页），之后翻到原生页时它留在下面藏着（不重新载入、不 `ielts:show`），再翻回经典页的书签照旧发 `ielts:show`。从经典页翻到原生页先发 `ielts:flush`（经典页手上没存的先存，原生页读到的是最新的）。合上：原生页先 `flush()`（卡片开着就留草稿、关掉卡片），再走原来的合上流程（经典页在的话 `ielts:flush` → 等 `ielts:flushed` ≤ 400 ms）。页模块载不进来就退回经典页的那一页。两个页模块在书升起来时就开始取，翻页不等。
+3. **写法一字不差**（`src/learn/notes.js`，照 §39 / §41）：积累本 `notes[id] = { id, d, t, en, zh, ex }`（`en` 去空白 ≤ 200、`zh` ≤ 300、`ex` ≤ 1000，`t` 不认得就 `word`，键的顺序和经典页一样），删除就是去掉那个 key；学习日志 `logs['YYYY-MM'].entries` 末尾加 `{ id, d, k, m, n }`（`k` 不认得就 `other`、`m` 照 `posInt(·, 600)`、`n` 去空白 ≤ 100；那个月没有文档或 `entries` 不是数组时就是经典页的 `{ entries: [] }`），删除就是从 `entries` 里去掉那一条、其余按原顺序；`id` 照 `uid()`、`d` 按她的时区（`wallParts(now, wallZone(ls))`）。每次写之前 `readBlob(ls, { fresh: true })`、只换那一个集合（浅拷贝），其余字段和文档是同一个值同一段 JSON 文本；没有她的数据什么都不建（页上一句「这台设备上还没有你的学习数据。先在课本里开始学习……」和「翻到今天的课」）；同一条（同一个 id）再存一次、删一条不存在的都一个字节不写；写完 `invalidate()` + `mirror(ls)`。「同样的东西连着存两次只写一次」两层都有：界面上 1.5 秒里同样的内容再按一次不算（照 `addLogFromForm` 的 `lastLogSig`，积累本也加了），写那一层按 id 幂等。
+4. **读法一样**：`noteList`（全部 + 四类带条数、搜 `en / zh / ex` 不分大小写、`d` 再 `id` 倒序——经典页的比较函数原样）、`logView`（14 天每天 `minutesOn` 含当天勾掉的课程步骤、7 天各科 `moduleMinutes`、60 天里有东西的天：完成几项、总时长、每条补记）、`checkLog`（日期不对 / 将来 / 60 天前 / 空，四句话都是经典页的原话）。柱子的比例照经典页 `max(240, …)`。
+5. **界面**：积累本——标题（Titan One 的英文小字 NOTEBOOK + 中文墨描边标题）、「记一条」（她的墨色贴纸）、类型书签式的胶囊（各类一个贴纸色、带条数）、白色搜索框、每条一张贴纸卡片（左边类型色条、斜贴的类型签、英文在上中文在旁、例句在引用块里、日期和「删除」在脚上，卡片各自歪一点点）；学习日志——两块面板（14 天她墨色的柱子，今天亮着带光、空的天一个墨点；7 天各科的彩色进度条）、60 天的每一天一张卡片（日期、周几、完成 N 项任务、总时长，每条补记一行带「删除」）。「记一条」「补记一条」是一张盖在书上的卡片（打卡卡片的同一套：白边 + 墨边 + 投影、斜贴的彩带、纸白的输入框 16 px），类型 / 科目是贴纸单选，分钟是 − / + 两颗圆键（一下 5 分钟）；存好时按钮弹一下溅墨、卡片收起、新的一条在列表里弹进来（积累本的还亮一圈），toast 是经典页的原话。删除两步：第一下变成珊瑚色的「再点一次确认删除」，第二下距第一下 > 450 ms 才删，3 秒后复原（照 `armed`）；删的那条缩着滑走。
+6. **手感**：分层出现（头、筛选、卡片隔 45 ms 弹进来，前 12 张）、柱子和进度条弹簧长出来（transform 的 translate，不是 scale：圆角和描边不变形）、按下当帧沉进投影（`is-down` 在 `pointerdown`、`transition-duration: 0s`）、过渡 260–500 ms；只动 transform / opacity，没有每帧的 JS；减少动态效果时只淡入。点按区都 ≥ 44（书签式胶囊 44、删除 44 × 64、按钮 48、输入框 48）。竖屏、横屏（844 × 390：头部两栏、两块面板并排、积累本两列、卡片里科目一排十个）。软键盘：卡片的框跟着 `visualViewport`（照打卡卡片），键盘弹起时卡片贴到键盘上面、彩带和类型 / 科目先藏起来；页里和卡片里打的字 `stopPropagation`，不会变成游戏的按键（单行输入框里回车是下一栏 / 存、Esc 收起）。没加任何素材文件（放大镜、减号是几行内联 SVG）。
+
+**改了什么**（代码和样式 +1052 / −8，测试 +336）：
+- `src/learn/notes.js`（新，纯 + 写）：两页的表、经典页的小函数（`uid` / `posInt` / `fmtH` / `fmtDur` / `fmtMD` / `weekdayOf`）、`todayOf`、`repeatGuard`、`noteList` / `newNote` / `logEntries` / `minutesOn` / `moduleMinutes` / `logView` / `checkLog`、`saveNote` / `deleteNote` / `saveLog` / `deleteLog`。
+- `src/ui/book-pages/kit.js`（新）：页框、贴纸按钮、字段、`ownKeys`、`armed` / `delBtn`、空状态、`sheet`（卡片）、`chipRow`、`reveal`。`notes.js` / `log.js`（新）：两页。
+- `src/learn/book.js`：`NATIVE_PAGES`、`nativeOf`（只加）。
+- `src/ui/menus.js` 的 `_scr_book`：见先定的第 2 条（iframe 懒建、原生页挂进书页、`ctx`、合上先 `flush()`、卡片开着时 LB / RB 不翻页、`onFocus` 交给页）；import 一行。
+- `styles/ui.css` 末尾一节「游戏为主体 第三期第二步: 课本里自己画的页」。
+- `tests/learn/notes.test.mjs`（新，15 条）。
+
+**动了别人地盘的**：`menus.js` 只动了 `_scr_book`（和 import 那一行）；`book.js` 只加。`workbench.js`、`content.js`、`app.js`、`course-map.js`、`_scr_main` / `_scr_learn` / `_scr_map` 一行没动。
+
+**IELTS-Base 那边**（分支 `gf-notes`，只有测试和文档，没动 `app/`）：`tests/base/game-notes.test.mjs`（新，6 条，和本仓库 `notes.test.mjs` 用同一份 `BEFORE` / `CONTRACT` 字面量：经典页自己「加入积累本」「记录」、两步删除以后存下的**整段文本**就是游戏写的那一份（除了随机 id），四句校验和 1.5 秒连按一样；经典页 `refreshNotes` / `refreshLog` 读得出游戏写的、读出来的数就是 `CONTRACT.view` / `viewAfter`；同步只推 `notes/<id>`（删了推 `null`）和 `logs/2026-10`）；`tests/base/load-host.cjs` 的 `EXTRA` 只加名字；`tests/notes-e2e.mjs`（新，浏览器）；`tests/book-e2e.mjs` 翻到积累本 / 学习日志的断言改成原生页（没放宽：还量「经典页没重新载入、还在今天」，多一条「翻回经典页的书签：同一个书页显示它、原生页撤掉」）；`docs/GAME-FIRST.md` 第三期第 2 步记一行。
+
+**测试**：`npm run test:learn` 349 → **364 / 364**（+15 `notes.test.mjs`：表和小函数；积累本的筛选 / 搜索 / 排序；学习日志的 14 / 7 / 60 天和 60 天的边；补记的校验和连按；她的时区；记一条只多那一处、整段文本逐字节、镜像跟上、再存不写；删除只去掉那一条；补记、补记的幂等、没有列表的月；删补记；没有她的数据不建；书页里的经典页先写了也不被盖；登记表；书页怎么换；页不收标记、按键归页、卡片跟着可见视口、两步删除；画风数字）；`npm run check` 302 → **306** 个文件。IELTS-Base：`game-notes.test.mjs` 6 / 6。
+
+**实测**（IELTS-Base 的浏览器测试，锁里一次一个；本仓库 `python3 tools/build-dist.py` 打的 dist/ 当游戏，用完删了）：`tests/notes-e2e.mjs --game <dist>` 第 1 次 **23 / 23 过、没有页面错误**（390 × 844 触屏、新加坡时间、现编的课程和她原来的一条积累 / 一条补记）：课本翻开在积累本时页面上一个 iframe 都没有；类型、条数、Rubik、墨描边、每个按钮都有 `data-nav`；记一条的卡片拿走菜单焦点、选「好的表达」后三栏的名字和提示语是经典页的；用键盘打进三栏（含 a / e / s / d / 空格）菜单焦点没动、没翻页；她的账号里 `notes[id]` 的形状和日期；横屏排得下；学习日志也没有 iframe，14 天 / 各科的字和经典页的算法一致；明天的补记被拒、一个字节没写；− / + 把 30 改成 45；`logs[月].entries` 末尾那一条；合上；经典页（`?classic=1`）积累本和学习日志里都有；回游戏两步删除（紧接着的第二下不算）；经典页里也没了、她原来的两条还在。截图看过（竖屏积累本、记一条的卡片、横屏积累本、竖屏学习日志、横屏学习日志、经典页的积累本、删除以后）。`tests/book-e2e.mjs` 的结果见交接。
+
+**拿不准的（自己定了）**：
+1. 「记一条」「补记一条」做成一张卡片（存好就收起），不像经典页那样表单一直在页上：手机上列表能占满一屏、键盘让位只有一处要管（照打卡卡片）；连着记好几条多点一下「记一条」，类型 / 科目、日期、分钟会记住（这次会话里），没存的草稿合上书、收起卡片都留着。
+2. 积累本也加了 1.5 秒的连按保护（经典页只有补记有）：经典页存完就清空表单，第二下会落到「先填第一栏」，效果一样。
+3. 删除后焦点：删了一条积累落到下一条的「删除」（没有就「记一条」），删了补记落到「补记一条」。
+4. 删除、存好的 toast 用经典页的原话（「已加入积累本。」「已记录。」「已记下这条备注。」「已删除。」）。
+5. 时区：页上的「今天」在页打开时读一次（她的时区），存的时候再按当时读一次（跨过半夜开着页也对）。
+6. 搜索输入 90 ms 去抖再筛（每个字不重排一遍列表）；列表重画时不再放入场动画（只有第一次和新的一条）。
+7. 书页的「翻开课本……」墨团在原生页上不出现（原生页没有载入要等）。
+
+**没做的**：真机（iPhone 13 的 WKWebView）——尤其软键盘弹起时卡片贴到键盘上面（headless 模拟不了软键盘，代码路径和打卡卡片同一套）、`<input type="date">` 在 iOS 上的滚轮；手柄在页里走一遍（焦点都接上了、单元测试看接线，浏览器里只用了触屏 / 键盘）；学习版不受影响（不带游戏）。
+
+**交接**：inkwave 分支 `gf-notes`（从开发分支 `27b8098` 建出）；IELTS-Base 分支 `gf-notes`（从 `45b4cf1` 建出：只有测试和文档）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/notes-e2e.mjs`、`tests/book-e2e.mjs`（不带 `--game`）。IELTS-Base 的单元测试不依赖 `app/game/`（契约是两边各写一份的同一个字面量），先合哪边都不会红。和 `gf-weeks` 并行：它改的 `content.js`、`app.js`、`course-map.js`、`menus.js` 的 `_scr_main` / `_scr_learn` / `_scr_map` 这边一行没碰；两边都在 `styles/ui.css` 末尾加一节、`docs/LEARN.md` 末尾加一节（§43 / §44），合并时只是两段接在一起。
