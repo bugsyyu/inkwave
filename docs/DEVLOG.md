@@ -6,6 +6,13 @@
 
 ## 2026-10-20
 
+### 10:55 游戏为主体 第三期第三步（二）：课本里的「老师」换成游戏原生的（子代理，分支 `gf-teacher`，LEARN §46）
+
+- **为什么**：GAME-FIRST §4 第三期「做法」第 2 步——课本里的经典页一页一页换成游戏自己的；业主 10-17 的三句（融为一体、更精细、3A 的交互节奏）。
+- **改了什么**：`src/ui/book-pages/teacher.js`（新）五块贴纸面板，周报是一张横格信纸、在自己的框里滚；`src/learn/teacher.js`（新）导入课程包照经典页 `importPackText` 一字不差，写她账号只改 `packs[id]` 和带笔记时的 `teacher.notes`；周报不在游戏里重写——`book.js` 的 `makeAsker` / `answerOf` + `_scr_book` 的 `ctx.ask` 问书里那个经典页（`ielts:ask` → `ielts:answer`，20 秒没回是 `null`、页上给「到经典页的老师里复制」），IELTS-Base `app/index.html` 只加一处 `embedAnswer` / `teacherAnswer`；导入以后再问一次，`ctx.today` 让首屏和课程地图跟上经典页说的今天（`APP_TODAY` 改成 `let`）。
+- **怎么验证的**：`test:learn` 376 → 388、`check` 310；IELTS-Base `game-teacher.test` 7 / 7、`teacher-e2e` 20 / 20 没有页面错误、`book-e2e` 19 / 19、`notes-e2e` 23 / 23、`weeks-e2e` 10 / 10；单元 `bash tests/run-unit.sh`（锁里）1067 → 1074：1073 过、0 失败、1 跳过（ktx2：这台机器没有 KTX-Software，原来就跳）。
+- **没做的**：真机（复制、下载弹分享面板、文件选择器、软键盘下的粘贴卡片）。
+
 ### 10:45 游戏为主体 第三期第三步（一）：课本里的「学习方法」（连同资源）换成游戏原生的（子代理，分支 `gf-guides`，LEARN §45）
 
 - **为什么**：GAME-FIRST §4 第三期「做法」第 2 步——课本里的经典页一页一页换成游戏自己的；业主 10-17 的三句（融为一体、更精细、3A 的交互节奏）。

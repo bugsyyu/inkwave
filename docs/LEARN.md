@@ -2165,3 +2165,49 @@ IELTS-Base（分支 `gf-weeks`）：`tests/base/game-weeks.test.mjs` 3 / 3（真
 **没做的**：真机（iPhone 13 的 WKWebView）——复制走哪条路（`ielts-base://` 下 `navigator.clipboard` 在不在）、外链交给 Safari、横屏；手柄在页里实际走一遍（焦点都接上了，`data-nav` 在浏览器里量过，没用手柄按）；同步：游戏改的是 `profile`，经典页下次载入时 `profile/main` 的摘要变、推上去（§39 的 `game-checkin.test` 已经证明 profile 这一篇会推），这次没另写同步测试。
 
 **交接**：inkwave 分支 `gf-guides`（从 `6e8c880` 建出）；IELTS-Base 分支 `gf-guides`（从 `59b5233` 建出：只有测试和文档）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/guides-e2e.mjs`、`tests/book-e2e.mjs`、`tests/notes-e2e.mjs`（不带 `--game`）。IELTS-Base 的单元测试不依赖 `app/game/`（契约是两边各写一份的同一个字面量），先合哪边都不会红。和 gf-teacher 并行：`book.js` 的 `NATIVE_PAGES`、`notes.test.mjs` 的登记表断言、`load-host.cjs` 的 `EXTRA` 末尾、`styles/ui.css` 末尾、本文件末尾（§45 / §46）会挨在一起，合并时都是两段接上。IELTS-Base 的 DEVLOG / BACKLOG 留给主会话。
+## 46. gf-teacher 交付（2026-10-20，子代理，分支 `gf-teacher`：游戏为主体 第三期第三步（二）——课本里的「老师」换成游戏原生的页）
+
+**先读了什么**：IELTS-Base `docs/GAME-FIRST.md`（§1 第 5 条业主 10-17 的三句和验收标准、§4 第三期「做法」、§5；`docs/COURSE-PACK.md` 不存在）；本文件 §16、§32、§37、§38、§39 / §41（写她账号的规矩、「同一份记录」的对照测试）、§43（原生页的约定、iframe 懒建）、§44（`weeks.js`）；代码：`book.js`、`menus.js` 的 `_scr_book`、`book-pages/kit.js` / `notes.js` / `log.js`、`learn/notes.js`、`weeks.js`、`workbench.js`、`app.js`、`content.js`、`styles/ui.css` 的 token 和课本两节；经典页 `app/index.html` 的 `mountTeacher` 和它的 `data-act`、`reportWeek` / `weekReport`（后面接 `WB.hooks.weekReport`：`app/base/core.js` 的【沙盘】行、`app/exam/store.js` 的考试行）、`formatFile` / `FORMAT_NOTE` / `downloadJSON` / `copyText` / `showCopyBox`、`onPackFile` / `importPackText` / `packError` / `packAdd` / `setNotes` / `packGlossGaps`、`weekError` / `packs` / `weeks`、`TEACHER_TEMPLATES` / `PROMPTS`、`INITIAL_NOTES` / `notesText` / `notesMeta`、`PAIR_ZH`、`embedMessage` / `embedTell` / `embedHost`、`storage` 监听、`boot()` 怎么选页（`prefs.view` + `viewOn`）、`gameFirstUrl`；`app/native.js` 的导出和 `ios/IELTSBase/WebView.swift`（`<a download>` → 下载 → 分享面板）；IELTS-Base 的 `game-notes` / `game-weeks` 测试、`load-host.cjs`、`notes-e2e` / `weeks-e2e` / `book-e2e`。
+
+**先定的**：
+1. **周报的字由经典页自己出**（简报定的）：游戏问书里那个经典页（`ielts:ask`），经典页按自己的函数回（`ielts:answer`）。回话里带周报和标题、课程格式说明的那段字（`JSON.stringify(formatFile(), null, 1)`，和「复制课程格式说明」复制的、`downloadJSON` 存的一字不差）、`fmt`（`OFFLINE` 是 `'dl'`：App 里给「下载」）、老师笔记、模板、`weeks()` 的列表、她的今天（`gameFirstUrl()`）。
+2. **游戏自己知道的马上画**：「我们怎么一起学」（App 那一版：`OFFLINE` 的分支，一字不差）、老师笔记（`notesText` / `notesMeta` 读她的 blob）、课程包列表（`weeks()` 的规矩：她认得的包 + 内置第 1 周 = `content/w1.json`，按 id 去重、按周号排）、四个模板；回话来了以后以回话为准（通常一样）。模板、初始笔记、听辨中文抄自经典页，两边测试按哈希钉住（`CONTRACT.hash`）。
+3. **问的那一头**（`book.js makeAsker` + `_scr_book` 的 `ctx.ask`）：用书**已有的那个** iframe，没有就照 §43 建一个（地址是这一页的 `embed=teacher`）、藏在原生页下面（`.is-native` 时 `visibility: hidden`）；它载入好了才发，每次 `load` 都重发还没回的（换地址会丢掉问过的）；按 `id` 收回话，`pageMessage` 只认书自己的窗口、同源；**超时 20 秒（`ASK_MS`）给 `null`**；合上书（`destroy`）全部给 `null`。20 秒是给慢机器上第一次建 iframe、载入 750 KB 经典页留的余量（iPhone 上一两秒就回）。
+4. **经典页那一头**（IELTS-Base `app/index.html`，只加一处）：`embedMessage` 原来那道门（只在课本里、只认同源的父页面）后面多一句 `ielts:ask` → `embedAnswer`：只认 `what: 'teacher'` 和 ≤ 64 字的 id；`S.mode === 'loading'` 时排队、`ready` 以后回；**回之前对一下存着的那份**：游戏刚写过、它的 `storage` 事件可能还没到（两个文档的事件和消息不保证先后），存着的文本和 `JSON.stringify(localBlob())` 不一样（且自己没有等着存的）就 `loadLocal()` + `scheduleRefresh()`——和 `storage` 监听做的一样。学习版、App 的经典页别的行为不变（`artifact-build.test` 照过）。
+5. **导入写她账号**（`src/learn/teacher.js`，照 §39 / §41）：解析照 `importPackText` 一字不差（```json 块先、再第一个 `{` 到最后一个 `}`；第一个课程包、否则第一个能解析的；格式说明那句；`packError` 每一句；`JSON.stringify(w).length > 240000` 那句；文件 > 3 MB、读不出来、粘贴框空着的话；`FileReader` 按 utf-8）；写 `packs[w.id] = { week, at: 她的今天 }`，包里有非空的 `notes` 就 `teacher.notes = { text: 前 20000 字, at }`；读最新的 blob、只换这两处（浅拷贝，已有的 key 原地替换）、其余字节不变、没有她的数据不建、同样的包再导入一次一个字节都不写（toast 照说）；写完 `invalidate()` + `mirror()`。toast 是经典页的原话（含 `packGlossGaps` 那句）。
+6. **导入以后游戏马上认得这一周**：`weeks.js` 的 `herPacks` / `hasWeek` 读的是新的 blob（缓存跟着写作废）；再问一次经典页——新的周报（老师笔记那段是新的），回话里的 `today`（她刚有了第 4 周，经典页的今天从「没有」变成第 4 周第 1 天）交给 `ctx.today`：`menus.js` 的 `APP_TODAY` 改成 `let`、只由它改（地址栏的 `today` / `done` 用 `replaceState` 跟上），书合上后首屏「开始今天的关」、课程地图都按它画。只在导入以后改（平时进老师页不动她的今天）。
+7. **回话是 `null`**：一句「这一周的周报这次没能从课本里拿到。到经典页的「找老师」里一样能复制。」+「到经典页的老师里复制」（照经典页自己记页面的办法：`prefs.view = 'teacher'`、`viewOn = 她的今天`，再整页去 `../index.html?classic=1`；经典页的地址认不得页面，`boot()` 只看 `prefs`）+「再试一次」。
+8. **复制 / 下载**：复制照 `copyText` 的三条路（`navigator.clipboard` → 选中的 textarea + `execCommand('copy')`（App 的 WKWebView）→ 一张「请手动复制」的卡片），toast 是经典页那句；课程格式说明照经典页在 App 里的走法：`<a download="课程格式说明.json">` 一个 blob（`WebView.swift` 把它变成下载、弹分享面板，游戏页也是主框架）。
+9. **画风和手感**：五块贴纸面板分层出现（每块晚 50 ms，0.44 s 弹簧）；「我们怎么一起学」每句前一枚她墨色的号码硬币；周报是一张**信纸**——奶白纸、红色页边线、每 27 px 一条浅蓝横线（和行高一样，`background-attachment: local` 跟着字滚）、两条胶带、墨描边 + 错开的实色投影、斜 0.45°，长了在自己的框里滚（`max-height: min(52vh, 440px)`、`overscroll-behavior: contain`）；等回话时纸上一朵慢慢晃的墨团 +「正在按你这一周的记录生成……」，回话到了纸弹一下（0.42 s）；课程包一行一张贴纸（新导入的那行亮一圈）；模板一张张贴纸、点开（箭头转、正文 0.36 s 滑下来）有「复制」；按钮按下当帧下沉、没回话时按「复制周报」抖一下（0.3 s）；只动 transform / opacity，没有每帧的 JS；减少动态效果时只淡入（墨团不晃）。按钮 ≥ 44（模板头 52、课程包行 48）。竖屏、横屏（≥ 720 宽两列：周报和随时找我占整行）。粘贴课程包是一张卡片（`kit.sheet`：跟着 `visualViewport`，软键盘弹起时在键盘上面），输入框 16 px。手柄 / 键盘：每个按钮都 `ctx.bind`。没加素材文件（下载图标是几行内联 SVG，别的用 `GLYPHS`）。
+
+**改了什么**（inkwave，`6e8c880..gf-teacher`，8 个文件 +1000 / −9，另有本节和 DEVLOG）：
+- `src/learn/teacher.js`（新，17 619 B）：页上的字、经典页的表（模板、初始笔记、`PAIR_ZH`）、`notesText` / `notesMeta` / `packList` / `packError` / `readPack` / `glossGaps` / `savePack` / `importPack` / `classicAt`。
+- `src/ui/book-pages/teacher.js`（新，17 207 B）：页。
+- `src/learn/book.js`：`NATIVE_PAGES` 加 `teacher` 一行；`pageMessage` 认 `ielts:answer`；`ASK_MS`、`makeAsker`、`answerOf`（都在 `pageMessage` 旁边）。
+- `src/ui/menus.js`：`_scr_book` 的 `asker`、iframe `load` 时重发、`ctx.ask` / `ctx.today`、`onMsg` 收回话、`destroy` 给 `null`；import 一行；文件头 `APP_TODAY` 从 `const` 改成 `let`（见下）。
+- `styles/ui.css` 末尾一节「游戏为主体 第三期第三步: 老师」。
+- `tests/learn/teacher.test.mjs`（新，12 条）。
+
+**动了别人地盘的**：`menus.js` 文件头 `APP_TODAY`（`const` → `let`，只由 `_scr_book` 的 `ctx.today` 改）；`tests/learn/game-first.test.mjs` 那条断言跟着改（`let`，外加「只在两处赋值」——一样严）；`tests/learn/notes.test.mjs` 的登记表（多 `teacher`）和 `frameUp()` 的调用方（1 → 2：经典页的 `show` 和老师的 `ask`，两处都用正则钉住）。`kit.js` 没改（复制、下载放在页模块里，免得和 gf-guides 在 `kit.js` 末尾撞车）。`export-ielts.mjs`、`content/`、`vendor/ielts/` 没碰。
+
+**IELTS-Base 那边**（分支 `gf-teacher`）：`app/index.html` 一处（`embedMessage` 一行 + `embedAnswer` / `teacherAnswer`）；`tests/base/game-teacher.test.mjs`（新，7 条，和本仓库 `teacher.test.mjs` 用同一份 `BEFORE` / `CONTRACT`）；`tests/base/load-host.cjs` 的 `EXTRA` 末尾加名字（带注释）；`tests/teacher-e2e.mjs`（新）；`docs/GAME-FIRST.md` 第三期记一行。
+
+**测试**：`npm run test:learn` 376 → **388 / 388**（+12 `teacher.test`：页上的字和表的哈希；解析的 19 种情况和经典页同输入同输出；写：只多那两处、其余逐字节、镜像跟上、同样的存两次只写一次、没有笔记只写包、已有的周原地替换；坏包和没有数据不写不建；她的时区；写完 `hasWeek` 马上认得；`notesText` / `notesMeta` / `packList`；去经典页的 `prefs`；回话只认书自己的窗口 / 同源 / id、`answerOf`、`makeAsker` 载入前不发 / 载入后重发 / 按 id / 20 秒 `null` / 合上 `null`；接线；画风数字）；`npm run check` 308 → **310** 个文件。
+IELTS-Base：`game-teacher.test` **7 / 7**（经典页自己 `importPackText` 同样 19 段字：toast 一样、导入的整段文本就是游戏写的；读得出游戏写的；回话里的周报就是 `mountTeacher` 周报框里的字——空的、学了几天、有打卡 / 翻译 / 发音、导入了第 4 周，另外两份带着真的 core + 考试 store 的【沙盘】和考试行；`embedAnswer` 的问法、等载入、先重读；`ielts:ask` 在原来那道门后面）。单元全跑见下面「实测」。
+
+**实测**（浏览器都在锁里、一次一个；dist 是这个工作树 `python3 tools/build-dist.py` 打的，用完删了）：
+- IELTS-Base `tests/teacher-e2e.mjs --game <dist>`：第 1 次停在测试自己的错（输出被 `| tail` 截掉、只看到 Playwright 把 100 KB 的粘贴文字打印出来）；第 2 次 11 / 12 后 `page.fill` 往卡片里填 100 KB 超时、「下载」那条的文件名是 `download`（headless Chromium 对非 ASCII 的 `download` 名字一律这样，单独试过：`format.json` 正常、`课程格式说明.json` 变成 `download`）——改成像粘贴那样一次放进去 + 一个 input 事件、读 `<a>` 自己的 `download`；第 3 次 18 / 20：最后两条（经典页里没有第 4 周）是测试的错——数据用的是整个浏览器上下文的初始化脚本，新开的经典页标签有自己的 sessionStorage，又把现编的数据写了一遍；改成只在第一页写。**第 4 次 20 / 20、没有页面错误**：首屏没有「开始今天的关」→ 课本翻开在老师、书页里看得见的 iframe 0 个（问周报的那个藏着）→「正在按你这一周的记录生成……」→ 周报和另一台设备上经典页老师页的周报框一字不差 → 剪贴板里就是它 → 下下来的格式说明（`<a download="课程格式说明.json">`，内容是经典页那段）→ 粘贴卡片、导入：toast 和经典页自己导入同一段字时一样 → `packs.w4` / `teacher.notes` → 列表、笔记、再问一次的周报跟上 → 横屏排得下 → 合上：首屏「开始今天的关 · 第 4 周 · 第 1 天」、地图第 4 周不再等课程包 → 经典页的列表、笔记、周报框都对得上。
+- 同一个 dist：`book-e2e` 19 / 19、`notes-e2e` 23 / 23、`weeks-e2e` 10 / 10（断言一个没改）。IELTS-Base 单元 `bash tests/run-unit.sh`（锁里）1067 → **1074：1073 过、0 失败、1 跳过**（ktx2：这台机器上没有 KTX-Software，§41 / §43 一样的原因，不是这次的测试）。
+- 截图（看过，没提交）在草稿目录 `gf-teacher-shots/`：`1-teacher-portrait`（我们怎么一起学的号码硬币）、`1b-teacher-letter`（信纸：胶带、红页边、横线跟着字、墨描边 + 投影）、`2-teacher-imported`（toast、第 4 周已导入）、`3-teacher-landscape`、`4-classic-teacher`（经典页那张拍到的是天光的开场，DOM 的检查都过）。
+
+**拿不准的（自己定了）**：
+1. 游戏页里给「下载课程格式说明」还是「复制」：照回话的 `fmt`（App 里是下载）。headless Chromium 下载时非 ASCII 的 `download` 名字一律叫「download」（经典页也一样，和代码无关），测试读 `<a>` 自己的 `download`；真机的分享面板上叫什么要看一次。
+2. 粘贴框做成卡片（和记一条一样），不是页上的折叠框：键盘让位只有一处要管。卡片里导入不了时，那句话写在卡片里（不再另弹 toast）；成功时卡片收起、toast。
+3. `APP_TODAY` 只在导入以后跟着经典页改（其余时候照旧是 App 打开游戏时给的）。
+4. 回话里的老师笔记 / 课程包列表 / 模板以回话为准、覆盖游戏先画的那一份（两份算法一样，通常一字不差）。
+5. 「再试一次」按钮是加的（经典页没有这一步）。
+6. 她的 blob 里没有 `packs` / `teacher` 这两个键时（经典页写的 `localBlob()` 十个集合都在，所以她的真数据不会这样），游戏把它们加在末尾；经典页那时会写成十个集合的顺序——内容一样，整段文本不一样。契约测试用的是经典页的形状（字节一样）。
+
+**没做的**：真机（iPhone 13 的 WKWebView：`execCommand('copy')`、`<a download>` 从游戏页弹分享面板、文件选择器、软键盘下的粘贴卡片）；手柄在页里实际走一遍（都接上了、测试看接线）。
+
+**交接**：inkwave 分支 `gf-teacher`（从 `6e8c880` 建出）；IELTS-Base 分支 `gf-teacher`（从 `59b5233` 建出：`app/index.html` 一处 + 测试 + 文档）。两边先合哪边都不红（单元测试各用自己那一份契约）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/teacher-e2e.mjs`（不带 `--game`）。和 gf-guides 并行：`book.js` 的 `NATIVE_PAGES`（各加一行）、`notes.test.mjs` 的登记表断言（两边都改了这一行）、`styles/ui.css` / 本文件末尾、`load-host.cjs` 的 `EXTRA` 末尾，合并时接在一起。

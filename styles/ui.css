@@ -4123,8 +4123,7 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 }
 .iw-cmap.is-portrait .iw-cmap__wait { flex: none; }
 
-/* =====================================================================================
-   游戏为主体 第三期第三步: 学习方法 · 资源 (docs/LEARN.md §45, src/ui/book-pages/guides.js) — the lesson page's reading page
+/* ==============================================================================   游戏为主体 第三期第三步: 学习方法 · 资源 (docs/LEARN.md §45, src/ui/book-pages/guides.js) — the lesson page's reading page
    drawn by the game: a row of sticker tabs that stays at the top of the leaf, the page's own text set large (≥ 16 px on a
    phone) with ink-taped headings, sticker bullets and numbers, a score table in its own sideways scroller, the 错误原因 as
    slanted chips, a prompt box with its copy sticker, the 语法清单 as sticker checks (the tick springs in, the count pops),
@@ -4265,4 +4264,120 @@ a.iw-bg-res__n:focus-visible, .iw-bg-check:focus-visible { outline: 3px solid #f
   .iw-bg-check__box svg { transform: none; transition: opacity .16s linear; }
   .iw-bg-count__fill { transition-duration: 0s; }
   .iw-bg-count__n.is-pop, .iw-bg-check.is-tick .iw-bg-check__box, .iw-bg-check.is-untick .iw-bg-check__box, .iw-bg-copy.is-copied .iw-bp-btn__ic { animation: none; }
+=======
+/* =====================================================================================
+   游戏为主体 第三期第三步: 老师 (docs/LEARN.md §46, src/ui/book-pages/teacher.js) — the lesson page's 找老师 drawn by the
+   game: five sticker panels in layers; the weekly report a letter on ruled cream paper, taped to the panel, that scrolls in
+   its own box (the lines scroll with the words); an ink blot while the page in the book writes it; course packs as sticker
+   rows (a new one glows); the templates open to their text. Transitions 300–450 ms, presses sink on the frame, ≥ 44 pt.
+   Only transform / opacity move; reduced motion: fades.
+   ===================================================================================== */
+.iw-bp--teacher .iw-bp__body { display: grid; gap: 18px; align-items: start; }
+.iw-bp--teacher .iw-bp__in { animation-duration: .44s; animation-delay: calc(var(--i, 0) * 50ms + 60ms); }
+.iw-bt-sec { position: relative; min-width: 0; }
+.iw-bt-sec__t { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.iw-bt-pill { padding: 4px 10px 3px; border-radius: 999px; color: var(--a-light); background: rgba(var(--a-rgb), .16); box-shadow: inset 0 0 0 1.5px rgba(var(--a-rgb), .34);
+  font: 700 12.5px / 1.25 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; }
+.iw-bt-pill:empty { display: none; }
+.iw-bt-sec.is-ping::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 0 3px var(--a), 0 0 24px rgba(var(--a-rgb), .55); animation: iw-bp-glow 1.6s var(--out) .1s; }
+.iw-bt-acts { display: flex; flex-wrap: wrap; gap: 14px 12px; margin-top: 16px; }
+
+/* 我们怎么一起学: each line numbered on a sticker coin in her ink */
+.iw-bt-how { display: grid; gap: 12px; margin: 0 0 12px; padding: 0; list-style: none; }
+.iw-bt-how li { position: relative; padding: 2px 0 0 42px; min-height: 30px; color: #e9e5f4; font-size: 15px; line-height: 1.55; }
+.iw-bt-how li::before { content: var(--n); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--k);
+  font: 400 15px / 1 'Titan One', 'Rubik', sans-serif; background: radial-gradient(90% 70% at 30% 18%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%), linear-gradient(175deg, var(--a-light), var(--a) 55%, var(--a-dark));
+  box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k); transform: rotate(-6deg); }
+.iw-bt-how b { color: #fff; font-weight: 800; }
+
+/* 老师笔记: her teacher's lines in an inset with her ink down the side */
+.iw-bt-notes { margin: 0 0 10px; padding: 12px 14px 12px 16px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  color: #ece8f6; font-size: 14.5px; line-height: 1.65; background: rgba(0, 0, 0, .26); box-shadow: inset 4px 0 0 var(--a), inset 0 0 0 1.5px rgba(255, 255, 255, .06); }
+
+/* 本周周报: a letter — cream paper, a red margin, blue rules that scroll with the words, two strips of tape, a hair off straight */
+.iw-bt-paper { position: relative; margin: 10px 2px 0; border-radius: 6px 7px 10px 8px; transform: rotate(-.45deg);
+  box-shadow: 0 0 0 3px var(--k), 0 6px 0 3px var(--k), 0 16px 22px rgba(0, 0, 0, .28); }
+.iw-bt-paper::before, .iw-bt-paper::after { content: ''; position: absolute; z-index: 2; top: -11px; width: 64px; height: 22px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 246, 214, .86), rgba(236, 222, 180, .78)); box-shadow: 0 0 0 1.5px rgba(21, 18, 28, .55), 0 2px 0 rgba(21, 18, 28, .25); }
+.iw-bt-paper::before { left: 18px; transform: rotate(-7deg); }
+.iw-bt-paper::after { right: 22px; transform: rotate(5deg); }
+.iw-bt-letter { position: relative; max-height: min(52vh, 440px); min-height: 168px; overflow: hidden auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  padding: 20px 16px 18px 36px; border-radius: inherit; color: #2a2236; scrollbar-width: thin; scrollbar-color: rgba(42, 34, 54, .3) transparent;
+  font: 500 15px / 27px 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background:
+    linear-gradient(90deg, transparent 25px, rgba(240, 120, 104, .55) 25px, rgba(240, 120, 104, .55) 27px, transparent 27px) local,
+    repeating-linear-gradient(180deg, transparent 0 26px, rgba(92, 140, 205, .24) 26px 27px) 0 20px / 100% 27px local,
+    radial-gradient(120% 60% at 20% 0%, rgba(255, 255, 255, .7), transparent 60%) local,
+    linear-gradient(175deg, #fffdf6, #f8f2e2 65%, #f0e7d0) local;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .85), inset 0 -12px 20px rgba(120, 90, 40, .07); }
+.iw-bt-letter__t { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.iw-bt-paper.is-fill { animation: iw-bt-fill .42s var(--spring) backwards; }
+@keyframes iw-bt-fill { from { opacity: .2; transform: translateY(10px) rotate(-1.6deg) scale(.985); } }
+.iw-bt-letter__wait { display: grid; justify-items: center; align-content: center; gap: 10px; min-height: 130px; color: #5b5170; font-weight: 700; text-align: center; }
+.iw-bt-blot { width: 64px; height: 64px; animation: iw-bt-blot 1.6s var(--in) infinite alternate; }
+.iw-bt-blot svg { width: 100%; height: 100%; }
+@keyframes iw-bt-blot { from { transform: rotate(-12deg) scale(.86); } to { transform: rotate(14deg) scale(1.06); } }
+.iw-bt-letter__none { display: grid; gap: 4px; padding: 6px 0; }
+.iw-bt-letter__none p { margin: 0; font-weight: 600; }
+.iw-bt-letter__none .iw-bt-acts { margin-top: 10px; }
+.iw-bt-letter__none .iw-bp-btn--ghost { color: var(--k); background: rgba(21, 18, 28, .05); box-shadow: inset 0 0 0 2.5px rgba(21, 18, 28, .45); }
+.iw-bp-btn.is-wait { opacity: .55; }
+.iw-bp-btn.is-nope { animation: iw-bt-nope .3s linear; }
+@keyframes iw-bt-nope { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+
+/* 课程包: a sticker row a week — its title, 内置 / 已导入, how many days; a new one glows */
+.iw-bt-packs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.iw-bt-pack { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-height: 48px; padding: 9px 12px 9px 14px; border-radius: 13px 12px 14px 12px;
+  background: linear-gradient(175deg, #3a3160, #29213f 75%); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .15); }
+.iw-bt-pack__t { min-width: 0; font: 800 15.5px / 1.35 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; overflow-wrap: anywhere; }
+.iw-bt-pack__m { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font: 700 13px / 1 'Rubik', -apple-system, 'PingFang SC', sans-serif; white-space: nowrap; }
+.iw-bt-tag { padding: 4px 8px 3px; border-radius: 6px; font-style: normal; color: var(--k); background: #5cc8ff; transform: rotate(-2deg); box-shadow: 0 0 0 2px var(--k); }
+.iw-bt-tag.is-built { background: #d7d0e8; }
+.iw-bt-pack.is-new { position: relative; animation: iw-bp-new .62s var(--spring2) backwards; }
+.iw-bt-pack.is-new::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 0 3px var(--a), 0 0 22px rgba(var(--a-rgb), .6); animation: iw-bp-glow 1.6s var(--out) .2s; }
+
+/* 随时找我: a template is a sticker that opens to its text and 复制 */
+.iw-bt-asknote { margin-bottom: 12px; }
+.iw-bt-tpls { display: grid; gap: 12px; }
+.iw-bt-tpl { border-radius: 14px 13px 15px 13px; background: linear-gradient(175deg, #352c57, #241d3b 75%);
+  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .15); }
+.iw-bt-tpl__h { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 12px 0 16px; border: 0; border-radius: inherit;
+  cursor: pointer; background: none; color: #fff; text-align: left; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform .3s var(--spring);
+  font: 800 16px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; }
+.iw-bt-tpl__h.is-down { transform: translateY(2px) scale(.985); transition-duration: 0s; }
+.iw-bt-tpl__h:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.iw-bt-tpl__chev { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 7px; border-radius: 50%; color: var(--k); background: var(--a);
+  box-shadow: 0 0 0 2px var(--k), 0 2.5px 0 2px var(--k); transform: rotate(90deg); transition: transform .34s var(--spring); }
+.iw-bt-tpl__chev svg { width: 100%; height: 100%; }
+.iw-bt-tpl.is-open .iw-bt-tpl__chev { transform: rotate(-90deg); }
+.iw-bt-tpl__b { display: grid; justify-items: start; gap: 12px; padding: 0 12px 14px 16px; }
+.iw-bt-tpl__b[hidden] { display: none; }
+.iw-bt-tpl__b.is-in { animation: iw-bt-open .36s var(--spring) backwards; }
+@keyframes iw-bt-open { from { opacity: 0; transform: translateY(-8px); } }
+.iw-bt-tpl__x { margin: 0; width: 100%; max-height: 40vh; overflow: hidden auto; overscroll-behavior: contain; padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere;
+  color: #e3ddf2; background: rgba(0, 0, 0, .28); font-size: 14px; line-height: 1.6; user-select: text; -webkit-user-select: text; }
+.iw-bt-tpl__copy[hidden] { display: none; }
+
+/* the sheets: what she pastes; the box to copy by hand */
+.iw-bt-paste { min-height: 180px; max-height: 42vh; font-size: 16px; }
+.iw-bps.is-kb .iw-bt-paste { min-height: 96px; max-height: none; }
+.iw-bt-hand { min-height: 180px; max-height: 45vh; }
+.iw-bt-hand__p { margin: 0 0 12px; color: #e9e5f4; font-weight: 600; }
+
+@media (min-width: 720px) {
+  .iw-bp--teacher .iw-bp__body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .iw-bt-sec[data-sec="your-week"], .iw-bt-sec[data-sec="ask-me"] { grid-column: 1 / -1; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .iw-bt-letter { max-height: 58vh; min-height: 140px; }
+  .iw-bt-paste { min-height: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iw-bt-paper.is-fill, .iw-bt-pack.is-new, .iw-bt-tpl__b.is-in { animation: iw-fade .22s linear backwards !important; }
+  .iw-bt-blot { animation: none; }
+  .iw-bt-paper, .iw-bt-how li::before, .iw-bt-tag, .iw-bt-tpl__h.is-down { transform: none; }
+  .iw-bt-tpl__chev { transition-duration: 0s; }
+  .iw-bp-btn.is-nope, .iw-bt-sec.is-ping::after, .iw-bt-pack.is-new::after { animation: none; }
 }

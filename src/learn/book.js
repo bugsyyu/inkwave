@@ -12,6 +12,7 @@ export const NATIVE_PAGES = Object.freeze({
   notes: () => import('../ui/book-pages/notes.js'),
   log: () => import('../ui/book-pages/log.js'),
   guides: () => import('../ui/book-pages/guides.js'),   // (学习方法 and its 资源, LEARN §45)
+  teacher: () => import('../ui/book-pages/teacher.js'),   // (老师, LEARN §46)
 });
 // a lesson-page id → the native page that shows it (null: the lesson page's own, in the iframe)
 export function nativeOf(view) {
@@ -56,12 +57,54 @@ export function sameOrigin(loc) {
   return o && o !== 'null' ? o : '/';
 }
 // a message event → { go: view } (the page wants another page: the book turns to it; 'game' closes the book) |
-// { flushed: true } (the page saved what it held) | null. Only the book's own page window, same origin.
+// { flushed: true } (the page saved what it held) | { answer: data } (an ielts:answer, by its id) | null. Only the book's own
+// page window, same origin.
 export function pageMessage(e, frameWin, origin) {
   if (!e || !frameWin || e.source !== frameWin || e.origin !== origin) return null;
   const d = e.data;
   if (!d || typeof d !== 'object') return null;
   if (d.type === 'ielts:go' && typeof d.view === 'string' && ID_RE.test(d.view)) return { go: d.view };
   if (d.type === 'ielts:flushed') return { flushed: true };
+  if (d.type === 'ielts:answer' && typeof d.id === 'string' && d.id) return { answer: d };
   return null;
+}
+
+// 老师 (LEARN §46): what only the lesson page can say — the book asks it (menus.js _scr_book ctx.ask: { type: 'ielts:ask', id,
+// what }, its own iframe, made hidden under a native page when there is none yet) and it answers { type: 'ielts:answer', id,
+// … } (app/index.html teacherAnswer); no answer within ASK_MS is null (the page then points to the lesson page's own 老师)
+export const ASK_MS = 20000;
+// makeAsker(post, ms, T) → { ask(what) → Promise<data | null>, send(all), answer(id, data), drop(), size }: the questions by id;
+// post(message) → true once it went (the page has loaded); send(true) again after every load (a new address drops what the
+// page was asked); no answer within ms → null; drop() → null for all (the book closes)
+const TIMERS = { set: (f, ms) => setTimeout(f, ms), clear: (t) => clearTimeout(t) };
+export function makeAsker(post, ms = ASK_MS, T = TIMERS) {
+  const asks = new Map();
+  let n = 0;
+  const answer = (id, v) => { const a = asks.get(id); if (!a) return false; asks.delete(id); T.clear(a.t); a.resolve(v); return true; };
+  const send = (all) => { asks.forEach((a, id) => { if ((all || !a.sent) && post({ type: 'ielts:ask', id, what: a.what })) a.sent = true; }); };
+  return {
+    ask: (what) => new Promise((resolve) => {
+      const id = 'k' + (++n) + '-' + Date.now().toString(36);
+      asks.set(id, { what: String(what), resolve, sent: false, t: T.set(() => answer(id, null), ms) });
+      send(false);
+    }),
+    send, answer,
+    drop: () => { Array.from(asks.keys()).forEach((id) => answer(id, null)); },
+    get size() { return asks.size; },
+  };
+}
+// answerOf(d) → the teacher answer, its fields checked | null
+const str = (x) => (typeof x === 'string' ? x : '');
+const isObj = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+export function answerOf(d) {
+  if (!isObj(d) || d.what !== 'teacher' || typeof d.report !== 'string' || typeof d.title !== 'string') return null;
+  const tpl = Array.isArray(d.templates) ? d.templates.filter((t) => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string') : null;
+  const wk = Array.isArray(d.weeks) ? d.weeks.filter((x) => isObj(x) && typeof x.id === 'string' && typeof x.title === 'string') : null;
+  return {
+    title: d.title, report: d.report, fmt: d.fmt === 'copy' ? 'copy' : 'dl', format: str(d.format),
+    notes: isObj(d.notes) && typeof d.notes.text === 'string' ? { text: d.notes.text, meta: str(d.notes.meta) } : null,
+    templates: tpl && tpl.length ? tpl.map((t) => [t[0], t[1]]) : null,
+    weeks: wk ? wk.map((x) => ({ id: x.id, title: x.title, builtin: x.builtin === true, days: Number(x.days) || 0 })) : null,
+    today: str(d.today),
+  };
 }

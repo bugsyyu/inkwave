@@ -260,10 +260,10 @@ const PAGES = { kit: src('src/ui/book-pages/kit.js'), notes: src('src/ui/book-pa
 const CSS = src('styles/ui.css'), css = CSS.slice(CSS.indexOf('游戏为主体 第三期第二步: 课本里自己画的页'));
 
 test('the register: 积累本 and 学习日志 are the game\'s own pages (one line each, loaded when wanted); every other bookmark is the lesson page\'s', async () => {
-  // (学习方法 joined them in LEARN §45, 资源 with it: tests/learn/guides.test.mjs)
-  assert.deepEqual(Object.keys(NATIVE_PAGES), ['notes', 'log', 'guides']);
+  // (学习方法 joined them in LEARN §45, 资源 with it: tests/learn/guides.test.mjs; 老师 in §46: tests/learn/teacher.test.mjs)
+  assert.deepEqual(Object.keys(NATIVE_PAGES), ['notes', 'log', 'guides', 'teacher']);
   assert.ok(Object.keys(NATIVE_PAGES).every((id) => BOOK_TABS.some((b) => b.id === id)), 'a native page is a bookmark');
-  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id)), [null, null, null, null, 'notes', 'log', 'guides', null, null]);
+  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id)), [null, null, null, null, 'notes', 'log', 'guides', 'teacher', null]);
   assert.equal(nativeOf('resources'), 'guides'); assert.equal(nativeOf('constructor'), null); assert.equal(nativeOf(undefined), null);
   for (const id of Object.keys(NATIVE_PAGES)) {
     assert.equal(typeof NATIVE_PAGES[id], 'function', 'lazy: nothing is loaded until the book wants it');
@@ -274,7 +274,9 @@ test('the register: 积累本 and 学习日志 are the game\'s own pages (one li
 
 test('the book: a native page is drawn in the same leaf (no iframe); the iframe is made only for a lesson-page bookmark; leaving the lesson page asks it to save; closing, the native page saves first', () => {
   assert.match(BOOK, /const frameUp = \(\) => \{\s*frame = h\('iframe'/, 'the iframe is made on demand');
-  assert.equal((BOOK.match(/frameUp\(\)/g) || []).length, 1, 'by one caller: the lesson page\'s show');
+  assert.equal((BOOK.match(/frameUp\(\)/g) || []).length, 2, 'by two callers: the lesson page\'s show, and 老师\'s question to it (§46)');
+  assert.match(BOOK, /const classic = \(view, force\) => \{\s*if \(!frame\) \{ frameUp\(\); return; \}/);
+  assert.match(BOOK, /ask: \(what\) => \{ if \(closing\) return Promise\.resolve\(null\); if \(!frame\) frameUp\(\);/);
   assert.match(BOOK, /const show = \(view\) => \{\s*const id = nativeOf\(view\);\s*if \(id\) \{ mountNative\(id, view\); return; \}/);
   assert.match(BOOK, /if \(nativeOf\(view\) && !native && loaded && frame\) \{ try \{ frame\.contentWindow\.postMessage\(\{ type: 'ielts:flush' \}, TO\);/);
   assert.match(BOOK, /turnT = setTimeout\(\(\) => show\(view\), 200\);/, 'the page changes mid-turn, under the leaf');
