@@ -1,11 +1,12 @@
 // src/learn/exam-view.js — the main menu's and the course map's view of the lesson page's exam records (游戏为主体 第二期,
 // docs/LEARN.md §41): her blob (workbench.js readBlob), her wall-clock today (设置 → 时区), the game's day tables — handed
 // to the pure rules in exams.js. Nothing here writes. null everywhere without her account on this origin.
-import { DAY_PLAN } from './design.js';
+import { planFor } from './design.js';
 import { readBlob, present, wallParts, wallZone } from './workbench.js';
 import { quizOffer, weekExam, PARTS, PART_ZH } from './exams.js';
 
-export const planOf = (w, d) => (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null;
+// (gf-weeks, LEARN §44: a loaded week's own table — her pack's generated one for week 4 on)
+export const planOf = (w, d) => planFor(w, d);
 const pad2 = (n) => (n < 10 ? '0' : '') + n;
 function ls() { try { return globalThis.localStorage || null; } catch (e) { return null; } }
 export function todayDate(store = ls(), now = Date.now()) { const p = wallParts(now, wallZone(store)); return p.y + '-' + pad2(p.m) + '-' + pad2(p.d); }

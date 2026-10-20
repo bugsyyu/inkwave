@@ -13,7 +13,7 @@
 //   freePlan(week, opts)       → 自由练习 / 只练弱项 as a short race
 //   estimateMinutes(step)      → the pace model's minutes for a step (checked against the course's own m in the tests)
 //   stars(result)              → 1 · 2 · 3 stars for a day, never taken away
-import { daySteps, dayOf } from './content.js';
+import { daySteps, dayOf, isCustom, loadedWeek } from './content.js';
 import { puzzleLevel, raceLevel, duelLevel, bossLevel } from './levels.js';
 import { store } from './store.js';
 import { SUBS, SPECIALS, OFFLINE_MAPS, DIFFICULTY, TIMES, LEARN } from '../config.js';
@@ -203,9 +203,26 @@ for (const w of ['w1', 'w2', 'w3']) { DAY_PLAN[w] = [null]; for (let d = 1; d <=
 // a week the tables do not know (the 4th on): the same rules on the loaded course — form by d % 3 (puzzle → race →
 // duel), the review day a race, every stage once a week ((n × 7 + d) % 7), day / dusk by the week's parity; the pack's
 // own steps give the gates, so a new course pack has a table the moment it is imported (docs/LEVELS.md §6.2)
+// app/index.html weekNum: a pack without n is numbered by its id
+const weekNum = (w) => Number(w.n) || Number(String(w.id).slice(1)) || 0;
+// (gf-weeks, LEARN §44: her own pack of a week 1–3 that differs from content/ is custom — it gets the generated table
+// too; a generated table is made once per loaded week object and day)
+const GEN = new WeakMap();
 export function dayPlanFor(week, d) {
-  if (DAY_PLAN[week.id] && DAY_PLAN[week.id][d]) return DAY_PLAN[week.id][d];
-  const n = Number(week.n) || 0, steps = daySteps(week, d);
+  if (!isCustom(week) && DAY_PLAN[week.id] && DAY_PLAN[week.id][d]) return DAY_PLAN[week.id][d];
+  const memo = GEN.get(week) || (GEN.set(week, new Map()), GEN.get(week));
+  if (!memo.has(+d)) memo.set(+d, genDay(week, d));
+  return memo.get(+d);
+}
+// the day table of week w day d for the menus and the map, before or after the week loads: the loaded week's own (her
+// pack's generated one), else the hand table of a week 1–3 (what content/ has: corrected once that week loads), else null
+export function planFor(w, d) {
+  const W = loadedWeek(w);
+  if (W) { try { return dayPlanFor(W, d); } catch (e) { return null; } }
+  return (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null;
+}
+function genDay(week, d) {
+  const n = weekNum(week), steps = daySteps(week, d);
   if (!steps.length) return null;
   const review = d === 7 || steps.some((s) => s.meta.type === 'weekly');
   const form = review ? 'race' : ['puzzle', 'race', 'duel'][(d - 1) % 3];
@@ -526,7 +543,7 @@ export function bossPlan(week, opts) {
     else items = pick(pool, ph.n, shares, due);
     return { ...ph, items: items.map((x) => ({ id: x.id, stepId: x.stepId, day: x.day, readAloud: !!x.readAloud })), pool: pool.length, hitPerRight: ph.id === 'S' ? 0 : +((ph.hp[0] - ph.hp[1]) / Math.max(1, ph.id === 'W' ? 1 : ph.n)).toFixed(4) };
   });
-  const n = Number(week.n) || 0;
+  const n = weekNum(week);
   return {
     kind: 'boss', week: week.id, boss: 'hullbreaker', stage: (BOSS_STAGE[week.id] || { stage: 'tidewater', time: 'dusk' }).stage, time: (BOSS_STAGE[week.id] || {}).time || 'dusk',
     month: n > 0 && n % 4 === 0, opens: 'review day + 1', window: 10, perDay: 1, shares, phases,

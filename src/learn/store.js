@@ -19,6 +19,7 @@
 import { ielts, ieltsNow, ieltsLoaded } from './ielts.js';
 import { itemOf, weekIndex, daySteps } from './content.js';
 import * as WBK from './workbench.js';
+import { setPackStore } from './weeks.js';
 
 export const KEY = 'inkwave:learn:v1';
 
@@ -31,6 +32,7 @@ export function setBackend(b) {
   backend = b && typeof b.getItem === 'function' && typeof b.setItem === 'function' ? b : null;
   state = null; zoneC = undefined; viewC = null;
   WBK._reset();
+  setPackStore(backend);   // (gf-weeks: her course packs are read from the same storage)
 }
 
 function memoryBackend() {

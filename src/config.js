@@ -562,7 +562,9 @@ export const PROGRESSION = {
 // The numbers of the learning levels. Everything the puzzle level tunes lives here, so a day's "feel" (how far
 // apart the gates sit, how big the inked trail is) is changed in one place and never duplicated in flow / HUD code.
 export const LEARN = {
-  weeks: 3, days: 7,          // the course: week 1–3, day 1–7 (content.js decides what each day holds)
+  weeks: 3, days: 7,          // the game's own content/: week 1–3, day 1–7 (content.js decides what each day holds)
+  course: 17,                 // her course (the lesson page's SYLLABUS): the map shows this many weeks once her account is here;
+                              // weeks 4 on come from her account's course packs (src/learn/weeks.js, LEARN §44)
   // opened from the IELTS-Base App (?from=app, a WKWebView that is portrait everywhere but the game page, which may turn —
   // play-7, PLAY §8): the shell keeps only what is learning — no PLAY
   // (Turf War / Zone Control / Boss vs bots are landscape matches), no loadout PRACTICE, and a room offers only 双人联机赛 /
