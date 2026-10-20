@@ -3371,8 +3371,8 @@ html.iw-glass .iw-display { font-family: var(--f-display); -webkit-text-stroke: 
   text-shadow: 0 0 2px rgba(10, 7, 20, .9), 0 2px 0 rgba(10, 7, 20, .7), 0 0 14px rgba(10, 7, 20, .75); }
 html.iw-glass :is(.iw-head__blob, .iw-learn__rsplat) { opacity: .38; }
 html.iw-glass .iw-head__sub { text-shadow: 0 0 2px rgba(10, 7, 20, .85), 0 1px 0 rgba(10, 7, 20, .7), 0 0 10px rgba(10, 7, 20, .7); }
-html.iw-glass .iw-btn { font-family: var(--f-display); letter-spacing: 0; }
-html.iw-glass .iw-btn__sub { font-family: var(--f-text); font-weight: 600; letter-spacing: 0; }
+html.iw-glass .iw-btn:not(:is(.iw-online, .iw-lobby) .iw-btn) { font-family: var(--f-display); letter-spacing: 0; }   /* (the online screens keep their type) */
+html.iw-glass .iw-btn:not(:is(.iw-online, .iw-lobby) .iw-btn) .iw-btn__sub { font-family: var(--f-text); font-weight: 600; letter-spacing: 0; }
 html.iw-glass :is(.iw-bp__title, .iw-ci__title) { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; letter-spacing: .02em;
   text-shadow: 0 2px 0 rgba(10, 7, 20, .5), 0 6px 18px rgba(10, 7, 20, .55), 0 0 1px rgba(255, 255, 255, .4); }
 html.iw-glass .iw-learn__rhead .iw-learn__rtitle { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; text-shadow: 0 0 2px rgba(10, 7, 20, .95), 0 2px 0 rgba(10, 7, 20, .75), 0 0 16px rgba(10, 7, 20, .8); }
