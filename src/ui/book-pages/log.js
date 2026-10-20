@@ -116,9 +116,9 @@ export function mount(host, ctx) {
     const less = stickerBtn(ctx, { id: 'lg-less', cls: 'iw-bp-btn--step', icon: MINUS_SVG, label: '', aria: '少 5 分钟', accept: () => step(-5) });
     const more = stickerBtn(ctx, { id: 'lg-more', cls: 'iw-bp-btn--step', icon: PLUS, label: '', aria: '多 5 分钟', accept: () => step(5) });
     const fD = field(ctx, { id: 'lg-f-d', label: '日期', input: date });
-    const fM = field(ctx, { id: 'lg-f-m', label: '分钟', input: min, hint: '只写备注时填 0' });
+    const fM = field(ctx, { id: 'lg-f-m', label: '分钟', input: min });
     const fN = field(ctx, { id: 'lg-f-n', label: '备注', input: note, cls: 'is-wide' });
-    const mins = h('div', { class: 'iw-bp-stepper' }, less, fM.row, more);
+    const mins = h('div', { class: 'iw-bp-mins' }, h('div', { class: 'iw-bp-stepper' }, less, fM.row, more), h('small', { class: 'iw-bp-field__hint' }, '只写备注时，分钟填 0'));
     const mods = chipRow(ctx, { name: 'lg-k', value: d.k, cls: 'is-grid', items: LOG_MODULES.map((k) => ({ id: k, label: MODULES[k], c: MOD_C[k] })) });
     const later = stickerBtn(ctx, { id: 'lg-later', cls: 'iw-bp-btn--ghost', label: '收起', accept: () => back() });
     const save = stickerBtn(ctx, { id: 'lg-save', cls: 'iw-bp-btn--go', icon: CHECK, label: '记录', accept: () => submit() });

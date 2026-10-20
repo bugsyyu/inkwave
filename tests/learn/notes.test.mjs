@@ -36,12 +36,13 @@ export const BEFORE = {
   mocks: {}, packs: {}, essays: {}, teacher: {}, reviews: {},
   base: { 'ev-2026-10-13': { v: 2, it: { 'w:monday': { '2026-10-13': { '091500': [1, 'L'] } } } } },
 };
-// what she does in the game at 21:30 in Singapore on 10-20 (entries without their id: the page's uid() is random)
+// what she does in the game at 21:30 in Singapore on 10-20 (entries without their id: the page's uid() is random; the ids
+// here are the ones the tests give the game's two entries)
 export const CONTRACT = {
   now: '2026-10-20T21:30:00+08:00', today: '2026-10-20',
-  note: { given: { t: 'expr', en: '  take a rain check  ', zh: ' 改天吧 ', ex: '  Can I take a rain check on dinner?  ' },
+  note: { id: 'mh2c3d4e5f6g', given: { t: 'expr', en: '  take a rain check  ', zh: ' 改天吧 ', ex: '  Can I take a rain check on dinner?  ' },
     entry: { d: '2026-10-20', t: 'expr', en: 'take a rain check', zh: '改天吧', ex: 'Can I take a rain check on dinner?' } },
-  log: { given: { d: '2026-10-19', k: 'speaking', m: '45', n: '  跟读 Part 1  ' }, entry: { d: '2026-10-19', k: 'speaking', m: 45, n: '跟读 Part 1' }, ym: '2026-10' },
+  log: { id: 'mh2c3d9z8y7x', given: { d: '2026-10-19', k: 'speaking', m: '45', n: '  跟读 Part 1  ' }, entry: { d: '2026-10-19', k: 'speaking', m: 45, n: '跟读 Part 1' }, ym: '2026-10' },
   del: { note: 'mgw0aa11bb22', log: ['mgw1k2abc3d4', '2026-10'] },
   // the pages before she writes: 积累本 newest first; 学习日志's 14 days, 7 days by module, the days in the 60
   view: { notes: ['mgw2cc33dd44', 'mgw0aa11bb22'], sum: 130, avg: 9, hours: '2.2', mods: [['listening', 55], ['vocab', 40]],
@@ -62,7 +63,7 @@ async function setup(blob = BEFORE, prefs = PREFS) {
   return memory(Object.assign(blob ? { [DATA_KEY]: JSON.stringify(blob) } : {}, prefs ? { [PREF_KEY]: prefs } : {}));
 }
 const blobOf = (b) => JSON.parse(b.m.get(DATA_KEY));
-const ID = 'mh2c3d4e5f6g';
+const ID = CONTRACT.note.id, LID = CONTRACT.log.id;
 
 test('the page\'s tables: four note types and their hints / labels, the ten 科目 in the 补记 order, the limits', () => {
   assert.deepEqual(Object.entries(NOTE_TYPES), [['word', '生词'], ['para', '同义替换'], ['expr', '好的表达'], ['story', '口语素材']]);
@@ -185,9 +186,9 @@ test('删除 takes away just that note (her other notes, in their order, untouch
 test('补记一条 puts { id, d, k, m, n } at the end of that month\'s entries, nothing else; the same entry twice writes once; a month without a list is the page\'s { entries: [] }', async () => {
   const b = await setup();
   const c = checkLog(CONTRACT.log.given, todayOf(b, CONTRACT.now));
-  const e = { id: ID, d: c.d, k: c.k, m: c.m, n: c.n };
+  const e = { id: LID, d: c.d, k: c.k, m: c.m, n: c.n };
   assert.deepEqual(saveLog(b, e), { ok: true, changed: true });
-  const want = clone(BEFORE); want.logs[CONTRACT.log.ym].entries.push(Object.assign({ id: ID }, CONTRACT.log.entry));
+  const want = clone(BEFORE); want.logs[CONTRACT.log.ym].entries.push(Object.assign({ id: LID }, CONTRACT.log.entry));
   assert.equal(b.m.get(DATA_KEY), JSON.stringify(want));
   assert.deepEqual(Object.keys(blobOf(b).logs[CONTRACT.log.ym].entries[2]), ['id', 'd', 'k', 'm', 'n']);
   assert.equal(typeof blobOf(b).logs[CONTRACT.log.ym].entries[2].m, 'number');
