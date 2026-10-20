@@ -570,6 +570,9 @@ export const LEARN = {
   // (Turf War / Zone Control / Boss vs bots are landscape matches), no loadout PRACTICE, and a room offers only 双人联机赛 /
   // 双人合作赛 (docs/LEARN.md §17). false = the App gets INKWAVE's whole menu back (the web, and ?lang=en even in the App, never change).
   appLearnOnly: true,
+  // ui-glass (LEARN §47): frosted glass on the big surfaces, clay on what is pressed, over the sticker look (src/ui/ui-glass.js).
+  // false (or ?ui=sticker for one load) = the sticker look as it was
+  uiGlass: true,
   puzzle: {
     gates: 8,                 // gates per level; a day's steps are spread over them (the last gate is the exit)
     minGateGap: 6,            // m along the route between two gates (never two gates on top of each other)

@@ -688,6 +688,8 @@ export class Menus {
     if (snap || !this._cur.on) this._cur.snapNext = true;
     const cs = getComputedStyle(el);
     this._cur.r = cs.borderTopLeftRadius;
+    // (ui-glass, LEARN §47: the ring hugs the shape — the gap is the stylesheet's --cur-pad, 7 px in the sticker look)
+    this._cur.pad = parseFloat(cs.getPropertyValue('--cur-pad'));
     if (this._scr && this._scr.onFocus) this._scr.onFocus(el);
   }
 
@@ -792,7 +794,7 @@ export class Menus {
       return;
     }
     const r = f.getBoundingClientRect();
-    const pad = f.dataset.curPad != null ? +f.dataset.curPad : 7;
+    const pad = f.dataset.curPad != null ? +f.dataset.curPad : Number.isFinite(C.pad) ? C.pad : 7;
     const tx = r.left - pad, ty = r.top - pad, tw = r.width + pad * 2, th = r.height + pad * 2;
     C.x.target = tx; C.y.target = ty; C.w.target = tw; C.h.target = th;
     if (C.snapNext || !C.on) { C.x.snap(tx); C.y.snap(ty); C.w.snap(tw); C.h.snap(th); C.snapNext = false; }

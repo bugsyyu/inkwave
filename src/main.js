@@ -6,6 +6,7 @@ import { Input } from './core/input.js';
 import { TouchControls, shouldUseTouch, isTouchDevice } from './core/touch.js';
 import { deviceInfo } from './core/device.js';
 import { RENDER_STEPS, RENDER_START, startStep, afterMatch, shouldCap, hotPower, govReadout, loadGov, saveGov } from './core/render-gov.js';
+import { glassClasses, applyGlass } from './ui/ui-glass.js';
 import { mapTheme,
   DEFAULT_SETTINGS, QUALITY, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, WEAPONS, WEAPON_ORDER, WEAPON_SUCCESSOR, ZONES, SUB, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER,
   MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH, OFFLINE_MAPS, mapOfflineOk, mapNoBots, mapBossOk, LEARN,
@@ -122,6 +123,8 @@ class Game {
       if (storedRaw?.shadowsChosen !== true && this.settings.shadows !== ds) { this.settings.shadows = ds; changed = true; }
       if (changed) saveJSON('inkwave.settings', this.settings);
     }
+    // ui-glass (LEARN §47): one class on <html> before the first screen; no blur at the base class's step (src/ui/ui-glass.js)
+    applyGlass(document.documentElement, glassClasses({ search: location.search, step: G.renderProfile ? G.renderProfile.step : null, cls: this.device ? this.device.cls : null }));
     // her App's power events (index.html keeps them in window.__iwNative): heat or Low Power Mode → a steady 60 now (_onPower)
     const NV = window.__iwNative;
     if (NV) { const prev = NV.on; NV.on = (e) => { if (e && e.type === 'power') this._onPower(NV.power); if (typeof prev === 'function') prev(e); }; }
