@@ -1,7 +1,7 @@
 {
  "repo": "bugsyyu/IELTS-Base",
- "commit": "80332f29371f071ae3d3b2487815755438bf1628",
- "date": "2026-10-20T09:59:56+00:00",
+ "commit": "863cb6ff23a7d7e1a4f70af4a1c6bbc4da4f6b75",
+ "date": "2026-10-20T10:41:59+00:00",
  "tool": "tools/learn/export-ielts.mjs",
  "files": {
   "model.js": {
@@ -165,7 +165,7 @@
    ]
   },
   "bytes": 32211,
-  "sha256": "f2f0fe1184c9db97eb6ce141cc307cf0c00483644f51752a37f5ac5bd67f1c1e"
+  "sha256": "61a04362328707f55b3cd2e8c1a1ad0af340bca2c7be054646cd263d7f8944c2"
  },
  "content": {
   "w1.json": {

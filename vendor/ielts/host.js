@@ -8,7 +8,7 @@
  * game answer is dated on the same day as one in the lesson (src/learn/workbench.js); phasePlan / dailyHours and the
  * tables they read give 学习方法 the sentence its {{PLAN}} says (src/learn/guides.js).
  * UMD like the other files here: Node → module.exports; browser → BaseEngine.Host. `window` inside fdUs is the UMD root
- * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: 80332f29371f071ae3d3b2487815755438bf1628. */
+ * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: 863cb6ff23a7d7e1a4f70af4a1c6bbc4da4f6b75. */
 (function (root, factory) {
   'use strict';
   var api = factory(root);
