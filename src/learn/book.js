@@ -11,6 +11,7 @@
 export const NATIVE_PAGES = Object.freeze({
   notes: () => import('../ui/book-pages/notes.js'),
   log: () => import('../ui/book-pages/log.js'),
+  guides: () => import('../ui/book-pages/guides.js'),   // (学习方法 and its 资源, LEARN §45)
 });
 // a lesson-page id → the native page that shows it (null: the lesson page's own, in the iframe)
 export function nativeOf(view) {

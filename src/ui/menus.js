@@ -1535,7 +1535,7 @@ export class Menus {
       el.classList.add('is-native');
       NATIVE_PAGES[id]().then((m) => {
         if (my !== seq || closing || !native) return;
-        native.api = m.mount(box, ctx) || null;
+        native.api = m.mount(box, ctx, view) || null;   // (view: which of its pages, 学习方法 or 资源)
       }).catch((e) => {
         console.error('[book] native page', id, e);
         if (my !== seq || closing) return;
@@ -1557,6 +1557,8 @@ export class Menus {
     const turn = (view) => {
       const to = bookTab(view);
       if (closing || !to || (view === want && to === tab)) return;
+      // the same native page, another of its own (学习方法 → 资源): the page switches itself — no leaf, no mounting again
+      if (native && native.api && native.api.show && nativeOf(view) === native.id) { want = view; st.page = view; native.api.show(view); return; }
       const dir = flipDir(tab, to);
       // from the lesson page to one of the game's: the page saves what it holds first (the native page reads her blob)
       if (nativeOf(view) && !native && loaded && frame) { try { frame.contentWindow.postMessage({ type: 'ielts:flush' }, TO); } catch (e) { /* gone */ } }

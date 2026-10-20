@@ -4122,3 +4122,145 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
   .iw-wscroll.is-many { scroll-behavior: auto; }
 }
 .iw-cmap.is-portrait .iw-cmap__wait { flex: none; }
+
+/* =====================================================================================
+   游戏为主体 第三期第三步: 学习方法 · 资源 (docs/LEARN.md §45, src/ui/book-pages/guides.js) — the lesson page's reading page
+   drawn by the game: a row of sticker tabs that stays at the top of the leaf, the page's own text set large (≥ 16 px on a
+   phone) with ink-taped headings, sticker bullets and numbers, a score table in its own sideways scroller, the 错误原因 as
+   slanted chips, a prompt box with its copy sticker, the 语法清单 as sticker checks (the tick springs in, the count pops),
+   资源 as panels of links out. A tab's text crossfades (the old one leaves out of the flow: nothing jumps) and comes in
+   layered. Only transform / opacity move; reduced motion: fades.
+   ===================================================================================== */
+.iw-bp--guides .iw-bp__lead { font-size: 15px; }
+.iw-bp--guides .iw-bp__lead:empty { display: none; }
+.iw-bg-stage { display: grid; gap: 2px; margin-top: 2px; }
+.iw-bg-en { margin: 0; font: italic 600 14px / 1.35 'Rubik', -apple-system, sans-serif; color: #e9e5f4; }
+.iw-bg-zh { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+
+/* the tabs: sticky at the top of the leaf (the text scrolls under them) */
+.iw-bg-bar { position: sticky; top: -18px; z-index: 3; margin: 0 -16px 14px -34px; padding: 18px 16px 10px 34px;
+  background: linear-gradient(180deg, #201a2e 0, #1d1829 82%, rgba(29, 24, 41, 0)); }
+.iw-bg-tabs { margin: -6px -6px -8px; }
+.iw-bg-tab { padding: 0 15px; }
+.iw-bg-wait { padding: 14px 4px; }
+
+/* the text: a stage the tab's article sits on; the old one fades where it stood (absolute: out of the flow) */
+.iw-bg-stagebox { position: relative; }
+.iw-bg-art { max-width: 44em; font: 500 16px / 1.65 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: #ece8f6; }
+.iw-bg-art.is-leaving { position: absolute; left: 0; right: 0; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .18s linear, transform .22s var(--in); }
+.iw-bg-art > :first-child { margin-top: 0; }
+.iw-bg-art p { margin: 0 0 12px; }
+.iw-bg-art b { color: #fff; font-weight: 800; }
+.iw-bg-art h3 { position: relative; display: table; margin: 26px 0 12px -2px; padding: 6px 13px 5px; border-radius: 5px; transform: rotate(-1.4deg); color: var(--k);
+  font: 800 18px / 1.25 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none;
+  background: radial-gradient(90% 70% at 25% 0%, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 60%), linear-gradient(175deg, color-mix(in srgb, var(--c) 72%, #fff), var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000));
+  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .55); }
+.iw-bg-art ul, .iw-bg-art ol { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.iw-bg-art li { position: relative; padding-left: 30px; }
+.iw-bg-art ul > li::before { content: ''; position: absolute; left: 7px; top: .55em; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--k), 0 2px 0 2px var(--k); }
+.iw-bg-art ol { counter-reset: iw-bg; }
+.iw-bg-art ol > li { counter-increment: iw-bg; }
+.iw-bg-art ol > li::before { content: counter(iw-bg); position: absolute; left: 0; top: .12em; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font: 400 12px / 1 'Titan One', 'Rubik', sans-serif; color: var(--k); background: var(--c); box-shadow: 0 0 0 2px var(--k), 0 2px 0 2px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .5); }
+
+/* a table: a sticker frame that scrolls sideways on its own; the leaf never widens */
+.iw-bg-table { max-width: 100%; margin: 4px 0 16px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
+  border-radius: 14px; background: linear-gradient(175deg, #2d2549, #211a35 80%); box-shadow: 0 0 0 2.5px var(--k), 0 5px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .13); }
+.iw-bg-table table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+.iw-bg-table table.num { min-width: 340px; text-align: center; font-variant-numeric: tabular-nums; }
+.iw-bg-table th { padding: 10px 10px 8px; text-align: left; white-space: nowrap; color: var(--k); background: var(--c); font: 800 14px / 1.2 'Rubik', -apple-system, 'PingFang SC', sans-serif; box-shadow: inset 0 -2.5px 0 var(--k); }
+.iw-bg-table table.num th { text-align: center; }
+.iw-bg-table td { padding: 9px 10px; vertical-align: top; border-top: 1.5px dashed rgba(255, 255, 255, .1); }
+.iw-bg-table td:first-child { font-weight: 800; color: #fff; white-space: nowrap; }
+.iw-bg-table table.num td:first-child { font: 400 15px / 1.2 'Titan One', 'Rubik', sans-serif; color: var(--c); }
+.iw-bg-table tr:nth-child(even) td { background: rgba(255, 255, 255, .03); }
+
+/* the reasons to pick when recording a mistake: slanted chips */
+.iw-bg-chips { display: flex; flex-wrap: wrap; gap: 10px 9px; margin: 6px 0 16px; }
+.iw-bg-chip { display: inline-block; padding: 7px 12px 6px; border-radius: 9px; transform: rotate(var(--r, 0deg)); color: #fff;
+  font: 700 15px / 1.2 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  background: linear-gradient(180deg, #43396a, #2c2445 70%); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .16), inset 3px 0 0 var(--c); }
+
+/* a prompt to copy: the exact text in a box that scrolls, the sticker under it */
+.iw-bg-prompt { position: relative; display: grid; gap: 12px; margin: 6px 0 18px; padding: 14px 14px 16px; border-radius: 16px 14px 18px 15px;
+  background: radial-gradient(rgba(255, 255, 255, .04) 1.2px, transparent 1.7px) 0 0 / 12px 12px, linear-gradient(175deg, #30284f, #221b37 75%);
+  box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .14), inset 0 -8px 14px rgba(0, 0, 0, .2); }
+.iw-bg-prompt__k { font: 400 11px / 1 'Titan One', 'Rubik', sans-serif; letter-spacing: .15em; color: var(--c); }
+.iw-bg-prompt__t { max-height: 220px; margin: 0; padding: 12px 14px; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 500 16px / 1.6 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: #e6e0f4; background: rgba(0, 0, 0, .3); box-shadow: inset 3px 0 0 var(--c);
+  user-select: text; -webkit-user-select: text; }
+.iw-bg-copy { justify-self: start; }
+.iw-bg-copy.is-copied .iw-bp-btn__ic { animation: iw-bg-tick .4s var(--spring2); }
+.iw-bg-copynote { margin: 0 0 12px; font-size: 15px; color: #e9e5f4; }
+.iw-bg-copybox { min-height: 180px; max-height: 45vh; resize: none; }
+
+/* 语法清单: the count (a pill and an ink bar), then a sticker check per point */
+.iw-bg-gram { display: grid; gap: 12px; margin: 6px 0 18px; }
+.iw-bg-count { display: flex; align-items: center; gap: 10px; font-weight: 700; color: #e9e5f4; }
+.iw-bg-count__n { display: inline-block; min-width: 64px; padding: 5px 11px 4px; border-radius: 999px; text-align: center; color: var(--k); background: var(--c);
+  font: 400 15px / 1.1 'Titan One', 'Rubik', sans-serif; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .5); }
+.iw-bg-count__n.is-pop { animation: iw-bg-pop .4s var(--spring2); }
+@keyframes iw-bg-pop { 0% { transform: scale(.86); } 55% { transform: scale(1.14); } 100% { transform: none; } }
+.iw-bg-count__t { flex: 1; max-width: 220px; height: 16px; padding: 3px; border-radius: 999px; overflow: hidden; background: rgba(0, 0, 0, .34); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .07); }
+.iw-bg-count__fill { display: block; height: 100%; border-radius: 999px; transform: translateX(calc((var(--w, 0) - 1) * 100%));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 66%, #fff), var(--c) 60%); box-shadow: inset 0 0 0 1.5px var(--k), inset 0 2px 0 rgba(255, 255, 255, .4); transition: transform .45s var(--spring); }
+.iw-bg-checks { display: grid; gap: 10px; }
+.iw-bg-check { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 12px; width: 100%; min-height: 48px; padding: 10px 12px 10px 10px; border: 0; border-radius: 14px; cursor: pointer; text-align: left;
+  color: #fff; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(175deg, #2d2549, #211a35 80%); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .13);
+  transition: transform .3s var(--spring); }
+.iw-bg-check__box { display: grid; place-items: center; width: 34px; height: 34px; padding: 7px; border-radius: 10px; color: var(--k);
+  background: linear-gradient(180deg, #ffffff, #e6e2f0); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 0 -3px 0 rgba(0, 0, 0, .1); }
+.iw-bg-check__box svg { width: 100%; height: 100%; opacity: 0; transform: scale(.3) rotate(-25deg); transition: transform .32s var(--spring2), opacity .12s linear; }
+.iw-bg-check__t { display: grid; gap: 3px; padding-top: 4px; }
+.iw-bg-check__t b { font: 800 16px / 1.35 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; font-synthesis: none; }
+.iw-bg-check__t span { font-size: 15px; line-height: 1.5; color: #cfc8e2; }
+.iw-bg-check.is-on { background: linear-gradient(175deg, color-mix(in srgb, var(--c) 26%, #2d2549), #231c38 80%); }
+.iw-bg-check.is-on .iw-bg-check__box { background: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 55%), linear-gradient(175deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000)); }
+.iw-bg-check.is-on .iw-bg-check__box svg { opacity: 1; transform: none; }
+.iw-bg-check.is-on .iw-bg-check__t b { color: var(--c); }
+.iw-bg-check.is-down { transform: translateY(3px) scale(.985, .97); transition-duration: 0s; }
+.iw-bg-check.is-tick .iw-bg-check__box { animation: iw-bg-tick .42s var(--spring2); }
+.iw-bg-check.is-untick .iw-bg-check__box { animation: iw-bg-untick .3s var(--out); }
+@keyframes iw-bg-tick { 0% { transform: scale(.78); } 55% { transform: scale(1.16) rotate(-6deg); } 100% { transform: none; } }
+@keyframes iw-bg-untick { 40% { transform: scale(.88); } 100% { transform: none; } }
+.iw-bg-gram.is-off .iw-bg-check { opacity: .62; }
+.iw-bg-gram .iw-bp-empty { padding: 8px 6px 6px; }
+
+/* 资源: the lead, then a panel per group; a name with an address is a link out (↗) */
+.iw-bg-reslead { font-size: 16px; color: #e9e5f4; }
+.iw-bg-group { margin: 0 0 16px; padding: 14px 14px 6px; border-radius: 18px 16px 20px 17px;
+  background: radial-gradient(rgba(255, 255, 255, .04) 1.2px, transparent 1.7px) 0 0 / 12px 12px, linear-gradient(175deg, #30284f, #221b37 75%);
+  box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .14), inset 0 -8px 14px rgba(0, 0, 0, .2); }
+.iw-bg-art .iw-bg-group__h { margin: 0 0 10px -2px; }
+.iw-bg-res { display: grid; gap: 2px; padding: 10px 0; border-top: 1.5px dashed rgba(255, 255, 255, .1); }
+.iw-bg-res:first-of-type { border-top: 0; padding-top: 2px; }
+.iw-bg-res__n { justify-self: start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font: 800 16px / 1.35 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif; color: #fff; }
+b.iw-bg-res__n { min-height: 0; padding: 4px 0 2px; }
+a.iw-bg-res__n { margin-left: -8px; padding: 6px 12px 6px 8px; border-radius: 12px; text-decoration: none; color: var(--c); touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform .3s var(--spring); }
+a.iw-bg-res__n b { font-weight: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.iw-bg-res__go { display: grid; place-items: center; flex: none; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: var(--k); background: var(--c);
+  box-shadow: 0 0 0 2px var(--k), 0 2.5px 0 2px var(--k), inset 0 1.5px 0 rgba(255, 255, 255, .5); }
+.iw-bg-res__go svg { width: 100%; height: 100%; }
+a.iw-bg-res__n.is-down { transform: translateY(2px) scale(.97); transition-duration: 0s; }
+a.iw-bg-res__n:focus-visible, .iw-bg-check:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.iw-bg-res__u { font: 600 13px / 1.3 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
+.iw-bg-res__d { margin: 2px 0 0; font-size: 16px; line-height: 1.6; color: #e1dcef; }
+
+@media (min-width: 720px) { .iw-bg-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* a phone on its side: the text a little tighter, the tabs still one row */
+@media (orientation: landscape) and (max-height: 520px) {
+  .iw-bg-bar { top: -12px; margin: 0 -14px 10px -32px; padding: 12px 14px 8px 32px; }
+  .iw-bg-art h3 { margin-top: 20px; }
+  .iw-bg-prompt__t { max-height: 150px; }
+}
+/* reduced motion: the text fades, nothing moves */
+@media (prefers-reduced-motion: reduce) {
+  .iw-bg-art.is-leaving { transform: none; transition: opacity .16s linear; }
+  .iw-bg-art h3, .iw-bg-chip { transform: none; }
+  .iw-bg-check.is-down, a.iw-bg-res__n.is-down { transform: none; }
+  .iw-bg-check__box svg { transform: none; transition: opacity .16s linear; }
+  .iw-bg-count__fill { transition-duration: 0s; }
+  .iw-bg-count__n.is-pop, .iw-bg-check.is-tick .iw-bg-check__box, .iw-bg-check.is-untick .iw-bg-check__box, .iw-bg-copy.is-copied .iw-bp-btn__ic { animation: none; }
+}

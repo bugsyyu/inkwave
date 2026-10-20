@@ -260,10 +260,11 @@ const PAGES = { kit: src('src/ui/book-pages/kit.js'), notes: src('src/ui/book-pa
 const CSS = src('styles/ui.css'), css = CSS.slice(CSS.indexOf('游戏为主体 第三期第二步: 课本里自己画的页'));
 
 test('the register: 积累本 and 学习日志 are the game\'s own pages (one line each, loaded when wanted); every other bookmark is the lesson page\'s', async () => {
-  assert.deepEqual(Object.keys(NATIVE_PAGES), ['notes', 'log']);
+  // (学习方法 joined them in LEARN §45, 资源 with it: tests/learn/guides.test.mjs)
+  assert.deepEqual(Object.keys(NATIVE_PAGES), ['notes', 'log', 'guides']);
   assert.ok(Object.keys(NATIVE_PAGES).every((id) => BOOK_TABS.some((b) => b.id === id)), 'a native page is a bookmark');
-  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id)), [null, null, null, null, 'notes', 'log', null, null, null]);
-  assert.equal(nativeOf('resources'), null); assert.equal(nativeOf('constructor'), null); assert.equal(nativeOf(undefined), null);
+  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id)), [null, null, null, null, 'notes', 'log', 'guides', null, null]);
+  assert.equal(nativeOf('resources'), 'guides'); assert.equal(nativeOf('constructor'), null); assert.equal(nativeOf(undefined), null);
   for (const id of Object.keys(NATIVE_PAGES)) {
     assert.equal(typeof NATIVE_PAGES[id], 'function', 'lazy: nothing is loaded until the book wants it');
     const m = await NATIVE_PAGES[id]();
