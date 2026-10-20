@@ -265,6 +265,8 @@ test('look: sticker tabs that stay at the top, text ≥ 16 px, a table that scro
   assert.match(css, /\.iw-bg-check\.is-down \{[^}]*transition-duration: 0s/);
   assert.match(css, /a\.iw-bg-res__n\.is-down \{[^}]*transition-duration: 0s/);
   assert.match(css, /\.iw-bg-art\.is-leaving \{ position: absolute;/, 'the old text leaves the flow: nothing jumps');
+  assert.match(PAGE, /setTimeout\(\(\) => old\.remove\(\), ctx\.reduced \? 160 : 220\);/, 'each old text goes on its own timer (quick taps leave none behind)');
+  assert.doesNotMatch(PAGE, /clearTimeout\(swapT\)/);
   assert.doesNotMatch(css, /backdrop-filter/);
   // every keyframe and transition of the section moves transform / opacity only
   for (const m of css.matchAll(/@keyframes [\w-]+ \{([^@]*?)\}\n/g)) for (const p of m[1].matchAll(/([a-z-]+):/g)) assert.ok(['transform', 'opacity'].includes(p[1]), 'keyframe moves ' + p[1]);

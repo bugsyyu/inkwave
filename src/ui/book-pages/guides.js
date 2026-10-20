@@ -60,7 +60,7 @@ function copyBox(ctx, text, back) {
 
 export function mount(host, ctx, view) {
   const ls = ctx.ls;
-  let gone = false, T = null, Host = null, cur = null, art = null, swapT = 0;
+  let gone = false, T = null, Host = null, cur = null, art = null;
   const fr = pageFrame({ cls: 'iw-bp--guides', kicker: 'HOW TO LEARN', title: '学习方法', lead: ' ' });
   const lead = fr.head.querySelector('.iw-bp__lead');
   host.appendChild(fr.el);
@@ -215,8 +215,7 @@ export function mount(host, ctx, view) {
       if (fr.scroll.scrollTop > top) fr.scroll.scrollTop = top;
       old.style.top = old.offsetTop + 'px';
       old.classList.add('is-leaving');
-      clearTimeout(swapT);
-      swapT = setTimeout(() => old.remove(), ctx.reduced ? 160 : 220);
+      setTimeout(() => old.remove(), ctx.reduced ? 160 : 220);   // (each its own: quick taps leave none behind)
     }
     stage.appendChild(art);
     if (by) ctx.sfx('ui_toggle');
@@ -258,6 +257,6 @@ export function mount(host, ctx, view) {
         if (r.top < top || r.bottom > s.bottom - 16) fr.scroll.scrollBy({ top: r.top - top - (s.bottom - top) * 0.3, behavior: ctx.reduced ? 'auto' : 'smooth' });
       }
     },
-    destroy() { gone = true; clearTimeout(swapT); removeEventListener('storage', onStore); },
+    destroy() { gone = true; removeEventListener('storage', onStore); },
   };
 }
