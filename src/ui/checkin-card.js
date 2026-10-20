@@ -130,7 +130,7 @@ export function openCheckin({ week, day, from = 'menu', onClose = null } = {}) {
     if (!r || !r.ok) {
       busy = false; save.disabled = false;
       msg.textContent = r && r.reason === 'save' ? '没能保存：这台设备的存储空间可能满了。' : r && r.reason === 'no-workbench' ? '这里没有你的课本数据，打卡没存上。' : '没能保存，再试一次。';
-      restartAnim(card, 'is-nope'); sfx('ui_error', 0.3);
+      restartAnim(card, 'is-nope'); restartAnim(vp, 'is-nope'); sfx('ui_error', 0.3);   // (ui-glass: the frame shakes, the glass card never animates itself)
       return;
     }
     // the stamp: it comes down (anticipation, the slam, a hit-stop), ink spatters, the card gives under it
@@ -139,7 +139,7 @@ export function openCheckin({ week, day, from = 'menu', onClose = null } = {}) {
     sfx('stamp_slam', 0.42);
     if (!reduced) {
       setTimeout(() => {
-        restartAnim(card, 'is-hit');
+        restartAnim(card, 'is-hit'); restartAnim(vp, 'is-hit');
         const s = stamp.getBoundingClientRect();
         inkBurst(el, { x: s.left + s.width / 2, y: s.top + s.height / 2, color: 'var(--a)', count: 14, dist: 12, size: 1.2 });
       }, 150);

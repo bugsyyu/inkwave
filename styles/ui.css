@@ -6,6 +6,12 @@
    ===================================================================================== */
 @font-face { font-family: 'Titan One'; src: url('../assets/fonts/TitanOne-latin.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
 @font-face { font-family: 'Rubik'; src: url('../assets/fonts/Rubik-latin.woff2') format('woff2'); font-weight: 400 900; font-style: normal; font-display: block; }
+/* ui-glass (docs/LEARN.md §47; used only under html.iw-glass): Titan One for Latin alone (the 'Titan One' family also aliases
+   CJK onto a system face, below), and the menus' Chinese display face — ZCOOL KuaiLe (站酷快乐体, SIL OFL 1.1:
+   assets/fonts/ZCOOLKuaiLe-OFL.txt), cut to the characters the interface says (tools/fonts/subset-zh.py) */
+@font-face { font-family: 'IW Titan'; src: url('../assets/fonts/TitanOne-latin.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: 'ZCOOL KuaiLe IW'; src: url('../assets/fonts/ZCOOLKuaiLe-ui.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap;
+  unicode-range: U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+FF00-FFEF, U+2014, U+2018-2019, U+201C-201D, U+2026, U+00B7; }
 
 #ui-root { position: fixed; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; user-select: none; -webkit-user-select: none; }
 
@@ -3288,133 +3294,330 @@ html:lang(zh) .iw-display { -webkit-text-stroke-width: .13em; letter-spacing: .0
 }
 
 /* =====================================================================================
-   ui-glass (docs/LEARN.md §47, src/ui/ui-glass.js) — the owner 10-20: 「能不能稍微升级下ui设计，融入google的拟态陶土还是啥的玻璃」.
-   A step up on the sticker look, not a new one, all under html.iw-glass (config LEARN.uiGlass; ?ui=sticker leaves it off):
-   - glass: the big surfaces over the 3D stage (the main menu's panels, the book's page, the cards) are a tint from the
-     palette (deep ink-purple, never grey) with the stage blurred behind (--glass-filter: ≤ 24 px), a thin rim light on the top
-     edge and a faint sheen inside. A blurred surface never animates itself (its wrapper moves, transform only); list items in
-     a scroller never blur (a lighter tint and the rim). At most three blurred layers on a screen.
-   - clay: what is pressed (buttons, pills, chips, tabs, checks, bars) is rounder and has volume — a soft highlight inside top
-     left, a soft shade inside bottom right, a soft drop under the old solid offset shadow. The ink outline stays (first in
-     every box-shadow); a press squashes on the frame the finger lands (transition-duration: 0s) and springs back.
-   - no blur (html.iw-glass-solid: the base class's render step; prefers-reduced-transparency: reduce): the same tint, more solid.
+   ui-glass (docs/LEARN.md §47, src/ui/ui-glass.js) — the owner 10-20: 「能不能稍微升级下ui设计，融入google的拟态陶土还是啥的玻璃」;
+   on the first proofs: 「再明显一点，按钮也做成玻璃，细节要全面打磨」, then 「按钮像是两个不同风格的按钮直接拼接缝合，还有所有中文字体
+   都很丑，甚至还会超出框框」. So, all under html.iw-glass (config LEARN.uiGlass; ?ui=sticker leaves it off for one load):
+   - ONE material per thing. Panels, cards, buttons, bookmarks, pills, checks, bars are glass with clay's volume — never a
+     sticker's ink outline and hard offset shadow on top of a glass face. The sticker stays in the accents: Titan One for the
+     English kickers, the ink splats, the tape and type labels.
+   - glass panels (the main menu's column and side cards, the book's page, the cards that come up over it) let the stage
+     through blurred (--glass-filter); a blurred surface never animates itself (its frame moves, transform only); at most
+     six blurred layers on a screen (the owner's ceiling; used: ≤ 4). Rows of buttons never blur on their own: they are
+     see-through glass over a blurred panel.
+   - every glass face: a tint (deep ink-purple, milky white, or the thing's own hue), a lit top edge, an inner glow, a slanted
+     specular streak, clay's light inside top left and shade at the bottom, a soft drop, a hairline to hold the shape.
+     Selected = the same shape lit (brighter, more saturated, a glow hugging it); focus = one ring hugging the shape (the
+     menus' cursor, --cur-pad away); pressed = sunk and lit from inside, on the frame; disabled = faded.
+   - Chinese: no outline stroke on 字 and no synthesised bold; the display text (titles, buttons, bookmarks, tabs) is ZCOOL
+     KuaiLe (cut to the interface's characters: tools/fonts/subset-zh.py), Latin beside it in Titan One / Rubik; what she
+     wrote and long text are the system's face (PingFang SC) at 400–600.
+   - no blur (html.iw-glass-solid: the base class's render step; prefers-reduced-transparency): the same glass, solid.
    (Placed before the course map: the sections after it check "no backdrop-filter here" from their own heading on, which the
-   sticker sections keep true; the blur's own budget is tests/learn/ui-glass.test.mjs.)
+   sticker sections keep true; the blur's budget is tests/learn/ui-glass.test.mjs.)
    ===================================================================================== */
 html.iw-glass {
-  --glass-blur: 20px;
-  --glass-filter: blur(var(--glass-blur)) saturate(1.45);
-  --glass-tint: rgba(40, 31, 68, .6); --glass-tint-2: rgba(19, 14, 34, .72);
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .025) 32%, rgba(255, 255, 255, 0) 60%), linear-gradient(172deg, var(--glass-tint), var(--glass-tint-2));
-  --glass-rim: inset 0 1.5px 0 rgba(255, 255, 255, .44), inset 0 0 0 1px rgba(255, 255, 255, .09), inset 0 -1px 0 rgba(0, 0, 0, .28);
-  /* list items and cards on the glass (no blur of their own) */
-  --glass-item: linear-gradient(176deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .04) 55%, rgba(255, 255, 255, .02)), rgba(34, 27, 58, .55);
-  --glass-item-rim: inset 0 1.5px 0 rgba(255, 255, 255, .24), inset 0 0 0 1px rgba(255, 255, 255, .06);
-  /* clay: light (white / ink-coloured stickers) and dark (the ink-purple ones) */
-  --clay-hi: inset 2px 3px 2px -1px rgba(255, 255, 255, .85);
-  --clay-lo: inset -2px -5px 8px rgba(62, 40, 118, .2);
-  --clay-hi-d: inset 2px 3px 3px -1px rgba(255, 255, 255, .22);
-  --clay-lo-d: inset -3px -5px 9px rgba(0, 0, 0, .36);
-  --clay-drop: 0 12px 20px -8px rgba(8, 5, 18, .55);
-  --clay-drop-s: 0 8px 14px -7px rgba(8, 5, 18, .5);
-  --clay-sheen: radial-gradient(120% 100% at 20% 0%, rgba(255, 255, 255, .17), rgba(255, 255, 255, 0) 52%);
-}
+  /* ---- the knobs: 「再明显一点 / 淡一点」 is a change here, everything follows ---- */
+  --glass-alpha: .5;      /* the tint over the blurred stage on a glass panel (0 = clear glass, 1 = no stage at all) */
+  --glass-blur: 22px;     /* how soft the stage is behind a panel (≤ 24 px) */
+  --glass-rim: .7;        /* the lit top edge and the glow inside every glass face (0 = none, .9 = very bright) */
+  --glass-spec: .18;      /* the slanted specular streak across a glass face (0 = none; panels take .35 of it) */
+  --glass-btn: .46;       /* the tint of a dark glass button (lower = more of the panel's blur through it) */
+  --clay-depth: 1.25;     /* volume: the light inside top left, the shade inside at the bottom, the soft drop (0 = flat) */
+  /* ---- the system: four radii, one hairline, one ring gap ---- */
+  --r-1: 10px; --r-2: 14px; --r-3: 20px; --r-4: 28px;
+  --cur-pad: 4px;         /* the focus ring's gap from the shape (its radius = the shape's + this) */
+  --f-display: 'IW Titan', 'ZCOOL KuaiLe IW', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  --f-ui: 'Rubik', 'ZCOOL KuaiLe IW', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
+  --f-text: 'Rubik', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif;
 
-/* ---- main menu: the button column stands on one glass sheet (the column itself, padded out by as much as it moved out:
-   the buttons keep their boxes; it never animates, the buttons fly in over it); the stage shows through more */
+  /* ---- derived (not tuned one by one) ---- */
+  --glass-filter: blur(var(--glass-blur)) saturate(1.6);
+  --glass-tint: rgba(42, 32, 72, var(--glass-alpha)); --glass-tint-2: rgba(18, 13, 32, calc(var(--glass-alpha) + .16));
+  /* the streak across a button at full --glass-spec; across a panel (text lies on it) at .35 of it */
+  --glass-streak: linear-gradient(116deg, rgba(255, 255, 255, 0) 16%, rgba(255, 255, 255, calc(var(--glass-spec) * .45)) 27%, rgba(255, 255, 255, var(--glass-spec)) 31%, rgba(255, 255, 255, 0) 43%);
+  --glass-streak-p: linear-gradient(116deg, rgba(255, 255, 255, 0) 16%, rgba(255, 255, 255, calc(var(--glass-spec) * .18)) 27%, rgba(255, 255, 255, calc(var(--glass-spec) * .35)) 31%, rgba(255, 255, 255, 0) 43%);
+  /* the glow along a panel's top edge (gone by 20 %: the page's lead lies under it) and down a button's face */
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, calc(var(--glass-rim) * .1)), rgba(255, 255, 255, 0) 20%);
+  --gb-sheen: linear-gradient(180deg, rgba(255, 255, 255, calc(var(--glass-rim) * .24)), rgba(255, 255, 255, 0) 46%);
+  --glass-bg: var(--glass-streak-p), var(--glass-sheen), linear-gradient(172deg, var(--glass-tint), var(--glass-tint-2));
+  /* the hairline that holds a glass shape (not an outline), the edge light, the soft drops */
+  --g-line: 0 0 0 1px rgba(8, 5, 18, .5);
+  --g-edge: inset 0 1.5px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .9)), inset 0 0 0 1px rgba(255, 255, 255, calc(var(--glass-rim) * .22)),
+    inset 0 0 16px rgba(255, 255, 255, calc(var(--glass-rim) * .12));
+  --g-edge-on: inset 0 1.5px 0 rgba(255, 255, 255, .95), inset 0 0 0 1.5px rgba(255, 255, 255, calc(var(--glass-rim) * .5)), inset 0 0 20px rgba(255, 255, 255, calc(var(--glass-rim) * .3));
+  --g-drop: 0 calc(10px * var(--clay-depth)) calc(20px * var(--clay-depth)) -8px rgba(8, 5, 18, .6), 0 2px 3px rgba(8, 5, 18, .3);
+  --g-drop-s: 0 calc(6px * var(--clay-depth)) calc(12px * var(--clay-depth)) -6px rgba(8, 5, 18, .55), 0 1px 2px rgba(8, 5, 18, .3);
+  --g-drop-l: 0 calc(18px * var(--clay-depth)) calc(40px * var(--clay-depth)) -12px rgba(6, 4, 14, .6);
+  /* clay's volume: on a light face, on a dark one */
+  --clay: inset calc(2px * var(--clay-depth)) calc(3px * var(--clay-depth)) calc(2px * var(--clay-depth)) -1px rgba(255, 255, 255, .8),
+    inset calc(-2px * var(--clay-depth)) calc(-6px * var(--clay-depth)) calc(10px * var(--clay-depth)) rgba(62, 40, 118, .26);
+  --clay-d: inset calc(2px * var(--clay-depth)) calc(3px * var(--clay-depth)) calc(3px * var(--clay-depth)) -1px rgba(255, 255, 255, .3),
+    inset calc(-2px * var(--clay-depth)) calc(-6px * var(--clay-depth)) calc(10px * var(--clay-depth)) rgba(0, 0, 0, .42);
+  --g-lit: inset 0 0 26px rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 3px 8px rgba(0, 0, 0, .3);
+  /* the three faces (a hued one is written where its hue is: rgba(var(--gh), …) has to resolve on that element) */
+  --gb-dark: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(66, 54, 108, var(--glass-btn)), rgba(22, 17, 40, calc(var(--glass-btn) + .22)));
+  --gb-milk: var(--glass-streak), linear-gradient(172deg, rgba(255, 255, 255, .92), rgba(238, 233, 249, .84) 55%, rgba(216, 208, 236, .8));
+  /* one recipe per state */
+  --g-btn: var(--g-line), var(--g-edge), var(--clay-d), var(--g-drop);
+  --g-btn-l: var(--g-line), var(--g-edge), var(--clay), var(--g-drop);
+  --g-btn-down: var(--g-line), var(--g-edge), var(--g-lit), 0 2px 4px -2px rgba(8, 5, 18, .5);
+  --g-item: var(--g-line), var(--g-edge), var(--g-drop-s);
+  font-synthesis: none;
+}
+html.iw-glass .iw-ui { font-synthesis: none; }
+
+/* ---- Chinese display text: no stroke (the counters of 字 fill in), a soft lift instead; the display face */
+html.iw-glass .iw-display { font-family: var(--f-display); -webkit-text-stroke: 0; letter-spacing: .01em;
+  text-shadow: 0 2px 0 rgba(10, 7, 20, .55), 0 4px 14px rgba(10, 7, 20, .5); }
+html.iw-glass .iw-btn { font-family: var(--f-display); letter-spacing: 0; }
+html.iw-glass .iw-btn__sub { font-family: var(--f-text); font-weight: 600; letter-spacing: 0; }
+html.iw-glass :is(.iw-bp__title, .iw-ci__title) { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; letter-spacing: .02em;
+  text-shadow: 0 2px 0 rgba(10, 7, 20, .5), 0 6px 18px rgba(10, 7, 20, .55), 0 0 1px rgba(255, 255, 255, .4); }
+html.iw-glass .iw-learn__rhead .iw-learn__rtitle { font-family: var(--f-display); font-weight: 400; -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(10, 7, 20, .55), 0 6px 18px rgba(10, 7, 20, .5); }
+html.iw-glass :is(.iw-book__tab, .iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-ci__mood b, .iw-ci__save, .iw-ci__later, .iw-book__close, .iw-cmap__day, .iw-bps__tape span, .iw-ci__tape span, .iw-learn__btn, .iw-seg__opt) {
+  font-family: var(--f-ui); font-weight: 600; letter-spacing: .01em; }
+html.iw-glass .iw-cmap__day { font-family: var(--f-display); -webkit-text-stroke: 0; text-shadow: 0 1px 0 rgba(10, 7, 20, .8), 0 2px 6px rgba(10, 7, 20, .7); }
+html.iw-glass :is(.iw-bp-btn small, .iw-bp-btn__t small) { font-family: var(--f-text); font-weight: 500; }
+
+/* ---- the focus: one ring hugging the shape (--cur-pad away, the radius follows), a glow along it; no ink ring, no drips */
+html.iw-glass .iw-cursor__ring { border: 0; box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 3.5px rgba(var(--a-rgb), .55); animation: none; }
+html.iw-glass .iw-cursor__glow { inset: 0; background: none; box-shadow: 0 0 22px 3px rgba(var(--a-rgb), .55); opacity: 1; animation: iw-glass-breathe 1.6s ease-in-out infinite; }
+@keyframes iw-glass-breathe { 50% { opacity: .45; } }
+
+/* ---- main menu: the column of buttons stands on one glass panel (the column itself, padded out by as much as it moved out:
+   the buttons keep their boxes; it never animates, the buttons fly in over it); the stage shows through it */
 html.iw-glass .iw-main__menu { left: calc(var(--u) * 2.65); width: calc(var(--u) * 32.3); padding: calc(var(--u) * 1.25) calc(var(--u) * 1.15);
-  border-radius: calc(var(--u) * 2.6); background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
-  box-shadow: 0 0 0 2px var(--k), var(--glass-rim), 0 calc(var(--u) * 1.6) calc(var(--u) * 3.4) rgba(6, 4, 14, .42); }
+  border-radius: var(--r-4); background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l); }
+/* her phone upright: thirteen buttons did not fit (the last ones ran off the bottom); the six that are not her course
+   (联机 stays a whole row) share rows two by two */
 @media (orientation: portrait) and (max-width: 720px) {
-  html.iw-glass .iw-main .iw-scrim-left { background: linear-gradient(180deg, rgba(12, 9, 22, .38), rgba(12, 9, 22, .5) 30%, rgba(12, 9, 22, .62)); }
-  html.iw-glass .iw-main__menu { left: 7px; right: 7px; width: auto; top: calc(116px + var(--sat, 0px)); padding: 12px 9px; border-radius: 26px; }
+  html.iw-glass .iw-main .iw-scrim-left { background: linear-gradient(180deg, rgba(12, 9, 22, .26), rgba(12, 9, 22, .42) 30%, rgba(12, 9, 22, .55)); }
+  html.iw-glass .iw-main__menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; align-content: start;
+    left: 7px; right: 7px; width: auto; top: calc(108px + var(--sat, 0px)); padding: 10px 9px; border-radius: var(--r-4); }
+  html.iw-glass .iw-main__menu .iw-btn--menu, html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl), html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl):not(.iw-btn--online) {
+    height: 48px; margin: 0; border-radius: var(--r-2); }
+  html.iw-glass .iw-main__menu > .iw-btn { grid-column: 1 / -1; }
+  html.iw-glass .iw-main__menu .iw-btn--xl { height: 64px; border-radius: var(--r-3); }
+  html.iw-glass .iw-main__menu > .iw-btn:is([data-id="loadout"], [data-id="locker"], [data-id="settings"], [data-id="howto"], [data-id="credits"]) { grid-column: auto; }
 }
-/* the side (profile, kit): glass panels; they slide in together from the right edge (the wrapper moves, never the blur) */
+/* the side (profile, kit): glass panels that slide in together from the right edge (the wrapper moves, never the blur) */
 html.iw-glass .iw-main__side { animation: iw-glass-side .62s var(--spring) backwards .08s; }
-html.iw-glass .iw-main__side > .iw-panel { animation: none; -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); }
+html.iw-glass .iw-main__side > .iw-panel { animation: none; background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); }
 @keyframes iw-glass-side { from { transform: translateX(calc(100% + var(--u) * 6)); } }
-/* a panel anywhere else: the glass's tint and rim, no blur (they come and go in numbers on the other screens) */
-html.iw-glass .iw-panel { border-radius: calc(var(--u) * 2); background: var(--glass-bg), rgba(22, 17, 38, .36); -webkit-backdrop-filter: none; backdrop-filter: none;
-  box-shadow: 0 0 0 2px var(--k), var(--glass-rim), 0 calc(var(--u) * .45) 0 rgba(0, 0, 0, .38), 0 calc(var(--u) * 1.4) calc(var(--u) * 3) rgba(0, 0, 0, .3); }
-html.iw-glass .iw-main__side > .iw-panel { background: var(--glass-bg); }
-html.iw-glass .iw-prompts { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(18, 14, 30, .86); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), inset 0 0 0 1.5px rgba(255, 255, 255, .07), 0 3px 0 rgba(0, 0, 0, .3); }
-html.iw-glass .iw-profile__stats div { background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14); }
-html.iw-glass .iw-xpbar { height: calc(var(--u) * 1.05); background: rgba(0, 0, 0, .42); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .45), inset 0 -1px 0 rgba(255, 255, 255, .12); }
-html.iw-glass .iw-xpbar i { box-shadow: inset 1px 2px 1px -1px rgba(255, 255, 255, .7), inset -1px -2px 3px rgba(0, 0, 0, .25); }
+/* a panel anywhere else: the glass without a blur of its own (they come in numbers on the other screens, and move) */
+html.iw-glass .iw-panel { border-radius: var(--r-3); background: var(--glass-bg), rgba(22, 17, 38, .42); -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l); }
+html.iw-glass .iw-panel::before { display: none; }
+html.iw-glass .iw-prompts { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--gb-dark), rgba(18, 14, 30, .6); box-shadow: var(--g-item); }
+html.iw-glass .iw-profile__stats div { border-radius: var(--r-1); background: var(--gb-sheen), rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 0 0 1px rgba(255, 255, 255, .06); }
+html.iw-glass .iw-lvl { border-radius: var(--r-1); background: var(--gb-milk); box-shadow: var(--g-btn-l); }
+html.iw-glass .iw-chip { background: var(--gb-sheen), rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-rim) * .45)), inset 0 0 0 1px rgba(255, 255, 255, .08); }
+/* bars: glass tubes, the fill lit (experience, loading, the log's 科目, 语法清单's count) */
+html.iw-glass :is(.iw-xpbar, .iw-bp-hbar__t, .iw-bg-count__t) { background: rgba(0, 0, 0, .4); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 3px 5px rgba(0, 0, 0, .45), 0 1px 0 rgba(255, 255, 255, .12); }
+html.iw-glass :is(.iw-xpbar i, .iw-progress__fill, .iw-bp-hbar__t i, .iw-bg-count__fill) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), inset 0 0 0 1px rgba(255, 255, 255, .2), inset 0 -3px 4px rgba(0, 0, 0, .22); }
+/* a phone on its side (844 × 390): the menu was cut off at the top and the bottom (twelve buttons in one column), its
+   subtitles ran out of their buttons, the hint sat over 设置. Here: the logo small in the corner, the buttons three to a row
+   under it (today's across the row), no hint line / key legend (a phone has no keys); the side cards as they were */
+@media (orientation: landscape) and (max-height: 520px) {
+  html.iw-glass .iw-main__logo { left: calc(14px + var(--sal, 0px)); top: calc(6px + var(--sat, 0px)); }
+  html.iw-glass .iw-main__logo .iw-logo--sm { font-size: 22px; }
+  html.iw-glass .iw-main__menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 7px;
+    left: calc(8px + var(--sal, 0px)); right: calc(var(--u) * 30.2 + 14px + var(--sar, 0px)); width: auto; top: calc(56px + var(--sat, 0px)); transform: none;
+    padding: 9px; border-radius: var(--r-3); }
+  html.iw-glass .iw-main__menu .iw-btn--menu, html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl), html.iw-glass .iw-main__menu .iw-btn--menu:not(.iw-btn--xl):not(.iw-btn--online) {
+    --tilt: 0deg; height: 48px; margin: 0; padding: 0 9px; gap: 7px; font-size: 15px; border-radius: var(--r-2); }
+  html.iw-glass .iw-main__menu .iw-btn--xl { grid-column: 1 / -1; height: 54px; font-size: 20px; border-radius: var(--r-3); }
+  html.iw-glass .iw-main__menu .iw-btn__sub { margin-top: 3px; font-size: 10.5px; white-space: normal; line-height: 1.15; }
+  html.iw-glass .iw-main__menu .iw-btn:not(.iw-btn--xl) .iw-btn__sub { display: none; }
+  html.iw-glass .iw-main__menu .iw-btn--xl .iw-btn__sub { font-size: 12px; white-space: nowrap; }
+  html.iw-glass .iw-main__menu .iw-btn__icon { width: 1.2em; height: 1.2em; }
+  html.iw-glass .iw-main__menu .iw-btn__live { right: 6px; font-size: 9px; padding: .35em .5em; }
+  html.iw-glass .iw-main__menu .iw-btn.is-focus { transform: scale(1.03); }
+  html.iw-glass .iw-main__desc, html.iw-glass .iw-main .iw-prompts { display: none; }
+  html.iw-glass .iw-main__side { top: calc(8px + var(--sat, 0px)); bottom: calc(10px + var(--sab, 0px)); right: calc(10px + var(--sar, 0px)); }
+}
 
-/* ---- buttons: clay. A sheen on the face (a layer over --bg) and the inner light / shade in the box-shadow, a rounder
-   corner and a soft drop under the solid shadow; a press squashes. (Not an ::after over the ink blob: a z-index −1 layer in
-   every button made Chrome composite the menu's buttons into each other — copies of other buttons in a button's place,
-   LEARN §47.) The ink blob that floods in on focus covers the sheen: the focused button is that ink. The online screens' own sticker buttons keep their look (only the squash) */
+/* ---- the menus' buttons (.iw-btn): a dark glass face (the loud ones in their own hue), the ink that floods in on focus is
+   glass too; pressed: sunk and lit, on the frame; it springs back. (Never an ::after over the blob, nor a second filter on
+   the icon: both made Chrome composite the menu's buttons into each other — copies of other buttons in a button's place,
+   LEARN §47.) The online screens' own sticker buttons keep their look (they get only the squash) */
 html.iw-glass .iw-btn {
   transition: transform .42s var(--spring), scale .5s var(--spring2), translate .5s var(--spring2), box-shadow .25s, color .12s .04s; }
 html.iw-glass .iw-btn.is-down, html.iw-glass .iw-btn:active { scale: 1.018 .93; translate: 0 calc(var(--u) * .28); transition: scale 0s, translate 0s, box-shadow 0s; }
-html.iw-glass .iw-btn--menu { border-radius: calc(var(--u) * 1.8); background: var(--clay-sheen), var(--bg);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .12), var(--clay-hi-d), var(--clay-lo-d), 0 calc(var(--u) * .42) 0 rgba(0, 0, 0, .45), var(--clay-drop); }
-html.iw-glass .iw-btn--menu.iw-btn--primary { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25), inset 2px 3px 3px -1px rgba(255, 255, 255, .45), inset -3px -5px 9px rgba(0, 0, 0, .2), 0 calc(var(--u) * .42) 0 var(--a-deep), var(--clay-drop); }
-html.iw-glass .iw-btn--menu.iw-btn--online { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25), inset 2px 3px 3px -1px rgba(255, 255, 255, .4), inset -3px -5px 9px rgba(0, 0, 0, .22), 0 calc(var(--u) * .42) 0 var(--b-deep), var(--clay-drop); }
-html.iw-glass .iw-btn--menu.is-focus { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .15), 0 calc(var(--u) * .5) 0 var(--k), 0 calc(var(--u) * 1.3) calc(var(--u) * 2.2) -4px rgba(0, 0, 0, .5); }
-html.iw-glass .iw-btn--menu.is-down, html.iw-glass .iw-btn--menu:active { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .12), inset 2px 3px 6px rgba(0, 0, 0, .3), 0 calc(var(--u) * .12) 0 var(--k), 0 4px 8px -4px rgba(0, 0, 0, .5); }
-@media (orientation: portrait) and (max-width: 720px) {
-  html.iw-glass .iw-main__menu .iw-btn--menu { border-radius: 16px; }
-  html.iw-glass .iw-main__menu .iw-btn--xl { border-radius: 20px; }
-}
+html.iw-glass .iw-btn--menu { --fill: rgba(var(--a-rgb), .82); border-radius: var(--r-2); background: var(--gb-dark); box-shadow: var(--g-btn); }
+html.iw-glass .iw-btn--menu:is(.iw-btn--primary, .iw-btn--online) { --fill: rgba(255, 255, 255, .86);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), calc(var(--glass-btn) + .4)), rgba(var(--gh), calc(var(--glass-btn) + .5))); }
+html.iw-glass .iw-btn--menu.iw-btn--primary { --gh: var(--a-rgb); }
+html.iw-glass .iw-btn--menu.iw-btn--online { --gh: var(--b-rgb); }
+html.iw-glass .iw-btn--menu.iw-btn--online::before { opacity: .3; }
+html.iw-glass .iw-btn--menu.is-focus { box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop); }
+html.iw-glass .iw-btn--menu.is-down, html.iw-glass .iw-btn--menu:active { box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-btn__blob { opacity: .94; }
+html.iw-glass .iw-btn__live { box-shadow: var(--g-line), inset 0 1px 0 rgba(255, 255, 255, .25); }
+/* the back pill and the segmented switches (the map's 换周, the learn screen's choices) */
+html.iw-glass .iw-backbtn { background: var(--gb-dark), rgba(14, 11, 22, .5); box-shadow: var(--g-btn); }
+html.iw-glass .iw-backbtn__arrow { background: var(--gb-milk); box-shadow: var(--g-line), var(--clay); }
+html.iw-glass .iw-seg { background: rgba(0, 0, 0, .42); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 3px 7px rgba(0, 0, 0, .45), 0 1px 0 rgba(255, 255, 255, .12); }
+html.iw-glass .iw-seg__hl { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, var(--a-light) -40%, var(--a) 45%);
+  box-shadow: var(--g-line), var(--g-edge-on), inset 0 -4px 6px rgba(0, 0, 0, .2), 0 0 14px rgba(var(--a-rgb), .4); }
+html.iw-glass .iw-seg__opt { letter-spacing: .02em; }
 
-/* ---- 课本: the page is glass over the stage (the rig moves, the page itself never animates); the scrim lets more through;
-   the turning leaf is a glass sheet without a blur (it moves); bookmarks and 合上 are clay */
-html.iw-glass .iw-book__scrim { background: radial-gradient(120% 80% at 50% 100%, rgba(13, 10, 20, .36), rgba(13, 10, 20, .72)); }
-html.iw-glass .iw-book__page {
-  background: radial-gradient(130% 70% at 85% 0%, rgba(255, 255, 255, .07), transparent 60%), var(--glass-bg);
+/* ---- the loading screen: the bar a glass tube with its fill lit, the tip a glass strip, its tag a label */
+html.iw-glass .iw-progress__track { background: rgba(10, 8, 20, .62); box-shadow: var(--g-line), inset 0 0 0 1px rgba(255, 255, 255, .16), inset 0 3px 6px rgba(0, 0, 0, .55), 0 0 0 4px rgba(255, 255, 255, .08), var(--g-drop); }
+html.iw-glass .iw-tip { border-radius: var(--r-3); background: var(--glass-bg); box-shadow: var(--g-line), var(--g-edge), var(--g-drop); }
+html.iw-glass .iw-tip__text { font-family: var(--f-text); font-weight: 500; }
+
+/* ---- toasts: smoked glass (no blur: small, and it flies in and out) */
+html.iw-glass .iw-toast { border-radius: var(--r-2); rotate: 0deg; background: var(--gb-dark), rgba(16, 12, 28, .7); box-shadow: var(--g-btn); font-family: var(--f-text); font-weight: 600; }
+html.iw-glass .iw-toast.is-error { background: var(--glass-streak), var(--gb-sheen), rgba(76, 14, 32, .86); }
+html.iw-glass .iw-toast__icon { border-radius: 50%; rotate: 0deg; box-shadow: var(--g-line), var(--clay); }
+
+/* ---- 课本: the page is glass over the stage (the rig moves, the page never animates); the scrim lets more through; the
+   turning leaf is glass without a blur (it moves); the bookmarks are glass in their colours, the open one lit; 合上 milky */
+html.iw-glass .iw-book__scrim { background: radial-gradient(120% 80% at 50% 100%, rgba(13, 10, 20, .34), rgba(13, 10, 20, .7)); }
+html.iw-glass .iw-book__page { border-radius: var(--r-1) var(--r-3) var(--r-3) var(--r-1);
+  background: var(--glass-bg);
   -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
-  box-shadow: 0 0 0 3px var(--k), 0 8px 0 3px var(--k), 0 22px 40px rgba(0, 0, 0, .5), var(--glass-rim); }
-html.iw-glass .iw-book__leaf { background: linear-gradient(90deg, rgba(56, 45, 90, .93), rgba(32, 25, 54, .9) 40%, rgba(40, 32, 64, .92)); }
-html.iw-glass .iw-book__tab { border-radius: 16px 16px 5px 5px;
-  box-shadow: 0 0 0 2.5px var(--k), inset 2px 3px 2px -1px rgba(255, 255, 255, .62), inset -2px -7px 9px rgba(0, 0, 0, .17); }
-html.iw-glass .iw-book__close { background: radial-gradient(120% 95% at 24% 10%, #ffffff, #f2eff9 50%, #dcd6ea);
-  box-shadow: 0 0 0 3px var(--k), 0 5px 0 3px var(--k), var(--clay-drop), var(--clay-hi), var(--clay-lo); }
-html.iw-glass .iw-book__close:active { box-shadow: 0 0 0 3px var(--k), 0 1px 0 3px var(--k), inset 2px 3px 6px rgba(62, 40, 118, .22), inset -1px -2px 2px -1px rgba(255, 255, 255, .7); }
-html.iw-glass .iw-book__closeic { box-shadow: inset 1px 2px 2px -1px rgba(255, 255, 255, .35), inset -1px -2px 3px rgba(0, 0, 0, .5); }
+  box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l); }
+html.iw-glass .iw-book__gloss { background: linear-gradient(90deg, rgba(0, 0, 0, .26), rgba(0, 0, 0, .06) 14px, transparent 30px); }
+html.iw-glass .iw-book__leaf { background: var(--glass-streak), linear-gradient(90deg, rgba(60, 48, 96, .9), rgba(34, 26, 56, .86) 40%, rgba(42, 33, 68, .9)); }
+html.iw-glass .iw-book__rings i { box-shadow: var(--g-line), inset 0 1px 0 #fff, 2px 4px 6px rgba(0, 0, 0, .35); }
+html.iw-glass .iw-book__tab { border-radius: var(--r-2) var(--r-2) 4px 4px; filter: none; color: var(--k);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 64%, transparent), color-mix(in srgb, var(--c) 52%, transparent));
+  box-shadow: var(--g-line), var(--g-edge), inset 0 -10px 12px -8px rgba(0, 0, 0, .25); }
+html.iw-glass .iw-book__tab.is-on { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c) 70%);
+  box-shadow: var(--g-line), var(--g-edge-on), 0 -4px 18px color-mix(in srgb, var(--c) 55%, transparent); }
+html.iw-glass .iw-book__tab:active { box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-book__close { border-radius: 999px; background: var(--gb-milk); box-shadow: var(--g-btn-l); }
+html.iw-glass .iw-book__close:active { box-shadow: var(--g-btn-down); }
+html.iw-glass :is(.iw-book__closeic, .iw-bp-btn__ic, .iw-ci__save i) { box-shadow: inset 1px 2px 2px -1px rgba(255, 255, 255, .4), inset -1px -2px 3px rgba(0, 0, 0, .5); }
+html.iw-glass .iw-book__front { border-radius: var(--r-1) var(--r-3) var(--r-3) var(--r-1); box-shadow: var(--g-line), var(--g-edge), inset 10px 0 0 rgba(0, 0, 0, .14), var(--g-drop-l); }
+html.iw-glass .iw-book__inside { box-shadow: var(--g-line); }
+/* (focus on a glass button inside the book's pages: one ring, the cursor's) */
+html.iw-glass :is(.iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-bp-del, .iw-book__tab, .iw-book__close, .iw-ci__mood, .iw-ci__save, .iw-ci__later):focus-visible { outline: 2px solid rgba(255, 255, 255, .95); outline-offset: 3px; }
 
-/* ---- the book's own pages (book-pages/kit.js): clay buttons, tabs, chips; the cards and panels are glass items */
-html.iw-glass .iw-bp-btn { background: radial-gradient(120% 95% at 24% 10%, #ffffff, #f2eff9 50%, #dad4e9);
-  box-shadow: 0 0 0 2.5px var(--k), 0 5px 0 2.5px var(--k), var(--clay-drop), var(--clay-hi), var(--clay-lo); transition: transform .45s var(--spring2); }
-html.iw-glass .iw-bp-btn--add, html.iw-glass .iw-bp-btn--go {
-  background: radial-gradient(110% 85% at 26% 8%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 55%), linear-gradient(175deg, var(--a-light), var(--a) 52%, var(--a-dark)); }
-html.iw-glass .iw-bp-btn--ghost { background: var(--glass-item); box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .34), var(--clay-drop-s), var(--clay-hi-d), var(--clay-lo-d); }
-html.iw-glass .iw-bp-btn.is-down { transform: translateY(4px) scale(1.035, .9); transition-duration: 0s;
-  box-shadow: 0 0 0 2.5px var(--k), 0 1px 0 2.5px var(--k), inset 2px 4px 7px rgba(62, 40, 118, .26), inset -1px -2px 2px -1px rgba(255, 255, 255, .8); }
-html.iw-glass .iw-bp-btn--ghost.is-down { box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .5), inset 2px 4px 7px rgba(0, 0, 0, .3); }
-html.iw-glass .iw-bp-btn__ic { box-shadow: inset 1px 2px 2px -1px rgba(255, 255, 255, .35), inset -1px -2px 3px rgba(0, 0, 0, .5); }
-html.iw-glass :is(.iw-bp-tab, .iw-bp-chip) {
-  background: var(--clay-sheen), linear-gradient(180deg, #483d74, #2d2548 78%);
-  box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), var(--clay-drop-s), var(--clay-hi-d), var(--clay-lo-d); transition: transform .42s var(--spring2); }
-html.iw-glass .iw-bp-chip { border-radius: 16px; }
-html.iw-glass :is(.iw-bp-tab, .iw-bp-chip).is-on {
-  background: radial-gradient(90% 60% at 30% 12%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 60%), linear-gradient(175deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c) 50%, color-mix(in srgb, var(--c) 82%, #000));
-  box-shadow: 0 0 0 2.5px var(--k), 0 7px 0 2.5px var(--k), var(--clay-drop), inset 2px 3px 2px -1px rgba(255, 255, 255, .7), inset -2px -4px 8px rgba(0, 0, 0, .18); }
-html.iw-glass :is(.iw-bp-tab, .iw-bp-chip).is-down { transform: translateY(3px) scale(1.035, .9); transition-duration: 0s; }
-html.iw-glass .iw-bp-tab__n { box-shadow: inset 1px 2px 3px rgba(0, 0, 0, .35), inset 0 -1px 0 rgba(255, 255, 255, .12); }
-html.iw-glass :is(.iw-bp-note, .iw-bp-panel, .iw-bp-day) { background: radial-gradient(rgba(255, 255, 255, .035) 1.2px, transparent 1.7px) 0 0 / 12px 12px, var(--glass-item); }
-html.iw-glass .iw-bp-note { box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), var(--glass-item-rim), inset 0 -8px 14px rgba(0, 0, 0, .14); }
-html.iw-glass .iw-bp-panel { box-shadow: 0 0 0 2.5px var(--k), 0 6px 0 2.5px var(--k), var(--glass-item-rim), inset 0 -8px 14px rgba(0, 0, 0, .14); }
-html.iw-glass .iw-bp-day { box-shadow: 0 0 0 2.5px var(--k), 0 5px 0 2.5px var(--k), var(--glass-item-rim); }
-html.iw-glass .iw-bp-note__ex { background: rgba(10, 7, 20, .3); }
-html.iw-glass .iw-bp-del.is-armed::before { box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 2.5px var(--k), inset 2px 3px 2px -1px rgba(255, 255, 255, .6), inset -2px -4px 6px rgba(120, 30, 20, .22); }
+/* ---- the book's own pages (book-pages/kit.js and the four pages): glass buttons, tabs, chips, checks, bars; the cards,
+   panels and rows are glass lying on the page's glass (no blur of their own: they scroll) */
+html.iw-glass .iw-bp { font-family: var(--f-text); }
+html.iw-glass .iw-bp-btn { border-radius: 999px; background: var(--gb-milk); box-shadow: var(--g-btn-l); transition: transform .45s var(--spring2); }
+html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save) { --gh: var(--a-rgb); color: var(--a-ink, var(--k));
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .86), rgba(var(--gh), .94)); }
+html.iw-glass :is(.iw-bp-btn--ghost, .iw-ci__later) { color: #fff; background: var(--gb-dark); box-shadow: var(--g-btn); }
+html.iw-glass .iw-bp-btn.is-down, html.iw-glass :is(.iw-ci__save, .iw-ci__later).is-down { transform: translateY(3px) scale(1.03, .92); transition-duration: 0s; box-shadow: var(--g-btn-down); }
+html.iw-glass :is(.iw-bp-btn, .iw-ci__save):disabled { opacity: .55; filter: saturate(.4); box-shadow: var(--g-line), var(--g-edge); }
+html.iw-glass :is(.iw-bp-tab, .iw-bp-chip, .iw-bg-chip) { background: var(--gb-dark); box-shadow: var(--g-btn); transition: transform .42s var(--spring2); }
+html.iw-glass .iw-bp-chip { border-radius: var(--r-2); }
+html.iw-glass .iw-bg-chip { border-radius: var(--r-1); box-shadow: var(--g-item), inset 3px 0 0 var(--c); }
+html.iw-glass :is(.iw-bp-tab, .iw-bp-chip).is-on { color: var(--k); transform: translateY(-2px);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(175deg, color-mix(in srgb, var(--c) 78%, #fff), color-mix(in srgb, var(--c) 92%, #000));
+  box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop), 0 0 16px color-mix(in srgb, var(--c) 50%, transparent); }
+html.iw-glass :is(.iw-bp-tab, .iw-bp-chip).is-down { transform: translateY(2px) scale(1.03, .92); transition-duration: 0s; box-shadow: var(--g-btn-down); }
+html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip) { box-shadow: var(--g-line), var(--g-edge), var(--clay-d); }
+html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip).is-on { box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 10px color-mix(in srgb, var(--c) 45%, transparent); }
+html.iw-glass :is(.iw-bp-tabs, .iw-bg-tabs) :is(.iw-bp-tab, .iw-bp-chip).is-down { box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-bp-tab__n { background: rgba(0, 0, 0, .34); box-shadow: inset 1px 2px 3px rgba(0, 0, 0, .35), inset 0 -1px 0 rgba(255, 255, 255, .14); }
+html.iw-glass .iw-bp-tab.is-on .iw-bp-tab__n { background: rgba(21, 18, 28, .82); color: #fff; }
+html.iw-glass :is(.iw-bp-note, .iw-bp-panel, .iw-bp-day, .iw-bg-table, .iw-bg-prompt, .iw-bg-group, .iw-bt-pack, .iw-bt-tpl, .iw-bg-check) {
+  background: var(--gb-sheen), linear-gradient(176deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .03) 60%), rgba(30, 23, 52, calc(var(--glass-alpha) + .08));
+  box-shadow: var(--g-item); }
+html.iw-glass :is(.iw-bp-note, .iw-bp-panel, .iw-bg-prompt, .iw-bg-group) { border-radius: var(--r-3); }
+html.iw-glass :is(.iw-bp-day, .iw-bg-table, .iw-bt-pack, .iw-bt-tpl, .iw-bg-check) { border-radius: var(--r-2); }
+html.iw-glass .iw-bp-note { transform: none; }
+html.iw-glass .iw-bp-note::before { box-shadow: none; border-radius: 0 4px 4px 0; }
+html.iw-glass :is(.iw-bp-note__ex, .iw-bt-notes, .iw-bg-prompt__t) { border-radius: var(--r-1); background: rgba(10, 7, 20, .34); }
+html.iw-glass .iw-bp-note__en { font-family: var(--f-text); font-weight: 600; text-shadow: none; }
+html.iw-glass :is(.iw-bp-sec, .iw-bp-day__d, .iw-bt-pack__t) { font-weight: 600; }
+html.iw-glass .iw-bp-del::before { box-shadow: inset 0 0 0 1.5px rgba(240, 138, 122, .55), inset 0 1px 0 rgba(255, 255, 255, .18); background: rgba(240, 138, 122, .08); }
+html.iw-glass .iw-bp-del.is-armed::before { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, rgba(255, 179, 165, .95), rgba(240, 138, 122, .92) 55%, rgba(216, 112, 95, .94));
+  box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 14px rgba(240, 138, 122, .5); }
 html.iw-glass .iw-bp-del.is-down { transform: translateY(2px) scale(1.04, .9); transition-duration: 0s; }
+/* fields: paper white (she reads what she types), set into the glass: a soft well inside, a lit ring when typing */
+html.iw-glass :is(.iw-bp-in, .iw-ci__note) { border-radius: var(--r-2); box-shadow: var(--g-line), inset 0 3px 7px rgba(40, 26, 80, .22), inset 0 -1px 0 #fff, 0 1px 0 rgba(255, 255, 255, .14); font-family: var(--f-text); }
+html.iw-glass :is(.iw-bp-in, .iw-ci__note):focus { box-shadow: var(--g-line), 0 0 0 3px rgba(var(--a-rgb), .7), 0 0 20px rgba(var(--a-rgb), .45), inset 0 3px 7px rgba(40, 26, 80, .22); }
+html.iw-glass :is(.iw-bp-search, .iw-bp-field.iw-bp-search) { background: var(--gb-milk); box-shadow: var(--g-line), var(--g-edge), inset 0 3px 7px rgba(40, 26, 80, .16), var(--g-drop-s); }
+html.iw-glass .iw-bp-search:focus-within { box-shadow: var(--g-line), 0 0 0 3px rgba(var(--a-rgb), .7), 0 0 20px rgba(var(--a-rgb), .45), inset 0 3px 7px rgba(40, 26, 80, .16); }
+/* the log's 14 days: glass bars, today's lit */
+html.iw-glass .iw-bp-bar__b { box-shadow: var(--g-line), inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 0 0 1px rgba(255, 255, 255, .2), inset 0 -4px 5px rgba(0, 0, 0, .2); }
+html.iw-glass .iw-bp-bar.is-today .iw-bp-bar__b { box-shadow: var(--g-line), inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255, 255, 255, .3), 0 0 16px rgba(var(--a-rgb), .6); }
+html.iw-glass .iw-bp-bar.is-today .iw-bp-bar__l { box-shadow: var(--g-line); }
+/* 语法清单: a check is a glass row, its box a clay cube that lights green when ticked */
+html.iw-glass .iw-bg-check.is-on { background: var(--glass-streak), linear-gradient(175deg, color-mix(in srgb, var(--c) 30%, transparent), rgba(30, 23, 52, .5) 80%), rgba(30, 23, 52, calc(var(--glass-alpha) + .08)); box-shadow: var(--g-line), var(--g-edge-on), var(--g-drop-s); }
+html.iw-glass .iw-bg-check__box { border-radius: var(--r-1); background: var(--gb-milk); box-shadow: var(--g-btn-l); }
+html.iw-glass .iw-bg-check.is-on .iw-bg-check__box { --gh: 61, 220, 132; background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .88), rgba(var(--gh), .96));
+  box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 12px rgba(61, 220, 132, .55); }
+html.iw-glass .iw-bg-check.is-down { transform: translateY(2px) scale(1.01, .96); transition-duration: 0s; }
+html.iw-glass :is(.iw-bg-count__n, .iw-bt-how li::before, .iw-bt-tpl__chev, .iw-bg-res__go) { box-shadow: var(--g-line), var(--g-edge), var(--clay); }
 
-/* ---- no blur: the base class's render step (iw-glass-solid), or the system's reduce transparency. The glass's tint gets more
+/* ---- the cards over the book / the menus (记一条 · 补记一条: kit.js sheet; 打卡: checkin-card.js): glass panels — the card
+   itself never moves (its frame, the __vp, springs in and shakes); the scrim lets the stage through for the blur to show */
+html.iw-glass :is(.iw-bps__scrim, .iw-ci__scrim) { background: radial-gradient(120% 90% at 50% 45%, rgba(12, 9, 22, .4), rgba(12, 9, 22, .74)); }
+html.iw-glass :is(.iw-bps, .iw-ci) :is(.iw-bps__card, .iw-ci__card) { border-radius: var(--r-4); rotate: 0deg;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l), 0 30px 60px rgba(0, 0, 0, .35);
+  opacity: 1; transform: none; transition: none; animation: none; }
+html.iw-glass :is(.iw-bps, .iw-ci):is(.is-in, .is-out) :is(.iw-bps__card, .iw-ci__card) { opacity: 1; transform: none; transition: none; animation: none; }
+html.iw-glass :is(.iw-bps__vp, .iw-ci__vp) { transform: translateY(48px) scale(.88); transition: transform .5s var(--spring2); }
+html.iw-glass :is(.iw-bps, .iw-ci).is-in :is(.iw-bps__vp, .iw-ci__vp) { transform: none; }
+html.iw-glass :is(.iw-bps, .iw-ci).is-out :is(.iw-bps__vp, .iw-ci__vp) { transform: translateY(34px) scale(.94); opacity: 0; transition: transform .26s var(--in), opacity .2s linear .04s; }
+html.iw-glass :is(.iw-bps__vp, .iw-ci__vp).is-nope { animation: iw-glass-shake .32s linear; }
+html.iw-glass .iw-ci__vp.is-hit { animation: iw-glass-hit .3s linear; }
+@keyframes iw-glass-shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes iw-glass-hit { 0% { transform: none; } 18% { transform: translateY(6px) scale(1.012, .978); } 46% { transform: translateY(-2px) scale(.996, 1.008); } 100% { transform: none; } }
+/* reduced motion (the cards' is-reduced): nothing springs, the frame only fades in */
+html.iw-glass :is(.iw-bps, .iw-ci).is-reduced :is(.iw-bps__vp, .iw-ci__vp) { transform: none; opacity: 0; transition: opacity .18s linear; animation: none; }
+html.iw-glass :is(.iw-bps, .iw-ci).is-reduced.is-in :is(.iw-bps__vp, .iw-ci__vp) { opacity: 1; }
+html.iw-glass :is(.iw-bps, .iw-ci).is-reduced.is-out :is(.iw-bps__vp, .iw-ci__vp) { opacity: 0; }
+/* 打卡: the moods are glass tiles (the picked one in her hue, lit), the face a milky bead */
+html.iw-glass .iw-ci__mood { border-radius: var(--r-3); rotate: 0deg; background: var(--gb-dark); box-shadow: var(--g-btn); }
+html.iw-glass .iw-ci__mood.is-on { --gh: var(--a-rgb); color: var(--a-ink, var(--k)); transform: translateY(-3px);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .82), rgba(var(--gh), .92));
+  box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop), 0 0 22px rgba(var(--a-rgb), .5); }
+html.iw-glass .iw-ci__mood.is-down { transform: translateY(2px) scale(1.03, .93); box-shadow: var(--g-btn-down); transition-duration: 0s; }
+html.iw-glass .iw-ci__mood b { text-shadow: none; }
+html.iw-glass .iw-ci__face { background: var(--gb-milk); box-shadow: var(--g-btn-l); }
+html.iw-glass .iw-ci__moods:has(.is-on) .iw-ci__mood:not(.is-on) { filter: none; opacity: .72; }
+
+/* ---- the course map: the 换周 row, the pills (今天还没打卡 / the week's exam) are glass, the ones in her ink in her hue; the
+   nodes keep their lacquer */
+html.iw-glass .iw-cmap__weeks { background: var(--gb-dark), rgba(21, 18, 28, .42); box-shadow: var(--g-btn); }
+html.iw-glass :is(.iw-cmap__expill, .iw-cmap__cibtn.is-done) { background: var(--gb-dark), rgba(21, 18, 28, .4); box-shadow: var(--g-btn); }
+html.iw-glass :is(.iw-cmap__expill.is-open, .iw-cmap__cibtn:not(.is-done)) { --gh: var(--a-rgb);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .84), rgba(var(--gh), .94)); box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop-s); }
+html.iw-glass :is(.iw-cmap__expill, .iw-cmap__cibtn).is-down { transform: translateY(2px) scale(1.03, .92); transition-duration: 0s; box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-qrec { background: var(--gb-milk); box-shadow: var(--g-btn-l); }
+html.iw-glass .iw-qrec__score { -webkit-text-stroke: 0; text-shadow: 0 1px 0 rgba(10, 7, 20, .6); box-shadow: var(--g-edge), var(--clay); }
+
+/* ---- the level's results card (hud-learn.js; the HUD's question layer itself is not touched): smoked glass — it pops in
+   by itself, so no blur — its due words glass chips, its buttons glass in her ink */
+html.iw-glass .iw-learn__rframe { border-radius: var(--r-4);
+  background: var(--glass-streak-p), var(--glass-sheen), linear-gradient(175deg, rgba(44, 36, 68, .9), rgba(30, 25, 44, .9) 38%, rgba(24, 20, 36, .93));
+  box-shadow: var(--g-line), var(--g-edge), var(--g-drop-l), 0 30px 60px rgba(0, 0, 0, .4); }
+html.iw-glass .iw-learn__results { border-radius: 0 0 var(--r-4) var(--r-4); }
+html.iw-glass .iw-learn__rdue li { border-radius: var(--r-1); rotate: 0deg; background: var(--gb-dark); box-shadow: var(--g-item); }
+html.iw-glass .iw-learn__btn { border: 0; border-radius: 999px; background-image: var(--glass-streak), var(--gb-sheen); box-shadow: var(--g-line), var(--g-edge), var(--clay), var(--g-drop); }
+html.iw-glass .iw-learn__btn.is-dim { background-color: rgba(44, 37, 64, .8); box-shadow: var(--g-btn); }
+html.iw-glass .iw-learn__btn:active { translate: 0 3px; box-shadow: var(--g-btn-down); }
+html.iw-glass .iw-learn__rbtns .iw-learn__big { --tilt: 0deg; }
+
+/* ---- no blur: the base class's render step (iw-glass-solid), or the system's reduce transparency. The glass's tint gets
    solid; every blur in the menus goes (the level's HUD is not touched) */
-html.iw-glass.iw-glass-solid { --glass-filter: none; --glass-tint: rgba(42, 33, 70, .93); --glass-tint-2: rgba(22, 16, 37, .95); }
+html.iw-glass.iw-glass-solid { --glass-filter: none; --glass-alpha: .93; --glass-btn: .8; }
 html.iw-glass.iw-glass-solid .iw-ui *, html.iw-glass.iw-glass-solid .iw-ui *::before, html.iw-glass.iw-glass-solid .iw-ui *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @media (prefers-reduced-transparency: reduce) {
-  html.iw-glass { --glass-filter: none; --glass-tint: rgba(42, 33, 70, .93); --glass-tint-2: rgba(22, 16, 37, .95); }
+  html.iw-glass { --glass-filter: none; --glass-alpha: .93; --glass-btn: .8; }
   html.iw-glass .iw-ui *, html.iw-glass .iw-ui *::before, html.iw-glass .iw-ui *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
-/* reduced motion: nothing moves in (a fade on a blur's wrapper would show it unblurred until the end); presses do not squash */
+/* reduced motion: nothing moves in (a fade on a blur's wrapper would show it unblurred until the end); presses do not squash;
+   the focus glow holds still */
 @media (prefers-reduced-motion: reduce) {
   html.iw-glass .iw-main__side { animation: none; }
+  html.iw-glass .iw-cursor__glow { animation: none; }
   html.iw-glass .iw-btn.is-down, html.iw-glass .iw-btn:active { scale: none; translate: none; }
-  html.iw-glass :is(.iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-bp-del).is-down { transform: none; }
+  html.iw-glass :is(.iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-bp-del, .iw-bg-check, .iw-ci__save, .iw-ci__later, .iw-cmap__expill, .iw-cmap__cibtn).is-down { transform: none; }
+  html.iw-glass :is(.iw-bp-tab, .iw-bp-chip, .iw-ci__mood).is-on { transform: none; }
+  html.iw-glass .iw-ci__mood.is-down { transform: none !important; }
 }
 
 /* ------------------------------------------------------------------ 游戏为主体 第二期: the course map (menus.js _scr_map, LEARN §34)

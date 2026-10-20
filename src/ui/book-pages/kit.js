@@ -127,7 +127,7 @@ export function sheet(ctx, { tape, kicker = '', cls = '', body, foot, onBack }) 
   const api = {
     el, card, closed: false,
     msg(text) { msgEl.textContent = text || ''; },
-    nope() { if (!reduced) restartAnim(card, 'is-nope'); ctx.sfx('ui_error'); },
+    nope() { if (!reduced) { restartAnim(card, 'is-nope'); restartAnim(vp, 'is-nope'); } ctx.sfx('ui_error'); },   // (ui-glass: its frame shakes instead)
     close(then) {
       if (api.closed) return;
       api.closed = true;
