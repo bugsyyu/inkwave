@@ -18,6 +18,7 @@
 // listen (the passage spoken, then its questions); pairs → listen (one word of the pair spoken, pick it); write, speak,
 // checkin, weekly, placement → lesson (write items are still judged by gen.js WT when asked).
 import { ielts, ieltsNow } from './ielts.js';
+import { herPack, inContent, canon } from './weeks.js';
 
 export const KINDS = ['dictation', 'choice', 'listen', 'pron', 'lesson'];
 const SESS = ['a', 'b', 'c'];
@@ -53,15 +54,33 @@ function loadSymbols() {
 }
 
 /* ───────────────────────────── weeks and the index ───────────────────────────── */
+// Week n (gf-weeks, LEARN §44): her account's course pack for it first (weeks.js herPack — what the lesson page loads),
+// else content/wN.json. Her pack the same as content/'s (canon) → content/'s week, so the day tables (design.js DAY_PLAN)
+// and every byte of the evidence stay as they were; a different one (the teacher changed it after her weekly report, or
+// a week past content/) → a copy of hers, marked custom (design.js dayPlanFor generates its table). No week n → throws.
 export async function loadWeek(n) {
   const I = await ielts();
   const sym = await loadSymbols();
-  const pack = JSON.parse(await readText('w' + n + '.json'));
-  const week = pack && pack.app === 'ielts-workbench-course' ? pack.week : (pack && pack.week) || pack;
-  if (!week || !week.id || !Array.isArray(week.days)) throw new Error('content/w' + n + '.json is not a course pack');
+  n = +n;
+  const mine = herPack(n);
+  let week = null;
+  if (inContent(n)) {
+    const pack = JSON.parse(await readText('w' + n + '.json'));
+    week = pack && pack.app === 'ielts-workbench-course' ? pack.week : (pack && pack.week) || pack;
+    if (!week || !week.id || !Array.isArray(week.days)) throw new Error('content/w' + n + '.json is not a course pack');
+  }
+  if (mine && !(week && canon(mine) === canon(week))) { week = JSON.parse(JSON.stringify(mine)); custom.add(week); }
+  if (!week) throw new Error('week ' + n + ': not in content/ and no course pack of hers');
   register(week, I, sym);
+  byN.set(n, week);
   return week;
 }
+// her pack where it differs from content/ (or there is no content/ week): its day tables are generated
+const custom = new WeakSet();
+export const isCustom = (week) => custom.has(week);
+// the week last loaded as week n (design.js planFor: a loaded week's own table), or null
+const byN = new Map();
+export const loadedWeek = (n) => byN.get(+n) || null;
 
 function register(week, I, sym) {
   // the packs carry the US IPA (words[3]) and the pair Chinese (pairs[2..3]) themselves, so buildIndex needs only the

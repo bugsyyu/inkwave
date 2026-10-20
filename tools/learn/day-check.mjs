@@ -8,16 +8,19 @@
 //   · the PLAY §1 rule 1 samples (match.paused false, no learn.hold, no .iw-learn__panel shown) never broke; no failed
 //     check, no console error, no 4xx in any segment; the last segment ends on the results card
 //   · the scored items of the day the form asks that got no first answer (a duel round can end before its queue: listed)
-// usage: node tools/learn/day-check.mjs --form puzzle|race|duel|boss --learn w1d1 seg1.json seg2.json …
+// usage: node tools/learn/day-check.mjs --form puzzle|race|duel|boss --learn w1d1 [--pack <week.json>] seg1.json seg2.json …
 import fs from 'node:fs';
 import { loadWeek, daySteps } from '../../src/learn/content.js';
 import { planDay, bossPlan } from '../../src/learn/design.js';
+import { setPackStore } from '../../src/learn/weeks.js';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const FORM = opt('form', 'puzzle'), LEARN_Q = opt('learn', 'w1d1');
 const files = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
 const [, wk, dy] = LEARN_Q.match(/^w(\d+)d(\d+)$/).map(Number);
+// (--pack <week.json>, gf-weeks: the week from that course pack, as the audited page had it)
+if (opt('pack', null)) { const w = JSON.parse(fs.readFileSync(opt('pack'), 'utf8')), m = new Map([['ielts-workbench:data:v1', JSON.stringify({ profile: {}, packs: { [w.id]: { week: w } } })]]); setPackStore({ getItem: (k) => (m.has(k) ? m.get(k) : null) }); }
 const W = await loadWeek(wk);
 const byId = new Map(); for (const d of W.days) for (const st of daySteps(W, d.n)) for (const it of st.items) byId.set(it.id, it);
 const scored = (it) => { if (it._spoken) return false; const x = byId.get(it.id) || it; return !!(x.meta && x.meta.scored); };

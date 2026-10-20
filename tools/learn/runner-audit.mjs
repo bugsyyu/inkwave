@@ -20,6 +20,7 @@
 //     --query '?learn=w1d3&kind=runner&short=1' --shots /tmp/shots --out /tmp/run.json
 // NODE_PATH must reach playwright (CommonJS); CHROMIUM_PATH (default /opt/pw-browsers/chromium) the browser.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import { createRequire } from 'node:module';
+import { packAccount } from './pack-account.mjs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -60,6 +61,7 @@ async function open(query, learn = true) {
   const CO = { viewport: { width: Wd, height: Ht }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH };
   const ctx = PROFILE ? (live = await chromium.launchPersistentContext(PROFILE, { ...LAUNCH, ...CO })) : await browser.newContext(CO);
   await ctx.addInitScript(([touch]) => { try { const k = 'inkwave.settings', v = JSON.parse(localStorage.getItem(k) || '{}'); Object.assign(v, { shadows: false, bloom: false, touchControls: touch ? 'on' : 'off', quality: 'low', qualityChosen: true, shadowsChosen: true }); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* none */ } }, [TOUCH]);
+  await packAccount(ctx, opt('pack', null));   // (gf-weeks: --pack <week.json>, a week past content/ — pack-account.mjs)
   const page = PROFILE && ctx.pages().length ? ctx.pages()[0] : await ctx.newPage();
   page.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url().replace(base, '/')); });
   page.on('requestfailed', (r) => { const u = r.url(); if (!u.includes('/__inkwave_error/')) bad.push('FAILED ' + u.replace(base, '/') + ' ' + ((r.failure() || {}).errorText || '')); });

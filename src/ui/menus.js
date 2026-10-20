@@ -28,7 +28,8 @@ import { WhatsNew } from './news.js';
 import { loadWeek, store as learnStore } from '../learn/api.js';   // 关卡学习 (docs/LEARN.md): the week's day titles for the learn screen
 import * as learnApi from '../learn/api.js';   // (游戏为主体 第二期: reviewPlan, gf-review's — undefined until that lands)
 import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her course's today, the way back to the lesson page
-import { FORM_ZH, DAY_PLAN } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2)
+import { FORM_ZH, planFor, SYLLABUS_MECHANICS } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2); a day's table (gf-weeks: a loaded week's own)
+import { courseWeeks } from '../learn/weeks.js';   // gf-weeks (LEARN §44): every week of her course — her packs, content/, the ones still to come
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
 import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages
 import { openCheckin, checkinFor } from './checkin-card.js';   // 第二期 打卡 (LEARN §39): the lesson page's check-in, a card of the game's own
@@ -51,6 +52,15 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
 // 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js)
 const APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
+// her today's line: 第 N 周 · 第 M 天 · its form (gf-weeks: a pack's week knows its form once it has loaded)
+const whereOf = (T) => { const plan = planFor(T.week, T.day); return `第 ${T.week} 周 · 第 ${T.day} 天` + (plan && FORM_ZH[plan.form] ? ` · ${FORM_ZH[plan.form]}` : ''); };
+// gf-weeks: a week segment of many weeks (her course's 17) scrolls sideways in its row; weekInView keeps the picked one in sight
+const weekScroller = (seg, n) => h('span', { class: 'iw-wscroll' + (n > 5 ? ' is-many' : '') }, seg);
+function weekInView(seg, smooth) {
+  const wrap = seg && seg.parentNode, o = seg && seg.querySelector('.iw-seg__opt.is-sel');
+  if (!wrap || !o || wrap.scrollWidth <= wrap.clientWidth + 1) return;
+  wrap.scrollTo({ left: Math.max(0, o.offsetLeft - (wrap.clientWidth - o.offsetWidth) / 2), behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto' });
+}
 // 游戏为主体 第二期: the review level is gf-review's kind 'review' (forms/index.js) — no 复习 button until the game has it
 const REVIEW_OK = LEARN_KINDS.includes('review');
 // 打卡 (LEARN §39): her saved mood as the page shows it (app/index.html MOODS: face + label)
@@ -943,14 +953,13 @@ export class Menus {
       if (T) {
         // (游戏为主体: her course's today is the first button — its planned form, its due words once the week has loaded;
         // 选关 keeps the picker one tap away)
-        const plan = DAY_PLAN['w' + T.week] && DAY_PLAN['w' + T.week][T.day];
-        const where = `第 ${T.week} 周 · 第 ${T.day} 天` + (plan && FORM_ZH[plan.form] ? ` · ${FORM_ZH[plan.form]}` : '');
+        const where = whereOf(T);
         const today = { id: 'today', label: T.done ? '今天学完了 · 再练一关' : '开始今天的关', sub: where, icon: T.done ? GLYPHS.check : GLYPHS.play,
           cls: 'iw-btn--menu iw-btn--xl iw-btn--primary iw-btn--learn iw-btn--today', sound: 'ui_confirm',
           accept: () => this._startLearn({ week: T.week, day: T.day, kind: 'plan' }) };
         items.unshift(today, { ...learn, label: '选关', sub: '选周 · 选天 · 选形式', cls: 'iw-btn--menu' }, book, ...(APP_LEARN ? [] : [{ ...play, cls: 'iw-btn--menu' }]));
         // (第二期: the course map right under today's level — her three weeks, each day's progress, a tap starts a day)
-        const mapBtn = { id: 'map', label: '课程地图', sub: '三周 · 每天的进度 · 点一天就开局', icon: GLYPHS.map, cls: 'iw-btn--menu iw-btn--map', accept: () => this._go('map'), sound: 'ui_confirm' };
+        const mapBtn = { id: 'map', label: '课程地图', sub: `${courseWeeks().total} 周 · 每天的进度 · 点一天就开局`, icon: GLYPHS.map, cls: 'iw-btn--menu iw-btn--map', accept: () => this._go('map'), sound: 'ui_confirm' };
         items.splice(1, 0, mapBtn);
         // (打卡, LEARN §39: today's check-in under the map — the lesson page's own record; not there without her account or
         // without a check-in step today)
@@ -1141,7 +1150,7 @@ export class Menus {
       const el = this.current === 'main' && this._scr && this._scr.el;
       const b = el && el.querySelector('.iw-btn--today .iw-btn__sub');
       if (!b) return;
-      const bits = [where];
+      const bits = [whereOf(T) || where];   // (gf-weeks: a pack's week has its table once loaded — the day's form now)
       if (p && p.total > 0) bits.push(`今天 ${p.done} / ${p.total}`);
       if (n > 0) bits.push(`要复习 ${n} 个`);
       b.textContent = bits.join(' · ');
@@ -1172,8 +1181,10 @@ export class Menus {
   _scr_learn() {
     const s = this._settings();
     const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;   // (游戏为主体: her course's today first, until she picks another)
-    const st = this._learnPick || (this._learnPick = T ? { week: T.week, day: T.day, kind: (DAY_PLAN['w' + T.week] && DAY_PLAN['w' + T.week][T.day] || {}).form || 'puzzle' }
-      : { week: clamp(+s.learnWeek || 1, 1, 3), day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
+    // (gf-weeks, LEARN §44: the weeks the game can load — content/'s and her packs'; her today's form once its week has loaded)
+    const CW = courseWeeks(), weeks = Array.from({ length: CW.total }, (_, i) => i + 1).filter(CW.has);
+    const st = this._learnPick || (this._learnPick = T ? { week: T.week, day: T.day, kind: (planFor(T.week, T.day) || {}).form || 'puzzle', auto: true }
+      : { week: weeks.includes(+s.learnWeek) ? +s.learnWeek : 1, day: clamp(+s.learnDay || 1, 1, 7), kind: 'puzzle' });
     const FORMS = [
       { id: 'puzzle', name: '解密闯关', sub: '一个人 · 答对门开', icon: GLYPHS.key, on: true },
       { id: 'race', name: FORM_ZH.race, sub: '和 3 个机器人游一圈 · 游进对的墨幕', icon: GLYPHS.bolt, on: true },   // 墨浪跑酷 (PLAY §5.2, play-4)
@@ -1188,15 +1199,18 @@ export class Menus {
       const want = `${st.week}/${st.day}`;
       loadWeek(st.week).then((w) => {
         if (`${st.week}/${st.day}` !== want) return;   // (a stale answer for a pick she has already changed)
+        // (her today's planned form, known only now for a pack's week; until she picks a form herself)
+        const P = st.auto && T && st.week === T.week && st.day === T.day ? planFor(st.week, st.day) : null;
+        if (P && P.form !== st.kind) { st.kind = P.form; forms.forEach((x, i) => x.classList.toggle('is-picked', FORMS[i].id === st.kind)); startSub.textContent = `第 ${st.week} 周 · 第 ${st.day} 天 · ${FORM_ZH[st.kind] || FORM_ZH.puzzle}`; }
         const d = (w.days || []).find((x) => x.d === st.day || Number(x.n) === st.day);
         const steps = d && (d.steps ? d.steps.length : ['a', 'b', 'c'].reduce((n, k) => n + (Array.isArray(d[k]) ? d[k].length : 0), 0));
         dayTitle.textContent = st.kind === 'boss' ? `${w.title || ''} · 周考：听 20 · 读 20 · 写 3 句 · 说 4 问` : d ? `${d.title}${steps ? ` · ${steps} 步` : ''}` : `${w.title || ''} · 第 ${st.day} 天`;
         restartAnim(dayTitle, 'is-in');
       }).catch(() => { dayTitle.textContent = '这一周的课还没接上'; });
     };
-    const weekSeg = this._seg([[1, '第 1 周'], [2, '第 2 周'], [3, '第 3 周']], st.week, (v) => { st.week = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnWeek: v })); refresh(); });
+    const weekSeg = this._seg(weeks.map((n) => [n, `第 ${n} 周`]), st.week, (v) => { st.week = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnWeek: v })); refresh(); });
     const daySeg = this._seg([1, 2, 3, 4, 5, 6, 7].map((d) => [d, String(d)]), st.day, (v) => { st.day = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnDay: v })); refresh(); });
-    const weekRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), t('ls.week')), weekSeg.el);
+    const weekRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), t('ls.week')), weekScroller(weekSeg.el, weeks.length));
     this._bind(weekRow, { id: 'learn-week', type: 'row', adjust: weekSeg.adjust, accept: weekSeg.cycle });
     const dayRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.sun }), t('ls.day')), daySeg.el);
     this._bind(dayRow, { id: 'learn-day', type: 'row', adjust: daySeg.adjust, accept: daySeg.cycle });
@@ -1209,7 +1223,7 @@ export class Menus {
       this._fx(b, { tilt: 5 });
       this._bind(b, { id: 'learn-form-' + f.id, accept: () => {
         if (!f.on) { this._sfx('ui_error', 0.15); restartAnim(b, 'is-edge-r'); this.toast(`${f.name}还没做好 — 先玩解密闯关`); return; }
-        st.kind = f.id; forms.forEach((x) => x.classList.toggle('is-picked', x === b)); this._sfx('ui_toggle'); refresh();
+        st.kind = f.id; st.auto = false; forms.forEach((x) => x.classList.toggle('is-picked', x === b)); this._sfx('ui_toggle'); refresh();
       } });
       return b;
     });
@@ -1237,14 +1251,17 @@ export class Menus {
     const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;
     const portrait = typeof matchMedia === 'function' && matchMedia('(orientation: portrait)').matches;
     const L = mapLayout(LEARN.days + 1, portrait);
-    const st = this._cmapPick || (this._cmapPick = { week: T ? T.week : clamp(+this._settings().learnWeek || 1, 1, LEARN.weeks) });
+    // (gf-weeks, LEARN §44: every week of her course — 17 with her account here; a week without its pack yet waits, grey)
+    const CW = courseWeeks();
+    const st = this._cmapPick || (this._cmapPick = { week: T ? T.week : clamp(+this._settings().learnWeek || 1, 1, CW.total) });
+    if (st.week > CW.total) st.week = 1;
     this._cmapProg = {};   // (fresh each opening: a level she just played shows)
     const titles = {};
     const ICON = { puzzle: GLYPHS.key, race: GLYPHS.bolt, duel: GLYPHS.swords, boss: BOSS_GLYPH };
-    const STATES = ['done', 'part', 'today', 'todo', 'locked'];
-    const model = () => courseMap({ weeks: LEARN.weeks, days: LEARN.days, today: T,
+    const STATES = ['done', 'part', 'today', 'todo', 'locked', 'wait'];
+    const model = () => courseMap({ weeks: CW.total, days: LEARN.days, today: T, has: CW.has,
       progress: (w, d) => (this._cmapProg[w] ? this._cmapProg[w][d - 1] : null),
-      plan: (w, d) => (DAY_PLAN['w' + w] && DAY_PLAN['w' + w][d]) || null,
+      plan: (w, d) => planFor(w, d),
       // (打卡, LEARN §39: the lesson page's record — a day she checked in on the page shows here too)
       checkin: (w, d) => { const v = T ? checkinFor(w, d) : null; return v ? (v.done ? 'done' : 'todo') : null; },
       // (LEARN §41: the 周考 / 满月月考 as the lesson page has it; 今日小考 on her today's node)
@@ -1273,15 +1290,19 @@ export class Menus {
         if (ci) { const v = x.ci === 'done' ? checkinFor(st.week, x.day) : null, f = v && v.saved && MOOD_FACE[v.saved.mood]; ci.textContent = f ? f.split(' ')[0] : '✓'; }
         n.style.setProperty('--p', x.total > 0 ? (x.done / x.total).toFixed(3) : '0');
         const c = n.querySelector('.iw-cmap__count');
-        c.textContent = x.boss ? (examLine(x.exam) || (x.state === 'locked' ? '学完第 7 天开' : '听 读 写 说')) : x.state === 'locked' ? '' : x.total > 0 ? `${x.done} / ${x.total}` : '';
-        n.setAttribute('aria-label', x.boss ? (x.exam ? examAria(x.exam) : `第 ${st.week} 周 周考`) : `第 ${st.week} 周 第 ${x.day} 天 · ${FORM_ZH[x.form] || ''}${x.total ? ` · ${x.done} / ${x.total}` : ''}${x.ci === 'done' ? ' · 打过卡' : ''}${x.qz ? ' · 今日小考' + (x.qz === 'done' ? '考过了' : '') : ''}`);
+        c.textContent = x.state === 'wait' ? '' : x.boss ? (examLine(x.exam) || (x.state === 'locked' ? '学完第 7 天开' : '听 读 写 说')) : x.state === 'locked' ? '' : x.total > 0 ? `${x.done} / ${x.total}` : '';
+        if (x.state === 'wait') { n.setAttribute('aria-label', `第 ${st.week} 周${x.boss ? ' 周考' : ` 第 ${x.day} 天`} · 等老师的课程包`); return; }
+        n.setAttribute('aria-label', x.boss ? (x.exam ? examAria(x.exam) : `第 ${st.week} 周 ${wk.boss.month ? '满月月考' : '周考'}`) : `第 ${st.week} 周 第 ${x.day} 天 · ${FORM_ZH[x.form] || ''}${x.total ? ` · ${x.done} / ${x.total}` : ''}${x.ci === 'done' ? ' · 打过卡' : ''}${x.qz ? ' · 今日小考' + (x.qz === 'done' ? '考过了' : '') : ''}`);
       });
       exPaint(wk.boss.exam);
+      stage.classList.toggle('is-wait', !!wk.wait);
+      waitPaint(wk);
+      if (wk.wait) { weekSub.textContent = ''; return; }
       const share = weekShare(wk), tt = titles[st.week];
       weekSub.textContent = `${tt ? tt + ' · ' : ''}这一周学了 ${Math.round(share * 100)}%` + (T && st.week === T.week ? ` · 今天第 ${T.day} 天` : '');
     };
     const loadProg = (W) => {
-      if (this._cmapProg[W]) return;
+      if (this._cmapProg[W] || !CW.has(W)) return;
       loadWeek(W).then((w) => {
         const list = [];
         for (let d = 1; d <= LEARN.days; d++) { try { list.push(learnStore.progress(w, d)); } catch (e) { list.push(null); } }
@@ -1297,6 +1318,11 @@ export class Menus {
         this.toast('先学到这一天' + (T ? ` — 今天是第 ${T.week} 周第 ${T.day} 天` : ''), { icon: GLYPHS.lock });
         return;
       }
+      if (x.state === 'wait') {   // (gf-weeks: a week whose pack has not come)
+        this._sfx('ui_error', 0.15); restartAnim(node, 'is-nope'); restartAnim(waitCard, 'is-nudge');
+        this.toast(`第 ${st.week} 周的课还没来 — 等老师的课程包`, { icon: GLYPHS.lock });
+        return;
+      }
       this._sfx('ui_confirm');
       if (src === 'mouse') this._press(node);
       restartAnim(stage, 'is-hit');   // (the hit: the node squashes, the map jolts, ink + splat in the same frame, then the wipe)
@@ -1306,7 +1332,7 @@ export class Menus {
     };
     const build = () => {
       const wk = model()[st.week - 1];
-      const k = walkTo(wk);
+      const k = wk.wait ? 0 : walkTo(wk);
       stage.textContent = '';
       stage.appendChild(h('div', { class: 'iw-cmap__road', html: `<svg viewBox="0 0 ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`
         + `<path class="iw-cmap__rshade" d="${L.d}" pathLength="1"/><path class="iw-cmap__rout" d="${L.d}" pathLength="1"/><path class="iw-cmap__rbase" d="${L.d}" pathLength="1"/><path class="iw-cmap__rdots" d="${L.d}"/>`
@@ -1327,22 +1353,38 @@ export class Menus {
             boss ? null : h('span', { class: 'iw-cmap__qz', 'aria-hidden': 'true' }, '考'),
             h('span', { class: 'iw-cmap__lock', html: GLYPHS.lock })),
           h('span', { class: 'iw-cmap__label' },
-            h('span', { class: 'iw-cmap__day' }, boss ? '周考' : `第 ${x.day} 天`),
+            h('span', { class: 'iw-cmap__day' }, boss ? (wk.boss.month ? '满月月考' : '周考') : `第 ${x.day} 天`),
             h('span', { class: 'iw-cmap__count' })));
         this._fx(node);
         this._bind(node, { id: 'cmap-' + i, accept: (src) => pick(i, node, src) });
         stage.appendChild(node);
         return node;
       });
+      if (wk.boss.month) nodes[LEARN.days].classList.add('is-month');
       paint();
       loadProg(st.week);
     };
-    const weekSeg = this._seg(Array.from({ length: LEARN.weeks }, (_, i) => [i + 1, `第 ${i + 1} 周`]), st.week, (v) => {
+    // (gf-weeks: a week still to come — a sticker over its grey road says why: 等老师的课程包, and what the syllabus has for it
+    // (design.js SYLLABUS_MECHANICS: the lesson page's 17-week plan))
+    const waitCard = h('div', { class: 'iw-cmap__wait', role: 'note', hidden: true });
+    const topicOf = (w) => { const S = SYLLABUS_MECHANICS.find((x) => x.week === w); return S ? S.topics.map((x) => x.zh).join('；') : ''; };
+    const waitPaint = (wk) => {
+      waitCard.hidden = !wk.wait;
+      waitCard.textContent = '';
+      if (!wk.wait) return;
+      const tp = topicOf(wk.week);
+      waitCard.append(h('i', { html: GLYPHS.lock }), h('span', { class: 'iw-cmap__waittext' }, h('b', null, `第 ${wk.week} 周 · 等老师的课程包`), tp ? h('small', null, tp) : null));
+      restartAnim(waitCard, 'is-in');
+    };
+    const weekSeg = this._seg(Array.from({ length: CW.total }, (_, i) => [i + 1, `第 ${i + 1} 周`]), st.week, (v) => {
       st.week = v; safeCall(() => this.api.setSettings && this.api.setSettings({ learnWeek: v }));
       build();
+      weekInView(weekSeg.el, true);
       const f = first(); if (f) this._setFocus(f, { snap: true });
     });
-    const weekRow = h('div', { class: 'iw-setrow iw-cmap__weeks iw-in iw-in--down' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), '换周'), weekSeg.el);
+    // (gf-weeks: the weeks still to come are grey in the row; her today's week has a dot)
+    [...weekSeg.el.querySelectorAll('.iw-seg__opt')].forEach((o, i) => { o.classList.toggle('is-wait', !CW.has(i + 1)); o.classList.toggle('is-now', !!T && T.week === i + 1); });
+    const weekRow = h('div', { class: 'iw-setrow iw-cmap__weeks iw-in iw-in--down' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.flag }), '换周'), weekScroller(weekSeg.el, CW.total));
     this._bind(weekRow, { id: 'cmap-week', type: 'row', adjust: weekSeg.adjust, accept: weekSeg.cycle });
     // 打卡 (LEARN §39): today's check-in from the map — 「今天还没打卡」 until she has (on the page or here), then her face
     const ciBtn = T && checkinFor(T.week, T.day) ? h('button', { class: 'iw-cmap__cibtn iw-in iw-in--down' }) : null;
@@ -1380,8 +1422,8 @@ export class Menus {
     const first = () => nodes.find((n) => n.classList.contains('is-today')) || nodes.find((n) => !n.classList.contains('is-locked')) || nodes[0];
     const el = h('div', { class: 'iw-screen iw-setup iw-cmap' + (portrait ? ' is-portrait' : '') },
       h('div', { class: 'iw-ss__scrim' }),
-      this._header('课程地图', { sub: '三周的课 · 一天一关 · 点一天就开局' }),
-      h('div', { class: 'iw-cmap__body' }, h('div', { class: 'iw-cmap__top' }, weekRow, h('div', { class: 'iw-in iw-in--down' }, weekSub), ciBtn, exPill), scroll),
+      this._header('课程地图', { sub: `${CW.total} 周的课 · 一天一关 · 点一天就开局` }),
+      h('div', { class: 'iw-cmap__body' }, h('div', { class: 'iw-cmap__top' }, weekRow, h('div', { class: 'iw-in iw-in--down' }, weekSub), waitCard, ciBtn, exPill), scroll),
       this._prompts([[['Q', 'E'], 'LB', '换周'], ['Enter', 'A', '开局'], ['Esc', 'B', '返回']]));
     // a turn of the phone: the other layout (the road runs down in portrait, across in landscape)
     const mq = typeof matchMedia === 'function' ? matchMedia('(orientation: portrait)') : null;
@@ -1395,6 +1437,7 @@ export class Menus {
       },
       // the view goes to her today (portrait: the road scrolls; landscape fits as it is)
       afterMount: () => {
+        weekInView(weekSeg.el, false);
         const f = first();
         if (!portrait || !f) return;
         const to = () => { const y = f.offsetTop - scroll.clientHeight * 0.42; scroll.scrollTo({ top: Math.max(0, y), behavior: prefersReducedMotion() ? 'auto' : 'smooth' }); };

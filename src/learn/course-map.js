@@ -18,11 +18,21 @@
 //   qz:     今日小考 (LEARN §41) on her today's node: 'done' (the page's record has today's quiz) · 'open' · null
 //   ci:     打卡 (LEARN §39) — her check-in for the day as the lesson page has it (profile.ci: 'done'), one still to make
 //           ('todo'), or none (no workbench here, no check-in step that day, or a locked day)
-export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null, checkin = null, exam = null, quiz = null } = {}) {
+//   has:    (gf-weeks, LEARN §44) week → the game can load it (weeks.js courseWeeks().has); a week it cannot is `wait`:
+//           every node 'wait' (等老师的课程包), nothing else asked of it. boss.month: the 满月月考 (weeks 4 · 8 · 12 · 16) of a
+//           week that is there
+import { MONTH_WEEKS } from './exams.js';
+
+export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, today = null, checkin = null, exam = null, quiz = null, has = null } = {}) {
   const T = today && today.week > 0 && today.day > 0 ? today : null;
   const after = (w, d) => !!T && (w > T.week || (w === T.week && d > T.day));
   const out = [];
   for (let w = 1; w <= weeks; w++) {
+    let open = true; try { open = has ? !!has(w) : true; } catch (e) { open = false; }
+    if (!open) {
+      out.push({ week: w, wait: true, days: Array.from({ length: days }, (_, i) => ({ day: i + 1, form: null, done: 0, total: 0, state: 'wait', complete: false, now: false, ci: null, qz: null })), boss: { state: 'wait', exam: null, month: false } });
+      continue;
+    }
     const list = [];
     for (let d = 1; d <= days; d++) {
       let p = null, f = null, c = null;
@@ -39,7 +49,7 @@ export function courseMap({ weeks = 3, days = 7, progress = null, plan = null, t
       list.push({ day: d, form: (f && f.form) || null, done, total, state, complete: state !== 'locked' && (full || (now && !!T.done)), now, ci, qz });
     }
     let x = null; try { x = exam ? exam(w) : null; } catch (e) { x = null; }
-    out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo', exam: x || null } });
+    out.push({ week: w, days: list, boss: { state: after(w, days) ? 'locked' : 'todo', exam: x || null, month: MONTH_WEEKS.includes(w) } });
   }
   return out;
 }
