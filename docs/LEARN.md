@@ -2057,14 +2057,23 @@ IELTS-Base（分支 `gf-weeks`）：`tests/base/game-weeks.test.mjs` 3 / 3（真
 7. 判「一样」只比 `week` 本身（`canon`），包外面的 `at`（导入日期）不算。
 
 **没做的**：
-1. kelpline 上解密闯关的打字墨字被挡（见实测）——要主会话 / 业主定怎么改（下面第 1 条），没动。
+1. ~~kelpline 上解密闯关的打字墨字被挡~~——主会话选了 a，改了（见末尾「主会话定了以后」）。
 2. 横屏的 17 周那一排没在浏览器里看（竖屏看过、截图在上面）；规则是同一条（`.iw-cmap__weeks:has(.is-many)` 可收缩、段按周数撑宽）。
 3. 真机（iPhone 13 的 WKWebView）。
 4. 双人联机 / 合作的第 4 周以后（见先定的 6）。
 5. 生成的表里道具赛、对抗赛落在没设计过的舞台上的组合（例如第 4 周第 2 天墨浪跑酷在 halyard 这类）只有单元测试（每个门、每题有玩法），整天审计只跑了第 4 周第 1 天的解密闯关和第 4 天的短关。
 
-**要主会话定的**：
+**要主会话定的**（10-20 主会话已定：第 1 条选 a，第 2 条照现在不改——见末尾）：
 1. **生成的表怎么排舞台**：§6.2 的「每周 7 张各一次、按 (n × 7 + d) % 7 轮」会把解密闯关排到 kelpline（第 4 周第 1 天就是），那里 42 次打字有 31 次墨字被集装箱挡住（判分、证据都对）。三条路：a. 生成时按形式挑「手排的三周里这个形式用过的舞台」（解密闯关：tidewater、crossmarket、lockgate、terraces、halyard；对抗赛：kelpline、saltpan；道具赛：其余），仍然一周 7 张各一次——改动在 `design.js genDay`，十来行，`design.test` 的「每张一次」照样成立；b. 修 kelpline 上打字的取景（`cameraRig` / 打字机位，不是学习层的地盘）；c. 先不管。我倾向 a（不碰别人的地盘、一行规则讲得清），没做，等定。
 2. 简报第 6 条和「17 周的地图」之间的取舍（拿不准的 1）。
 
 **交接**：inkwave 分支 `gf-weeks`（从 `27b8098` 建出），IELTS-Base 分支 `gf-weeks`（从 `45b4cf1` 建出：只有测试，`app/` 没动）。合并 inkwave 以后 IELTS-Base 跑 `bash tools/game/sync-inkwave.sh <inkwave>`，再跑 `tests/weeks-e2e.mjs`（不带 `--game`）和三个老的 e2e。`tests/base/game-weeks.test.mjs` 同步前后都对：它用游戏的 `content.js` 是先 `loadWeek(1)`、再 `daySteps(第 4 周)`（题目 id 的算法这次没改），不走 `loadWeek(4)`。整天审计再跑：`node tools/learn/day-run.mjs --name <n> --dir <dir> --form puzzle --learn w4d1 --pack <week.json> -- tools/learn/wire-audit.mjs --view portrait --learn w4d1 --full --segment 780 --budget 870`（`<week.json>` 是一个周对象，比如 `content/w3.json` 的 `week` 挪到 4）。`docs/DEVLOG.md` 写了一条；IELTS-Base 的 DEVLOG / BACKLOG / GAME-FIRST 留给主会话。
+
+**主会话定了以后（10-20）**：
+- **舞台按形式挑**（选 a，`design.js` `FORM_STAGES` / `weekStages`）：每种形式只放在手排的三周（`DAYS`）给它用过的舞台上——解密闯关 tidewater · crossmarket · lockgate · terraces · halyard，墨浪跑酷 tidewater · kelpline · halyard · saltpan · lockgate · terraces，对抗赛 kelpline · saltpan；仍然一周 7 张各一次：按天搜（候选最少的天先排，每天的候选按 n + d 转一转，各周不一样），排不满（比如一周里对抗赛多于两天）就允许重复、重复最少；按周对象只算一次。第 4–17 周（现编，第 3 周挪过去）每周 7 张各一次、每天都在它形式的舞台上、各周的排法至少 4 种不同；三天对抗赛的周用两张、重复一张。第 4 周现在是：1 解密闯关 tidewater · 2 墨浪跑酷 halyard · 3 对抗赛 saltpan · 4 解密闯关 crossmarket · 5 墨浪跑酷 lockgate · 6 对抗赛 kelpline · 7 墨浪跑酷 terraces。
+- 审计的 `--pack` 挪进 `tools/learn/pack-account.mjs`，`wire-audit` / `arena-audit` / `runner-audit` 都认。
+- 测试：`test:learn` 361 / 361（+1：`FORM_STAGES` 就是手排表用过的、解密闯关不在 kelpline、第 4–17 周的规则、排不满时重复最少）；`check` 304 个文件（+1 `pack-account.mjs`）；证据快照和 `27b8098` 的基线 `cmp` 相同（第 1–3 周不受影响）。
+- **重跑整天审计**（同一个生成的第 4 周第 1 天，现在在 tidewater）：一段跑完，**0 FAIL**——M4「墨字看得见」42 / 42，9 / 9 道门，64 / 64 首答各一次、各一片叶子，PLAY §1 第 1 条 5 186 次采样都守住，0 个控制台错误、0 个 4xx，打卡垫要了打卡卡片，到结果卡（day-check：all checks passed）。
+- **生成的墨浪跑酷 / 对抗赛各跑一小段**：第 4 周第 2 天墨浪跑酷（halyard，`runner-audit --query '?learn=w4d2&kind=race&short=1' --pack …`）exit 0：4 行、5 段滑行打字、PLAY §1 第 1 条 1 086 次采样都守住、首答只记一次、到结果卡、0 个错误、0 个 4xx（有 1 次打字镜位被挡、照设计换成追身镜头——`glide.js` 原来就有的退路，不算错）；第 4 周第 3 天对抗赛（saltpan，`arena-audit --form duel --learn w4d3 --views portrait --pack …`）all checks passed：4 题、0 个错误、0 个 4xx。
+- 地图在她账号里没有课程包时也显示 17 周（第 4–17 周灰着）：照现在，不改。
+
