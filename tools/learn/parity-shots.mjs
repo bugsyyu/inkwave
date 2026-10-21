@@ -56,7 +56,7 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   for (let s = 0; s < SECS * 2; s++) await page.evaluate(() => __inkwave.debug.step(500));
   const info = await page.evaluate(() => { const R = __inkwave.R, cv = R && R.renderer && R.renderer.domElement; const q = (R && R.q) || {}; return { quality: __inkwave.settings.quality, shadows: __inkwave.settings.shadows, pr: R && R.renderer.getPixelRatio(), buf: cv ? cv.width + 'x' + cv.height : '', dpr: devicePixelRatio, touch: !!__inkwave.touchMode, step: q.step, density: q.pixelRatio, ao: !!(R && R.gtao), bloom: !!(R && R.bloom && R.bloom.enabled), shadowMap: !!(R && R.renderer.shadowMap.enabled), shadowSize: q.shadowSize, particles: q.particles }; });
   const f = path.join(OUT, `original-${vn}${QUAL ? '-' + QUAL : ''}${NAT ? '-' + opt('native') : ''}.png`);
-  await page.screenshot({ path: f });
+  await page.screenshot({ path: f, timeout: 300000 });   // (SwiftShader at 3×: a frame can take longer than the 30 s default)
   console.log(`[parity] ${vn} ${JSON.stringify(info)} → ${f}${errs.length ? ' · errors: ' + errs.join(' | ').slice(0, 300) : ''}`);
   if (PROBE) {
     const pb = await page.evaluate(async () => {
