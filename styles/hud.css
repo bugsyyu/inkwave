@@ -72,6 +72,7 @@
 @keyframes iw-tdrip { 0%, 100% { scale: 1 .45; } 60% { scale: 1 1; } }
 .iw-timer__txt { font: 400 calc(var(--u) * 2.75) / 1 'Titan One', sans-serif; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 .iw-hud.is-practice .iw-squad { visibility: hidden; }
+.iw-hud.is-practice .iw-squad * { animation: none; }   /* (hidden, still ticking: the arrows and sparks stop too — LEARN §50) */
 .iw-hud.is-practice .iw-timer { width: auto; padding: 0 calc(var(--u) * 2); }
 .iw-hud.is-practice .iw-timer__txt { font-size: calc(var(--u) * 1.9); letter-spacing: .06em; }
 .iw-timer.is-last .iw-timer__blob, .iw-timer.is-last .iw-timer__drip { background: #3a1a4f; }
