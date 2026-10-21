@@ -120,9 +120,14 @@ test('the menu: a registered map screen (week tabs, the nodes start the day\'s p
 test('the review guard holds today: without gf-review\'s kind the button cannot appear', async () => {
   const { LEARN_KINDS } = await import('../../src/learn/forms/index.js');
   const M = src('src/ui/menus.js');
-  // the button is created only inside the REVIEW_OK branch
-  const i = M.indexOf("kind: 'review' }");
-  const g = M.lastIndexOf('if (REVIEW_OK && K > 0 && ', i);
-  assert.ok(g > 0 && i - g < 900, 'the review button is built inside the guard');
+  // every review button is created only behind the REVIEW_OK guard: the game-first menu's (K > 0, reviewK) and the pick's
+  // (选游戏方式, LEARN §49: R.n > 0, reviewSize — 0 without REVIEW_OK)
+  const at = [...M.matchAll(/kind: 'review' \}/g)].map((m) => m.index);
+  assert.equal(at.length, 2, 'the game-first menu and the pick');
+  for (const i of at) {
+    const g = M.lastIndexOf('if (REVIEW_OK && K > 0 && ', i), p = M.lastIndexOf('if (R.n > 0 && ', i);
+    assert.ok((g > 0 && i - g < 900) || (p > 0 && i - p < 900 && M.lastIndexOf('const R = reviewSize(wk, due);', i) > p - 80), 'the review button is built inside the guard');
+  }
+  assert.match(M, /function reviewSize\(wk, due\) \{\n\s*if \(!REVIEW_OK \|\| typeof learnApi\.reviewPlan !== 'function' \|\| !due\.length\) return \{ n: 0, minutes: 0 \};/);
   assert.equal(typeof LEARN_KINDS.includes('review'), 'boolean');
 });

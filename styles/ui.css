@@ -4725,3 +4725,84 @@ a.iw-bg-res__n:focus-visible, .iw-bg-check:focus-visible { outline: 3px solid #f
   .iw-bt-tpl__chev { transition-duration: 0s; }
   .iw-bp-btn.is-nope, .iw-bt-sec.is-ping::after, .iw-bt-pack.is-new::after { animation: none; }
 }
+
+/* =====================================================================================
+   选游戏方式 (docs/LEARN.md §49; the owner 10-21: 「……我觉得可以给游戏加一个单独入口，我们可以点进去之后选择游戏方式」):
+   the 'main' screen in her App (menus.js _scr_pick) — today's content, a card per way to play it, what else the day holds,
+   a row under it. The panel is the main menu's own glass (.iw-main__menu: its blur, tint and edge come from the ui-glass
+   section — nothing here blurs); this section lays it out in both looks: the rules start at `html .iw-pick` so they meet
+   the glass's main-menu layout (html.iw-glass .iw-main__menu …) at its own weight and win by coming last; the buttons keep
+   the glass's faces and states (dark glass, her ink on the recommended card, the ring, pressed on the frame). Heights ≥ 44;
+   text wraps inside its card; reduced motion: everything only fades in.
+   ===================================================================================== */
+html .iw-pick .iw-pick__menu { display: flex; flex-direction: column; gap: 10px; left: calc(var(--u) * 3.8); right: auto; top: 50%; bottom: auto;
+  width: min(calc(var(--u) * 58), 720px); max-height: calc(100% - var(--u) * 8); transform: translateY(-50%); padding: 14px;
+  overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; }
+html .iw-pick .iw-pick__menu::-webkit-scrollbar { display: none; }
+html .iw-pick .iw-pick__menu > * { flex: none; }
+/* the head: whose day, its title, one line on what the three cards share */
+.iw-pick__head { display: grid; gap: 4px; padding: 2px 4px 0; }
+.iw-pick__eyebrow { font: 600 13px / 1.3 var(--f-text, 'Rubik', sans-serif); letter-spacing: .04em; color: #ddd7ee; }
+html .iw-pick .iw-pick__title { font-size: 25px; line-height: 1.25; color: #fff; overflow-wrap: anywhere; }
+.iw-pick__title.is-in { animation: iw-tip-in .45s var(--spring); }
+.iw-pick__lead { font: 500 13.5px / 1.5 var(--f-text, 'Rubik', sans-serif); color: #e6e1f2; }
+.iw-pick__lead1, .iw-pick__lead2 { display: block; }
+.iw-pick__lead2 { color: #d2cce3; }
+html .iw-pick .iw-pick__menu .iw-pick__head .iw-pick__totoday { justify-self: start; width: auto; margin-top: 6px; padding: 0 16px 0 12px; gap: 8px; font-size: 15px; }
+/* the three ways to play: a card each — icon, name, what it is like in a line (wrapping in the card); 推荐 on the planned one */
+html .iw-pick .iw-pick__menu .iw-pick__forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 8px; }
+html .iw-pick .iw-pick__menu .iw-pick__forms .iw-pick__form { grid-column: auto; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+  height: auto; min-height: 112px; margin: 0; padding: 14px 14px 13px; gap: 6px; font-size: 22px; border-radius: var(--r-3); }
+html .iw-pick .iw-pick__menu .iw-pick__form .iw-btn__text { width: 100%; }
+html .iw-pick .iw-pick__menu .iw-pick__form .iw-btn__label { white-space: nowrap; overflow: visible; }
+html .iw-pick .iw-pick__menu .iw-pick__form .iw-btn__sub { margin-top: 6px; font-size: 13px; line-height: 1.4; letter-spacing: 0; white-space: normal; overflow: visible; text-overflow: clip; opacity: .94; }
+.iw-pick__what, .iw-pick__pace { display: block; }
+.iw-pick__pace { margin-top: 2px; opacity: .88; }
+.iw-pick__rec { position: absolute; top: 9px; right: 10px; padding: 4px 9px 3px; border-radius: 999px; background: #fff; color: #231b38;
+  font: 600 12px / 1.15 var(--f-text, 'Rubik', sans-serif); letter-spacing: .02em; white-space: nowrap; pointer-events: none; }
+html.iw-glass .iw-pick__rec { background: var(--gb-milk); box-shadow: var(--g-line), var(--clay); }
+/* (the focused card grows in place: the panel scrolls on a short phone, a sideways nudge would be cut by it) */
+html .iw-pick .iw-pick__menu .iw-btn.is-focus { transform: scale(1.02); }
+/* what else the day holds (复习 K 个 · 今日小考 · 双人), then the row: 选别的一天 · 课程地图 · 回到工作台 */
+html .iw-pick .iw-pick__menu .iw-pick__more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+html .iw-pick .iw-pick__menu .iw-pick__more:empty { display: none; }
+html .iw-pick .iw-pick__menu .iw-pick__more .iw-pick__extra { grid-column: auto; height: auto; min-height: 52px; margin: 0; padding: 7px 14px; gap: 11px; font-size: 18px; }
+html .iw-pick .iw-pick__menu .iw-pick__extra .iw-btn__sub { margin-top: 4px; font-size: 12px; line-height: 1.3; white-space: normal; overflow: visible; text-overflow: clip; }
+html .iw-pick .iw-pick__menu .iw-pick__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+html .iw-pick .iw-pick__menu .iw-pick__row .iw-pick__sec { grid-column: auto; justify-content: center; height: 48px; margin: 0; padding: 0 8px; gap: 6px; font-size: 15px; }
+html .iw-pick .iw-pick__menu .iw-pick__sec .iw-btn__icon { width: 1.15em; height: 1.15em; }
+/* 换装 · 设置: two small pills in the top corner, on the stage (no blur of their own: a more solid smoke) */
+.iw-pick__corner { position: absolute; z-index: 2; top: calc(10px + var(--sat, 0px)); right: calc(12px + var(--sar, 0px)); display: flex; gap: 8px; }
+html .iw-pick .iw-pick__corner .iw-pick__mini { width: auto; height: 44px; padding: 0 14px 0 11px; gap: 6px; font-size: 15px; border-radius: 999px; }
+html.iw-glass .iw-pick .iw-pick__corner .iw-pick__mini { background: var(--gb-dark), rgba(16, 12, 28, .9); }
+html .iw-pick .iw-main__logo { top: calc(12px + var(--sat, 0px)); }
+
+/* her phone upright: the logo small in the top corner, the panel the screen's width under it, the cards one under another */
+@media (orientation: portrait) and (max-width: 720px) {
+  html .iw-pick .iw-main__logo { left: calc(14px + var(--sal, 0px)); translate: none; top: calc(14px + var(--sat, 0px)); }
+  html .iw-pick .iw-main__logo .iw-logo--sm { font-size: 24px; }
+  html .iw-pick .iw-pick__menu { left: calc(8px + var(--sal, 0px)); right: calc(8px + var(--sar, 0px)); width: auto; top: calc(64px + var(--sat, 0px));
+    max-height: calc(100% - 74px - var(--sat, 0px) - var(--sab, 0px)); transform: none; padding: 12px 10px; gap: 10px; border-radius: var(--r-4); }
+  html .iw-pick .iw-pick__menu .iw-pick__forms { grid-template-columns: minmax(0, 1fr); }
+  html .iw-pick .iw-pick__menu .iw-pick__forms .iw-pick__form { flex-direction: row; align-items: center; min-height: 80px; padding: 12px 14px; gap: 12px; }
+  html .iw-pick .iw-pick__menu .iw-pick__form .iw-btn__icon { width: 1.4em; height: 1.4em; }
+  html .iw-pick .iw-pick__menu .iw-pick__more { grid-template-columns: minmax(0, 1fr); }
+}
+/* a phone on its side (844 × 390): the panel on the left, the cards side by side, the row at the bottom */
+@media (orientation: landscape) and (max-height: 520px) {
+  html .iw-pick .iw-main__logo { left: calc(14px + var(--sal, 0px)); top: calc(8px + var(--sat, 0px)); }
+  html .iw-pick .iw-pick__menu { left: calc(8px + var(--sal, 0px)); right: auto; width: min(640px, calc(100% - 16px - var(--sal, 0px) - var(--sar, 0px)));
+    top: calc(56px + var(--sat, 0px)); max-height: calc(100% - 64px - var(--sat, 0px) - var(--sab, 0px)); transform: none; padding: 9px; gap: 7px; border-radius: var(--r-3); }
+  html .iw-pick .iw-pick__menu .iw-pick__forms { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  html .iw-pick .iw-pick__menu .iw-pick__forms .iw-pick__form { min-height: 0; padding: 9px 10px 8px; gap: 3px; font-size: 18px; }
+  html .iw-pick .iw-pick__menu .iw-pick__form .iw-btn__sub { margin-top: 3px; font-size: 11px; line-height: 1.32; }
+  html .iw-pick .iw-pick__head { grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 10px; row-gap: 2px; }
+  html .iw-pick .iw-pick__title { font-size: 19px; }
+  html .iw-pick .iw-pick__lead { grid-column: 1 / -1; font-size: 12px; line-height: 1.4; }
+  html .iw-pick .iw-pick__menu .iw-pick__head .iw-pick__totoday { grid-column: 1 / -1; margin-top: 2px; }
+  html .iw-pick .iw-pick__menu .iw-pick__more .iw-pick__extra { min-height: 48px; font-size: 15px; }
+  html .iw-pick .iw-pick__corner { top: calc(6px + var(--sat, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iw-pick .iw-in, .iw-pick__title.is-in { animation-name: iw-fade !important; }
+}

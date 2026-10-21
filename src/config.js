@@ -570,6 +570,10 @@ export const LEARN = {
   // (Turf War / Zone Control / Boss vs bots are landscape matches), no loadout PRACTICE, and a room offers only 双人联机赛 /
   // 双人合作赛 (docs/LEARN.md §17). false = the App gets INKWAVE's whole menu back (the web, and ?lang=en even in the App, never change).
   appLearnOnly: true,
+  // the game is the App's own entry again (the owner 10-21, LEARN §49: 「原来的界面跟流程就蛮好的 现在的游戏很好，我觉得可以给游戏加一个
+  // 单独入口，我们可以点进去之后选择游戏方式」): ?from=app opens on 选游戏方式 — today's content, one card per way to play it.
+  // false = the game-first main menu of 10-17 (开始今天的关 · 课程地图 · 今天的打卡 · 今日小考 · 课本 · 回课本)
+  appPick: true,
   // ui-glass (LEARN §47): frosted glass on the big surfaces, clay on what is pressed, over the sticker look (src/ui/ui-glass.js).
   // false (or ?ui=sticker for one load) = the sticker look as it was
   uiGlass: true,
