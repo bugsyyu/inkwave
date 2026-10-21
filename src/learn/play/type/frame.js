@@ -37,40 +37,121 @@ function project(p, cam, look, fovY, aspect) {
   return [x / (z * t * aspect), y / (z * t), z];
 }
 
+// Math.hypot(a, b) / (a, b, c) as the builtin computes them (V8's and JavaScriptCore's alike: scaled by the largest,
+// Kahan-summed), for finite arguments not all zero — all the search passes. In JS because the builtin boxes its
+// arguments and its result (three calls a pose: most of what the search still allocated); one return each, so the result
+// stays a raw double (tests/learn/type-frame.test.mjs: the same as Math.hypot, bit for bit)
+export function hyp2(a, b) {
+  a = Math.abs(a); b = Math.abs(b);
+  const m = b > a ? b : a, x = a / m, y = b / m;
+  return Math.sqrt(x * x + y * y) * m;
+}
+export function hyp3(a, b, c) {
+  a = Math.abs(a); b = Math.abs(b); c = Math.abs(c);
+  let m = a; if (b > m) m = b; if (c > m) m = c;
+  const x = a / m, y = b / m, z = c / m, s1 = x * x, s2 = y * y, p = s1 + s2, k = (p - s1) - s2;
+  return Math.sqrt(p + (z * z - k)) * m;
+}
+// the points' fixed parts (reused), and the pose the rules project through: cam H, cam Z, forward f, up u, tan(fov/2)
+let _d0 = new Float64Array(16), _py = new Float64Array(16), _pz = new Float64Array(16), _d2 = new Float64Array(16);
+const _Q = new Float64Array(9);
+const _P = (p) => {
+  const Q = _Q, d0 = p[0] - FRAME.side, d1 = p[1] - Q[0], d2 = p[2] - Q[1];
+  return (d0 * Q[5] + d1 * Q[6] + d2 * Q[7]) / ((d0 * Q[2] + d1 * Q[3] + d2 * Q[4]) * Q[8]);
+};
+// The grid: B m behind her feet × H m up (0.1 m steps); the nearest pose (r to a point 1.2 m over her feet) with every
+// point inside the band and the rules passed, else the pose that spills least. LEARN §52: it ran ~10k poses, each with
+// 50–70 small arrays and a closure, synchronously on 射 / a question / a turn of the phone. Now scalar — one basis per
+// pose, the points' fixed parts hoisted, one projector for the rules, the winners kept as numbers — and it skips only
+// what cannot change the answer: the poses are visited in the old order with the old arithmetic, but r is never under B
+// and grows with H in a column (past the best: the column, then the search, ends), and a pose already spilling more than
+// the fallback cannot become it. `fitOnly` (a caller that throws a non-fitting answer away): no fallback kept, a pose
+// stops at its first spill. tests/learn/type-frame.test.mjs holds the old search verbatim: the same answers, bit for bit.
 function search(pts, rules, o) {
-  const { aspect, vfov, yLo, yHi, xLim, cz, minH = 1.8 } = o;
+  const { aspect, vfov, yLo, yHi, xLim, cz, minH = 1.8, fitOnly = false } = o;
   const yMid = (yLo + yHi) / 2, t = Math.tan((vfov * Math.PI) / 360);
   const cy = (Math.min(...pts.map((p) => p[1])) + Math.max(...pts.map((p) => p[1]))) / 2;
-  let best = null, fallback = null;
+  const n = pts.length, side = FRAME.side, aMid = Math.atan(yMid * t);
+  if (_d0.length < n) { _d0 = new Float64Array(n); _py = new Float64Array(n); _pz = new Float64Array(n); _d2 = new Float64Array(n); }
+  const D0 = _d0, PY = _py, PZ = _pz, D2 = _d2, Q = _Q, P = _P;
+  for (let i = 0; i < n; i++) { const p = pts[i]; D0[i] = p[0] - side; PY[i] = p[1]; PZ[i] = p[2]; }
+  let f0 = 0, f1 = 0, f2 = 0, u0 = 0, u1 = 0, u2 = 0;
+  // the best and the fallback so far, as numbers (the answer is built once, at the end): cam H, cam Z, look Y, the ndc
+  let best = false, bestR = Infinity, bH = 0, bZ = 0, bL = 0, bLo = 0, bHi = 0, bX = 0;
+  let fallback = false, fbS = Infinity, fH = 0, fZ = 0, fL = 0, fLo = 0, fHi = 0, fX = 0;
   for (let B = 1.2; B <= 14; B += 0.1) {
+    if (best && B >= bestR) break;   // (r ≥ B: nothing nearer is left)
+    const camZ = -B, czB = cz + B;
+    for (let i = 0; i < n; i++) D2[i] = PZ[i] - camZ;
     for (let H = minH; H <= 10; H += 0.1) {
-      const cam = [FRAME.side, H, -B];
-      const ang = Math.atan2(cy - H, cz + B) - Math.atan(yMid * t);
-      const look = [0, H + Math.tan(ang) * (cz + B), cz];
+      const r = hyp2(B, H - 1.2);
+      if (best && r >= bestR) break;   // (r grows with H: the rest of the column is further)
+      const ang = Math.atan2(cy - H, czB) - aMid;
+      const l1 = H + Math.tan(ang) * czB;
+      const fx = 0 - side, fy = l1 - H, fz = cz - camZ;
+      const fl = hyp3(fx, fy, fz);
+      f0 = fx / fl; f1 = fy / fl; f2 = fz / fl;
+      const rl = hyp2(f2, f0) || 1, r0 = -f2 / rl, r1 = 0, r2 = f0 / rl;           // right = forward × up
+      u0 = r1 * f2 - r2 * f1; u1 = r2 * f0 - r0 * f2; u2 = r0 * f1 - r1 * f0;
       let ok = true, minY = 9, maxY = -9, maxX = 0, spill = 0;
-      for (const p of pts) {
-        const [x, y, z] = project(p, cam, look, vfov, aspect);
+      for (let i = 0; i < n; i++) {
+        const d0 = D0[i], d1 = PY[i] - H, d2 = D2[i];
+        const z = d0 * f0 + d1 * f1 + d2 * f2;
         if (z <= 0.3) { ok = false; spill += 9; break; }
+        const x = (d0 * r0 + d1 * r1 + d2 * r2) / (z * t * aspect), y = (d0 * u0 + d1 * u1 + d2 * u2) / (z * t);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y); maxX = Math.max(maxX, Math.abs(x));
         spill += Math.max(0, yLo - y) + Math.max(0, y - yHi) + Math.max(0, Math.abs(x) - xLim);
+        if (spill > 0 && (best || fitOnly || spill >= fbS)) break;   // (the rest of this pose cannot matter)
       }
+      // spilling: not the best — and, past a best / with fitOnly / no lower than the fallback, not the fallback either
+      if (spill > 0 && (best || fitOnly || spill >= fbS)) continue;
       if (spill > 0) ok = false;
-      const P = (p) => project(p, cam, look, vfov, aspect)[1];
-      const rulesOk = rules.every((fn) => fn(P));
-      const r = Math.hypot(B, H - 1.2), cand = { pos: cam, look, fov: vfov, ndc: { minY, maxY, maxX, yLo, yHi }, r, spill };
-      if (ok && rulesOk) { if (!best || r < best.r) best = cand; }
-      else if (!fallback || spill + (rulesOk ? 0 : 0.5) < fallback.spill + (fallback.rulesOk ? 0 : 0.5)) { cand.rulesOk = rulesOk; fallback = cand; }
+      Q[0] = H; Q[1] = camZ; Q[2] = f0; Q[3] = f1; Q[4] = f2; Q[5] = u0; Q[6] = u1; Q[7] = u2; Q[8] = t;
+      let rulesOk = true;
+      for (let k = 0; k < rules.length; k++) if (!rules[k](P)) { rulesOk = false; break; }
+      if (ok && rulesOk) { if (!best || r < bestR) { best = true; bestR = r; bH = H; bZ = camZ; bL = l1; bLo = minY; bHi = maxY; bX = maxX; } }
+      else if (!fitOnly && !best && (!fallback || spill + (rulesOk ? 0 : 0.5) < fbS)) { fallback = true; fbS = spill + (rulesOk ? 0 : 0.5); fH = H; fZ = camZ; fL = l1; fLo = minY; fHi = maxY; fX = maxX; }
     }
   }
-  const out = best || fallback;
-  return { pos: out.pos.map((v) => +v.toFixed(3)), look: out.look.map((v) => +v.toFixed(3)), fov: out.fov, fits: !!best, ndc: out.ndc };
+  // (one way out, whichever it is — fitOnly with nothing fitting hands back zeros, never read: its caller skips it)
+  const r3 = (v) => +v.toFixed(3);
+  return { pos: [side, best ? bH : fH, best ? bZ : fZ].map(r3), look: [0, best ? bL : fL, cz].map(r3), fov: vfov, fits: best,
+    ndc: { minY: best ? bLo : fLo, maxY: best ? bHi : fHi, maxX: best ? bX : fX, yLo, yHi } };
 }
+
+// project(p, cam, look, fovY, aspect)[0] with no arrays (the word frame's span check, per zoom)
+function projX(p, cam, look, fovY, aspect) {
+  const fx = look[0] - cam[0], fy = look[1] - cam[1], fz = look[2] - cam[2];
+  const fl = hyp3(fx, fy, fz), f0 = fx / fl, f1 = fy / fl, f2 = fz / fl;
+  const rl = hyp2(f2, f0) || 1, r0 = -f2 / rl, r1 = 0, r2 = f0 / rl;
+  const d0 = p[0] - cam[0], d1 = p[1] - cam[1], d2 = p[2] - cam[2];
+  const z = d0 * f0 + d1 * f1 + d2 * f2, x = d0 * r0 + d1 * r1 + d2 * r2, t = Math.tan((fovY * Math.PI) / 360);
+  return x / (z * t * aspect);
+}
+
+// frameFor's answers by everything they depend on (LEARN §52: the same band asks again on every question, a hint, the
+// phone turned back — the answer stands until the screen changes); handed out as copies (a caller may add to its own)
+const _frames = new Map();
+const copyFrame = (f) => ({ pos: f.pos.slice(), look: f.look.slice(), fov: f.fov, fits: f.fits, ndc: f.ndc && { ...f.ndc } });
 
 /** The rig-frame camera pose for a phase ('type' | 'word'), as close as the rules allow. */
 export function frameFor(o = {}) {
   const phase = o.phase || 'type';
   const aspect = o.aspect || 16 / 9, vfov = o.vfov || FRAME.vfov, dist = o.dist || FRAME.dist;
   const top = o.topFrac ?? FRAME.topFrac, kb = phase === 'word' ? (o.kbFrac ?? 0) : (o.kbFrac ?? (aspect < 1 ? 0.4 : 0.45));
+  const word = phase === 'word' ? Object.assign({ w: 3.0, h: 0.9, y: 2.45 }, o.word || {}) : null;
+  const ty = o.targetY ?? FRAME.targetY, hm = o.headMargin || 0;
+  const key = `${phase}|${aspect}|${vfov}|${dist}|${top}|${kb}|` + (word ? `${word.w}|${word.h}|${word.y}` : `${ty}|${hm}`);
+  let f = _frames.get(key);
+  if (!f) {
+    f = solveFrame(phase, aspect, vfov, dist, top, kb, word, ty, hm);
+    if (_frames.size >= 48) _frames.clear();
+    _frames.set(key, f);
+  }
+  return copyFrame(f);
+}
+
+function solveFrame(phase, aspect, vfov, dist, top, kb, word, ty, hm) {
   const m = FRAME.margin * 2;
   const band = { aspect, vfov, yLo: -1 + 2 * kb + m, yHi: 1 - 2 * top - m, xLim: 1 - m };
   const R = RIG_POINTS;
@@ -78,15 +159,16 @@ export function frameFor(o = {}) {
     // the sheet is gone (it is the shell): the word must clear the bare platen; the rig stays in the bottom of the
     // frame. A wide (landscape) screen would show the word small: the frame may zoom in (a narrower FOV, cameraRig's
     // zoom) until the word spans up to ~80 % of the width.
-    const word = Object.assign({ w: 3.0, h: 0.9, y: 2.45 }, o.word || {});
     const ww = word.w / 2, y0 = word.y - word.h / 2, y1 = word.y + word.h / 2;
     const box = [[ww, y0, dist], [-ww, y0, dist], [ww, y1, dist], [-ww, y1, dist]];
     const pts = [...box, ...R.plate.slice(2), R.strike];
     let best = null;
     for (let fov = vfov; fov >= vfov * 0.55; fov -= 3) {
-      const f = search(pts, [(P) => P([0, y0, dist]) > P(R.platenTop) + 0.04], { ...band, vfov: fov, cz: dist * 0.7, minH: 2.8 });
+      // (a zoom that does not fit is skipped: no fallback wanted from it)
+      const f = search(pts, [(P) => P([0, y0, dist]) > P(R.platenTop) + 0.04], { ...band, vfov: fov, cz: dist * 0.7, minH: 2.8, fitOnly: true });
       if (!f.fits) continue;
-      const span = Math.max(...box.map((p) => Math.abs(project(p, f.pos, f.look, fov, aspect)[0])));
+      let span = -Infinity;
+      for (let i = 0; i < 4; i++) span = Math.max(span, Math.abs(projX(box[i], f.pos, f.look, fov, aspect)));
       if (!best || (span <= 0.8 && span > best.span)) best = { ...f, span };
       if (span > 0.8) break;
     }
@@ -95,14 +177,14 @@ export function frameFor(o = {}) {
   }
   // the target is context (the shot's direction), wanted on screen above the paper when the band allows it — a
   // portrait band rarely does without pushing the camera far away, so the rig wins: typing frames the rig alone
-  const ty = o.targetY ?? FRAME.targetY;
   const pts = [...R.plate, R.strike, ...R.textLines, R.typed10];
   // her head below the plate's middle row (on a wide screen, below its far row: the band between strip and keyboard is
   // ~150 px tall there and a steeper view would shrink the rig further)
   const row = aspect > 1.4 ? [0, 1.16, 1.12] : R.midRow;
-  const hm = o.headMargin || 0;   // (0: the bare rule; the runner's 滑行段 asks for FRAME.headMargin, LEARN §31)
+  // (hm 0: the bare rule; the runner's 滑行段 asks for FRAME.headMargin, LEARN §31)
   const head = (P) => P(R.head) < P(row) - hm;
-  const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4 });
+  // (with the target: only a fitting answer is ever taken)
+  const withTarget = search([...pts, [0, ty + 0.35, dist]], [head, (P) => P([0, ty - 0.1, dist]) > P(R.paperTop[0]) + 0.01], { ...band, cz: 1.4, fitOnly: true });
   const rigOnly = search(pts, [head], { ...band, cz: 1.0 });
   return withTarget.fits && Math.hypot(withTarget.pos[1] - 1.2, withTarget.pos[2]) < Math.hypot(rigOnly.pos[1] - 1.2, rigOnly.pos[2]) * 1.35 ? withTarget : rigOnly;
 }
