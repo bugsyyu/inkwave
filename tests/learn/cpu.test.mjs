@@ -337,6 +337,35 @@ test('排名表：the race\'s standings keep their rows; only what changed is wr
   } finally { if (prev === undefined) delete globalThis.document; else globalThis.document = prev; }
 });
 
+// ---------------------------------------------------------------------------------------------- 每帧的小对象
+const { RaceFlow } = await import('../../src/learn/forms/race.js');
+const { RunnerCam } = await import('../../src/learn/play/runner/cam.js');
+test('每帧的小对象：a racer bot stands still as before (waiting, answering, at a checkpoint, over the line); the runner camera\'s framing is the old one, in one array', async () => {
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), done = [];
+  const flow = Object.assign(Object.create(RaceFlow.prototype), { gates: [{ pos: V(5, 0, 0), pathIndex: 1 }], finish: { pos: V(10, 0, 0), pathIndex: 2 },
+    path: [0, 1, 2], cum: [0, 5, 10], R: { botTrigger: 1.2, detour: 2 }, model: null, rnd: () => 0.25, me: { cp: 0 }, clock: 42, _botFinished: (r) => done.push(r) });
+  // (a jump edge into each node: the bot running in has jump on until it stops)
+  const nav = { nodes: [V(0, 0, 0), V(5, 0, 0), V(10, 0, 0)], edge: () => ({ type: 'jump' }) }, prevNav = G.nav;
+  const racer = (x, k, cp, state = 'run') => ({ a: { alive: true, pos: V(x, 0, 0), vel: V(3, 0, 0), intent: { move: V(1, 0, 0), jump: true, fire: true, squid: true, sub: true, special: true },
+    character: { setDance() {}, trigger() {} } }, finish: null, state, wait: 1, k, cp, stall: 0, progress: 0 });
+  const still = (it) => it.move.lengthSq() === 0 && !it.jump && !it.fire && !it.squid && !it.sub && !it.special;
+  G.nav = nav;
+  try {
+    const run = racer(2, 1, 0); flow._bot(run, 1 / 60);
+    assert.ok(run.a.intent.move.x > 0.99 && run.a.intent.jump === false && run.state === 'run', 'running: on its way');
+    const gate = racer(4.5, 1, 0); flow._bot(gate, 1 / 60);
+    assert.equal(gate.state, 'answer'); assert.ok(still(gate.a.intent), 'at the checkpoint: still');
+    const line = racer(9.5, 2, 1); flow._bot(line, 1 / 60);
+    assert.equal(line.finish, 42); assert.deepStrictEqual(done, [line]); assert.ok(still(line.a.intent), 'over the line: still');
+    for (const st of ['wait', 'answer', 'detour']) { const r = racer(2, 1, 0, st); flow._bot(r, 1 / 60); assert.ok(still(r.a.intent), st); }
+  } finally { G.nav = prevNav; }
+  // the framing, against the formula it had: [back, up, look-ahead, look height, vfov] per aspect
+  const { clamp, smoothstep } = await import('../../src/core/ctx.js'), TALL = [5.2, 3.3, 8, -0.7, 70], WIDE = [4.8, 3.0, 6, -0.8, 0];
+  const old = (aspect) => { const k = smoothstep(0.62, 1.25, aspect), w = WIDE.slice(); w[4] = clamp((2 * Math.atan(Math.tan((72 * Math.PI) / 360) / Math.max(1, aspect)) * 180) / Math.PI, 34, 52); return TALL.map((v, i) => v + (w[i] - v) * k); };
+  const cam = new RunnerCam(), first = cam.frame(1);
+  for (const a of [390 / 844, 0.62, 0.8, 1, 1.25, 16 / 9, 844 / 390, 3]) { const f = cam.frame(a); assert.strictEqual(f, first, 'one array'); assert.deepStrictEqual([...f], old(a), `aspect ${a}`); }
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay

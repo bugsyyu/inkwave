@@ -18,6 +18,9 @@ import { FormsUi } from './ui.js';
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const d2 = (a, x, z) => Math.hypot(a.x - x, a.z - z);
 
+// a racer standing (a module function: it was a new closure every racer every frame, LEARN §52)
+function still(it) { it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
+
 export class RaceFlow extends LearnFlow {
   constructor(match, opts = {}) {
     super(match, opts);   // B: the level, _place() (ours below), the gate meshes
@@ -75,10 +78,9 @@ export class RaceFlow extends LearnFlow {
   // ---------------------------------------------------------------------------------------------- the racer bots
   _bot(r, dt) {
     const a = r.a, it = a.intent;
-    const still = () => { it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; };
-    if (!a.alive || r.finish != null || r.state === 'wait') { still(); return; }
+    if (!a.alive || r.finish != null || r.state === 'wait') { still(it); return; }
     if (r.state !== 'run') {
-      still();
+      still(it);
       r.wait -= dt;
       if (r.wait <= 0) {
         if (r.state === 'answer') { if (r.roll) { a.character.trigger?.('jump'); r.cp++; r.state = 'run'; } else { r.state = 'detour'; r.wait = this.R.detour; } }
@@ -106,10 +108,10 @@ export class RaceFlow extends LearnFlow {
     if (r.stall > 1.6) { r.stall = 0; it.jump = true; r.k = Math.min(r.k + 1, tIdx); }
     r.progress = this.cum[Math.min(r.k, tIdx)] - d;
     if (d2(a.pos, tgt.pos.x, tgt.pos.z) < this.R.botTrigger && Math.abs(a.pos.y - tgt.pos.y) < 2.5) {
-      if (r.cp >= this.gates.length) { r.finish = this.clock; still(); a.character.setDance?.('victory'); this._botFinished(r); return; }
+      if (r.cp >= this.gates.length) { r.finish = this.clock; still(it); a.character.setDance?.('victory'); this._botFinished(r); return; }
       const roll = botRoll(this.model, this.rnd);
       r.roll = roll.ok; r.state = 'answer'; r.wait = roll.delay + rubberDelay(this.model, r.cp - this.me.cp);
-      still();
+      still(it);
     }
   }
   _botFinished(r) {

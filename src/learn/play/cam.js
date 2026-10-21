@@ -34,6 +34,7 @@ export function baseVFov(settings = G.settings) {
   return (2 * Math.atan(Math.tan((h * Math.PI) / 360) / (16 / 9)) * 180) / Math.PI;
 }
 
+const XYZ = ['x', 'y', 'z'];   // (LEARN §52: a new array every frame)
 export class PlayCam {
   constructor(opts = {}) {
     this.rate = opts.rate || LEARN.board.frameRate;
@@ -72,8 +73,7 @@ export class PlayCam {
     if (rig.mode !== 'path' || rig.path) { rig.mode = 'path'; rig.path = null; }
     const w = this.want;
     if (w && !this.reduced) {
-      const k = ['x', 'y', 'z'];
-      for (let i = 0; i < 3; i++) { this.p[i].step(w.pos[k[i]], this.rate, dt); this.l[i].step(w.look[k[i]], this.rate, dt); }
+      for (let i = 0; i < 3; i++) { this.p[i].step(w.pos[XYZ[i]], this.rate, dt); this.l[i].step(w.look[XYZ[i]], this.rate, dt); }
       this.f.step(w.fov, this.rate, dt);
     }
     this.pos.set(this.p[0].x, this.p[1].x, this.p[2].x); this.look.set(this.l[0].x, this.l[1].x, this.l[2].x); this.fov = this.f.x;
