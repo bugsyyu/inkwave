@@ -14,8 +14,14 @@ export const NATIVE_PAGES = Object.freeze({
   guides: () => import('../ui/book-pages/guides.js'),   // (学习方法 and its 资源, LEARN §45)
   teacher: () => import('../ui/book-pages/teacher.js'),   // (老师, LEARN §46)
 });
+// 学习版 (IELTS-Base tools/artifact/README.md「学习版里的游戏」, LEARN §51): ?in=learn — the game over the lesson page in Claude,
+// on a copy of her data that comes back to her account only as evidence, check-ins and quizzes. None of the book's pages is the
+// game's own there (积累本, 学习日志, 学习方法, 老师 would write to the copy): every bookmark is the lesson page's, whose page then
+// closes the game and opens that page of its own.
+export const inLearn = (search) => /[?&]in=learn(?:&|$)/.test(String(search || ''));
 // a lesson-page id → the native page that shows it (null: the lesson page's own, in the iframe)
-export function nativeOf(view) {
+export function nativeOf(view, search = typeof location !== 'undefined' ? location.search : '') {
+  if (inLearn(search)) return null;
   const t = bookTab(view);
   return t && Object.prototype.hasOwnProperty.call(NATIVE_PAGES, t) ? t : null;
 }

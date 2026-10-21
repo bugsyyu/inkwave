@@ -2267,3 +2267,30 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 4. IELTS-Base 的 `app/game` 没同步（主会话做）；同步会多一个 131 KB 的字体文件和它的许可证。
 
 **交接**：inkwave 分支 `ui-glass`（从 `1ecda8d` 建）；IELTS-Base 分支 `ui-glass`（从 `89d6d3a` 建，只有截图 / 二分脚本和两条 e2e 断言）。合并后照常同步 `app/game`，再跑这八个 e2e；要调效果改第 6 条的六个旋钮。
+
+## 51. wf-artifact-game 交付（2026-10-21，子代理，分支 `wf-artifact-game`：游戏进学习版——不等 CI 也能到她手上）
+
+业主 10-21：「github action ci暂时没钱 你想其他办法自动推进 不需要问我」「原来的界面跟流程就蛮好的 现在的游戏很好，我觉得可以给游戏加一个单独入口」。iOS 的包要 GitHub Actions 的 macOS 机器才编得出来，现在没钱；她每天也用学习版（Claude 里的 artifact，iPhone 上的 Claude App 打开）。这一节是游戏这边的一行；页面那边（把她账号的一份副本借给游戏、游戏开在页面上面的同源框里、回来照经典页的规矩并回她的账号、打包和分批发布）在 IELTS-Base 分支 `wf-artifact-game`，`tools/artifact/README.md`「学习版里的游戏」。
+
+**先读了什么**：本文件 §16（游戏写她账号：`workbench.js`）、§37 / §43 / §45 / §46（课本：经典页的 iframe 和游戏自己画的四页）、§39（打卡）、§41（今日小考）；`src/learn/{app,book,workbench,store,notes,guides,teacher}.js`、`src/ui/menus.js` 的 `_scr_book`、`index.html` 的看门狗；IELTS-Base `app/index.html` 的 cloud 模式（`startCloud`、`Save`、`cloudBulk`、`mergeBlob`、`mergeLocalFallback`）。
+
+**先定的**：
+1. **游戏不知道自己在学习版里也照样跑**：学习版用 `?from=app`（只有学习、竖屏、小图、不全屏、不锁横屏、看门狗、`today=`），多一个 `&in=learn`。游戏照旧读写同源 localStorage 的 `ielts-workbench:data:v1`——那是页面交给它的副本；并回她账号的是页面。没有原生桥：镜像本来就什么都不做。
+2. **回经典页不用改游戏**：游戏的「回课本」、看门狗的 `&why=`、课本的 `&embed=<页>` 都是把 `../index.html?classic=1…` 载进它的框——载进来的是学习版页面自己，它 `<head>` 最前面那一小段认出外面是自己的游戏，交给外面那一页（关上游戏、去那一页）、`window.stop()`。
+3. **学习版里课本没有游戏自己画的页**（这一节唯一的改动）：积累本、学习日志、学习方法、老师这四页会写副本（`notes.js` / `guides.js` / `teacher.js`），而副本回到她账号的只有证据、打卡、今日小考三样（宁可少做也不能写坏她的账号：这几样页面那边能证明对）。`?in=learn` 时 `book.js nativeOf()` 一律回 null：每个书签都是经典页的 iframe，载进来就照第 2 条关上游戏、在页面上打开那一页——在学习版里她写积累本，就是在她账号里写。
+
+**改了什么**（inkwave，1 个提交）：
+- `src/learn/book.js`：`inLearn(search)`；`nativeOf(view, search = location.search)` 在 `in=learn` 时回 null（App 和网页照旧：`notes`、`log`、`guides`、`teacher` 是游戏自己的页）。
+- `tests/learn/book.test.mjs`：+1 条（`inLearn` 认 `in=learn`、不认 `in=learner`；`in=learn` 时九个书签都不是游戏自己的页、App 里照旧；`_scr_book` 只在 `show` 里经 `nativeOf` 挂游戏自己的页）。
+
+**测试**：`npm run test:learn` 408 → 409 全过；`npm run check` 313 个文件语法都对。没动判分和题的路径（`evidence-snapshot` 不用比）。页面那边的测试和检查见 IELTS-Base `wf-artifact-game` 的汇报（`tests/base/learn-game.test.mjs` 用 `app/game` 里真的 `workbench.js` 写、`tools/artifact/check-game.mjs` 在接近 artifact 的环境里从学习版进游戏、打完第一道门、回来、核她的账号）。
+
+**拿不准的（自己定了）**：
+1. 学习版的标记用 `in=learn` 加在 `from=app` 后面，不换 `from` 的值：`from=app` 的十来处（`menus.js`、`touch.js`、`main.js`、`session.js`、`news.js`、`index.html`……）在学习版里都该照 App 的样子，换值就要逐处改、和别的分支撞车。
+2. 课本整本还在（主菜单上的「课本」归 `wf-classic` 定）：在学习版里点它，书升起来、翻到的页一载入就回到页面上的那一页——比「这个版本不能用课本」多走一步，但哪个书签都不会写坏她的账号。
+
+**没做的**：
+- 学习版里的「联机 / 双人」：artifact 的 CSP 是 `connect-src 'self'`，主机上没有中继，连不上（游戏会说「连不上」，不会卡住）。`wf-classic` 的选玩法一屏「双人（联机能用时；不能用就不放）」：`in=learn` 时就是不能用。
+- 游戏自己的证据（`inkwave:learn:v1`）不分 Claude 账号：同一个浏览器换账号用学习版的游戏，前一个账号的游戏证据会推进下一个账号的副本。她的 iPhone 上只有她一个账号。
+
+**交接**：主会话合并以后照常 `tools/game/sync-inkwave.sh` 同步进 IELTS-Base `app/game/`，再从那个提交 `tools/artifact/build.sh --game` 打学习版。
