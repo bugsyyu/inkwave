@@ -10,6 +10,8 @@
 //   S.update(dt, t, herPos, { aspect, speed }) · S.framing · S.tapApi · S.inZone(pos)
 //   S.checkIn() → bool                  LEARN §48: her 继续 › at the check-in board is a step onto the pad (the pad's centre
 //                                       is the board's viewing spot, which the auto-walk's nav node may stand off)
+//   S.armed = bool                      LEARN §48: whether a step onto the pad counts now (the exit: only as its last stop);
+//                                       true unless set
 //   S.on = { checkin(sign), classic(sign), speak(text, o) }
 //   S.clear() · S.warm() · S.dispose()
 import * as THREE from 'three';
@@ -54,7 +56,7 @@ export class Signs {
   }
   update(dt, t, her, o = {}) {
     this.walk.update(dt, her, o);
-    if (this.pad && her && !this.checked && Math.hypot(her.x - this.pad.x, her.z - this.pad.z) < this.pad.r) this.checkIn();
+    if (this.pad && her && !this.checked && this.armed !== false && Math.hypot(her.x - this.pad.x, her.z - this.pad.z) < this.pad.r) this.checkIn();
     if (this.pads.pads.length) this.pads.update(dt, t, 0);
   }
   // 踩上去 = 这一天走完了: her ink fills the pad (the flow keeps it in the star table — not evidence)

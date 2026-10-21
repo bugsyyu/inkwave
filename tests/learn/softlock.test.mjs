@@ -400,27 +400,40 @@ test('继续 › always does something: before a board counts as read it goes on
   got[got.length - 1].onGo();
   assert.deepEqual(said, ['button'], 'in the booth: 继续 = 说完了');
   assert.equal(F.calls.length, 3, 'and the auto-walk on to the next stop');
-  // the signs: a weekly board, then the check-in pad (at its board's viewing spot)
+  // the signs: a weekly board, then the check-in pad (at its board's viewing spot) — the exit's stops in their order
   X.signs = new Signs({ scene: G.scene, camera: G.camera });
   X.signs.on.checkin = (sg) => X._checkin(sg);
   X._keysOn(X.signs.walk);
   X.signs.prepare('exit', [{ id: 'wk', kind: 'weekly', title: '周复盘' }, { id: 'ci', kind: 'checkin', title: '今天的打卡', text: '今天走完了。' }]);
   X.signs.place('exit', [{ x: -20, y: 0, z: 0, yaw: 0, view: { x: -20, y: 0, z: 1.7 } }, { x: -30, y: 0, z: 0, yaw: 0, view: { x: -30, y: 0, z: 1.7 } }]);
-  const at = new THREE.Vector3(-20, 0, 1.7);
-  for (let k = 0; k < 10; k++) { t += 1 / 60; X.signs.update(1 / 60, t, at, O); }
+  X.on = true; X.skipped = new Set(); X.visited = new Set();
+  X.spots = [{ kind: 'echo', x: 20, y: 0, z: 0, node: -1 }, { kind: 'weekly', sign: 0, x: -20, y: 0, z: 1.7, node: -1 }, { kind: 'checkin', sign: 1, x: -30, y: 0, z: 1.7, node: -1 }];
+  X.echoAt = X.spots[0]; X.padAt = { x: -30, y: 0, z: 1.7 };
+  const me = { pos: new THREE.Vector3(-30, 0, 1.7), vel: { x: 0, z: 0 } }, step = (s) => { for (let k = 0; k < Math.round(s * 60); k++) X.update(1 / 60); };
+  X.match.local = me; G.time = 0;
+  // on the pad while the weekly board is still to come (the write wall's gate at the route's end: she can stand on it as
+  // the exit opens): nothing — the pad is the last stop
+  step(0.5);
+  assert.equal(X.checked, false, 'the pad counts only as the last stop');
+  got.length = 0; got.push(X.signs.walk.keysOf(1)); got[0].onGo = () => X._go(X.signs.walk, X.signs.walk.list[1]);
+  got[0].onGo();
+  assert.equal(X.checked, false, '继续 at the check-in board before the last stop: the walk goes to the next stop');
+  assert.equal(F.calls.length, 4);
+  me.pos.set(-20, 0, 1.7); step(0.2);
   assert.equal(X.signs.walk.framed, 0);
   got[got.length - 1].onGo();
   assert.ok(X.signs.walk.read(0), 'the weekly board counts as read (the exit\'s next stop moves on)');
-  assert.equal(F.calls.length, 4);
+  assert.equal(X.nextSpot().kind, 'checkin');
+  assert.equal(F.calls.length, 5);
   // in front of the pad, not on it (the walk's nav node stood off its centre): framed, nothing happened
-  at.set(-30, 0, 1.7 + 1.6);
-  for (let k = 0; k < 40; k++) { t += 1 / 60; X.signs.update(1 / 60, t, at, O); }
+  me.pos.set(-30, 0, 1.7 + 1.6); step(0.6);
   assert.equal(X.signs.walk.framed, 1); assert.equal(X.checked, false, 'not on the pad');
   got[got.length - 1].onGo();
   assert.ok(X.signs.checked && X.checked, '继续 at the check-in board: the step onto the pad — the day ends');
   assert.ok(emitted.includes('learn:sign'));
-  assert.equal(F.calls.length, 4, '(no auto-walk: the day is over)');
+  assert.equal(F.calls.length, 5, '(no auto-walk: the day is over)');
   assert.equal(X.signs.checkIn(), false, 'once');
+  X.match.local = null;
   // (and the pad's 「这一天走完了 ★」 goes when the cards come — it had no end and stood over them)
   assert.match(src('src/learn/flow.js'), /_results\(\) \{\s*this\.finishT = -1;\s*this\.match\.paused = true;\s*G\.input\?\.exitLock\?\.\(\);\s*this\.play\?\.strip\?\.hide\?\.\(\);/);
 }));

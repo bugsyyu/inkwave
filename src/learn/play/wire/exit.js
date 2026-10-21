@@ -1,8 +1,9 @@
 // 题即玩法 play-wire — the exit area (docs/PLAY.md §3 M7 / 路标, §4; the booth and the signs are LEARN §21's,
 // src/learn/play/echo/booth.js, board/signs.js): after the last gate opens the day ends on the signs that stood here as
 // placeholders since B — the 回声亭 (口语: she steps onto its pad, the sample plays, she speaks along, steps off), the
-// 打卡垫 (踩上去 = 这一天走完了: the local star table, never evidence) and, on the review day, the 周报牌 / 入门小测牌
-// (their classic page). The write wall is not here: its sentences are a gate of their own (M4, flow._place).
+// 打卡垫 (踩上去 = 这一天走完了: the local star table, never evidence — LEARN §48: once it is the last stop) and, on the
+// review day, the 周报牌 / 入门小测牌 (their classic page). The write wall is not here: its sentences are a gate of their
+// own (M4, flow._place).
 // Nothing here is judged or recorded.
 // play-fix: the review day's 周报牌 / 入门小测牌 are stops of their own (the auto-walk stops at each, she reads it, 「自动走」
 // goes on; a day without a check-in pad ends once the booth is spoken and every board read — the check-in pad, where
@@ -132,7 +133,8 @@ export class ExitStation {
     const F = this.flow, i = W.list.indexOf(L);
     this.log.push({ t: +F.t.toFixed(2), ev: 'go', kind: W === this.echo?.walk ? 'echo' : (L && L.sign && L.sign.kind) || '?' });
     if (W === this.echo?.walk) { if (this.echo.state === 'in') this.echo._done('button'); F.autoWalk(true); return; }
-    if (L && L.sign && L.sign.kind === 'checkin' && this.signs.checkIn()) return;
+    // (the check-in board: the step onto the pad once it is the last stop left; before that the walk goes to the next one)
+    if (L && L.sign && L.sign.kind === 'checkin') { const n = this.nextSpot(); if (n && n.kind === 'checkin' && this.signs.checkIn()) return; F.autoWalk(true); return; }
     if (i >= 0) W.pass(i);
     F.autoWalk(true);
   }
@@ -194,6 +196,9 @@ export class ExitStation {
   update(dt) {
     if (!this.on) return;
     const a = this.match.local, t = G.time, o = { aspect: innerWidth / innerHeight, speed: a ? Math.hypot(a.vel?.x || 0, a.vel?.z || 0) : 0 };
+    // (LEARN §48: the pad counts only as the last stop — the write wall's gate stands at the route's end, and on w2d3 the
+    // pad came to lie where she stood as it opened: the day ended at once, the booth never spoken)
+    if (this.signs) { const n = this.nextSpot(); this.signs.armed = !!(n && n.kind === 'checkin'); }
     this.echo?.update(dt, t, a ? a.pos : null, o);
     this.signs?.update(dt, t, a ? a.pos : null, o);
     this._reach(dt);
