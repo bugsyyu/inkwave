@@ -314,8 +314,29 @@ try {
   rep.dom.layers = lt ? lt.length : null;
   rep.dom.layersDrawn = lt ? lt.filter((l) => l.drawsContent).length : null;
 } catch (e) { rep.dom.layers = 'n/a: ' + e.message; }
+// a trace of a few more stepped frames: every style recalc / layout, and the JS stack of the ones a script forced in mid-frame
+{
+  const chunks = [];
+  cdp.on('Tracing.dataCollected', (e) => chunks.push(...e.value));
+  const done = new Promise((ok) => cdp.once('Tracing.tracingComplete', ok));
+  await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline.stack', transferMode: 'ReportEvents' });
+  const TF = 4;
+  for (let i = 0; i < TF; i++) await ev(() => __inkwave.debug.step(16.7));
+  await cdp.send('Tracing.end'); await done;
+  const ev2 = chunks.filter((e) => e.name === 'Layout' || e.name === 'UpdateLayoutTree');
+  const forced = {}; let lay = 0, sty = 0, layMs = 0, styMs = 0, nf = 0;
+  for (const e of ev2) {
+    const ms = (e.dur || 0) / 1000;
+    if (e.name === 'Layout') { lay++; layMs += ms; } else { sty++; styMs += ms; }
+    const st = (e.args && (e.args.beginData && e.args.beginData.stackTrace)) || (e.args && e.args.data && e.args.data.stackTrace);
+    if (st && st.length) { nf++; const k = e.name + ' ← ' + st.slice(0, 3).map((f) => `${f.functionName || '(anon)'} ${String(f.url).replace(/^.*\/game\//, '')}:${f.lineNumber + 1}`).join(' ← '); forced[k] = (forced[k] || 0) + 1; }
+  }
+  rep.trace = { frames: TF, layoutsPerFrame: +(lay / TF).toFixed(2), layoutMsPerFrame: +(layMs / TF).toFixed(2), recalcsPerFrame: +(sty / TF).toFixed(2), recalcMsPerFrame: +(styMs / TF).toFixed(2),
+    forcedPerFrame: +(nf / TF).toFixed(2), forced: Object.entries(forced).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => [k, +(v / TF).toFixed(2)]) };
+}
 if (duel) await ev(() => __inkwave.debug.key('KeyW', false));
 say('js', JSON.stringify(rep.js));
+say('trace', JSON.stringify(rep.trace));
 say('per frame', JSON.stringify(rep.perFrame), 'dom/frame', JSON.stringify(rep.domPerFrame));
 say('DOM writes / frame', JSON.stringify(rep.writesPerFrame));
 say('program look-ups / frame', rep.programLookupsPerFrame, JSON.stringify(rep.programLookups));

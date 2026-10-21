@@ -41,6 +41,10 @@ const NEAR = args.includes('--near');
 // walking (the auto-walk under way), typing (the rig and the keyboard up, the lens settled), the beat stage (the word
 // played, the round listening), a framed board — the first time each comes up
 const PERF = args.includes('--perf'), PERF_N = +opt('perfFrames', 45);
+const HITCH = args.includes('--hitch'), THROTTLE = +opt('throttle', 0);
+// --hitch (LEARN §50): every stepped frame's main.js _frame ms with what the level was doing (phase · gate · station · a
+// framed board · the exit's stop), the worst frames reported — the one-off costs of the start, a gate opening, a board coming
+// up, the exit area; --throttle N slows the page's main thread N× (CDP) as a phone's would be
 // --exit-only (play-fix): every gate opened at once (flow._open, nothing answered, nothing recorded) — the walk from the
 // spawn to the exit area and its stops, for a stage whose exit walk needs a look
 const EXIT_ONLY = args.includes('--exit-only');
@@ -115,6 +119,15 @@ async function shot(name, once = true) {
 async function finish(code) {
   clearTimeout(watchdog);
   report.invariants = inv;
+  if (HITCH) {
+    const H = (await ev(() => window.__hitch).catch(() => null)) || [];
+    const drawn = H.filter((x) => x[2]), ms = drawn.map((x) => x[0]).sort((a, b) => a - b), q = (p) => (ms.length ? ms[Math.min(ms.length - 1, Math.ceil(p * ms.length) - 1)] : 0);
+    const by = {}; for (const [m, l] of drawn) { const k = l.replace(/:\d+(?=:|$)/, ''); (by[k] || (by[k] = [])).push(m); }
+    report.hitch = { frames: drawn.length, p50: q(0.5), p95: q(0.95), max: ms.length ? ms[ms.length - 1] : 0, over50: drawn.filter((x) => x[0] >= 50).length,
+      worst: drawn.slice().sort((a, b) => b[0] - a[0]).slice(0, 15).map((x) => [x[0], x[1]]),
+      byPhase: Object.fromEntries(Object.entries(by).map(([k, v]) => { v.sort((a, b) => a - b); return [k, { n: v.length, p50: v[v.length >> 1], max: v[v.length - 1] }]; })) };
+    say('hitch', JSON.stringify(report.hitch));
+  }
   if (inv.breaks.length) fails.push('PLAY §1 rule 1 broken while she played: ' + JSON.stringify(inv.breaks.slice(0, 3)));
   report.fails = fails; report.badResponses = bad; report.errors = errs;
   if (OUT) try { fs.writeFileSync(OUT, JSON.stringify(report, null, 1)); } catch (e) { say('could not write', OUT); }
@@ -133,6 +146,19 @@ await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwav
 // (the keyboard's slide-in is a CSS transition on wall time — under software GL it can outlast the audit's patience and a
 // key tapped mid-slide lands under the screen; the audit measures the keys where they rest, not the bounce)
 await page.addStyleTag({ content: '.iw-pk__panel { transition: none !important; }' });
+if (HITCH) {
+  await ev(() => {
+    const I = __inkwave, f = I._frame.bind(I), H = (window.__hitch = []);
+    I._frame = (dt) => {
+      const a = performance.now(); f(dt); const ms = performance.now() - a;
+      const F = I.match && I.match.learn, P = F && F.play, E = P && P.exit && P.exit.on ? P.exit : null;
+      const ex = E ? (E.echo && E.echo.walk.framed >= 0 ? ':echo' : E.signs && E.signs.walk.framed >= 0 ? ':signs' : ':exit') : '';
+      const lab = F ? `${F.phase}:${F.cur}${P && P.kind ? ':' + P.kind : ''}${P && P.boards && P.boards.framed >= 0 ? ':board' : ''}${ex}` : '-';
+      H.push([+ms.toFixed(1), lab, I._skipRender ? 0 : 1]);
+    };
+  });
+  if (THROTTLE > 1) { const cdp = await ctx.newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE }); }
+}
 report.boot = await ev(() => { const F = __inkwave.match.learn; __inkwave.debug.freeze(); return { play: !!F.play, host: !!(F.play && F.play.m1), gates: F.gates.map((g) => ({ id: g.id, mech: g.design && g.design.mechanic, n: g.items.length, kinds: [...new Set(g.items.map((it) => it.meta.kind + '.' + it.meta.input))] })), stage: __inkwave.mapDef && __inkwave.mapDef.id }; });
 say('boot', JSON.stringify(report.boot));
 check(report.boot.play && report.boot.host, 'the puzzle has its play host');
