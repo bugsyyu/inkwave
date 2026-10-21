@@ -204,6 +204,14 @@ export class Renderer {
     // (the live ladder's rung while the step is in effect — LEARN §50: main.js _liveApply moves it; null = the old density)
     this.rung = this.q.rungs ? this.q.rungs[0] : null;
     this._w = 0; this._h = 0;
+    // the window's size is read when it changes (resize / orientation / visual viewport) and once a second besides — not every
+    // frame: innerWidth read after the frame's DOM writes forces a style recalc there and then (LEARN §50)
+    this._sizeDirty = true; this._sizeT = 0;
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      const dirty = () => { this._sizeDirty = true; };
+      window.addEventListener('resize', dirty); window.addEventListener('orientationchange', dirty);
+      window.visualViewport?.addEventListener?.('resize', dirty);
+    }
   }
 
   setScene(scene, camera) {
@@ -360,7 +368,8 @@ export class Renderer {
   }
 
   render() {
-    this.resize();
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    if (this._sizeDirty || now - this._sizeT > 1000) { this._sizeDirty = false; this._sizeT = now; this.resize(); }
     // colour grade recommended by the environment theme (day / dusk)
     const gr = G.env && G.env.grade;
     if (gr && gr !== this._gradeSrc && this.grade) {
@@ -383,6 +392,12 @@ export class Renderer {
     // reflection) used to walk the whole tree again (LEARN §50); nothing moves between them
     const sc = this.scene, auto = sc ? sc.matrixWorldAutoUpdate : false;
     if (sc && auto) { sc.updateMatrixWorld(); sc.matrixWorldAutoUpdate = false; }
-    try { this.composer.render(); } finally { if (sc && auto) sc.matrixWorldAutoUpdate = true; }
+    try {
+      // the harbour's planar reflection, before the frame and not inside it (it used to render from the sea's onBeforeRender, in
+      // the main pass: a nested render has lights of its own in three, with another version number — every lit material drawn
+      // in both then rebuilt its program parameters twice a frame; LEARN §50)
+      G.env?.renderReflection?.(this.renderer, sc, this.camera);
+      this.composer.render();
+    } finally { if (sc && auto) sc.matrixWorldAutoUpdate = true; }
   }
 }

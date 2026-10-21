@@ -273,11 +273,23 @@ test('waterHeightAt (every floating thing, every frame): no array, no iterator p
   assert.equal(n, 800);
 });
 
-test('the scene\'s world matrices are walked once a frame (not again by every pass that renders it), and the harbour reflection builds no arrays or closures per frame', () => {
+test('the scene\'s world matrices are walked once a frame (not again by every pass that renders it); the harbour reflection renders before the passes, at the top level, with no arrays or closures per frame; the window size is not read every frame', () => {
   const R = src('src/core/renderer.js'), E = src('src/world/environment.js');
   const render = R.slice(R.indexOf('\n  render() {'), R.indexOf('\n  }\n', R.indexOf('\n  render() {')));   // (Renderer's own, not the passes')
-  assert.match(render, /if \(sc && auto\) \{ sc\.updateMatrixWorld\(\); sc\.matrixWorldAutoUpdate = false; \}\n\s+try \{ this\.composer\.render\(\); \} finally \{ if \(sc && auto\) sc\.matrixWorldAutoUpdate = true; \}/);
+  assert.match(render, /if \(sc && auto\) \{ sc\.updateMatrixWorld\(\); sc\.matrixWorldAutoUpdate = false; \}\n\s+try \{/);
+  assert.match(render, /this\.composer\.render\(\);\n\s+\} finally \{ if \(sc && auto\) sc\.matrixWorldAutoUpdate = true; \}/);
   assert.ok(render.indexOf('sc.updateMatrixWorld()') > render.indexOf('this.resize();'), 'after the camera\'s aspect is set');
+  // the harbour's reflection: before the passes, at the top level (a nested render gets its own lights state in three, with
+  // its own version — every lit material drawn in both rebuilt its program parameters twice a frame)
+  assert.ok(render.indexOf('G.env?.renderReflection?.(this.renderer, sc, this.camera);') > render.indexOf('sc.matrixWorldAutoUpdate = false;') && render.indexOf('G.env?.renderReflection?.(') < render.indexOf('this.composer.render();'));
+  assert.ok(!/onBeforeRender = \(renderer, scene, camera\) => this\._renderReflection/.test(E), 'no longer from inside the main pass');
+  const T = src('vendor/three/build/three.module.js');
+  assert.match(T, /currentRenderState = renderStates\.get\( scene, renderStateStack\.length \);/, 'three: one render state per nesting depth');
+  assert.match(T, /state\.version = nextVersion \+\+;/, 'three: each lights state numbers itself from a counter they share');
+  // the window's size: from resize events (and once a second), not read every frame
+  assert.match(render, /if \(this\._sizeDirty \|\| now - this\._sizeT > 1000\) \{ this\._sizeDirty = false; this\._sizeT = now; this\.resize\(\); \}/);
+  assert.match(R, /window\.addEventListener\('resize', dirty\); window\.addEventListener\('orientationchange', dirty\);/);
+  assert.match(src('src/main.js'), /const W = this\.R\._w \|\| innerWidth, H = this\.R\._h \|\| innerHeight;/, 'the HUD reuses it');
   const refl = method(E, '_renderReflection');
   assert.ok(!/\.map\(|\.forEach\(|\.\.\.this\._reflSkips|const hide = \[/.test(refl), 'the hide / vis lists are kept, filled by index');
   assert.match(refl, /const hide = this\._reflHide \|\| \(this\._reflHide = \[\]\), vis = this\._reflVis \|\| \(this\._reflVis = \[\]\);/);

@@ -1808,8 +1808,7 @@ export class Environment {
     this.sea.frustumCulled = false;
     this.sea.receiveShadow = true;
     this.sea.renderOrder = -1;
-    // marina: the planar reflection is rendered right before the sea draws (camera already final for this frame)
-    this.sea.onBeforeRender = (renderer, scene, camera) => this._renderReflection(renderer, scene, camera);
+    // marina: the planar reflection is rendered right before the frame (renderer.js render → renderReflection: camera final)
     this.root.add(this.sea);
   }
 
@@ -1818,6 +1817,10 @@ export class Environment {
   // reflects), rendered without sea or sky dome into a mip-mapped HDR target; alpha = coverage, so the sea shader keeps
   // its analytic sky + clouds wherever nothing stands above the water. Once per frame, only in marina mode, skipped for
   // override passes (GTAO normals) and when the camera dips under the surface. Resolution follows the quality preset.
+  // (called by the renderer before the frame's passes — at the top level, so it shares the frame's lights state: LEARN §50)
+  renderReflection(renderer, scene, camera) {
+    if (this.sea && this.sea.visible && this.root.visible) this._renderReflection(renderer, scene, camera);
+  }
   _renderReflection(renderer, scene, camera) {
     const U = this.U;
     if (!this._marina || this._reflBusy || scene.overrideMaterial || this._reflFrame === this._frameId) return;

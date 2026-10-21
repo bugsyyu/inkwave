@@ -1767,7 +1767,7 @@ class Game {
     // ally markers
     const markers = [];
     const v = this._mv || (this._mv = new THREE.Vector3());
-    const W = innerWidth, H = innerHeight;
+    const W = this.R._w || innerWidth, H = this.R._h || innerHeight;   // (the renderer's size of the window: no layout read here — LEARN §50)
     for (const o of m.actors) {
       const tracked = o.team !== a.team && o.alive && o.status.track > 0 && o.status.trackTeam === a.team;
       if (!tracked && (o.isLocal || o.team !== a.team || !o.alive)) continue;
