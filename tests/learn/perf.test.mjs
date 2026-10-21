@@ -323,3 +323,66 @@ test('a match\'s compile() with no target bound compiles for the composer\'s HDR
   assert.match(W, /if \(P && P\._warmT > 0 && typeof P\._warmAll === 'function'\) \{ P\._warmT = 0; try \{ P\._warmAll\(\); \}/, 'once: its own timer cleared');
   assert.match(src('src/learn/play/host.js'), /if \(this\._warmT > 0\) \{ this\._warmT -= dt; if \(this\._warmT <= 0\) this\._warmAll\(\); \}/, 'the host warms on its timer only while it is set');
 });
+
+test('shadow casters: one depth material per caster kind — instanced, instanced with colours, skinned — shared and re-checked; plain, alpha-tested, morphed and own-depth casters are left to three', async () => {
+  const THREE = await import('three');
+  const R = src('src/core/renderer.js'), T = src('vendor/three/build/three.module.js');
+  // three r186: one depth material for every caster that brings none, and a whole program look-up whenever the kind of object
+  // a material last drew differs (instanced ↔ plain ↔ skinned) …
+  assert.match(T, /const customMaterial = \( light\.isPointLight === true \) \? object\.customDistanceMaterial : object\.customDepthMaterial;/);
+  assert.match(T, /\} else if \( object\.isInstancedMesh && materialProperties\.instancing === false \) \{/);
+  assert.match(T, /\} else if \( ! object\.isSkinnedMesh && materialProperties\.skinning === true \) \{/);
+  // … and a copy of its own per material for exactly these (they keep it)
+  assert.match(T, /\( material\.displacementMap && material\.displacementScale !== 0 \) \|\|\s*\( material\.alphaMap && material\.alphaTest > 0 \) \|\|\s*\( material\.map && material\.alphaTest > 0 \) \|\|\s*\( material\.alphaToCoverage === true \) \) \{/);
+  const kinds = new Function('THREE', method(R, '_depthKinds'));
+  const sc = new THREE.Scene(), geo = new THREE.BoxGeometry(), mat = new THREE.MeshStandardMaterial();
+  const cast = (o) => { o.castShadow = true; sc.add(o); return o; };
+  const a = cast(new THREE.InstancedMesh(geo, mat, 2)), b = cast(new THREE.InstancedMesh(geo, mat, 3));
+  const c = cast(new THREE.InstancedMesh(geo, mat, 2)); c.setColorAt(0, new THREE.Color(1, 0, 0));
+  const sk = cast(new THREE.SkinnedMesh(geo, mat)), plain = cast(new THREE.Mesh(geo, mat));
+  const leafMat = new THREE.MeshStandardMaterial({ map: new THREE.Texture(), alphaTest: 0.5 }), leaf = cast(new THREE.InstancedMesh(geo, leafMat, 2));
+  const mg = geo.clone(); mg.morphAttributes.position = [geo.attributes.position.clone()];
+  const morph = cast(new THREE.InstancedMesh(mg, mat, 2));
+  const own = new THREE.MeshDepthMaterial(), cloth = cast(new THREE.InstancedMesh(geo, mat, 2)); cloth.customDepthMaterial = own;
+  const dark = new THREE.InstancedMesh(geo, mat, 2); sc.add(dark);   // casts no shadow
+  const self = { scene: sc, renderer: { shadowMap: { enabled: true } } };
+  kinds.call(self, THREE);
+  assert.ok(a.customDepthMaterial && a.customDepthMaterial.isMeshDepthMaterial);
+  assert.equal(b.customDepthMaterial, a.customDepthMaterial, 'one per kind, shared');
+  assert.ok(c.customDepthMaterial.isMeshDepthMaterial && c.customDepthMaterial !== a.customDepthMaterial, 'instance colours: a kind of their own');
+  assert.ok(sk.customDepthMaterial.isMeshDepthMaterial && sk.customDepthMaterial !== a.customDepthMaterial && sk.customDepthMaterial !== c.customDepthMaterial);
+  for (const o of [plain, leaf, morph, dark]) assert.equal(o.customDepthMaterial, undefined);
+  assert.equal(cloth.customDepthMaterial, own, 'a caster\'s own depth material (cloth, flags) is kept');
+  // three's own defaults (the depth programs are shared by key: nothing new to compile)
+  const ref = new THREE.MeshDepthMaterial();
+  for (const k of ['depthPacking', 'side', 'alphaTest', 'map']) assert.equal(a.customDepthMaterial[k], ref[k], k);
+  // a material that turns alpha-tested goes back to three at the next check; the others stay
+  a.material = leafMat; kinds.call(self, THREE);
+  assert.equal(a.customDepthMaterial, undefined); assert.ok(b.customDepthMaterial.isMeshDepthMaterial);
+  // shadows off: nothing touched
+  const sc2 = new THREE.Scene(), d = new THREE.InstancedMesh(geo, mat, 1); d.castShadow = true; sc2.add(d);
+  kinds.call({ scene: sc2, renderer: { shadowMap: { enabled: false } } }, THREE); assert.equal(d.customDepthMaterial, undefined);
+  // checked on a new scene and every 60 frames, not every frame
+  const render = R.slice(R.indexOf('\n  render() {'), R.indexOf('\n  }\n', R.indexOf('\n  render() {')));
+  assert.match(render, /if \(this\.scene !== this\._depthScene \|\| !\(\+\+this\._depthN < 60\)\) \{ this\._depthScene = this\.scene; this\._depthN = 0; this\._depthKinds\(\); \}/);
+});
+
+test('nothing out of sight keeps animating: the map\'s faded jump line, the put-away keyboard\'s caret, the cursor with no focus pause; the squad bar hidden in practice / learning stops', () => {
+  const HUD = src('styles/hud.css'), UI = src('styles/ui.css'), PK = src('src/ui/play-keys.js');
+  // each one runs forever …
+  assert.match(HUD, /\n\.iw-map__jline path \{[^}]*animation: iw-jline [^;]*infinite;/);
+  assert.match(PK, /\n\.iw-pk__strip i \{[^}]*animation: iw-pk-caret [^;]*infinite;/);
+  assert.match(UI, /\nhtml\.iw-glass \.iw-cursor__glow \{[^}]*animation: iw-glass-breathe [^;]*infinite;/);
+  assert.match(UI, /\n\.iw-cursor__ring \{[^}]*\n?[^}]*animation: iw-cursor-pulse [^;]*infinite;/);
+  assert.match(HUD, /\n\.iw-sq__you \{[^}]*animation: iw-you [^;]*infinite;/, 'the squad bar\'s own');
+  // … and is paused in the state that hides it — the state the code sets
+  assert.match(HUD, /\n\.iw-map__jline \{[^}]*opacity: 0;/);
+  assert.match(HUD, /\n\.iw-map__jline:not\(\.is-on\) path \{ animation-play-state: paused; \}/);
+  assert.match(src('src/ui/hud.js'), /this\.mapJumpLine\.classList\.toggle\('is-on', showLine\);/);
+  assert.match(PK, /\n\.iw-pk\.is-off \.iw-pk__strip i \{ animation-play-state: paused; \}/);
+  assert.match(PK, /hide\(\) \{ this\.visible = false; this\.el\.classList\.add\('is-off'\);/);
+  assert.match(UI, /\n\.iw-cursor \{[^}]*opacity: 0;/);
+  assert.match(UI, /\n\.iw-cursor:not\(\.is-on\) \.iw-cursor__ring, \.iw-cursor:not\(\.is-on\) \.iw-cursor__glow \{ animation-play-state: paused; \}/);
+  assert.match(src('src/ui/menus.js'), /if \(C\.on\) \{ this\.cursorEl\.classList\.remove\('is-on'\); C\.on = false; \}/);
+  assert.match(HUD, /\n\.iw-hud\.is-practice \.iw-squad \{ visibility: hidden; \}\n\.iw-hud\.is-practice \.iw-squad \* \{ animation: none; \}/);
+});

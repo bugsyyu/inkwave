@@ -112,12 +112,29 @@ function hook() {
   };
   // program look-ups (three's getProgram → getParameters → material.customProgramCacheKey(): a draw whose material last drew
   // another kind of object — instanced / skinned / plain —, other lights, another target … pays a whole parameter build):
-  // counted by pass · material · object kind
-  P.thrash = {};
+  // counted by pass · material · object kind · why (what differs from the material's previous draw: inst / skin / iColor /
+  // vAlpha / morph / target / fog / version; none of these = the lights state) · owner
+  P.thrash = {}; P.prev = new WeakMap();
   const rbd = r.renderBufferDirect;
-  r.renderBufferDirect = function (camera, scene, geometry, material, object) { P.obj = object; return rbd.apply(this, arguments); };
+  const trait = (m, o, g, sc) => [o && o.isInstancedMesh ? 1 : 0, o && o.isSkinnedMesh ? 1 : 0, o && o.instanceColor ? 1 : 0,
+    m.vertexColors && g && g.attributes.color && g.attributes.color.itemSize === 4 ? 1 : 0, g && g.morphAttributes.position ? 1 : 0,
+    r.getRenderTarget() ? 1 : 0, sc && sc.fog ? sc.fog.uuid || 1 : 0, m.version];
+  const TRAIT = ['inst', 'skin', 'iColor', 'vAlpha', 'morph', 'target', 'fog', 'version'];
+  r.renderBufferDirect = function (camera, scene, geometry, material, object) {
+    P.obj = object; P.geo = geometry; P.scn = scene;
+    const out = rbd.apply(this, arguments);
+    if (P.on && material) P.prev.set(material, trait(material, object, geometry, scene));
+    return out;
+  };
   const kind = (o) => (o ? (o.isInstancedMesh ? 'inst' : o.isSkinnedMesh ? 'skin' : o.isBatchedMesh ? 'batch' : o.isMesh ? 'mesh' : o.type) : '?');
-  const count = (m) => { if (!P.on) return; const k = (P.pass || '?') + ' · ' + (m.name || m.type) + ' · ' + kind(P.obj); P.thrash[k] = (P.thrash[k] || 0) + 1; };
+  const ownerOf = (o) => { for (let p = o; p; p = p.parent) if (p.name && p !== G.scene) return p.name; return o ? o.type : '?'; };
+  const count = (m) => {
+    if (!P.on) return;
+    const was = P.prev.get(m), now = trait(m, P.obj, P.geo, P.scn);
+    const why = !was ? 'first' : TRAIT.filter((t, i) => was[i] !== now[i]).join('+') || 'lights';
+    const k = (P.pass || '?') + ' · ' + (m.name || m.type) + ' · ' + kind(P.obj) + ' · ' + why + ' · ' + ownerOf(P.obj);
+    P.thrash[k] = (P.thrash[k] || 0) + 1;
+  };
   const wrapKey = (o, f) => function () { count(this); return f.call(this); };
   const proto = Object.getPrototypeOf(Object.getPrototypeOf(G.scene.children.find((c) => c.material)?.material || {})) || null;
   let M0 = proto; while (M0 && !Object.prototype.hasOwnProperty.call(M0, 'customProgramCacheKey')) M0 = Object.getPrototypeOf(M0);
@@ -245,26 +262,28 @@ rep.domPerFrame = { recalc: +((m1.RecalcStyleCount - m0.RecalcStyleCount) / n).t
 rep.writesPerFrame = Object.entries(await ev(() => __pp.mut)).map(([k, v]) => [k, +(v / n).toFixed(2)]).sort((a, b) => b[1] - a[1]).slice(0, 16);
 rep.programLookups = Object.entries(await ev(() => __pp.thrash)).map(([k, v]) => [k, +(v / n).toFixed(1)]).sort((a, b) => b[1] - a[1]);
 rep.programLookupsPerFrame = +rep.programLookups.reduce((a, x) => a + x[1], 0).toFixed(1);
-rep.programLookups = rep.programLookups.slice(0, 16);
+rep.programLookups = rep.programLookups.slice(0, 24);
 // allocation and cpu are split by whether main.js _frame is on the stack: a stepped frame takes seconds of SwiftShader wall
 // time, and what timers run meanwhile (the music scheduler's worker ticks) is per second, not per frame
 const wall = Math.max(0.001, (m1.Timestamp - m0.Timestamp));
+// (the probe's own wrappers — scripts it evaluated: no url but a line — are counted apart: they are not the game's)
+const own = (cf) => !cf.url && cf.lineNumber >= 0;
 const keyOf = (cf) => `${cf.functionName || '(anon)'} ${String(cf.url).replace(/^.*\/game\//, '')}:${cf.lineNumber + 1}`;
 {
-  const inF = new Map(), outF = new Map(); let fT = 0, oT = 0;
-  const walk = (nd, under) => { const u = under || nd.callFrame.functionName === '_frame'; if (nd.selfSize) { const k = keyOf(nd.callFrame), M = u ? inF : outF; M.set(k, (M.get(k) || 0) + nd.selfSize); if (u) fT += nd.selfSize; else oT += nd.selfSize; } for (const c of nd.children || []) walk(c, u); };
+  const inF = new Map(), outF = new Map(); let fT = 0, oT = 0, pT = 0;
+  const walk = (nd, under) => { const u = under || nd.callFrame.functionName === '_frame'; if (nd.selfSize) { if (own(nd.callFrame)) pT += nd.selfSize; else { const k = keyOf(nd.callFrame), M = u ? inF : outF; M.set(k, (M.get(k) || 0) + nd.selfSize); if (u) fT += nd.selfSize; else oT += nd.selfSize; } } for (const c of nd.children || []) walk(c, u); };
   walk(heap.head, false);
   const top = (M, d) => [...M.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => [k, +(v / 1024 / d).toFixed(1)]);
-  rep.gc = { kbPerFrame: +(fT / 1024 / n).toFixed(1), top: top(inF, n), otherKbPerSec: +(oT / 1024 / wall).toFixed(1), otherTop: top(outF, wall).slice(0, 8), heapGrowKB: +((m1.JSHeapUsedSize - m0.JSHeapUsedSize) / 1024).toFixed(1) };
+  rep.gc = { kbPerFrame: +(fT / 1024 / n).toFixed(1), top: top(inF, n), otherKbPerSec: +(oT / 1024 / wall).toFixed(1), otherTop: top(outF, wall).slice(0, 8), probeKbPerFrame: +(pT / 1024 / n).toFixed(1), heapGrowKB: +((m1.JSHeapUsedSize - m0.JSHeapUsedSize) / 1024).toFixed(1) };
 }
 {
   const byId = new Map(cpu.nodes.map((nd) => [nd.id, nd])), par = new Map();
   for (const nd of cpu.nodes) for (const c of nd.children || []) par.set(c, nd.id);
   const under = new Map(), isUnder = (id) => { if (under.has(id)) return under.get(id); const nd = byId.get(id); const u = nd.callFrame.functionName === '_frame' || (par.has(id) && isUnder(par.get(id))); under.set(id, u); return u; };
-  const inF = new Map(), outF = new Map(); let gc = 0, fMs = 0;
+  const inF = new Map(), outF = new Map(); let gc = 0, fMs = 0, pMs = 0;
   const dts = cpu.timeDeltas || [];
-  cpu.samples.forEach((id, i) => { const nd = byId.get(id), k = keyOf(nd.callFrame), ms = (dts[i] || 0) / 1000; if (/^\(garbage collector\)/.test(k)) { gc += ms; return; } if (/^\((idle|program|root)\)/.test(k)) return; const M = isUnder(id) ? inF : outF; M.set(k, (M.get(k) || 0) + ms); if (M === inF) fMs += ms; });
-  rep.cpu = { frameMs: +(fMs / n).toFixed(2), gcMsPerSec: +(gc / wall).toFixed(2), top: [...inF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, +(v / n).toFixed(2)]),
+  cpu.samples.forEach((id, i) => { const nd = byId.get(id), k = keyOf(nd.callFrame), ms = (dts[i] || 0) / 1000; if (/^\(garbage collector\)/.test(k)) { gc += ms; return; } if (/^\((idle|program|root)\)/.test(k)) return; if (own(nd.callFrame)) { pMs += ms; return; } const M = isUnder(id) ? inF : outF; M.set(k, (M.get(k) || 0) + ms); if (M === inF) fMs += ms; });
+  rep.cpu = { frameMs: +(fMs / n).toFixed(2), probeMsPerFrame: +(pMs / n).toFixed(2), gcMsPerSec: +(gc / wall).toFixed(2), top: [...inF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, +(v / n).toFixed(2)]),
     otherMsPerSec: +([...outF.values()].reduce((a, b) => a + b, 0) / wall).toFixed(2), otherTop: [...outF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, +(v / wall).toFixed(2)]) };
 }
 // the main pass's triangles by owner (meshes in the camera's frustum; instances counted), and the GPU's memory

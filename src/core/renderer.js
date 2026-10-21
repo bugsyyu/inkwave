@@ -367,9 +367,37 @@ export class Renderer {
     if (this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
   }
 
+  // Shadow casters: three draws them all with one depth material, which re-derives its whole program (parameters, key) each time
+  // the caster kind changes — instanced, plain, skinned: ~9 times a frame in a level (LEARN §50). One depth material per kind
+  // instead (same programs: three's cache shares them by key). A caster that needs three's own per-material copy (alpha-tested,
+  // displaced, clipped, alpha-to-coverage, morphed) keeps it, and so does one with a depth material of its own (cloth, flags).
+  // Checked every 60 frames and on a new scene: casters come and go, materials change.
+  _depthKinds() {
+    const sc = this.scene;
+    if (!sc || !this.renderer.shadowMap.enabled) return;
+    const D = this._depthMats || (this._depthMats = {});
+    sc.traverse((o) => {
+      if (!o.isMesh || !o.castShadow) return;
+      const cur = o.customDepthMaterial;
+      if (cur !== undefined && !(cur && cur.userData.iwKind)) return;
+      const m = o.material, g = o.geometry;
+      let k = null;
+      if ((o.isInstancedMesh || o.isSkinnedMesh) && m && !Array.isArray(m) && !(m.alphaTest > 0 && (m.map || m.alphaMap)) && !m.alphaToCoverage &&
+          !(m.displacementMap && m.displacementScale !== 0) && !(m.clipShadows && m.clippingPlanes && m.clippingPlanes.length) &&
+          !(g && g.morphAttributes && (g.morphAttributes.position || g.morphAttributes.normal || g.morphAttributes.color))) {
+        k = o.isInstancedMesh ? 'inst' + (o.instanceColor ? '+color' : '') + (o.morphTexture ? '+morph' : '') : 'skin';
+      }
+      if (!k) { if (cur !== undefined) o.customDepthMaterial = undefined; return; }
+      let d = D[k];
+      if (!d) { d = D[k] = new THREE.MeshDepthMaterial(); d.name = 'iw-depth-' + k; d.userData.iwKind = k; }
+      if (cur !== d) o.customDepthMaterial = d;
+    });
+  }
+
   render() {
     const now = typeof performance !== 'undefined' ? performance.now() : 0;
     if (this._sizeDirty || now - this._sizeT > 1000) { this._sizeDirty = false; this._sizeT = now; this.resize(); }
+    if (this.scene !== this._depthScene || !(++this._depthN < 60)) { this._depthScene = this.scene; this._depthN = 0; this._depthKinds(); }
     // colour grade recommended by the environment theme (day / dusk)
     const gr = G.env && G.env.grade;
     if (gr && gr !== this._gradeSrc && this.grade) {
