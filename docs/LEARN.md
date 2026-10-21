@@ -2267,3 +2267,59 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 4. IELTS-Base 的 `app/game` 没同步（主会话做）；同步会多一个 131 KB 的字体文件和它的许可证。
 
 **交接**：inkwave 分支 `ui-glass`（从 `1ecda8d` 建）；IELTS-Base 分支 `ui-glass`（从 `89d6d3a` 建，只有截图 / 二分脚本和两条 e2e 断言）。合并后照常同步 `app/game`，再跑这八个 e2e；要调效果改第 6 条的六个旋钮。
+
+## 52. wf-perf-cpu 交付（2026-10-21，子代理，分支 `wf-perf-cpu`：「手机上真的很卡」的 CPU 那一半——慢帧不再整份跑两遍、看不见的小地图不画、打字取景的「那一下」、首答推到她账号、镜头外的小孩、实例缓冲、跑酷的 flood、几处小的）
+
+**先读了什么**：主会话的任务书和公共须知（业主：「很卡，手机上真的很卡，你需要深入做体系化优化」；渲染那一半——画质调度、像素量、后期、`renderer.js`、`render-gov.js`、`paint.js`——归 `wf-perf`）；只读排查 X2 的报告（24 条，行号对过 `088c6dd`）；本文件 §16、§27（证据快照）、§31（滑行段打字取景的头部余量）、§39 / §41（写她账号的规矩）；`wf-softlock` 分支的 `hud-learn.js` / `runner.js` / `styles/hud.css`（`is-nomap`，它的 §48）、`wf-perf` 分支 `hud.js` 的墨罐（它的 §50）；代码：`main.js` 的 `_frame` / `_updateHud`（`dt` 封顶 1/24 s）、`match.js` `update`、`actor.js` `update` / `_finishFrame`、`character.js` `update`、`boss.js` / `bossMode.js`、`runner.js`（`_install` 的包装、`_after`、`_floodRow`、圈时）、`runner/cam.js`、`type/frame.js` / `split.js` / `keys.js` 和用它们的 `wire/type.js` `_pose`、`arena/m1.js`、`runner/glide.js`、`store.js`（首答当场的 `save()`、0.8 s 后的推）、`workbench.js`（`readBlob` / `pushEvidence` / `mirrorSend`）、`minimap.js`、`weapons.js` `_draw`、`fx.js` 的七个池、`audio.js`（听者、循环音）、`forms/ui.js` / `race.js`、`hud.js` `_restart`；IELTS-Base `tests/base/game-*.test.mjs`。
+
+**先定的**：
+1. **一样的结果、少做的事**：能逐位证明结果没变的就逐位比——打字取景（`088c6dd` 的 `frame.js` / `split.js` 原样抄进测试当对照）、她账号的整段文本（`JSON.stringify` 当对照）、跑酷 flood 的格子和顺序（旧的扫法抄进测试）、跑酷镜头的取景数组（旧公式）；比不了逐位的（慢帧子步、镜头外的姿势、小地图、实例缓冲、听者）把规矩写成测试。
+2. **慢帧子步只给物理**：`dt > 1/45 s` 照旧两步（`dt` 本来就封顶 1/24 s，超了丢时间——任务书说的「上限」已经在，没动）。学习关、比赛的时钟和状态、机器人的脑子每帧一次、拿整帧的 `dt`（和她自己的操控一样）；移动、碰撞、开火、Boss 的打斗、推挤走两步；姿势（IK、头发、表情）、Boss 和小螃蟹的模型、跑酷的镜头 / 道具袋 / 标记每帧一次——在最后一步、按整帧的 `dt`。`sub = 1`（不到 1/45 s 的每一帧；审计和测试冻结的 1/60）的顺序和原来一模一样。
+3. **镜头外的小孩**：不是她自己、而且肯定不在画面里的，15 Hz（`OFF_HZ`）摆一次，错过的时间一次补上（角色的弹簧和头发吃得下任意步长）；可能进画面的那一帧立刻摆，看不出跳。「可能」：上一帧的相机（姿势在相机动之前）、身体的球再放大一帧里相机能转过的量（1.5 m + 距离的 12 %）。
+4. **小地图看不见就不画**：设置关了，或者学习关挂着 `is-nomap`（`wf-softlock` 的类：CSS 用 `!important` 藏，连 Vortex Strike 的大图一起）→ `minimap.idle(dt)`：只让标记照样变老；下一次露出来的那一帧整张墨一次画完（不闪：藏着的时候变的不当新墨）、合成；玩家的点也不算。看得见时：墨 / 底图变了、闪光还在褪（褪完多合成一次把它擦掉）、活动层有会动的（区域、标记、云、炸弹、装置、特殊武器、Strike 的准星、超级跳）才合成。读的是 HUD 上的类，所以合没合 `wf-softlock` 都对。
+5. **首答推到她账号：写法一个字节不变，时机不动**：0.8 s 的合并和首答当场的 `save()` 都留着（挪到安静的时候是排查里「要定」的那条：App 被杀掉会多丢几题）；只把「整份重新序列化」变成「只序列化变了的那几篇」、镜像「整份重新解析一遍」变成「是游戏刚写的那份就不再解析」。前提：游戏从不改她解析出来的 blob（`herEv` 的只读规矩，每个写的地方都先拷贝）——测试把 blob 深冻起来，把游戏写她账号的各条路都走一遍。
+6. **小的照任务书「能小改就改」**：排名表、听者 / 循环音、几处每帧的分配、HUD 的弹动（`_restart`，任务书许可的 `hud.js` 小改；墨罐的布局读 `wf-perf` 已经改了，没再动）。
+
+**改了什么**（inkwave，`088c6dd` 起 13 个提交，22 个文件 +1 457 / −119，加这一节）：
+1. 打字取景（`329405d`、`0d36a94`）：`type/frame.js` 的 `search()` 换成标量的——同样的格子、同样的访问顺序和浮点运算，不再每个机位建 50–70 个小数组 / 对象；`B` / `H` 两层都早停（这一层往后不会比已有的好就停）、溢出的能证明往后都更糟才剪；最好的和退路都是标量，最后建一次结果。`Math.hypot` 换成 `hyp2` / `hyp3`（同一个 Kahan 归一的算法：V8 的内建在热循环里把参数和结果装箱，是剩下的那份垃圾；测试拿 20 万组和 `Math.hypot` 逐位比）。`frameFor` 按输入记住答案（最多 48 个：同样的阶段、屏幕比例、视角、距离、题条和键盘、字 → 同一个机位，转屏就是另一个），每次交出去一份拷贝（`runner/glide.js` 会往拿到的上面加东西）。`split.js` 的 `evalPose` 同样换成标量。
+2. 慢帧子步（`504c869`）：`main.js` `_frame` 一行（`m.update(dt, sub)`，原来两行的循环）；`match.js` `update(dt, sub)` 和抽出来的 `_push()`；`actor.js` `update(dt, pose)` / `_finishFrame(dt, pose)`（`pose` -1：这一步只动不摆）；`boss.js` / `bossMode.js` `update(dt, pose)`；`runner.js` 的包装和 `_after(dt, pose)`（路上的进度每步、镜头那些每帧一次）。
+3. 小地图（`3569214`）：`main.js` `_updateHud` 的几处（见交接）；`minimap.js` 的 `_dirty`、`idle()`、`_moving()`、`_flashOn`。
+4. 首答的存储写（`4e38300`）：`workbench.js` `blobText()`——顶层每个值、`base` 里每一篇的 JSON 文本按对象记在 WeakMap 里，拼起来就是 `JSON.stringify` 的文本；`pushEvidence` 用它；`mirrorSend` 是游戏刚写的那份就不再 `JSON.parse`（`readBlob` 记着的那份一定带 `profile`）。
+5. 镜头外的小孩（`8e337d4`）：`actor.js` 的 `OFF_HZ`、`maySee()`、`_finishFrame` 里那三行；武器的输入对象每个角色一个（原来每步每个角色一个新的）。
+6. 实例缓冲（`6aada96`）：`weapons.js` `_draw` 只传在空中的 `n` 个（原来 `MAX_BLOBS` 700 个整块、约 64 KB 一帧，空中什么都没有也传），没有就不画（空的实例绘制照样要设程序和状态，阴影那一趟也是）；`fx.js` `markUpdated(geo, count, mesh)`：空池不画、不传（原来 `max(1, n)`），五个调用处。着色器热身照样编到它们（`warmDraw` 画的时候一个个打开）。
+7. 跑酷 flood（`c161716`）：`runner.js` `rowCells()`——每个面把这一行的四边形换到面的 (u, v) 里，只扫它盖到的格子（每边多一格）、点在四边形里的测试不再解构数组、边的顺序照旧：同样的格子、同样的顺序。圈时的字只在显示的那一秒变了才重建。
+8. 几处小的（`ebea4b1`、`ce30bd6`、`bffad8c`）：`forms/ui.js` 排名表留着行、只写变了的类 / 名字 / 尾巴（原来每 0.5 s `innerHTML` 清空重建）；`audio.js` 听者挪动不到 1 cm、转不到约 0.5° 就不排那 9 个 AudioParam，循环音的音量 / 音高变不到 0.002 不重设；`runner/cam.js` 的取景数组一台镜头一个、`race.js` 的 `still(it)` 成了模块函数（原来每个机器人每帧一个新闭包）、`play/cam.js` 的键数组提出来；`hud.js` `_restart` 摘掉类以后用 `getComputedStyle(el).animationName` 刷样式，不再 `void el.offsetWidth`（那个连排版一起刷：命中、击倒、涂地数字——涂墨时每秒约 2.5 次——超级跳的点、特殊武器就绪……）。
+9. 量具：`tools/learn/slowframe-probe.mjs`（`504c869`：一关在真时钟上跑、CDP 降速，帧间隔、每帧主线程 CPU、两步帧的比例、每帧摆了几次姿势；`--base <rev>` 同一个浏览器里新旧交替）、`tools/learn/fn-throttle.mjs`（`e9ea721`：打字取景的几次搜索在 CDP 降速下的「那一下」，墙钟和主线程 CPU）。都不截图、不碰账号。
+10. 测试：`tests/learn/type-frame.test.mjs`（新，8 条）、`tests/learn/cpu.test.mjs`（新，22 条）。
+
+**量的**（之前 → 之后。Node 的：同一个进程、CPU 时间；浏览器的：同一个浏览器里新旧交替，SwiftShader 只看相对）：
+- 打字取景，一次（Node，不降速）：打字帧 竖屏 33.1 → 2.7 ms、加头部余量 33.1 → 2.1、横屏 36.9 → 2.7、什么都放不下（退路）34.5 → 2.8；墨字帧 竖屏 49.3 → 0.98、横屏 107.1 → 1.23、没有题条 46.0 → 0.95、长词 12.5 → 0.43；记住了的 0.07–0.48。20 个新帧：小 GC（scavenge）0 次（原来 786–828 次）；10 个帧的 CPU 15–21 ms（原来 382–476 ms）。横屏分开键盘的中间列：第一次 44.8 → 27.4 ms，热了 7.6 → 1.6 ms。对照：4 613 个 `frameFor`（4 483 个放得下、130 个退路）、324 个 `searchFrame` 和旧的逐位相同（测试里留了 101 个和 28 个）。
+- 首答推到她账号（Node，现编的学员、合成的 blob，一次推的 p50 CPU）：1 MB 8.9 → 0.15 ms、2 MB 21.4 → 0.17、4 MB 44.9 → 1.06。这里的 localStorage 是假的（存引用）：真机上 `getItem` / `setItem` 整份、镜像把整份交给 App 的那部分没量，也没变——localStorage 只能整份写，那部分只能靠「挪到安静的时候」（要定）。
+- 跑酷 flood（合成的一条 32.7 万格的路，一行）：第一次 77.5 → 3.2 ms，热了 12.6 → 0.06 ms。
+- 听者：站着不动每秒 540 个自动化事件 → 0；排名表：名次没变时 DOM 写 0 次。
+- 浏览器里的（打字取景 4× / 6× 降速、慢帧 6× 降速、HUD 的弹动）：排在浏览器锁后面，量完补在这里。
+
+**测试**：`npm run test:learn` 408 → 438 全过（+8 `type-frame`、+22 `cpu`）；`npm run check` 313 → 315 个文件；证据快照（`tools/learn/evidence-snapshot.mjs`）前后 sha256 一样（`bae04357…c84f`，128 270 个用例）；IELTS-Base `tests/base/game-*.test.mjs` 27 / 27。和另外四个分支（`wf-perf` `88e34dc`、`wf-softlock` `db21845`、`wf-classic` `032d3da`、`wf-artifact-game` `9fb798c`）一起试合并：没有冲突，`test:learn` 482 / 482、`check` 319 个文件。
+
+**拿不准的（自己定了）**：
+1. `hyp2` / `hyp3` 和 V8 的 `Math.hypot` 逐位相同（测过）；JavaScriptCore（她的 iPhone）的 `Math.hypot` 读源码是同一个 Kahan 归一的算法，没在 iPhone 上跑——真差了最后一位，也只是在几乎一样好的两个机位里挑了另一个。
+2. 慢帧上机器人的脑子每帧一次（原来两次、各半个 `dt`）：计时器照 `dt` 减，结果一样，瞄准 / 找路的那一下少算一次。联机的对手（`applyRemote`）照旧每步一次（不在她的路上）。
+3. 「这一步不摆」用 -1：0 是合法的 `dt`（暂停的那一帧），不能当记号。
+4. 镜头外 15 Hz、余量 1.5 m + 12 %：远处的一秒摆 15 次；余量大到一帧里相机怎么转都先摆上。
+5. 首答推的时机（0.8 s）和当场的 `save()` 没动（要定，见交接）。
+6. 空的特效池、空中没有弹丸时不画：热身照样编到；`environment.js` 烘环境图时藏 / 还原可见性是同一个同步调用里的，不受影响。
+7. `_restart` 只刷样式：CSS 动画（连子元素上的：`.iw-turf.is-tick i`、`.iw-bcn.is-press .iw-bcn__disc`）是在样式计算里取消 / 开始的；WebKit 读源码，非排版属性的 `getComputedStyle` 只 `updateStyleIfNeeded`。
+
+**没做的**：
+1. `world/paint.js` 里每个区域一份 flood 几何一直留到关卡结束（排查第 13 条的后一半：`wf-perf` 的文件）。
+2. `main.js` `_updateHud` 每帧几十个临时对象（第 9 条：不在我能动的那几行）；`hud.js` 的 `fit` 闭包、`zkey`。
+3. 开机预载联机大厅（第 21 条：在 `main.js:495`，而且要定她的 App 里有没有联机）。
+4. 游戏键盘的 `_flash`（第 14 条，`play-keys.js`：`wf-softlock`）；节拍台 / M1 墨靶出题那一下的射线检测（第 16、17 条）；菜单 `_updateCursor`（第 20 条：`wf-classic`）；解谜门的实例化（第 22 条）；`updateMatrixWorld`（第 24 条：等 `wf-perf`）；第 4–6 条（站点预热、过门的准备、展板贴图）不在这份任务书里。
+5. 真机：她的 iPhone 13（WKWebView）上没量——CDP 降速只是近似。
+6. `wire-audit` / `runner-audit` / `arena-audit` 没跑（浏览器锁排着十几个；打字取景逐位相同、`sub = 1` 的顺序不变，单元里证明了）。
+
+**交接**：inkwave 分支 `wf-perf-cpu`（从 `088c6dd` 建），IELTS-Base 没有改动（`app/game` 由主会话同步）。合并时：
+- `main.js` 只有两处：`_frame` 里子步那一行（原来两行）；`_updateHud` 开头 `strikeAim` 挪上来、`mapOn` / `idle` 三行，玩家点的循环前加 `if (mapOn)`，后面原来那行 `strikeAim` 删了，帧里 `map:` 那一行。`wf-perf` 改的是 `_loop`、`_frame` 末尾的 `_ftMs`、`_updateHud` 里 `fps:` 那一行——挨着，试合并是干净的。
+- `hud.js`：`_restart` 那几行（`wf-perf` 改的是墨罐和 `_resizeCanvas`，不挨着）。`runner.js`：`wf-softlock` 也改了（`is-nomap`），不挨着。
+- `docs/LEARN.md`：各分支都在末尾加节，冲突时都留下。
+- 要定的：首答推到她账号挪到安静的时候（过门、结算；App 被杀会多丢几题）；她的 App 里要不要开机预载联机大厅；学习关里要不要角上的小地图（`wf-softlock` 已经藏了，`versus2` 留着；藏着的时候这边一点都不画）。
