@@ -22,7 +22,7 @@
 import * as THREE from 'three';
 import { G, emit } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
-import { getPlasticMaterial, getInkMaterial, getGlassMaterial } from '../../../game/character-mats.js';
+import { getPlasticMaterial, getPlasticInstMaterial, getInkMaterial, getGlassMaterial } from '../../../game/character-mats.js';
 import { getTypeRigGeo, DECK } from './deck-geo.js';
 import { getAtlas, glyphCell } from './atlas.js';
 import { capMaterial, paperMaterial, makeTextTexture } from './mats.js';
@@ -137,7 +137,7 @@ export class TypeRig {
     });
     this.hull.add(this.caps);
     // type-bars
-    this.bars = new THREE.InstancedMesh(g.bar, plastic, g.bars.length);
+    this.bars = new THREE.InstancedMesh(g.bar, getPlasticInstMaterial(), g.bars.length);   // (its own: LEARN §50)
     this.bars.castShadow = false; this.bars.receiveShadow = true; this.bars.frustumCulled = false;
     this.barIndex = new Map(); this.barState = new Float32Array(g.bars.length * 3);   // phase x, v, target
     g.bars.forEach((b, i) => { this.barIndex.set(b.key, i); this._barMatrix(i, 0); });

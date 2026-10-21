@@ -386,3 +386,19 @@ test('nothing out of sight keeps animating: the map\'s faded jump line, the put-
   assert.match(src('src/ui/menus.js'), /if \(C\.on\) \{ this\.cursorEl\.classList\.remove\('is-on'\); C\.on = false; \}/);
   assert.match(HUD, /\n\.iw-hud\.is-practice \.iw-squad \{ visibility: hidden; \}\n\.iw-hud\.is-practice \.iw-squad \* \{ animation: none; \}/);
 });
+
+test('the typewriter\'s instanced type-bars draw with a plastic of their own (same shader, same cache key): the shared one rebuilt its program parameters at every switch between them and the plain hull, ~10 times a frame', async () => {
+  const M = await import('../../src/game/character-mats.js');
+  const p = M.getPlasticMaterial(), q = M.getPlasticInstMaterial();
+  assert.notEqual(p, q); assert.equal(M.getPlasticInstMaterial(), q, 'one, kept');
+  assert.equal(q.onBeforeCompile, p.onBeforeCompile); assert.equal(q.customProgramCacheKey(), p.customProgramCacheKey());
+  for (const k of ['type', 'vertexColors', 'roughness', 'metalness', 'clearcoat', 'clearcoatRoughness', 'side', 'transparent']) assert.equal(q[k], p[k], k);
+  assert.ok(q.color.equals(p.color));
+  assert.match(src('src/learn/play/type/rig.js'), /this\.bars = new THREE\.InstancedMesh\(g\.bar, getPlasticInstMaterial\(\), g\.bars\.length\);/);
+  // no InstancedMesh anywhere in the game is built on the shared plastic
+  const { readdirSync } = await import('node:fs');
+  const files = readdirSync(new URL('../../src/', import.meta.url), { recursive: true }).filter((f) => String(f).endsWith('.js'));
+  for (const f of files) for (const line of src('src/' + f).split('\n')) {
+    if (/new THREE\.InstancedMesh\(/.test(line)) assert.ok(!/\bplastic\b|getPlasticMaterial\(\)/.test(line), `${f}: ${line.trim()}`);
+  }
+});
