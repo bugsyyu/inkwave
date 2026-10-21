@@ -1471,3 +1471,45 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
   .iw-learn__quiz span { text-wrap: balance; }   /* 「TAB 地图」 is a keyboard hint (half off the left edge here); the phone has its own 地图 key */
 }
 
+
+/* ================================================================== 往前走 · the safe area (LEARN §48)
+   One set of numbers for the notch / the Dynamic Island / the home bar — src/ui/safe-area.js reads them for the touch
+   layer and the board framing; an audit on a headless page (no notch there) sets them (tools/learn/tap-walk.mjs). Her App
+   draws under the status bar (viewport-fit=cover, the web view's insets left to the page): the HUD's top row — the clock,
+   the special gauge, the turf count, the boss's bar, the notes under them — comes down by the top inset (the clock sat
+   half under the Dynamic Island), and out of the side insets on a phone turned. */
+:root { --iw-sat: env(safe-area-inset-top, 0px); --iw-sar: env(safe-area-inset-right, 0px); --iw-sab: env(safe-area-inset-bottom, 0px); --iw-sal: env(safe-area-inset-left, 0px); }
+.iw-hud .iw-hud__top { top: calc(var(--u) * 1.1 + var(--iw-sat)); }
+.iw-hud .iw-sp { top: calc(var(--u) * 1.3 + var(--iw-sat)); right: calc(var(--u) * 2.2 + var(--iw-sar)); }
+.iw-hud .iw-sb { top: calc(var(--u) * 5.42 + var(--iw-sat)); right: calc(var(--u) * 7.16 + var(--iw-sar)); }
+.iw-hud .iw-turf { top: calc(var(--u) * 10.3 + var(--iw-sat)); right: calc(var(--u) * 2.1 + var(--iw-sar)); }
+.iw-hud .iw-feed { top: calc(var(--u) * 15.2 + var(--iw-sat)); right: calc(var(--u) * 2.2 + var(--iw-sar)); }
+.iw-hud .iw-subaim, .iw-hud .iw-deny { top: calc(44px + var(--iw-sat)); right: calc(22px + var(--iw-sar)); }
+.iw-hud .iw-status { top: calc(118px + var(--iw-sat)); }
+.iw-hud .iw-bb { top: calc(var(--u) * 6.7 + var(--iw-sat)); }
+/* (the walk bar's places, with the same variables: phone, phone upright) */
+@media (max-width: 640px) { .iw-learn .iw-learn__walk { left: calc(10px + var(--iw-sal)); top: calc(10px + var(--iw-sat)); max-width: calc(100vw - 20px - var(--iw-sal) - var(--iw-sar)); } }
+@media (orientation: portrait) and (max-width: 640px) { .iw-learn .iw-learn__walk { top: calc(var(--hudtop, 58px) + var(--iw-sat)); } }
+
+/* ---- the board's keys (src/ui/hud-learn.js framed()): while a board / the booth / a sign is framed the walk bar keeps
+   its place and holds 「看全文」 (when the board has more) and 「继续 ›」 — dark until the board counts as read, then her ink
+   and one small hop (transform only; reduced motion: no hop). A question's own strip and objects (is-play) never hide them:
+   a board is only framed between questions. Turned (and on a desktop) the walk bar sits over the board's top edge, so
+   there the keys stand in a column at the left, in the margin the framing keeps (board/frame.js keysBand: KEYS.col) */
+.iw-learn__more, .iw-learn__go { display: none; }
+.iw-learn.is-framed .iw-learn__walk { opacity: 1; visibility: visible; transition: opacity .25s, visibility 0s; }
+.iw-learn.is-framed .iw-learn__arrow, .iw-learn.is-framed .iw-learn__walkmain, .iw-learn.is-framed .iw-learn__gate, .iw-learn.is-framed .iw-learn__auto { display: none; }
+.iw-learn.is-framed .iw-learn__go, .iw-learn.is-framed .iw-learn__more:not([hidden]) { display: inline-flex; }
+.iw-learn__more { padding: 0 14px; }
+.iw-learn__go { padding: 0 12px 0 18px; gap: 4px; background-color: var(--k3); color: #fff; border-color: rgba(255, 255, 255, .2); }
+.iw-learn__go i { width: 18px; height: 18px; }
+.iw-learn__go.is-ready { background-color: var(--self); color: var(--self-ink); border-color: rgba(255, 255, 255, .3); }
+.iw-learn__go.is-hop { animation: iw-learn-hop .62s var(--spring2) 1; }
+@keyframes iw-learn-hop { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-7px) scale(1.07); } 58% { transform: translateY(0) scale(.97); } 100% { transform: none; } }
+@media (orientation: landscape) {
+  .iw-learn.is-framed .iw-learn__walk { left: calc(16px + var(--iw-sal)); right: auto; top: 50%; transform: translateY(-50%); max-width: none;
+    flex-direction: column; align-items: stretch; gap: 10px; padding: 10px; border-radius: 24px; }
+}
+/* (no 地图 key and no corner map in a level — hud-learn start(); the keys left close up: touch.js _layout) */
+.iw-touch.is-learn.is-nomap .iw-touch__btn:nth-child(6) { display: none; }
+.iw-hud.is-learn.is-nomap .iw-map { display: none !important; }

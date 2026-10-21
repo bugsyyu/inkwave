@@ -20,8 +20,8 @@
 import { boardBand, frameBoard } from './board/frame.js';
 
 const CSS = `@media (max-height: 460px) and (orientation: landscape) {
-  .iw-ps.is-typing .iw-ps__box { left: calc(env(safe-area-inset-left) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
-    width: max-content !important; max-width: max(150px, calc(var(--iw-pk-side, 300px) - env(safe-area-inset-left) - 14px)) !important; padding: 6px 12px !important; gap: 8px !important; border-radius: 16px !important; }
+  .iw-ps.is-typing .iw-ps__box { left: calc(var(--iw-sal, env(safe-area-inset-left)) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
+    width: max-content !important; max-width: max(150px, calc(var(--iw-pk-side, 300px) - var(--iw-sal, env(safe-area-inset-left)) - 14px)) !important; padding: 6px 12px !important; gap: 8px !important; border-radius: 16px !important; }
   .iw-ps.is-typing .iw-ps__box.is-enter { animation-name: iw-ps-in-l7; }
   @keyframes iw-ps-in-l7 { from { opacity: 0; translate: 0 -8px; } }
   .iw-ps.is-typing .iw-ps__play { display: none !important; }

@@ -19,6 +19,7 @@ import { TOUCH } from '../config.js';
 import { t as tx } from '../ui/i18n.js';   // 中文化 (docs/LEARN.md §15): the portrait gate's words
 import { PlayKeys } from '../ui/play-keys.js';   // 题即玩法 (docs/PLAY.md §6.4): the game keyboard owns its own touches
 import { ReadStrip } from '../learn/play/board/strip.js';   // … and the reading strip its own (scroll, ✕)
+import { safeInsets, forgetInsets } from '../ui/safe-area.js';   // LEARN §48: the notch, the Dynamic Island, the home bar
 
 // Left share of the screen that owns the movement stick. The rest is look / fire / buttons.
 const MOVE_ZONE = 0.44;
@@ -133,7 +134,7 @@ export class TouchControls {
     this._onMove = (e) => this._move(e);
     this._onUp = (e) => this._up(e);
     this._onResize = () => this._layout();
-    this._onOrient = () => { this.releaseAll(); this._layout(); };   // otherwise the zones move under the thumb
+    this._onOrient = () => { forgetInsets(); this.releaseAll(); this._layout(); };   // otherwise the zones move under the thumb
     // Listeners live on window but every handler bails on `pointerType !== 'touch'`, so a Bluetooth mouse on a tablet
     // stays on the normal pointer-lock path and menu taps (pointerType touch, no button hit, layer not live) pass
     // straight through — nothing here calls preventDefault outside a live match.
@@ -162,18 +163,29 @@ export class TouchControls {
     // bar (the clock, the special gauge and the turf count are up there on a phone held this way), and every button is at
     // least 44 pt across; the thumb cluster stays where it is
     const topOff = this.portrait ? Math.round(Math.min(w, h) * 0.235) : 0;
+    // LEARN §48: out of the safe area (her App draws under the notch / the Dynamic Island and the home bar): the top row
+    // comes down with the HUD's top row, the clusters keep clear of a side / bottom inset wider than their margin. A key the
+    // level hides (styles: display none — a learning level's fire, sub, special, cheer, map) takes no touch — before, an
+    // unseen fire key still fired — and the top row closes up from the corner over the keys that are left
+    const ins = safeInsets(), mr = Math.max(m, ins.right + 8), mb = Math.max(m, ins.bottom + 8), mt = m + ins.top;
+    const slots = TOP_LAYOUT.map((t) => t.x);
+    let k = 0;
     for (const b of this.buttons) {
-      b.cx = w - m - b.ux * u;
-      b.cy = b.top ? m + topOff + b.uy * u : h - m - b.uy * u;
+      b.off = typeof getComputedStyle === 'function' && getComputedStyle(b.el).display === 'none';
+      const ux = b.top ? (b.off ? b.ux : slots[Math.min(k++, slots.length - 1)]) : b.ux;
+      b.cx = w - mr - ux * u;
+      b.cy = b.top ? mt + topOff + b.uy * u : h - mb - b.uy * u;
       b.r = this.portrait ? Math.max(b.ur * u, 22) : b.ur * u;
       b.el.style.width = b.el.style.height = `${(b.r * 2).toFixed(1)}px`;
       b.el.style.transform = `translate3d(${(b.cx - b.r).toFixed(1)}px,${(b.cy - b.r).toFixed(1)}px,0)`;
     }
     if (this.move.id === null) this._hideStick();
   }
+  // (the level's keys changed — hud-learn start / end toggle what the layer shows)
+  relayout() { if (this.el) this._layout(); }
 
   _btnAt(x, y) {
-    for (const b of this.buttons) if (Math.hypot(x - b.cx, y - b.cy) <= b.r) return b;
+    for (const b of this.buttons) if (!b.off && Math.hypot(x - b.cx, y - b.cy) <= b.r) return b;
     return null;
   }
 

@@ -21,6 +21,8 @@ import { LEARN } from '../../../config.js';
 import { EchoBooth } from '../echo/booth.js';
 import { Signs } from '../board/signs.js';
 import { openCheckin, checkinFor } from '../../../ui/checkin-card.js';   // 打卡 (LEARN §39): the check-in card on the pad
+import { keysBand } from '../board/frame.js';
+import { safeInsets } from '../../../ui/safe-area.js';
 
 const _v = new THREE.Vector3();
 
@@ -86,7 +88,7 @@ export class ExitStation {
       this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
       this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
       this.echo.on.classic = () => this._classic('speak', speak);
-      this.echo.walk.on.framed = () => F.hud?.playMode?.(true); this.echo.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
+      this._keysOn(this.echo.walk);
       const at = spot(boards.length ? -2.4 : 0, -3.2);
       this.echoAt = at;
       this.echo.open({ key: speak.id, item, at: new THREE.Vector3(at.x, at.y, at.z), yaw: Math.atan2(fx, fz) });
@@ -98,7 +100,7 @@ export class ExitStation {
       this.signs.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
       this.signs.on.classic = (sg) => this._classic(sg.kind, sg);
       this.signs.on.checkin = (sg) => this._checkin(sg);
-      this.signs.walk.on.framed = () => F.hud?.playMode?.(true); this.signs.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
+      this._keysOn(this.signs.walk);
       const list = boards.map((s) => ({ id: s.id, kind: s.design.mechanic === 'checkin-pad' ? 'checkin' : s.design.mechanic === 'weekly-sign' ? 'weekly' : 'placement', title: s.title, text: s.items[0] && s.items[0].zh }));
       list.sort((x, y) => (x.kind === 'checkin') - (y.kind === 'checkin'));   // (the check-in pad last: stepping on it ends the day)
       this.signs.prepare('exit', list);
@@ -111,6 +113,16 @@ export class ExitStation {
     this.on = true;
     this.log.push({ t: +F.t.toFixed(2), ev: 'exit', spots: this.spots.map((s) => s.kind) });
     return true;
+  }
+  // LEARN §48: the booth's board, a sign framed → the walk bar turns into its keys (看全文, 继续 › = the auto-walk on to the
+  // next stop: stepping off the booth's pad is 说完了), framed in the band they leave clear
+  _keysOn(W) {
+    const F = this.flow;
+    W.bandFor = (aspect, w, h) => keysBand(aspect, w, h, safeInsets());
+    const keys = (i) => { const k = W.keysOf(i); if (k) F.hud?.framed?.({ ...k, onGo: () => F.autoWalk(true) }); };
+    W.on.framed = (i) => keys(i);
+    W.on.unframed = () => F.hud?.framed?.(null);
+    W.on.read = (i) => { if (W.framed === i) keys(i); };
   }
   _checkin(sg) {
     this.checked = true;

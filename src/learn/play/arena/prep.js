@@ -1,7 +1,7 @@
 // 题即玩法 play-8 — the duel's 备战 between rounds as M6 boards (docs/PLAY.md §4 「课文 · 对抗赛：M6（备战时）」, §5.3; LEARN §24
 // 拿不准的 1, §27). Before a round (the 今日小考's one, the 回炉 round too) the step's boards come to her one at a time — a
 // board BD.view m in front of her, turned towards the zone, framed as it rises (BoardWalk: its rows replay their words,
-// 「读全文」 opens the reading strip) — and the strip says which round is next with 「下一块」 / 「开始这一轮」. Walking on
+// 「看全文」 opens the reading strip) — and the strip says which round is next with 「下一块」 / 「开始这一轮」. Walking on
 // (LEARN.duel.prepWalk m from where she stood) starts it too: the page turn, as on the puzzle's boards; on a keyboard
 // Enter is 「开始」 (the mouse is the camera's while she plays: the strip's buttons are for a finger). The match is
 // never paused — the form holds the clock and the zone and stands the bots (forms/duel.js); she walks as she likes.

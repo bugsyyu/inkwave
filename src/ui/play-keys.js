@@ -19,6 +19,7 @@
 //   PlayKeys.owns(event) — true for a pointer event on the keyboard (the touch layer must skip those, see §19)
 // Nothing here knows an answer: no key, no text, no colour depends on whether anything is right (PLAY §1.3).
 import { h, prefersReducedMotion } from './ui-util.js';
+import { safeInsets } from './safe-area.js';
 import { keyboardLayout, keyLabel, keyOfEvent, keysFor } from '../learn/play/type/keys.js';
 
 const CSS = `
@@ -91,15 +92,7 @@ function ensureCss() {
   document.head.appendChild(h('style', { id: 'iw-pk-css' }, CSS));
 }
 
-/** env(safe-area-inset-*) in px, read through a probe element */
-function safeInsets() {
-  if (typeof document === 'undefined') return { top: 0, right: 0, bottom: 0, left: 0 };
-  const p = h('div', { style: 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)' });
-  document.body.appendChild(p);
-  const cs = getComputedStyle(p), r = { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0, bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
-  p.remove();
-  return r;
-}
+// (env(safe-area-inset-*) in px: the page's own variables, src/ui/safe-area.js — LEARN §48)
 
 export class PlayKeys {
   constructor(root = (typeof document !== 'undefined' && (document.getElementById('ui-root') || document.body)), o = {}) {

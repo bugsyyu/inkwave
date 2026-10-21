@@ -9,6 +9,9 @@
 //       polyline [{ x, y, z }] ending at the gate), LEARN.board.gap apart, first one nearest the start, each
 //       LEARN.board.side m to her right of the route, facing back down the route (towards her as she comes)
 //   onScreenFont(layout, frame) → the smallest text's px on screen
+//   keysBand(aspect, W, H, insets) → band   LEARN §48: the band while the HUD shows the board's keys (hud-learn framed()):
+//       upright, under their row (the walk bar's place); turned, right of their column — a lopsided band (left / right):
+//       frameBoard then moves the camera sideways, still straight in front of the board. Both clear the safe area.
 import { LEARN } from '../../../config.js';
 
 const BD = LEARN.board;
@@ -23,7 +26,8 @@ export function frameBoard(board, aspect, o = {}) {
   const vfov = o.vfov || 52, H = o.H || (aspect < 1 ? 844 : 390), W = o.W || Math.round(H * aspect);
   const band = o.band || boardBand(aspect, W, H);
   const t = Math.tan((vfov * Math.PI) / 360);
-  const bandW = W - band.side * 2, bandH = H - band.top - band.bottom;
+  const L = band.left ?? band.side, R = band.right ?? band.side;   // (LEARN §48: a lopsided band — keysBand)
+  const bandW = W - L - R, bandH = H - band.top - band.bottom;
   const w = board.w, h = board.h, cy = (board.bottom ?? BD.bottom) + h / 2;
   // the distance at which the board's height fills the band's height, or its width the band's width
   const dH = (h / 2) / (t * (bandH / H)), dW = (w / 2) / (t * aspect * (bandW / W));
@@ -31,11 +35,23 @@ export function frameBoard(board, aspect, o = {}) {
   // the band's centre on the screen (NDC y): the board's centre goes there — the camera sits that much lower / higher
   const ndcC = 1 - ((band.top + bandH / 2) / H) * 2;
   const camY = cy - ndcC * d * t;
+  // (and a lopsided band's centre across: the camera that much to the side, looking as straight ahead — the text frontal)
+  const ndcX = ((L + bandW / 2) / W) * 2 - 1, camX = Math.abs(ndcX) > 1e-9 ? +(-ndcX * d * t * aspect).toFixed(3) : 0;
   const pxPerM = H / (2 * d * t);
   const rect = { w: w * pxPerM, h: h * pxPerM };
-  rect.x = (W - rect.w) / 2; rect.y = band.top + (bandH - rect.h) / 2;
+  rect.x = L + (bandW - rect.w) / 2; rect.y = band.top + (bandH - rect.h) / 2;
   const fits = rect.w <= bandW + 0.5 && rect.h <= bandH + 0.5;
-  return { pos: [0, +camY.toFixed(3), +d.toFixed(3)], look: [0, +camY.toFixed(3), 0], fov: vfov, d, rect, pxPerM, fits, band };
+  return { pos: [camX, +camY.toFixed(3), +d.toFixed(3)], look: [camX, +camY.toFixed(3), 0], fov: vfov, d, rect, pxPerM, fits, band };
+}
+// LEARN §48: the board's keys (hud-learn framed(): 看全文 · 继续 ›) — upright they keep the walk bar's place, the row's
+// bottom KEYS.row px under the top inset; turned they stand in a column at the left, KEYS.col px wide with its margins.
+// The band keeps clear of them and of the safe area (insets in px: src/ui/safe-area.js); the far side keeps the usual
+// margin, so a wide board is not shrunk on both sides for a column on one
+export const KEYS = { row: 130, col: 160 };
+export function keysBand(aspect, W, H, ins = {}) {
+  const b = boardBand(aspect, W, H), t = ins.top || 0, r = ins.right || 0, bo = ins.bottom || 0, l = ins.left || 0;
+  if (aspect < 1) return { ...b, top: Math.max(b.top, t + KEYS.row), bottom: b.bottom + bo, side: b.side + Math.max(l, r) };
+  return { ...b, top: b.top + t, bottom: b.bottom + bo, left: l + KEYS.col, right: b.side + r };
 }
 // the smallest text on a framed board, in screen px (canvas px × screen px per canvas px)
 export function onScreenFont(layout, frame, boardW) { return layout.minFont * (frame.rect.w / layout.W) * (boardW ? 1 : 1); }

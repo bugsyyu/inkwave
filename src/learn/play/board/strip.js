@@ -1,8 +1,9 @@
 // 展板路 M6 — the reading strip (docs/PLAY.md §3 M6): a board's whole text when it is longer than the board (the
 // 200-character lesson note, a reading passage, the echo booth's sample). Not a card and not a panel: it sits in the
 // lower half, scrolls, takes touches only on itself, never pauses or holds anything — the world runs on and she stands
-// at the board. It opens from the board's 「读全文」 hotspot and closes on ✕ or when she walks on; it never opens while a
-// question is up (blocked = true closes it and refuses to open).
+// at the board. It opens from the board's 「看全文」 hotspot (and the HUD's 「看全文」 key, LEARN §48) and closes on ✕ or when
+// she walks on; it never opens while a question is up (blocked = true closes it and refuses to open). Turned, it leaves the
+// HUD's column of board keys at the left clear (hud.css: the board's keys).
 //
 //   const S = new ReadStrip(root, { ink })     root: #ui-root (styles from JS, as forms/ui.js)
 //   S.open({ kicker, title, blocks }) → bool   blocks: [{ t: 'p' | 'en' | 'ex' | 'li' | 'tip' | 'label' | 'q' | 'gloss', … }]
@@ -13,7 +14,7 @@ const CSS = `
   font-family: 'Rubik', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'WenQuanYi Zen Hei', 'Microsoft YaHei', sans-serif; -webkit-font-smoothing: antialiased; }
 .iw-read.is-off { display: none; }
 .iw-read * { box-sizing: border-box; }
-.iw-read__box { pointer-events: auto; position: absolute; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom)); translate: -50% 0; width: min(640px, calc(100vw - 32px));
+.iw-read__box { pointer-events: auto; position: absolute; left: 50%; bottom: calc(10px + var(--iw-sab, env(safe-area-inset-bottom))); translate: -50% 0; width: min(640px, calc(100vw - 32px));
   max-height: min(52vh, 460px); display: flex; flex-direction: column; border-radius: 22px; background: linear-gradient(170deg, rgba(40, 33, 60, .96), rgba(22, 18, 32, .96));
   border: 1.5px solid rgba(255, 255, 255, .2); border-top: 3px solid var(--self); box-shadow: 0 0 0 2.5px var(--k), 0 4px 0 2.5px var(--k), 0 -6px 28px rgba(0, 0, 0, .3); touch-action: pan-y; }
 .iw-read__box.is-enter { animation: iw-read-in .4s cubic-bezier(.34, 1.56, .64, 1) backwards; }
@@ -44,6 +45,7 @@ const CSS = `
 .iw-read__gloss { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; }
 .iw-read__gloss b { font-weight: 700; } .iw-read__gloss span { color: #c3bdd6; }
 @media (orientation: portrait) and (max-width: 640px) { .iw-read__box { left: 10px; right: 10px; width: auto; translate: none; max-height: 48vh; } .iw-read__box.is-enter { animation-name: iw-read-up; } @keyframes iw-read-up { from { opacity: 0; translate: 0 40px; } } }
+@media (orientation: landscape) and (max-height: 460px) { .iw-read__box { left: calc(var(--iw-sal, 0px) + 168px); right: calc(var(--iw-sar, 0px) + 16px); width: auto; max-width: 640px; translate: none; } .iw-read__box.is-enter { animation-name: iw-read-up; } @keyframes iw-read-up { from { opacity: 0; translate: 0 40px; } } }
 @media (prefers-reduced-motion: reduce) { .iw-read__box.is-enter { animation: none; } .iw-read__x { transition: none; } }
 `;
 let cssDone = false;

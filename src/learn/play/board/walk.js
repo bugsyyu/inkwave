@@ -2,9 +2,10 @@
 // characters), the word boards (5 words a board), the sounds, the grammar lesson's lines, the reading passage. She walks
 // (or is walked) up to a board and the camera springs round to frame it; while she stands there it stays framed; walking
 // on lets go — that is the page turn, there is no 下一页. On the board itself: a row replays its word, 「跟读」 plays them
-// with gaps to say them after, 「听全文」 plays the passage, 「读全文」 opens the reading strip (strip.js: the lower half,
+// with gaps to say them after, 「听全文」 plays the passage, 「看全文」 opens the reading strip (strip.js: the lower half,
 // scrolls, the world runs on; ✕ or walking on closes it; never while a question is up). Nothing comes at her in a board
-// zone (inZone() — the race's bots and the duel ask it).
+// zone (inZone() — the race's bots and the duel ask it). LEARN §48: the HUD's board keys (hud-learn framed()) read
+// keysOf(i) — 看全文 as a DOM key, the same strip — and 继续 is the station's own way on.
 //
 //   const W = new BoardWalk({ scene, camera, color, reduced, root })
 //   W.prepare(key, specs) → entries          paint a gate's boards ahead (2 gates before it); W.free(key)
@@ -16,10 +17,13 @@
 //                                            phones have no stick — the 「自动走」 button walks her on)
 //   W.inZone(pos) → bool
 //   W.questionUp = bool                      a question is up: the strip closes and will not open
+//   W.here = bool                            LEARN §48: frame the (nearest) board wherever she stands — the boss's booth, which
+//                                            rises in front of her on a phone with no stick to walk into its ring with
 //   W.bandFor = (aspect, W, H, slab) → band | null   play-7: the framing band (frame.js boardBand's shape) when the screen's top
 //                                            holds more than the default allows for (the boss's HP bar: arena/host.js)
 //   W.tapApi { down(x, y, id) → bool, up(x, y, id, cancel) }   taps on the framed board's hotspots (touch.js G.playTap)
-//   W.on = { speak(text, { slow, onEnd }), framed(i), read(i), more(i), hotspot(id, board, data) }
+//   W.keysOf(i) → { key, more, read, onMore() } | null   what the HUD's board keys need (LEARN §48)
+//   W.on = { speak(text, { slow, onEnd }), framed(i), unframed(i), read(i), more(i), hotspot(id, board, data) }
 //   W.clear() · W.dispose() · W.warm(renderer, camera)
 import * as THREE from 'three';
 import { LEARN } from '../../../config.js';
@@ -39,7 +43,7 @@ export class BoardWalk {
     this.entries = new Map();
     this.list = [];           // placed: [{ b, spot, read, t, view: Vector3 }]
     this.framed = -1; this.framing = null; this._aspect = 0;
-    this.on = {}; this.bandFor = null;
+    this.on = {}; this.bandFor = null; this.here = false;
     this._q = false; this._tap = null; this._seq = 0;
     this.tapApi = { down: (x, y, id) => this._down(x, y, id), up: (x, y, id, cancel) => this._up(x, y, id, cancel) };
     this.strip.onClose = () => { this.on.stripClosed?.(); };
@@ -76,6 +80,13 @@ export class BoardWalk {
 
   inZone(pos) { for (const L of this.list) if (Math.hypot(pos.x - L.view.x, pos.z - L.view.z) < BD.zone) return true; return false; }
   read(i) { return !!(this.list[i] && this.list[i].read); }
+  // LEARN §48: the HUD's keys for board i — whether it holds more than it shows (its 看全文 hotspot: the reading strip has
+  // the rest) and whether it counts as read; key: the same object while it is the same placed board
+  keysOf(i) {
+    const L = this.list[i]; if (!L) return null;
+    const hs = (L.b.entry.layout && L.b.entry.layout.hotspots) || [];
+    return { key: L, more: hs.some((h) => h.id === 'more'), read: L.read, onMore: () => { if (this.list[this.framed] === L) this.activate('more'); } };
+  }
   allRead() { return this.list.every((L) => L.read); }
   nextSpot() {
     const i = this.list.findIndex((L) => !L.read);
@@ -96,7 +107,7 @@ export class BoardWalk {
     let best = -1, bd = Infinity;
     for (let i = 0; i < this.list.length; i++) {
       const L = this.list[i], d = Math.hypot(her.x - L.view.x, her.z - L.view.z), e = d + (L.read ? 0.6 : 0) - (i === this.framed ? 0.05 : 0);
-      const inside = d < BD.zone + (i === this.framed ? 0.4 : 0);
+      const inside = this.here || d < BD.zone + (i === this.framed ? 0.4 : 0);
       L.inT = inside ? L.inT + dt : 0;
       if (inside && e < bd && (i === this.framed || speed < 1.6 || L.inT > 0.35)) { best = i; bd = e; }
     }

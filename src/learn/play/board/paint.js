@@ -6,7 +6,7 @@
 //                               text) · passageSpec(passage) · echoSpec(item) · signSpec(kind, title, text)
 //   layoutBoard(spec, { measure, W, maxH }) → { W, H, ops, hotspots: [{ id, x, y, w, h, data }], cut, minFont, full }
 //       everything on a board is ≥ BOARD.minFont canvas px (≥ 17 px on a phone once the board is framed — frame.js);
-//       a board takes what fits — its title, the first paragraph — and when the text goes on, a 「读全文」 hotspot opens the
+//       a board takes what fits — its title, the first paragraph — and when the text goes on, a 「看全文」 hotspot opens the
 //       reading strip with all of it (`full`: the strip's blocks)
 //   drawBoard(ctx, layout, { ink, titan })   a sticker (LEARN §38: the §35 plates at a board's size — an ink outline, a
 //                                     solid drop, a pearl face), ink letters, the title in Titan One; her ink on the
@@ -132,7 +132,7 @@ export function layoutBoard(spec, o = {}) {
   }
   if (spec.sub) { textLine(spec.sub, P, y + BOARD.body * 0.8, BOARD.body, 600, MUTED); y += BOARD.body * 1.3; }
   y += BOARD.gap * (isRows ? 0.6 : 1);
-  // the footer (buttons, and 读全文 when something did not fit) is placed last; reserve its height now
+  // the footer (buttons, and 看全文 when something did not fit) is placed last; reserve its height now
   const footBtns = isRows ? [] : (spec.buttons || []).slice();
   const footH = (n) => (n ? BOARD.btnH + BOARD.gap * 1.5 : 0) + P * 0.45;
   const room = () => maxH - footH(footBtns.length + (spec.full && !isRows ? 1 : 0)) - y;
@@ -182,8 +182,8 @@ export function layoutBoard(spec, o = {}) {
     y += BOARD.gap * 0.6;
     if (cl.cut) break;
   }
-  // footer: the buttons, and 读全文 when the board could not hold it all
-  if (cut && spec.full) footBtns.push({ id: 'more', label: '读全文', icon: 'book' });
+  // footer: the buttons, and 看全文 when the board could not hold it all (LEARN §48: 读全文 read as 「read it aloud」 to her)
+  if (cut && spec.full) footBtns.push({ id: 'more', label: '看全文', icon: 'book' });
   if (footBtns.length) {
     y += BOARD.gap * 0.5;
     const gap = 18, n = footBtns.length;

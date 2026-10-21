@@ -3,8 +3,8 @@
 // board, their tip and examples), the grammar lesson's lines, the reading passage — stand along the last stretch of the
 // route to the gate, on her right, facing her as she comes (boardSpots). Walking up to one frames it (the camera
 // springs round; walking on lets go); a row replays its word, 「跟读」 says them with gaps, 「听全文」 plays the passage,
-// 「读全文」 opens the reading strip (never while a question is up). The auto-walk stops at each unread board
-// (host.autoTarget) and 「自动走」 walks her on. Nothing here is judged or recorded.
+// 「看全文」 opens the reading strip (never while a question is up). The auto-walk stops at each unread board
+// (host.autoTarget) and the HUD's 「继续 ›」 walks her on (LEARN §48). Nothing here is judged or recorded.
 //
 //   const S = new BoardStation(host)
 //   S.prepare(g) → n          the gate's boards painted (two gates ahead) · S.place(g, route) when it becomes `next`
@@ -14,7 +14,8 @@ import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { daySteps } from '../../api.js';
 import { BoardWalk } from '../board/walk.js';
-import { boardSpots } from '../board/frame.js';
+import { boardSpots, keysBand } from '../board/frame.js';
+import { safeInsets } from '../../../ui/safe-area.js';
 import { wordsSpec, soundsSpec, lessonSpec, passageSpec } from '../board/paint.js';
 
 export const BOARDS_MAX = 6;   // boards a gate shows at most (BoardSet's instances: the review day's 48 sounds would be 24)
@@ -57,11 +58,15 @@ export class BoardStation {
     const W = (this.walk = new BoardWalk({ scene: G.scene, camera: G.camera, color: G.teamHex?.[0] || '#ff8a14', reduced: this.host.reduced, root: (G.hud && G.hud.root) || document.body, max: BOARDS_MAX }));
     try { W.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     W.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-    // (the HUD's walk bar goes while a board is framed — in landscape it sat over the board's top edge; back when she walks on)
-    W.on.framed = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i }); this.flow.hud?.playMode?.(true); };
-    W.on.unframed = () => { if (this.flow.phase === 'walk' || this.flow.phase === 'exit') this.flow.hud?.playMode?.(false); };
-    W.on.read = (i) => this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i });
+    // LEARN §48: a framed board turns the walk bar into its keys — 看全文, 继续 › (the auto-walk on: the next board, the
+    // gate) — framed in the band they leave clear (before, the walk bar went, 「自动走」 with it, and a phone held upright
+    // had nothing on the screen to go on with); a board she passes on the auto-walk, read before, leaves the walk bar be
+    W.bandFor = (aspect, w, h) => keysBand(aspect, w, h, safeInsets());
+    W.on.framed = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i }); if (!(this.flow.auto && W.read(i))) this._keys(i); };
+    W.on.unframed = () => this.flow.hud?.framed?.(null);
+    W.on.read = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i }); if (W.framed === i) this._keys(i); };
   }
+  _keys(i) { const k = this.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, onGo: () => this.flow.autoWalk(true) }); }
   warm() { this._ensure(); }
   get pose() { return this.walk && this.walk.framing ? this.walk.framing : null; }
   get framed() { return this.walk ? this.walk.framed : -1; }

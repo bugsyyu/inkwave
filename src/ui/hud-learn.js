@@ -1,7 +1,16 @@
 // 关卡学习 — the level's own layer (docs/LEARN.md §5, hooks). The HUD owns one: `hud.learn = new LearnHud(hud)`; the
-// level (src/learn/flow.js and the forms) drives it: start(flow) · walk(info) · playMode(on) · hide() ·
+// level (src/learn/flow.js and the forms) drives it: start(flow) · walk(info) · playMode(on) · framed(info) · hide() ·
 // results(data, actions) · end() — and the voice every play kind speaks with: _speak(text, done, o) (the course's
 // recording, else the device's own English voice through speechSynthesis).
+//
+// 往前走 (LEARN §48): while no question is up the screen always shows her way on. Walking, it is the walk bar's
+// 「自动走」; when a board (the booth, a sign) is framed the walk bar stays and turns into the board's keys — 「看全文」 when
+// the board holds more than it shows (the reading strip: what the board's own hotspot opens, as a DOM key a thumb can
+// always hit) and 「继续 ›」 (the station's way on: the auto-walk to the next board / the gate / the next stop, the booth's
+// 说完了). Once the board counts as read 继续 lights in her ink with one small hop. On a phone held upright the keys keep
+// the walk bar's place (the board is framed under them); turned, they stand in a column at the left, in the margin the
+// framing keeps clear (board/frame.js keysBand). framed(info | null): info { more, read, onMore, onGo }; playMode(true)
+// (a question's strip and objects) hides the walk bar but never the board's keys.
 //
 // 题即玩法 (docs/PLAY.md; play-8, LEARN §27): there is no question card any more — a question is a thing on the stage and
 // the strip (src/ui/play-strip.js) says it. What stays here: the walk bar (where the next gate is, 「自动走」), the
@@ -34,7 +43,12 @@ export class LearnHud {
     this.walkGate = h('span', { class: 'iw-learn__gate' }, '');
     this.autoBtn = h('button', { class: 'iw-learn__btn iw-learn__auto', type: 'button' }, h('i', { html: GLYPHS.play }), h('span', null, '自动走'));
     this.autoBtn.addEventListener('click', () => { if (this.flow) { this.flow.autoWalk(!this.flow.auto); this._snd('ui_click'); } });
-    this.walk_ = h('div', { class: 'iw-learn__walk' }, this.arrow, h('span', { class: 'iw-learn__walkmain' }, this.walkTxt, this.walkDist), this.walkGate, this.autoBtn);
+    // ---- the board's keys (LEARN §48): 看全文 · 继续 ›, in the walk bar while a board is framed
+    this.moreBtn = h('button', { class: 'iw-learn__btn iw-learn__more is-dim', type: 'button', hidden: true }, h('i', { html: GLYPHS.eye }), h('span', null, '看全文'));
+    this.moreBtn.addEventListener('click', () => { const f = this._fr; if (f && f.onMore) { this._snd('ui_click'); f.onMore(); } });
+    this.goBtn = h('button', { class: 'iw-learn__btn iw-learn__go', type: 'button' }, h('span', null, '继续'), h('i', { html: GLYPHS.next }));
+    this.goBtn.addEventListener('click', () => { const f = this._fr; this._snd('ui_confirm'); if (f && f.onGo) f.onGo(); else if (this.flow) this.flow.autoWalk(true); });
+    this.walk_ = h('div', { class: 'iw-learn__walk' }, this.arrow, h('span', { class: 'iw-learn__walkmain' }, this.walkTxt, this.walkDist), this.walkGate, this.autoBtn, this.moreBtn, this.goBtn);
 
     // ---- results card
     this.rTitle = h('div', { class: 'iw-learn__rtitle iw-display' }, '这一关走完了');
@@ -65,15 +79,22 @@ export class LearnHud {
     if (this.hud.timerTxt) this.hud.timerTxt.textContent = `第 ${flow.week} 周 · 第 ${flow.day} 天`;
     this.hud.el?.classList.add('is-learn');
     G.touch?.el?.classList.add('is-learn');
+    // LEARN §48: no 地图 key and no corner map in a level (INKWAVE's map plans a Super Jump to a teammate — nothing to plan
+    // here, and it could not open while a board held the lens: the key she pressed and nothing came); the levels with a
+    // team on a Zone Control stage keep it (flow.mapKey: versus2)
+    const nomap = !flow.mapKey;
+    this.hud.el?.classList.toggle('is-nomap', nomap); G.touch?.el?.classList.toggle('is-nomap', nomap);
+    G.touch?.relayout?.();
     this._warmVoice();
   }
   end() {
     this.on = false; this.flow = null;
     if (this._cu) { cancelAnimationFrame(this._cu); this._cu = 0; }
-    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-done', 'is-play'); this.playOn = false;
+    this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-done', 'is-play', 'is-framed'); this.playOn = false; this._fr = null;
     this.el.setAttribute('aria-hidden', 'true');
-    this.hud.el?.classList.remove('is-learn');
-    G.touch?.el?.classList.remove('is-learn');
+    this.hud.el?.classList.remove('is-learn', 'is-nomap');
+    G.touch?.el?.classList.remove('is-learn', 'is-nomap');
+    G.touch?.relayout?.();
     stopAudio();   // the recording or the device's voice
   }
 
@@ -84,6 +105,22 @@ export class LearnHud {
     this.el.classList.toggle('is-play', this.playOn);
     if (this.playOn) this.el.classList.remove('is-walk');
     else if (this.on && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
+  }
+
+  // 往前走 (LEARN §48): a board / the booth / a sign framed while no question is up — the walk bar turns into its keys
+  // (看全文 when info.more, 继续 › → info.onGo, else the auto-walk); null: it let go, the walk bar is back. Called again
+  // for the same board when it counts as read (info.read): 继续 lights, with one hop when it was not read before
+  framed(info) {
+    const was = this._fr, same = !!(was && info && was.key === info.key);
+    this._fr = info || null;
+    this.el.classList.toggle('is-framed', !!info);
+    if (!info) { this.goBtn.classList.remove('is-ready', 'is-hop'); this.moreBtn.hidden = true; return; }
+    this.moreBtn.hidden = !info.more;
+    const ready = !!info.read;
+    this.goBtn.classList.toggle('is-ready', ready);
+    // (one hop as it turns ready while she stands there; a board read before is ready from the start, and still)
+    if (same && ready && !was.read && !prefersReducedMotion()) restartAnim(this.goBtn, 'is-hop');
+    else if (!same) this.goBtn.classList.remove('is-hop');
   }
 
   // ================================================================ walking
@@ -144,6 +181,7 @@ export class LearnHud {
   // ================================================================ results
   results(data, actions) {
     this.hide();
+    this.framed(null);
     this.el.classList.remove('is-walk', 'is-play'); this.el.classList.add('is-done');
     this.rScore.innerHTML = '';
     const num = h('b', null, String(data.done));

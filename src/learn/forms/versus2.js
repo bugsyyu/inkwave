@@ -38,6 +38,8 @@ const now = () => performance.now() / 1000;
 const r1 = (x) => Math.round(x * 10) / 10;
 
 export class Versus2Flow extends LearnFlow {
+  // (LEARN §48: a Zone Control match with a team — the HUD keeps its 地图 key and corner map here, hud-learn start())
+  get mapKey() { return true; }
   constructor(match, opts = {}) {
     super(match, opts);   // B: the level (the day's duel plan) and hud.start; _place() below: no route, no gates
     this.form = 'versus2';

@@ -6,7 +6,7 @@
 // at — here the runner hands it that spot while she is on the board's own stretch of road (from the board before it to
 // just past it: ≈ gap / her pace seconds each) and nothing once she is past the last one, so swimming on is the page
 // turn (no 下一页); the lens springs to the framing pose and back (runner/cam.js, never a cut). A tap on a row replays
-// its word, 「跟读」 says them with gaps, 「读全文」 opens the reading strip (never while a row or a typed item is up) — the
+// its word, 「跟读」 says them with gaps, 「看全文」 opens the reading strip (never while a row or a typed item is up) — the
 // taps come from this module's own pointer listeners while a board is framed (touch.js's swipe hook takes every finger
 // in the runner and would never reach G.playTap). Nothing here is judged or recorded. The reading passage (阅读课文)
 // stays the board before the start (PLAY §4 「M6（起跑前）」, play-runner).

@@ -22,6 +22,8 @@ import { FlipStation } from '../wire/flip.js';
 import { PrepStation } from './prep.js';
 import { isFlipGate } from '../../forms/common.js';
 import { hudBand } from '../landscape.js';
+import { keysBand } from '../board/frame.js';
+import { safeInsets } from '../../../ui/safe-area.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3();
@@ -37,7 +39,17 @@ class EchoStation {
     if (this.echo) return;
     const hex = G.teamHex?.[0] || '#ff8a14', root = (G.hud && G.hud.root) || document.body;
     this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
-    this.echo.walk.bandFor = hudBand;   // (play-7: the board framed under the boss's HP bar and the clock, not behind them)
+    // (play-7: the board framed under the boss's HP bar and the clock, not behind them — LEARN §48: and clear of the HUD's
+    // board keys, the safe area)
+    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBand(aspect, w, h, safeInsets()); return { ...k, top: Math.max(a.top, k.top) }; };
+    // LEARN §48: she is in the booth where she stands (a phone held upright has no stick to walk into its ring with — the
+    // S phase waited out its clock): the board framed at once, the sample after sampleGap, and the HUD's keys — 看全文,
+    // 继续 › = 说完了 — besides the board's own
+    this.echo.here = true;
+    const keys = (i) => { const k = this.echo.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, onGo: () => this.echo?._done('button') }); };
+    this.echo.walk.on.framed = (i) => keys(i);
+    this.echo.walk.on.unframed = () => this.flow.hud?.framed?.(null);
+    this.echo.walk.on.read = (i) => { if (this.echo.walk.framed === i) keys(i); };
     try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
     this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); this.flow._echoDone?.(C.g, C.item, d); };
