@@ -1449,8 +1449,7 @@ class Game {
     const setUp = !!this.showcase?.fullFrame;
     if (m && !(setUp && m.attract)) {
       m.updateController(dt);
-      const sub = dt > 1 / 45 ? 2 : 1; // substep physics on slow frames
-      for (let i = 0; i < sub; i++) m.update(dt / sub);
+      m.update(dt, dt > 1 / 45 ? 2 : 1);   // substep physics on slow frames (only the physics: Match.update, LEARN §52)
       if (!m.paused) { G.projectiles.update(dt); G.subs.update(dt); G.specials.update(dt); }
       if (m.attract) this._updateAttract(dt);
       else if (m.state === 'playing' && m.local?.alive && this.rig.mode !== 'follow' && this.rig.mode !== 'path') this.rig.follow(m.local, true);

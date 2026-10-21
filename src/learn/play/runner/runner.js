@@ -155,12 +155,12 @@ export class RunnerFlow extends RaceFlow {
   // and the scaling is undone before anyone else updates. After her update: where she is on the road (crossings, camera).
   _install(a) {
     const self = this, orig = a.update;
-    a.update = function runnerUpdate(dt) {
+    a.update = function runnerUpdate(dt, pose = dt) {   // (pose: Actor.update's — the frame's dt on its last physics step)
       const P = PLAYER, s0 = P.swimSpeed, d0 = P.swimDecel;
       P.swimSpeed = s0 * self.swimK;
       if (self.slowT > 0) P.swimDecel = P.enemyInkDecel;
-      try { orig.call(this, dt); } finally { P.swimSpeed = s0; P.swimDecel = d0; }
-      self._after(dt);
+      try { orig.call(this, dt, pose); } finally { P.swimSpeed = s0; P.swimDecel = d0; }
+      self._after(dt, pose);
     };
     this._uninstall = () => { if (a.update !== orig) delete a.update; };
   }
@@ -467,12 +467,14 @@ export class RunnerFlow extends RaceFlow {
   }
 
   // ---------------------------------------------------------------------------------------------- after her update
-  _after(dt) {
+  // (pose: Actor.update's — her progress on every physics step; the camera, the prop bag and the marker once a frame, for
+  // all of it: a slow frame's earlier step only moved her — Match.update, LEARN §52)
+  _after(dt, pose = dt) {
     const a = this.match.local;
     if (!a || !a.alive) return;
     const T = this.T;
     this.sPrev = this.sNow;
-    if (a.superJumpState) { this.cam.update(dt, a, T, this.sNow, this._aspect()); return; }
+    if (a.superJumpState) { if (pose >= 0) this.cam.update(pose, a, T, this.sNow, this._aspect()); return; }
     if (this.leapS != null) { this.sNow = this.sPrev = project(T, a.pos.x, a.pos.z, this.leapS, 8, 8, _pr).s; this.leapS = null; this.paintS = Math.max(this.paintS, this.sNow - 2); }
     let yawRoad = null;
     const D = this.detour;
@@ -496,6 +498,7 @@ export class RunnerFlow extends RaceFlow {
       // (the last 3 m for 2 s — against the deck's edge, sliding along it: she is at the line)
       else if (this.phase === 'final' && this.finish.s - this.sNow < 3) { if ((this._lineT = (this._lineT || 0) + dt) > 2) this._finishDone(); }
     }
+    if (pose < 0) return;
     const row = this._shown();
     let focus = null;
     if (row && row.centers && !yawRoad) {   // frame the row being asked (fades out over its last metres)
@@ -507,7 +510,7 @@ export class RunnerFlow extends RaceFlow {
       focus.top = this.stripBottom();   // (the band under the strip: cam.js keeps the row out from under it)
     }
     // a station's pose: the typing rig's frame on a 滑行段, the framed board on a 看板段 (springs in and out: cam.js)
-    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
+    this.cam.update(pose, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
     this.ui.aside(this.glide.active || !!(this.prepS && this.prepS.pose) || !!this.bw.framing);   // (the prop bag off the right edge while a station frames: LEARN §30)
     this.mark.update(this.glide.active ? null : a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);

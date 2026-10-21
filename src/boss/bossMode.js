@@ -27,9 +27,9 @@ export class BossMode {
     emit('boss:spawn', { boss: this.boss });
   }
 
-  update(dt) {
+  update(dt, pose = dt) {   // (pose: Match.update's — the boss's model once a frame, LEARN §52)
     const m = this.match, b = this.boss;
-    b.update(dt);
+    b.update(dt, pose);
     // the sim side calls the finish (online: the host; guests follow its 'st')
     if (!m.follower && b.dead && m.state === 'playing') m.setState('finish');
   }
