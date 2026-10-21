@@ -162,6 +162,43 @@ test('屏幕外的角色：posed every frame in view (and hers always); out of v
   } finally { G.camera = was.cam; G.time = was.t; }
 });
 
+// ---------------------------------------------------------------------------------------------- 实例缓冲
+const { Projectiles } = await import('../../src/game/weapons.js');
+const { FX } = await import('../../src/fx/fx.js');
+test('实例缓冲：nothing in the air — the shots\' mesh is not drawn, nothing uploaded; three in the air — only their part goes up', () => {
+  const P = new Projectiles(new THREE.Scene()), B = P.blobs;
+  const v0 = B.instanceMatrix.version, s0 = P.blobShape.version;
+  P.list.length = 0; P._draw(); P._draw();
+  assert.equal(B.visible, false, 'not drawn (an instanced draw of none still set its program up, in every pass)');
+  assert.equal(B.instanceMatrix.version, v0, 'not uploaded'); assert.equal(P.blobShape.version, s0);
+  const shot = (z) => ({ delay: 0, vel: new THREE.Vector3(0, 0, 20), pos: new THREE.Vector3(0, 1, z), start: new THREE.Vector3(0, 1, 0), age: 0.2, life: 1, size: 0.1, seed: 0.3, sats: 0, owner: { color: G.teamColors[0] } });
+  P.list.push(shot(2), shot(4), shot(6));
+  P._draw();
+  assert.equal(B.visible, true); assert.equal(B.count, 3);
+  assert.deepStrictEqual(B.instanceMatrix.updateRanges, [{ start: 0, count: 3 * 16 }], 'three matrices, not seven hundred');
+  assert.deepStrictEqual(B.instanceColor.updateRanges, [{ start: 0, count: 3 * 3 }]);
+  assert.deepStrictEqual(P.blobShape.updateRanges, [{ start: 0, count: 3 * 4 }]);
+  assert.ok(B.instanceMatrix.version > v0 && P.blobShape.version > s0, 'uploaded');
+  P.list.length = 0; P._draw();
+  assert.equal(B.visible, false, 'gone: not drawn again');
+});
+
+test('实例缓冲：the effects\' pools — an empty one is not drawn and not uploaded; a burst draws its pool and uploads only its part', () => {
+  const fx = new FX(new THREE.Scene()), cam = new THREE.PerspectiveCamera();
+  const pools = [fx.dMesh, fx.rings.mesh, fx.shells.mesh, fx.beams.mesh];
+  fx.update(1 / 60, cam);
+  for (const m of pools) assert.equal(m.visible, false, `${m.name}: empty, not drawn`);
+  const vers = pools.map((m) => m.geometry.userData.dyn.map((a) => a.version).join(','));
+  fx.update(1 / 60, cam);
+  assert.deepStrictEqual(pools.map((m) => m.geometry.userData.dyn.map((a) => a.version).join(',')), vers, 'and nothing uploaded');
+  fx.ring(new THREE.Vector3(0, 0, -5), new THREE.Vector3(0, 1, 0), G.teamColors[0], {});
+  fx.update(1 / 60, cam);
+  const R = fx.rings;
+  assert.equal(R.mesh.visible, true, 'a ring: its pool drawn');
+  for (const a of R.geo.userData.dyn) assert.deepStrictEqual(a.updateRanges.map((r) => r.count), [R.geo.instanceCount * a.itemSize], 'only the live part');
+  assert.equal(fx.shells.mesh.visible, false, 'the others still not');
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay

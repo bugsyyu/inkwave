@@ -1938,8 +1938,17 @@ export class Projectiles {
       }
     }
     B.count = n;
-    B.instanceMatrix.needsUpdate = true;
-    if (B.instanceColor) B.instanceColor.needsUpdate = true;
-    this.blobShape.needsUpdate = true;
+    // LEARN §52: only the live part goes up (it was all MAX_BLOBS — ~64 KB a frame, nothing in the air too), and with
+    // nothing in the air the mesh is not drawn (an instanced draw of none still set its program and state up, and the
+    // shadow pass's too)
+    B.visible = n > 0;
+    if (n > 0) { liveRange(B.instanceMatrix, n); if (B.instanceColor) liveRange(B.instanceColor, n); liveRange(this.blobShape, n); }
   }
+}
+// an instanced attribute's first n items to upload this frame (one range object kept on it: no per-frame garbage)
+function liveRange(a, n) {
+  const r = a._liveR || (a._liveR = { start: 0, count: 0 });
+  r.start = 0; r.count = n * a.itemSize;
+  a.updateRanges.length = 0; a.updateRanges.push(r);
+  a.needsUpdate = true;
 }
