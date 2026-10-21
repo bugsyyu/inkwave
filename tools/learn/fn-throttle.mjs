@@ -45,7 +45,8 @@ for (const w of BASE ? ['a', 'b'] : ['b']) {
     'shot (3 word frames)': (k) => { const { F } = window.__fn, a = 390 / 844 * (1 + k * 1e-9); for (const o of [{ topFrac: 0.22, dist: 6.5 }, { dist: 6.5 }, { dist: 3.9 }]) F.frameFor({ phase: 'word', aspect: a, kbFrac: 0, word: { w: 3.2, h: 0.9, y: 2.4 }, ...o }); },
     'shot, turned (3 word frames)': (k) => { const { F } = window.__fn, a = 844 / 390 * (1 + k * 1e-9); for (const o of [{ topFrac: 0.12, dist: 6.5 }, { dist: 6.5 }, { dist: 3.9 }]) F.frameFor({ phase: 'word', aspect: a, kbFrac: 0, word: { w: 3.2, h: 0.9, y: 2.4 }, ...o }); },
     'typed question (type frame)': (k) => { const { F } = window.__fn; F.frameFor({ phase: 'type', aspect: 390 / 844 * (1 + k * 1e-9), kbFrac: 0.42, topFrac: 0.2, headMargin: F.FRAME.headMargin }); },
-    'phone turned (split column)': (k) => { const { S, K } = window.__fn, L = K.keyboardLayout({ w: 844, h: 390 }, {}, 'word'); S.splitFrame({ W: 844, H: 390, top: 44 + k * 1e-3, bottom: 390, x0: L.mid.x0, x1: L.mid.x1, shelf: L.top }); },
+    // (split.js keys its cache on the rounded pixels and the exact vfov: a hair of vfov is a fresh column)
+    'phone turned (split column)': (k) => { const { S, K, F } = window.__fn, L = K.keyboardLayout({ w: 844, h: 390 }, {}, 'word'); S.splitFrame({ W: 844, H: 390, top: 44, bottom: 390, x0: L.mid.x0, x1: L.mid.x1, shelf: L.top, vfov: F.FRAME.vfov * (1 + k * 1e-12) }); },
   };
   let k = 1;
   for (const rate of RATES) {
