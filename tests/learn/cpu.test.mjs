@@ -194,3 +194,145 @@ test('小地图：main.js draws it only when it is on the screen (the setting, a
   assert.match(hud, /map: mapOn \? \{ canvas: this\.minimap\.canvas/);
   assert.equal((hud.match(/this\.minimap\.update\(/g) || []).length, 1, 'no other call draws it');
 });
+
+// ---------------------------------------------------------------------------------------------- 首答的存储写
+const { store, setBackend } = await import('../../src/learn/store.js');
+const WB = await import('../../src/learn/workbench.js');
+const { loadWeek, daySteps } = await import('../../src/learn/content.js');
+const { ielts } = await import('../../src/learn/ielts.js');
+
+// awkward JSON: keys an array index would sort first, keys that need escapes, numbers at the edges, nested arrays
+function randomValue(rnd, depth) {
+  const k = rnd();
+  if (depth > 3 || k < 0.35) {
+    const p = rnd();
+    if (p < 0.2) return [0, -0, 1e21, 5e-324, -1.5e-7, 123456789.123, 2 ** 53 + 2][(rnd() * 7) | 0];
+    if (p < 0.5) return ['', 'th 的音', 'a"b\\c', 'line\nbreak\t', '  ', '😀', '\ud800', '</script>'][(rnd() * 8) | 0];
+    if (p < 0.65) return rnd() < 0.5;
+    if (p < 0.75) return null;
+    return Math.round((rnd() - 0.5) * 1e6) / 100;
+  }
+  if (k < 0.55) return Array.from({ length: (rnd() * 4) | 0 }, () => randomValue(rnd, depth + 1));
+  const o = {};
+  for (let i = 0, n = (rnd() * 5) | 0; i < n; i++) o[['0', '10', '2', '-1', '1.5', 'é', 'k"q', 'ev-2026-10-12', '__proto_', 'toString'][(rnd() * 10) | 0] + (rnd() < 0.5 ? '' : i)] = randomValue(rnd, depth + 1);
+  return o;
+}
+test('首答的存储写：blobText is JSON.stringify, byte for byte — awkward keys and values, shared parts, base or none', () => {
+  let seed = 99;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+  for (let i = 0; i < 400; i++) {
+    const o = randomValue(rnd, 0);
+    const blob = Object.assign(o && typeof o === 'object' && !Array.isArray(o) ? o : { x: o }, { profile: { v: 1, n: i } });
+    if (i % 3) blob.base = Object.assign({ '7': { v: 2 } }, randomValue(rnd, 1) || {});
+    if (i % 7 === 0) blob.base = [1, 2];   // (not an object: as JSON.stringify writes it)
+    if (i % 11 === 0) { blob.f = () => 1; blob.u = undefined; }
+    assert.equal(WB.blobText(blob), JSON.stringify(blob), `case ${i}`);
+    // a copy sharing its parts (a push's), one document replaced: still the same text as JSON.stringify
+    const base2 = Object.assign({}, typeof blob.base === 'object' && !Array.isArray(blob.base) ? blob.base : {}, { 'ev-2026-10-19': { v: 2, it: { a: { '2026-10-19': { '101500': [1, 'L'] } } } } });
+    const blob2 = Object.assign({}, blob, { base: base2 });
+    assert.equal(WB.blobText(blob2), JSON.stringify(blob2), `case ${i}, the copy`);
+  }
+});
+
+// her blob the way localBlob() writes it, with a season of evidence in base (a made-up learner)
+function seasonBlob() {
+  const base = { world: { v: 3, seed: 7, born: { '2026-10-12': 1 } }, 'plan-2026-10': { v: 2, d: { '15': { ok: true } } } };
+  for (let w = 0; w < 10; w++) {
+    const mon = new Date(Date.UTC(2026, 7, 3 + w * 7)).toISOString().slice(0, 10), it = {};
+    for (let i = 0; i < 60; i++) it['w:word' + i] = { [mon]: { ['0' + (8 + (i % 10)) + '1500']: [i % 3 ? 1 : 0, 'L'] } };
+    base['ev-' + mon] = { v: 2, it };
+  }
+  return JSON.stringify({ profile: { v: 1, setup: true, examType: 'A', target: 7, startDate: '2026-08-03', accent: 'us', ci: { w1d2: { mood: 'ok', note: '连读还不熟', date: '2026-10-14' } } },
+    days: { '2026-10': { days: { '13': { done: { 'c:w1d1:a1': { m: 35, k: 'pron' } }, extra: [] } } } }, logs: {}, mistakes: {}, notes: { n1: { t: '记一条', at: '2026-10-14' } },
+    mocks: {}, packs: {}, essays: {}, teacher: {}, reviews: {}, base });
+}
+function memLs(init) {
+  const m = new Map(Object.entries(init)), writes = [];
+  return { m, writes, getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { writes.push([k, String(v)]); m.set(k, String(v)); } };
+}
+// the old pushEvidence's text (inkwave 088c6dd: the blob as stored, parsed; base merged; JSON.stringify of the copy)
+function oldPushText(ls, docs, M) {
+  const o = JSON.parse(ls.getItem(WB.DATA_KEY));
+  const r = WB.mergeEvidence(o.base && typeof o.base === 'object' && !Array.isArray(o.base) ? o.base : {}, docs, M);
+  return r.changed.length ? JSON.stringify(Object.assign({}, o, { base: r.base })) : null;
+}
+test('首答的存储写：every write to her account is the old text, byte for byte — answer after answer, a new week, the page writing in between', async () => {
+  const { Model } = await ielts();
+  const w1 = await loadWeek(1), items = daySteps(w1, 1).flatMap((s) => s.items).filter((x) => x.meta.scored);
+  const ls = memLs({ [WB.DATA_KEY]: seasonBlob(), [WB.PREF_KEY]: JSON.stringify({ tz: 'sin', accent: 'us' }) });
+  setBackend(ls); store.load();
+  let pushes = 0, same = 0;
+  const push = (at) => {
+    const want = oldPushText(ls, store.exportDocs(), Model), n0 = ls.writes.filter(([k]) => k === WB.DATA_KEY).length;
+    const r = store.pushToWorkbench({ at });
+    assert.equal(r.ok, true);
+    const ws = ls.writes.filter(([k]) => k === WB.DATA_KEY);
+    if (want == null) { assert.equal(ws.length, n0, 'nothing new: nothing written'); return; }
+    assert.equal(ws.length, n0 + 1, 'one write');
+    assert.equal(ws[ws.length - 1][1], want, 'the very text the old push wrote');
+    pushes++; if (ws[ws.length - 1][1] === want) same++;
+  };
+  const days = ['2026-10-12', '2026-10-13', '2026-10-15', '2026-10-19', '2026-10-20'];
+  for (let i = 0; i < 14; i++) {
+    const it = items[i % items.length], day = days[Math.floor(i / 3)];
+    store.recordFirst({ itemId: it.id, ok: i % 4 !== 1, pct: it.kind === 'dict' ? 80 + i : undefined, day, at: `${day}T09:${String(10 + i).padStart(2, '0')}:00+08:00` });
+    push(`${day}T12:00:00+08:00`);
+    if (i === 5) {   // the lesson page wrote her blob in between (its own spacing: the next push reads it afresh)
+      const o = JSON.parse(ls.m.get(WB.DATA_KEY)); o.notes.n2 = { t: '又一条', at: day };
+      ls.m.set(WB.DATA_KEY, JSON.stringify(o, null, 1));
+    }
+    if (i === 9) push(`${day}T12:30:00+08:00`);   // (again at once: nothing new)
+  }
+  assert.ok(pushes >= 10 && same === pushes, `${same} / ${pushes} writes the same as before`);
+  setBackend(null);
+});
+
+// the game never modifies her parsed blob (what blobText's reuse stands on): the evidence path over a deep-frozen one
+const deepFreeze = (v) => { if (v && typeof v === 'object' && !Object.isFrozen(v)) { Object.freeze(v); for (const k of Object.keys(v)) deepFreeze(v[k]); } return v; };
+test('首答的存储写：her parsed blob is never modified by the game (first answers, due, progress, pushes, a check-in) — it is frozen here', async () => {
+  const w1 = await loadWeek(1), items = daySteps(w1, 1).flatMap((s) => s.items).filter((x) => x.meta.scored);
+  const ls = memLs({ [WB.DATA_KEY]: seasonBlob(), [WB.PREF_KEY]: JSON.stringify({ tz: 'sin' }) });
+  const parse = JSON.parse;
+  let frozen = 0;
+  JSON.parse = function (t, r) { const v = parse(t, r); if (v && typeof v === 'object' && v.profile) { frozen++; deepFreeze(v); } return v; };   // (her blob only)
+  // (and what a push leaves as her blob — its copy, the merged documents — frozen before the next one reads it)
+  const freezeHeld = () => { const b = WB.readBlob(ls); if (b) deepFreeze(b.o); };
+  try {
+    setBackend(ls); store.load();
+    for (let i = 0; i < 6; i++) {
+      store.recordFirst({ itemId: items[i].id, ok: true, day: '2026-10-15', at: `2026-10-15T09:0${i}:00+08:00` });
+      store.due(w1, '2026-10-15'); store.progress(w1, 1);
+      assert.equal(store.pushToWorkbench({ at: '2026-10-15T12:00:00+08:00' }).ok, true);
+      freezeHeld();
+    }
+    const ck = WB.saveCheckin(ls, 'w1d3', { mood: 'hard', note: '想问老师' }, '2026-10-15T21:30:00+08:00', { step: { id: 'c3', m: 5, k: 'review' } });
+    assert.equal(ck.ok, true);
+    store.recordFirst({ itemId: items[7].id, ok: false, day: '2026-10-16', at: '2026-10-16T09:00:00+08:00' });
+    store.due(w1, '2026-10-16');
+    assert.equal(store.pushToWorkbench({ at: '2026-10-16T12:00:00+08:00' }).ok, true);
+    freezeHeld();
+    assert.ok(frozen >= 2, `her blob was parsed (and frozen) ${frozen}× — at the start and after the check-in`);
+    assert.ok(Object.isFrozen(WB.readBlob(ls).o.base['ev-2026-08-03']), 'what it holds is frozen');
+  } finally { JSON.parse = parse; setBackend(null); }
+});
+
+test('首答的存储写：the mirror sends what the game wrote without parsing it again', async () => {
+  const ls = memLs({ [WB.DATA_KEY]: seasonBlob() });
+  const sent = [];
+  globalThis.__IELTS_NATIVE = { platform: 'ios' };
+  globalThis.webkit = { messageHandlers: { ielts: { postMessage: (m) => sent.push(m) } } };
+  const parse = JSON.parse; let parses = 0;
+  try {
+    setBackend(ls); WB._reset();
+    const b = WB.readBlob(ls, { fresh: true });
+    JSON.parse = function (t, r) { if (typeof t === 'string' && t.length > 10000) parses++; return parse(t, r); };
+    assert.equal(WB.mirror(ls, true), true);
+    assert.equal(sent.length, 1); assert.equal(sent[0].text, b.raw, 'the blob, exactly as stored');
+    assert.equal(parses, 0, 'not parsed again (it is the one readBlob holds)');
+    ls.m.set(WB.DATA_KEY, ls.m.get(WB.DATA_KEY).replace('"setup":true', '"setup":false'));   // (written by someone else)
+    WB.mirror(ls, true);
+    assert.equal(sent.length, 2); assert.equal(parses, 1, 'someone else\'s text is parsed to check it has a profile');
+    ls.m.set(WB.DATA_KEY, '{"x":1}');
+    assert.equal(WB.mirror(ls, true), false, 'no profile: not sent');
+  } finally { JSON.parse = parse; delete globalThis.__IELTS_NATIVE; delete globalThis.webkit; setBackend(null); WB._reset(); }
+});
