@@ -12,8 +12,20 @@ const { Actor } = await import('../../src/game/actor.js');
 const { Boss } = await import('../../src/boss/boss.js');
 const { BossMode } = await import('../../src/boss/bossMode.js');
 const { RunnerFlow } = await import('../../src/learn/play/runner/runner.js');
+const { emit } = await import('../../src/core/ctx.js');
 
 G.teamColors = [new THREE.Color('#ff8a14'), new THREE.Color('#2a6bff')];
+G.teamHex = ['#ff8a14', '#2a6bff'];
+
+// a 2D canvas that records what is drawn on it (Node has none): every method a no-op, counted by name
+function recCanvas() {
+  const calls = {};
+  const ctx = new Proxy({ calls, createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }) }, {
+    get(o, k) { if (k in o) return o[k]; return (...a) => { calls[k] = (calls[k] || 0) + 1; void a; }; },
+    set(o, k, v) { o[k] = v; return true; },
+  });
+  return { width: 0, height: 0, getContext: () => ctx, ctx };
+}
 
 // ---------------------------------------------------------------------------------------------- 慢帧子步
 // a stand-in squidkid for Match.update: its brain, its body (update(dt, pose)), all logged in order
@@ -118,3 +130,67 @@ test('慢帧子步：the runner\'s wrapper passes the step on; its camera moves 
   assert.deepStrictEqual(cams, [1 / 30]);
 });
 
+// ---------------------------------------------------------------------------------------------- 小地图
+const { Minimap } = await import('../../src/game/minimap.js');
+// a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay
+// unbuilt (the raster pass needs a real level) and the ink field has no cells — the gating is what is under test
+function tinyMap() {
+  const prev = globalThis.document;
+  globalThis.document = { createElement: () => recCanvas() };
+  let mm;
+  try { mm = new Minimap({ bounds: { minX: 0, maxX: 2, minZ: 0, maxZ: 2 }, spawnPads: [] }, { version: 0, grid: new Uint8Array(4) }, 2); }
+  finally { if (prev === undefined) delete globalThis.document; else globalThis.document = prev; }
+  mm._built = true;   // (its idle-time build never runs)
+  const N = mm.w * mm.h;
+  Object.assign(mm, { pixCell: new Int32Array(N).fill(-1), pixFx: new Uint8Array(N), pixFy: new Uint8Array(N), pixSx: new Int32Array(N), pixSy: new Int32Array(N), owner: new Uint8Array(N) });
+  return mm;
+}
+const inkDraws = (mm) => mm.ictx.calls.putImageData || 0, blits = (mm) => mm.ctx.calls.drawImage || 0;
+function stage() {
+  G.match = { attract: false, zones: null, actors: [] }; G.local = null;
+  G.projectiles = { clouds: [], bombs: [] }; G.subs = { items: [] }; G.specials = { world: [], drawMap() {} };
+}
+
+test('小地图：off the screen nothing is drawn; the first frame back draws the whole ink at once, quietly, and composes', () => {
+  stage();
+  const mm = tinyMap();
+  for (let f = 0; f < 3; f++) mm.update(1 / 60);
+  const i0 = inkDraws(mm), b0 = blits(mm);
+  assert.ok(i0 >= 1 && b0 >= 2, 'shown: its ink drawn, composed');
+  emit('bomb:explode', { pos: { x: 1, z: 1 }, team: 1, radius: 2 });   // (a mark made while it is hidden ages away meanwhile)
+  for (let f = 0; f < 120; f++) { mm.paint.version++; mm.idle(1 / 60); }   // two seconds hidden, the ink changing all along
+  assert.equal(inkDraws(mm), i0, 'hidden: not one band of ink'); assert.equal(blits(mm), b0, 'hidden: no compose (no upload)');
+  mm.update(1 / 60);
+  assert.equal(inkDraws(mm), i0 + 1, 'the first frame shown: the whole ink in one go');
+  assert.equal(blits(mm), b0 + 2, '… composed that same frame (base + ink, no flash layer)');
+  assert.ok(mm.flashT >= 0.45, 'quietly: no flash for what changed while it was hidden');
+});
+
+test('小地图：on the screen it composes only when the picture would change — new ink, something moving', () => {
+  stage();
+  const mm = tinyMap();
+  for (let f = 0; f < 6; f++) mm.update(1 / 60);
+  const c0 = mm.composed;
+  for (let f = 0; f < 90; f++) mm.update(1 / 60);
+  assert.equal(mm.composed, c0, 'a still map for 1.5 s: not composed again (it was 30 times)');
+  mm.paint.version++;
+  for (let f = 0; f < 12; f++) mm.update(1 / 60);
+  assert.ok(mm.composed >= c0 + 1 && mm.composed <= c0 + 2, `new ink (drawn in 3 bands): composed ${mm.composed - c0}× (the bands may straddle a compose)`);
+  const c1 = mm.composed;
+  G.projectiles.bombs.push({ pos: { x: 1, z: 1 }, team: 1, kind: 'bomb', fuse: -1, age: 0 });
+  for (let f = 0; f < 60; f++) mm.update(1 / 60);
+  assert.equal(mm.composed - c1, 20, 'a bomb on the map: its ~20 Hz');
+  G.projectiles.bombs.length = 0;
+  for (let f = 0; f < 60; f++) mm.update(1 / 60);
+  assert.equal(mm.composed - c1, 20, 'gone: still again');
+});
+
+test('小地图：main.js draws it only when it is on the screen (the setting, a level\'s is-nomap, the strike map)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
+  const hud = src.slice(src.indexOf('  _updateHud(dt) {'));
+  assert.match(hud, /const mapOn = \(this\.settings\.minimap !== false \|\| strikeAim\) && !this\.hud\.el\?\.classList\.contains\('is-nomap'\);/);
+  assert.match(hud, /if \(mapOn\) this\.minimap\.update\(dt\); else this\.minimap\.idle\(dt\);/);
+  assert.match(hud, /map: mapOn \? \{ canvas: this\.minimap\.canvas/);
+  assert.equal((hud.match(/this\.minimap\.update\(/g) || []).length, 1, 'no other call draws it');
+});
