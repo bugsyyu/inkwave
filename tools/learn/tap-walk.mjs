@@ -111,16 +111,27 @@ say('playing');
 // one sample: the level's clock and phase, whether she is answering, and every way on the screen offers with its checks
 const sample = () => ev((I) => {
   const M = __inkwave.match, F = M && M.learn; if (!F) return { gone: true };
+  const form = F.constructor && F.constructor.name;
   const H = F.play || F.arena || null, d = H && H.debug ? H.debug() : null;
   const S = d && d.mechanic && d.mechanic !== 'm1' ? d.station : null;
-  // answering: a question's station / objects are up (the strip carries it), or its verdict is still on
-  const stationUp = !!(F.asking && H && H.kind && H.kind !== 'prep');
-  const runnerAsk = !!(F.asking && F.asking.row) || !!(F.glide && F.glide.cur);
+  const a = M.local;
+  // answering: a question's station / objects are up (the strip carries it), or its verdict is still on; the runner's row
+  // or 滑行段. (The duel's 备战 and the boss's 回声亭 are not questions here: their way on is a key — the strip's 开始, 继续)
+  const stationUp = !!(F.asking && H && H.kind && H.kind !== 'prep' && H.kind !== 'echo');
+  const row = form === 'RunnerFlow' && F._shown ? F._shown() : null;
+  const glide = form === 'RunnerFlow' && F.glide && F.glide.cur && !F.glide.cur.answered ? F.glide.cur : null;
+  const runnerAsk = !!(row && row.kind !== 'boards') || !!glide;
+  // the level moving on by itself: the runner's ink carries her, a duel round / the boss fight asks its next question
+  const carried = form === 'RunnerFlow' ? !!(F.started && !F.stop && a && Math.hypot(a.vel.x, a.vel.z) > 0.5) : form === 'DuelFlow' ? F.phase === 'round' : form === 'BossFlow' ? F.phase !== 'done' && !(H && H.kind === 'echo') : false;
   const strip = document.querySelector('.iw-ps:not(.is-off) .iw-ps__box');
   const done = F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') || !!document.querySelector('.iw-ci.is-in');
   const W = innerWidth, Ht = innerHeight, safe = { l: I.l, t: I.t, r: W - I.r, b: Ht - I.b };
   const keys = [...document.querySelectorAll('.iw-touch.is-live .iw-touch__btn')].filter((e) => getComputedStyle(e).display !== 'none').map((e) => { const r = e.getBoundingClientRect(); return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2, t: e.textContent.trim() }; });
   const shown = (el) => { for (let e = el; e && e !== document.documentElement; e = e.parentElement) { const c = getComputedStyle(e); if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity < 0.5) return false; } return true; };
+  // the boxes that may lie over a key without taking its touch (pointer-events none on their face): the strip, the reading
+  // strip, the game keyboard
+  const overlays = [['strip', '.iw-ps:not(.is-off) .iw-ps__box'], ['reading', '.iw-read:not(.is-off) .iw-read__box'], ['keyboard', '.iw-pk:not(.is-off) .iw-pk__panel']]
+    .map(([n, sel]) => { const e = document.querySelector(sel); if (!e || !shown(e)) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { n, e, r } : null; }).filter(Boolean);
   const check = (el, kind) => {
     const r = el.getBoundingClientRect(), vis = r.width > 0 && r.height > 0 && shown(el);
     const big = r.width >= 43.5 && r.height >= 43.5;
@@ -128,27 +139,30 @@ const sample = () => ev((I) => {
     const pts = [[0.5, 0.5], [0.22, 0.5], [0.78, 0.5], [0.5, 0.25], [0.5, 0.75]];
     const hit = vis && pts.every(([fx, fy]) => { const t = document.elementFromPoint(r.left + r.width * fx, r.top + r.height * fy); return !!t && (t === el || el.contains(t)); });
     const under = keys.filter((k) => { const nx = Math.max(r.left, Math.min(k.cx, r.right)), ny = Math.max(r.top, Math.min(k.cy, r.bottom)); return Math.hypot(nx - k.cx, ny - k.cy) < k.r - 1; }).map((k) => k.t);
-    return { kind, text: el.textContent.replace(/\s+/g, ' ').trim().slice(0, 24), rect: [r.left, r.top, r.width, r.height].map(Math.round), vis, big, inSafe, hit, under, on: el.classList.contains('is-on'), ready: el.classList.contains('is-ready'), ok: vis && big && inSafe && hit && !under.length };
+    const over = overlays.filter((o) => !o.e.contains(el) && o.r.left < r.right - 1 && o.r.right > r.left + 1 && o.r.top < r.bottom - 1 && o.r.bottom > r.top + 1).map((o) => o.n);
+    return { kind, text: el.textContent.replace(/\s+/g, ' ').trim().slice(0, 24), rect: [r.left, r.top, r.width, r.height].map(Math.round), vis, big, inSafe, hit, under, over, on: el.classList.contains('is-on'), ready: el.classList.contains('is-ready'), ok: vis && big && inSafe && hit && !under.length && !over.length };
   };
   const way = [];
   for (const [sel, kind] of [['.iw-learn__auto', 'auto'], ['.iw-learn__go', 'go'], ['.iw-ps:not(.is-off) .iw-ps__act.is-primary', 'strip']]) for (const el of document.querySelectorAll(sel)) way.push(check(el, kind));
   const more = [...document.querySelectorAll('.iw-learn__more')].map((el) => check(el, 'more'));
-  // the framed board (the puzzle's boards, the exit's booth and signs, the duel's 备战)
-  const B = F.play && F.play.boards && F.play.boards.walk, X = F.play && F.play.exit;
-  const fw = B && B.framed >= 0 ? B : X && X.echo && X.echo.walk.framed >= 0 ? X.echo.walk : X && X.signs && X.signs.walk.framed >= 0 ? X.signs.walk : null;
+  // the framed board: the puzzle's boards, the exit's booth and signs, the arena's booth and 备战 boards, the runner's
+  const X = F.play && F.play.exit;
+  const walks = [F.play && F.play.boards && F.play.boards.walk, X && X.echo && X.echo.walk, X && X.signs && X.signs.walk, F.arena && F.arena.echo && F.arena.echo.echo && F.arena.echo.echo.walk, F.arena && F.arena.prepS && F.arena.prepS.board, F.bw && F.bw.walk].filter(Boolean);
+  const fw = walks.find((w) => w.framed >= 0 && w.list[w.framed]) || null;
   const framed = fw ? { i: fw.framed, read: fw.read(fw.framed), t: +fw.list[fw.framed].t.toFixed(2), hot: fw.set.project(fw.list[fw.framed].b, __G.camera, W, Ht).map((h) => ({ id: h.id, x: Math.round(h.rect.x), y: Math.round(h.rect.y), w: Math.round(h.rect.w), h: Math.round(h.rect.h) })), strip: fw.strip.isOpen } : null;
   const read = document.querySelector('.iw-read:not(.is-off) .iw-read__box');
   const clock = document.querySelector('.iw-hud__top'), cr = clock && clock.getBoundingClientRect();
-  const a = M.local;
   return {
-    t: +(F.t || 0).toFixed(2), gt: +__G.time.toFixed(2), phase: F.phase, cur: F.cur, gates: F.gates ? F.gates.length : 0, opened: F.gates ? F.gates.filter((g) => g.state === 'open').length : 0,
-    auto: !!F.auto, mech: H ? H.kind : null, item: F.asking && F.asking.item ? F.asking.item.id : null, asking: stationUp || runnerAsk,
+    form, t: +(F.t || 0).toFixed(2), gt: +__G.time.toFixed(2), phase: F.phase, cur: F.cur, gates: F.gates ? F.gates.length : 0, opened: F.gates ? F.gates.filter((g) => g.state === 'open').length : 0,
+    auto: !!F.auto, mech: H ? H.kind : null, item: F.asking && F.asking.item ? F.asking.item.id : null, asking: stationUp || runnerAsk, carried,
     answered: !!(d && ((d.mechanic === 'm1' && d.m1 && d.m1.answered) || (S && S.answered))), strip: strip ? strip.innerText.replace(/\s+/g, ' ').trim().slice(0, 80) : null,
     done, way, more, framed, reading: !!read, paused: M.paused, menu: __inkwave.menus && __inkwave.menus.current,
     speed: a ? +Math.hypot(a.vel.x, a.vel.z).toFixed(2) : 0, her: a ? [a.pos.x, a.pos.y, a.pos.z].map((v) => +v.toFixed(1)) : null,
     learnCls: (document.querySelector('.iw-learn') || {}).className || '',
     clock: cr ? { rect: [cr.left, cr.top, cr.width, cr.height].map(Math.round), inSafe: cr.top >= I.t - 0.5 } : null,
     exit: X && X.on ? X.debug() : null,
+    runner: form === 'RunnerFlow' ? { s: +(F.sNow || 0).toFixed(1), latT: +(F.latT || 0).toFixed(2), started: !!F.started, row: row ? { kind: row.kind, item: row.item ? row.item.id : null, s: +row.s.toFixed(1), centers: row.centers || null, lanes: row.lanes } : null, glide: glide ? { item: glide.item.id, answered: !!glide.answered } : null } : null,
+    answers: (F.log || []).filter((e) => e.name === 'learn:answer').length,
   };
 }, INSET);
 
@@ -165,7 +179,7 @@ const rightAnswer = () => ev(() => {
   if (p.type === 'choice') return p._perm ? p._perm.indexOf(item.answer) : item.answer;
   return (item.meta && item.meta.ref) || item.en;
 });
-const verdictOf = () => ev(() => { const H = __inkwave.match.learn.play || __inkwave.match.learn.arena, d = H.debug(); return d.mechanic === 'm1' ? d.m1.verdict : d.station && d.station.verdict; });
+const verdictOf = () => ev(() => { const F = __inkwave.match.learn; if (F.glide && F.glide.cur) return F.glide.cur.answered ? (F.glide.cur.verdict || { ok: true }) : null; if (F.glide && F.constructor.name === 'RunnerFlow') return { ok: true, gone: true }; const H = F.play || F.arena, d = H.debug(); return d.mechanic === 'm1' ? d.m1.verdict : d.station && d.station.verdict; });
 
 async function answerM1(right) {
   // where the objects come to rest: two reads 400 ms apart within 3 px
@@ -195,7 +209,7 @@ async function answerType(right) {
   const kb = await kbSettled();
   if (!kb) return null;
   const text = String(right).toLowerCase();
-  const keyAt = (k) => ev((k) => { const T = (__inkwave.match.learn.play || __inkwave.match.learn.arena).type, el = T.keys && T.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return r.width ? [r.left + r.width / 2, r.top + r.height / 2] : null; }, k);
+  const keyAt = (k) => ev((k) => { const F = __inkwave.match.learn, T = F.glide && F.glide.cur ? F.glide : (F.play || F.arena).type, el = T.keys && T.keys.keyEls.get(k); if (!el || el.style.display === 'none') return null; const r = el.getBoundingClientRect(); return r.width ? [r.left + r.width / 2, r.top + r.height / 2] : null; }, k);
   for (const ch of text) { if (!/[a-z ' .,?-]/.test(ch)) continue; const at = await keyAt(ch); if (at) await tap(at[0], at[1], 'key ' + ch); }
   const fire = await keyAt('fire'); if (!fire) return null;
   await tap(fire[0], fire[1], 'key 射');
@@ -221,8 +235,22 @@ async function answerFlip() {
   await tap(t.cx, t.cy, 'flip 认识');
   return waitFor(verdictOf, 30000);
 }
+let cdp = null;
+async function swipe(dir) {
+  cdp = cdp || await ctx.newCDPSession(page);
+  const cx = Math.round(V.w * 0.5), cy = Math.round(V.h * 0.62), d = 70, to = { left: [-d, 0], right: [d, 0], up: [0, -d], down: [0, d] }[dir];
+  report.taps.push({ what: 'swipe ' + dir, x: cx, y: cy, t: Date.now() - T0 });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy, id: 1 }] });
+  for (let k = 1; k <= 5; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx + (to[0] * k) / 5, y: cy + (to[1] * k) / 5, id: 1 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+async function runnerRow(s) {
+  const want = await ev(() => { const F = __inkwave.match.learn, r = F._shown(); if (!r || !r.centers) return null; const k = F.rightAnswer(); return k == null || k < 0 ? null : r.centers[k]; });
+  if (want == null) return;
+  if (Math.abs(s.runner.latT - want) > 0.05) await swipe(want < s.runner.latT ? 'left' : 'right');
+}
 async function answer(s) {
-  const right = await rightAnswer();
+  const right = s.runner ? await ev(() => __inkwave.match.learn.rightAnswer()) : await rightAnswer();
   const label = `${s.mech} ${s.item}`;
   let v = null;
   if (s.mech === 'm1') v = await answerM1(right);
@@ -245,7 +273,8 @@ const untilMet = (s) => {
   if (UNTIL === 'exit') return s.phase === 'exit';
   return false;
 };
-let noWay = null, moreTapped = 0, lastAct = 0, firstBoardShot = false;
+let noWay = null, moreTapped = 0, lastAct = 0, firstBoardShot = false, still = null;
+const STALL_S = 15;   // s (game) the level may carry on by itself with nothing happening — no answer, no gate, no road
 try {
   for (let k = 0; ; k++) {
     const s = await sample(); report.samples++;
@@ -255,7 +284,13 @@ try {
     const ok = s.way.filter((w) => w.ok);
     // (the clock under the top inset, once the HUD has come to rest — its drop-in starts above the screen: one finding)
     if (k >= 5 && s.clock && !s.clock.inSafe && !report.clockFlag) { report.clockFlag = true; fail('the HUD\'s top row is under the top inset', s.clock); }
-    if (s.asking || ok.length) {
+    // (carried: the runner's ink, a duel round, the boss fight — the level moves on by itself; it must not stand still)
+    if (s.carried && !s.asking && !ok.length) {
+      const sig = [s.answers, s.opened, s.cur, s.item, s.phase, s.runner ? Math.round(s.runner.s / 3) : 0].join('|');
+      if (!still || still.sig !== sig) still = { sig, t0: s.gt, w0: Date.now() };
+      else if (s.gt - still.t0 > STALL_S && !still.failed) { still.failed = true; const f = await shot('stalled'); fail(`the level carries on by itself but nothing happened for ${(s.gt - still.t0).toFixed(1)} s (game)`, { shot: f, phase: s.phase, mech: s.mech, way: s.way, strip: s.strip, runner: s.runner }); if (!KEEP) break; }
+    } else still = null;
+    if (s.asking || ok.length || s.carried) {
       if (noWay) { noWay = null; }
     } else {
       if (!noWay) noWay = { t0: s.gt, w0: Date.now(), s0: s };
@@ -271,6 +306,18 @@ try {
       }
     }
     // ---- what she does
+    if (s.runner && s.runner.glide && Date.now() - lastAct > 800) {
+      const right = await ev(() => __inkwave.match.learn.rightAnswer());
+      const v = right ? await answerType(right) : null;
+      report.questions.push({ label: 'glide ' + s.runner.glide.item, ok: !!v, t: s.t });
+      say(v ? 'answered' : 'NOT answered', 'glide', s.runner.glide.item);
+      if (!v) { fail('a 滑行段 item could not be typed on the screen\'s keys', { item: s.runner.glide.item }); if (!KEEP) break; }
+      lastAct = Date.now(); continue;
+    }
+    if (s.runner && s.runner.row && s.runner.row.kind !== 'boards' && s.runner.row.kind !== 'glide') {
+      if (!report.questions.find((q) => q.label === 'row ' + s.runner.row.item + '@' + s.runner.row.s)) report.questions.push({ label: 'row ' + s.runner.row.item + '@' + s.runner.row.s, ok: true, t: s.t });
+      await runnerRow(s); await sleep(250); continue;
+    }
     if (s.asking && s.mech && !s.answered && Date.now() - lastAct > 800) {
       const ok1 = await answer(s); lastAct = Date.now();
       if (!ok1 && !KEEP) break;
@@ -317,7 +364,7 @@ try {
       if (auto && !auto.on && !s.auto) { await tapEl(auto, '自动走'); lastAct = Date.now(); continue; }
       if (st && !auto) { await tapEl(st, 'strip ' + st.text); lastAct = Date.now(); continue; }
     }
-    if (k % 15 === 0) say('sample', JSON.stringify({ t: s.t, phase: s.phase, cur: s.cur, opened: s.opened, auto: s.auto, mech: s.mech, asking: s.asking, framed: s.framed && { i: s.framed.i, read: s.framed.read }, way: s.way.map((w) => w.kind + (w.ok ? '+' : '-')), speed: s.speed }));
+    if (k % 15 === 0) say('sample', JSON.stringify({ form: s.form, t: s.t, phase: s.phase, cur: s.cur, opened: s.opened, auto: s.auto, mech: s.mech, asking: s.asking, carried: s.carried, answers: s.answers, framed: s.framed && { i: s.framed.i, read: s.framed.read }, way: s.way.map((w) => w.kind + (w.ok ? '+' : '-') + (w.over.length ? '[' + w.over + ']' : '')), speed: s.speed, runner: s.runner && { s: s.runner.s, row: s.runner.row && s.runner.row.kind } }));
     await sleep(1000);
   }
 } catch (e) { fail('driver error', String((e && e.stack) || e).slice(0, 600)); }
