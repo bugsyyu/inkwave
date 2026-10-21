@@ -156,6 +156,11 @@ test('the HUD: no 地图 key and no corner map in a level — versus2 (a Zone Co
   assert.ok(!L.hud.el.classList.contains('is-nomap') && !touchEl.classList.contains('is-nomap'));
   L.end();
   assert.match(src('src/learn/forms/versus2.js'), /get mapKey\(\) \{ return true; \}/);
+  // the runner (and the review run on it) has no walk bar of hud-learn's: it hides the corner map itself, and lays the
+  // touch layer out again so the keys it hides take no touch
+  const r = src('src/learn/play/runner/runner.js');
+  assert.match(r, /G\.hud\?\.el\?\.classList\.add\('is-nomap'\); G\.touch\?\.relayout\?\.\(\);/);
+  assert.match(r, /classList\.remove\('is-learn', 'is-runner', 'is-nomap'\);\s*G\.touch\?\.el\?\.classList\.remove\('is-runner'\); G\.touch\?\.relayout\?\.\(\);/);
 });
 
 test('the HUD: a form with no route to walk (the duel, the boss, versus2) shows no walk bar — no 「自动走」 that walks nowhere; a board framed there still has its keys', () => {

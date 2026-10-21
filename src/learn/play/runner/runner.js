@@ -87,6 +87,9 @@ export class RunnerFlow extends RaceFlow {
     this.ui.el?.classList.add('is-runner');
     G.hud?.el?.classList.add('is-learn', 'is-runner');   // (hud-learn's start() did is-learn: the clock's width; is-runner: no crosshair)
     G.touch?.el?.classList.add('is-runner');       // only ⏸ of the thumb cluster (hud.js CSS)
+    // (LEARN §48: no corner map in a level — hud-learn's start() is not the runner's; and the keys the runner hides take no
+    // touch: the touch layer reads what is hidden as it lays out)
+    G.hud?.el?.classList.add('is-nomap'); G.touch?.relayout?.();
     const a = match.local;
     if (a) this._install(a);
     this._unsub = [
@@ -975,8 +978,8 @@ export class RunnerFlow extends RaceFlow {
     this.bw.dispose(); this.prepS?.dispose();
     this.mark.dispose();
     stopVoice(); this.strip.dispose(); this.tips.end();
-    G.hud?.el?.classList.remove('is-learn', 'is-runner');
-    G.touch?.el?.classList.remove('is-runner');
+    G.hud?.el?.classList.remove('is-learn', 'is-runner', 'is-nomap');
+    G.touch?.el?.classList.remove('is-runner'); G.touch?.relayout?.();
     super.dispose();
   }
 }
