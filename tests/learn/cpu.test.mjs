@@ -130,6 +130,38 @@ test('慢帧子步：the runner\'s wrapper passes the step on; its camera moves 
   assert.deepStrictEqual(cams, [1 / 30]);
 });
 
+// ---------------------------------------------------------------------------------------------- 屏幕外的角色
+const { OFF_HZ, maySee } = await import('../../src/game/actor.js');
+test('屏幕外的角色：posed every frame in view (and hers always); out of view at OFF_HZ with the time caught up; back in view: at once', () => {
+  const cam = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 500);   // (at the origin, looking down −z)
+  cam.updateMatrixWorld();
+  const was = { cam: G.camera, t: G.time };
+  G.camera = cam; G.time = 0;
+  try {
+    const kid = (x, z, isLocal = false) => { const a = new Actor({ team: 0, name: 'k', isLocal, CharacterClass: StandInKid }); a.pos.set(x, 0, z); return a; };
+    const ahead = kid(0, -12), behind = kid(0, 30), hers = kid(0, 30, true), edge = kid(0, -12), walker = kid(0, 30);
+    // (edge: just past the frustum's side — within the margin a turn of the camera in a frame could bring in)
+    const half = Math.atan(Math.tan((26 * Math.PI) / 180) * cam.aspect);
+    edge.pos.set(Math.tan(half) * 12 + 2.5, 0, -12);
+    const all = [ahead, behind, hers, edge, walker], dt = 1 / 60;
+    for (let f = 0; f < 60; f++) {
+      G.time += dt;
+      if (f === 41) walker.pos.set(0, 0, -15);   // she turns to him: he is in view from this frame on
+      for (const a of all) a._finishFrame(dt, dt);
+    }
+    const sum = (a) => a.character.poses.reduce((x, y) => x + y, 0);
+    assert.equal(ahead.character.poses.length, 60, 'in view: every frame');
+    assert.equal(hers.character.poses.length, 60, 'her own: every frame, wherever the camera looks');
+    assert.equal(edge.character.poses.length, 60, 'just past the edge: as if in view (the margin)');
+    assert.equal(behind.character.poses.length, 60 / (60 / OFF_HZ), `out of view: ${OFF_HZ} Hz`);
+    assert.ok(behind.character.poses.every((d) => Math.abs(d - 1 / OFF_HZ) < 1e-9), 'each pose catches up by the whole time it missed');
+    assert.ok(Math.abs(sum(behind) - 1) < 1e-9 && Math.abs(sum(walker) - 1) < 1e-9, 'not a moment lost (1 s of poses each)');
+    const k = walker.character.poses.length;
+    assert.ok(k >= 19 + 10 && k <= 19 + 11, `walker: ${OFF_HZ} Hz, then every frame from the frame he is in view (${k} poses)`);
+    assert.equal(maySee({ x: 0, y: 0, z: -40 }), true); assert.equal(maySee({ x: 0, y: 0, z: 40 }), false);
+  } finally { G.camera = was.cam; G.time = was.t; }
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay

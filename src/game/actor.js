@@ -30,6 +30,22 @@ export function rumble(actor, strong, weak, ms) {
 }
 
 const _dodgeV = new THREE.Vector3();
+
+// LEARN §52: a squidkid out of the camera's view was posed every frame all the same (pose, IK, hair). Now one that is
+// surely out of it (not her own) is posed at OFF_HZ, catching up by the whole time (the character's springs and hair take
+// any step), and at once the frame it may be on screen. "May": last frame's camera — the pose comes before the camera
+// moves — and its body's sphere grown by a turn of the camera in a frame (1.5 m + 12 % of the distance).
+export const OFF_HZ = 15;
+const _fr = new THREE.Frustum(), _frM = new THREE.Matrix4(), _frS = new THREE.Sphere(), _frP = new THREE.Vector3();
+let _frT = NaN, _frC = null;
+export function maySee(pos, cam = G.camera) {
+  if (!cam || !cam.isPerspectiveCamera) return true;
+  if (_frT !== G.time || _frC !== cam) { _frT = G.time; _frC = cam; _fr.setFromProjectionMatrix(_frM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); _frP.setFromMatrixPosition(cam.matrixWorld); }
+  _frS.center.set(pos.x, pos.y + 0.75, pos.z);
+  _frS.radius = 2.8 + 0.12 * Math.sqrt(_frS.center.distanceToSquared(_frP));
+  return _fr.intersectsSphere(_frS);
+}
+
 export class Actor {
   constructor({ team, name, weapon = 'shooter', sub = null, special = null, isLocal = false, isBot = false, style = { hair: 0, skin: 0 }, slot = 0, CharacterClass }) {
     this.team = team; this.name = name; this.isLocal = isLocal; this.isBot = isBot; this.slot = slot;
@@ -1015,7 +1031,10 @@ export class Actor {
     ch.root.position.y += this.smoothY + (this.specialActive?.seat || 0) + (this.learnSeat || 0);   // riding the crab tank / the 字弹 type rig (learn/play/type/rig.js)
     ch.root.rotation.y = this.yaw;
     ch.setHurt(Math.max(this.hurtFlash, 1 - this.hp / PLAYER.hp) * (this.hp < PLAYER.hp ? 1 : 0), G.teamColors[this.enemyTeam]);
-    if (pose >= 0) ch.update(pose, a);
+    if (pose >= 0) {   // (out of view and not hers: OFF_HZ, the time it missed caught up — maySee)
+      this._poseAcc = (this._poseAcc || 0) + pose;
+      if (this.isLocal || this._poseAcc >= 1 / OFF_HZ - 1e-6 || maySee(this.pos)) { ch.update(this._poseAcc, a); this._poseAcc = 0; }
+    }
     this._events(a);
     // swim wake
     if (a.form === 'swim' && hs > 2 && G.fx) {
