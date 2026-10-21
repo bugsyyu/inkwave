@@ -124,7 +124,7 @@ async function finish(code) {
     const drawn = H.filter((x) => x[2]), ms = drawn.map((x) => x[0]).sort((a, b) => a - b), q = (p) => (ms.length ? ms[Math.min(ms.length - 1, Math.ceil(p * ms.length) - 1)] : 0);
     const by = {}; for (const [m, l] of drawn) { const k = l.replace(/:\d+(?=:|$)/, ''); (by[k] || (by[k] = [])).push(m); }
     report.hitch = { frames: drawn.length, p50: q(0.5), p95: q(0.95), max: ms.length ? ms[ms.length - 1] : 0, over50: drawn.filter((x) => x[0] >= 50).length,
-      worst: drawn.slice().sort((a, b) => b[0] - a[0]).slice(0, 15).map((x) => [x[0], x[1]]),
+      worst: H.slice().sort((a, b) => b[0] - a[0]).slice(0, 15).map((x) => [x[0], x[1] + (x[2] ? '' : ' (sim only)')]),
       byPhase: Object.fromEntries(Object.entries(by).map(([k, v]) => { v.sort((a, b) => a - b); return [k, { n: v.length, p50: v[v.length >> 1], max: v[v.length - 1] }]; })) };
     say('hitch', JSON.stringify(report.hitch));
   }

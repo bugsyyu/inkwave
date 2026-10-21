@@ -294,6 +294,15 @@ rep.gpu = await ev(() => {
   const pa = G.paint && G.paint.size ? mb(G.paint.size, G.paint.size, 4) * (G.paint.rtB ? 2 : 1) : 0;
   return { programs: r.info.programs.length, textures: r.info.memory.textures, geometries: r.info.memory.geometries, targetsMB: +rt.toFixed(1), shadowMB: +sh.toFixed(1), paintAtlas: G.paint ? G.paint.size : null, paintMB: +pa.toFixed(1) };
 });
+// the screen FX pass (a pass the size of the screen while on): what keeps it on — its state above the thresholds it checks
+rep.screenfx = await ev(() => {
+  const X = __inkwave.screenfx; if (!X) return null;
+  const s = X.s, on = [];
+  for (const k of ['speed', 'stretch', 'blast', 'chroma', 'edgeInk', 'aura', 'heart', 'hurt', 'urg', 'swim', 'focus', 'chargePulse', 'shimmer', 'kill', 'flash', 'desat', 'satPop', 'flood']) if (s[k] > 0.002) on.push(k + ' ' + (+s[k]).toFixed(3));
+  if (Math.abs(s.punch) > 0.0004) on.push('punch');
+  if (Math.abs(s.sat - 1) > 0.002) on.push('sat ' + (+s.sat).toFixed(3));
+  return { enabled: !!X.pass.enabled, lensParts: X.lens ? X.lens.parts.length : 0, on };
+}).catch(() => null);
 // the DOM as it stands: running CSS animations, visible elements with a backdrop-filter (pseudo-elements too), layers
 rep.dom = await ev(() => {
   const vis = (el) => { if (!el.getClientRects().length) return false; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) return false; } return true; };
@@ -346,5 +355,6 @@ say('gc', JSON.stringify(rep.gc));
 say('cpu', JSON.stringify(rep.cpu));
 say('gpu', JSON.stringify(rep.gpu));
 say('dom', JSON.stringify(rep.dom));
+say('screenfx', JSON.stringify(rep.screenfx));
 if (errs.length) say('errors', errs.slice(0, 5).join(' | '));
 await finish(errs.length ? 1 : 0, rep);
