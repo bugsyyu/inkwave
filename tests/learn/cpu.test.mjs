@@ -199,6 +199,80 @@ test('实例缓冲：the effects\' pools — an empty one is not drawn and not u
   assert.equal(fx.shells.mesh.visible, false, 'the others still not');
 });
 
+// ---------------------------------------------------------------------------------------------- 跑酷每答对一题的 flood
+const { rowCells } = await import('../../src/learn/play/runner/runner.js');
+// the old scan (inkwave 088c6dd runner.js _floodRow), verbatim but for its inputs
+function oldRowCells(L, ids, corners, y0, y1) {
+  const cells = [];
+  const inPoly = (x, z) => { let ins = false; for (let i = 0, j = 3; i < 4; j = i++) { const [xi, zi] = corners[i], [xj, zj] = corners[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) ins = !ins; } return ins; };
+  for (const bid of ids) {
+    const b = L.blocks[bid];
+    for (let fi = 0; fi < 6; fi++) {
+      const f = b.faces[fi] >= 0 ? L.faces[b.faces[fi]] : null;
+      if (!f || !f.atlas || !f.turf || f.grid == null || f.n.y < 0.6) continue;
+      for (let j = 0; j < f.nv; j++) for (let i = 0; i < f.nu; i++) {
+        const su = (i + 0.5) * f.cu, sv = (j + 0.5) * f.cv;
+        const x = f.origin.x + f.u.x * su + f.v.x * sv, y = f.origin.y + f.u.y * su + f.v.y * sv, z = f.origin.z + f.u.z * su + f.v.z * sv;
+        if (y < y0 || y > y1 || !inPoly(x, z)) continue;
+        cells.push(f.grid + j * f.nu + i);
+      }
+    }
+  }
+  return cells;
+}
+// a made-up stretch of road: blocks whose faces are decks, ramps and walls (u, v orthonormal, n = u × v), grids end to end
+function roadLevel(rnd) {
+  const faces = [], blocks = [];
+  let grid = 0;
+  for (let b = 0; b < 6; b++) {
+    const fs = [];
+    for (let k = 0; k < 6; k++) {
+      const yaw = rnd() * Math.PI * 2, tilt = k === 5 ? 1.2 : rnd() < 0.3 ? rnd() * 0.5 : 0;   // (k 5: a wall-ish face, skipped)
+      const u = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw)), v0 = new THREE.Vector3(-Math.sin(yaw), 0, Math.cos(yaw));
+      const v = v0.clone().multiplyScalar(Math.cos(tilt)).add(new THREE.Vector3(0, Math.sin(tilt), 0));
+      const n = new THREE.Vector3().crossVectors(v, u).normalize();
+      if (n.y < 0) n.negate();
+      const cu = 0.2 + rnd() * 0.15, cv = 0.2 + rnd() * 0.15, nu = 20 + ((rnd() * 120) | 0), nv = 20 + ((rnd() * 200) | 0);
+      const f = { origin: new THREE.Vector3((rnd() - 0.5) * 30, (rnd() - 0.5) * 2, (rnd() - 0.5) * 30), u, v, n, cu, cv, nu, nv, su: nu * cu, sv: nv * cv, grid, atlas: rnd() < 0.95 ? {} : null, turf: rnd() < 0.95 };
+      grid += nu * nv; fs.push(faces.length); faces.push(f);
+    }
+    blocks.push({ faces: fs });
+  }
+  return { faces, blocks };
+}
+// a row's quad as _floodRow makes it: 6 m along the road, its lanes across, round a point on it
+function rowQuad(rnd) {
+  const px = (rnd() - 0.5) * 20, pz = (rnd() - 0.5) * 20, yaw = rnd() * Math.PI * 2, tx = Math.sin(yaw), tz = Math.cos(yaw), rx = tz, rz = -tx;
+  const half = (3 * 1.6) / 2 + 0.6, c = (rnd() - 0.5) * 2;
+  return [[-2.5, -half], [3.5, -half], [3.5, half], [-2.5, half]].map(([f, l]) => [px + tx * f + rx * (c + l), pz + tz * f + rz * (c + l)]);
+}
+test('跑酷的 flood：rowCells inks the very cells the old scan did, in the same order — decks, ramps, walls, rows at any angle', () => {
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+  let n = 0, cells = 0;
+  for (let k = 0; k < 24; k++) {
+    const L = roadLevel(rnd), ids = L.blocks.map((_, i) => i);
+    for (let r = 0; r < 6; r++) {
+      const corners = rowQuad(rnd), y = (rnd() - 0.5) * 1.5;
+      const want = oldRowCells(L, ids, corners, y - 1.2, y + 1.2), got = rowCells(L, ids, corners, y - 1.2, y + 1.2);
+      assert.deepStrictEqual(got, want, `level ${k}, row ${r}`);
+      n++; cells += want.length;
+    }
+  }
+  assert.ok(cells > 10000, `${n} rows, ${cells} cells inked — the same`);
+});
+
+test('跑酷的 flood：and in a fraction of the time (same rows, same process, CPU)', () => {
+  let seed = 11;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+  const L = roadLevel(rnd), ids = L.blocks.map((_, i) => i), rows = Array.from({ length: 30 }, () => rowQuad(rnd));
+  const cpu = (fn) => { const c = process.cpuUsage(); fn(); const d = process.cpuUsage(c); return (d.user + d.system) / 1000; };
+  for (const q of rows.slice(0, 3)) { oldRowCells(L, ids, q, -1.2, 1.2); rowCells(L, ids, q, -1.2, 1.2); }
+  const before = cpu(() => { for (const q of rows) oldRowCells(L, ids, q, -1.2, 1.2); });
+  const now = cpu(() => { for (const q of rows) rowCells(L, ids, q, -1.2, 1.2); });
+  assert.ok(now * 4 <= before, `30 rows: ${now.toFixed(1)} ms of CPU (the old scan: ${before.toFixed(1)} ms)`);
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay
