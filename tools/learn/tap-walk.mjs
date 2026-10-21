@@ -6,12 +6,17 @@
 // she can see and tap — the walk bar's 「自动走」, a framed board's 「继续」, the strip's primary action (备战's 「开始这一轮」)
 // — at least 44 × 44 px, inside the safe area (insets injected: a headless page has no notch), not under another element
 // nor a touch key. No way on for more than 3 s of the level's own clock (a software-GL frame takes a while: game time is
-// what her phone would show) → FAIL, a screenshot and the state.
+// what her phone would show) → FAIL, a screenshot and the state. A level that moves on by itself (the runner's ink, a duel
+// round, the boss fight) must not stand still for more than 15 s of its clock either.
+// Software GL draws a frame of a stage like terraces in ~1.5 s here (640 k triangles): drawing, the level would run at 3 %
+// of her speed. So the page draws nothing (main.js _skipRender: the simulation, the HUD and the touch layer run as on her
+// phone — what this audit checks — the canvas just keeps its last picture) except two frames before each screenshot;
+// --draw draws every frame.
 //
 //   node tools/learn/tap-walk.mjs --learn w2d3 [--kind puzzle|race|duel|review|boss] [--view portrait|landscape]
 //        [--gate N] [--short] [--until gate:N | exit | done] [--budget 900] [--shots <dir>] [--out <file>]
 //        [--cpu 4] (CDP CPU throttling) [--dpr 1] [--no-inset] [--more] (tap 「看全文」 on every board that has it, not
-//        only the first) [--keep] (go on after a FAIL: the run then reports every stuck stretch it met)
+//        only the first) [--keep] (go on after a FAIL: the run then reports every stuck stretch it met) [--draw]
 //   views: portrait 390 × 844 (her App: ?from=app, insets top 59 / bottom 34 — a Dynamic Island iPhone), landscape
 //   844 × 390 (?from=app turned: insets left / right 59, bottom 21); both touch, isMobile.
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/tap-walk.mjs …
@@ -29,7 +34,7 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const has = (k) => args.includes('--' + k);
 const LEARN_Q = opt('learn', 'w2d3'), KIND = opt('kind', 'puzzle'), VIEW = opt('view', 'portrait'), GATE = +opt('gate', 0), SHORT = has('short');
 const UNTIL = opt('until', 'done'), BUDGET = +opt('budget', 900) * 1000, SHOTS = opt('shots', null), OUT = opt('out', null), CPU = +opt('cpu', 0), DPR = +opt('dpr', 1);
-const KEEP = has('keep'), MORE_ALL = has('more'), LIMIT_S = 3;
+const KEEP = has('keep'), MORE_ALL = has('more'), LIMIT_S = 3, DRAW = has('draw');
 const VIEWS = {
   portrait: { w: 390, h: 844, inset: { t: 59, r: 0, b: 34, l: 0 } },
   landscape: { w: 844, h: 390, inset: { t: 0, r: 59, b: 21, l: 59 } },
@@ -79,6 +84,8 @@ async function shot(name) {
   if (!SHOTS) return null;
   fs.mkdirSync(SHOTS, { recursive: true });
   const f = path.join(SHOTS, `${tag}-${String(++shotN).padStart(2, '0')}-${name}.png`);
+  // (not drawing: two frames drawn for the picture, by the page's own loop)
+  if (!DRAW) await ev(() => new Promise((r) => { __inkwave._skipRender = false; requestAnimationFrame(() => requestAnimationFrame(() => { __inkwave._skipRender = true; r(); })); }));
   try { await page.screenshot({ path: f, timeout: 120000 }); say('shot', f); return f; } catch (e) { say('shot failed', e.message); return null; }
 }
 const watchdog = setTimeout(() => { fail('out of budget', { budget: BUDGET / 1000 }); finish(2); }, BUDGET);
@@ -105,7 +112,9 @@ say('open', query, 'insets', JSON.stringify(INSET));
 await page.goto(base + 'index.html' + query, { waitUntil: 'load', timeout: 180000 });
 await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.mode === 'learn' && __inkwave.match.state === 'playing' && __inkwave.match.learn, null, { timeout: 600000, polling: 500 });
 report.boot = { s: +((Date.now() - T0) / 1000).toFixed(1) };
-say('playing');
+if (!DRAW) await ev(() => { __inkwave._skipRender = true; });
+report.draw = DRAW;
+say('playing', DRAW ? '(drawing every frame)' : '(not drawing: the simulation and the DOM only)');
 
 // ------------------------------------------------------------------------------------------------ what the screen shows
 // one sample: the level's clock and phase, whether she is answering, and every way on the screen offers with its checks
@@ -179,7 +188,8 @@ const rightAnswer = () => ev(() => {
   if (p.type === 'choice') return p._perm ? p._perm.indexOf(item.answer) : item.answer;
   return (item.meta && item.meta.ref) || item.en;
 });
-const verdictOf = () => ev(() => { const F = __inkwave.match.learn; if (F.glide && F.glide.cur) return F.glide.cur.answered ? (F.glide.cur.verdict || { ok: true }) : null; if (F.glide && F.constructor.name === 'RunnerFlow') return { ok: true, gone: true }; const H = F.play || F.arena, d = H.debug(); return d.mechanic === 'm1' ? d.m1.verdict : d.station && d.station.verdict; });
+// (a page function: waitFor evaluates it in the page)
+const verdictOf = () => { const F = __inkwave.match.learn; if (F.glide && F.glide.cur) return F.glide.cur.answered ? (F.glide.cur.verdict || { ok: true }) : null; if (F.glide && F.constructor.name === 'RunnerFlow') return { ok: true, gone: true }; const H = F.play || F.arena, d = H.debug(); return d.mechanic === 'm1' ? d.m1.verdict : d.station && d.station.verdict; };
 
 async function answerM1(right) {
   // where the objects come to rest: two reads 400 ms apart within 3 px

@@ -345,3 +345,48 @@ test('the boss\'s booth: framed where she stands (a phone upright has no stick t
   for (let k = 0; k < 30; k++) E2.update(1 / 60, k / 60, her, { aspect: 1, speed: 0 });
   assert.equal(E2.walk.framed, -1); assert.equal(E2.state, 'ready');
 }));
+
+// ------------------------------------------------------------------------------------------------ the main thread (item 6)
+test('the boards ahead are painted a board a frame (prepareSoon), what place() needs at once; their faces go up a frame each before they rise', noDom(() => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 300);
+  const W = new BoardWalk({ scene, camera, max: 6 });
+  const painted = [], paint = W.set.paint.bind(W.set);
+  W.set.paint = (spec) => { painted.push(spec.title); return paint(spec); };
+  const words = daySteps(W2, 3).find((s) => s.meta.type === 'words').items.map((it) => ({ en: it.en, ipa: it.meta.ipaUs || it.meta.ipa, zh: it.zh }));
+  const specs = [0, 1, 2, 3, 4].map((k) => wordsSpec(words.slice(k * 5, k * 5 + 5), k + 1, 5));
+  W.prepareSoon('g3', specs); W.prepareSoon('g4', specs.slice(0, 2));
+  assert.equal(painted.length, 0, 'nothing painted as the gates are queued');
+  const her = new THREE.Vector3(0, 0, -50);
+  W.update(1 / 60, her, {}); assert.equal(painted.length, 1, 'one board a frame');
+  W.update(1 / 60, her, {}); assert.equal(painted.length, 2);
+  const route = []; for (let z = 0; z <= 40; z++) route.push({ x: 0, y: 0, z });
+  W.place('g3', boardSpots(route, 5));
+  assert.equal(painted.length, 5, 'placing a gate paints what it still owes at once');
+  assert.equal(W.list.length, 5);
+  for (let k = 0; k < 2; k++) W.update(1 / 60, her, {});
+  assert.equal(painted.length, 7, 'the next gate, a frame each');
+  W.prepareSoon('g5', specs.slice(0, 3)); W.update(1 / 60, her, {}); W.free('g5');
+  for (let k = 0; k < 4; k++) W.update(1 / 60, her, {});
+  assert.equal(painted.length, 8, 'a freed gate owes nothing');
+  // the faces: with a renderer, hidden until their upload — one a frame — and only then do they rise
+  const ups = [];
+  G.renderer = { initTexture: (t) => ups.push(t) };
+  try {
+    const S2 = new BoardWalk({ scene, camera, max: 6 });
+    S2.prepare('g', specs.slice(0, 3));
+    for (const e of S2.entries.get('g')) e.canvas = e.canvas || {};   // (Node paints no canvas: stand one in, as on the page)
+    S2.place('g', boardSpots(route, 3));
+    assert.ok(S2.set.boards.every((b) => !b.face.visible && !b.up), 'not shown before the upload');
+    S2.update(1 / 60, her, {});
+    assert.equal(ups.length, 1, 'one upload a frame'); assert.ok(S2.set.boards[0].face.visible && !S2.set.boards[1].face.visible);
+    for (let k = 0; k < 2; k++) S2.update(1 / 60, her, {});
+    assert.equal(ups.length, 3);
+    for (let k = 0; k < 60; k++) S2.update(1 / 60, her, {});
+    assert.ok(S2.set.boards.every((b) => b.face.visible && b.pop === 1), 'all up and risen');
+  } finally { G.renderer = null; }
+}));
+
+test('the puzzle\'s boards station queues the gates ahead (a board a frame) — PlayHost._prep paints none at once', () => {
+  assert.match(src('src/learn/play/wire/boards.js'), /if \(specs\.length\) this\.walk\.prepareSoon\(g\.id, specs\);/);
+  assert.match(src('src/learn/play/board/walk.js'), /update\(dt, her, o = \{\}\) \{\s*if \(this\._owed\.length\) this\._paintOne\(\);/);
+});

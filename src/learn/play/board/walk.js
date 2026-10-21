@@ -9,6 +9,7 @@
 //
 //   const W = new BoardWalk({ scene, camera, color, reduced, root })
 //   W.prepare(key, specs) → entries          paint a gate's boards ahead (2 gates before it); W.free(key)
+//   W.prepareSoon(key, specs)                LEARN §48: the same, a board a frame (update) — place() paints what is still owed
 //   W.place(key, spots)                      they rise at spots [{ x, y, z, yaw }] (frame.js boardSpots(route, n))
 //   W.update(dt, herPos, { aspect, speed })  zones and framing; per frame
 //   W.framing → { pos, look, fov } | null    the camera pose to spring to (world); null = back to following her
@@ -44,18 +45,40 @@ export class BoardWalk {
     this.list = [];           // placed: [{ b, spot, read, t, view: Vector3 }]
     this.framed = -1; this.framing = null; this._aspect = 0;
     this.on = {}; this.bandFor = null; this.here = false;
-    this._q = false; this._tap = null; this._seq = 0;
+    this._q = false; this._tap = null; this._seq = 0; this._owed = [];
     this.tapApi = { down: (x, y, id) => this._down(x, y, id), up: (x, y, id, cancel) => this._up(x, y, id, cancel) };
     this.strip.onClose = () => { this.on.stripClosed?.(); };
   }
 
   prepare(key, specs) {
     if (this.entries.has(key)) return this.entries.get(key);
+    if (this._owe(key)) return this.entries.get(key);
     const list = (specs || []).map((s) => this.set.paint(s));
     this.entries.set(key, list);
     return list;
   }
+  // LEARN §48: the gates ahead a board a frame — painting a gate's six word boards as the gate before opened was one long
+  // task (layout + text on six 1024-px canvases) on her phone
+  prepareSoon(key, specs) {
+    if (this.entries.has(key) || this._owed.some((o) => o.key === key)) return;
+    if (specs && specs.length) this._owed.push({ key, specs: specs.slice(), list: [] });
+  }
+  // what is still owed for key, painted now (it is needed now: place, prepare) → whether there was any
+  _owe(key) {
+    const k = this._owed.findIndex((o) => o.key === key); if (k < 0) return false;
+    const o = this._owed[k]; this._owed.splice(k, 1);
+    for (const s of o.specs.slice(o.list.length)) o.list.push(this.set.paint(s));
+    this.entries.set(key, o.list);
+    return true;
+  }
+  _paintOne() {
+    const o = this._owed[0]; if (!o) return;
+    o.list.push(this.set.paint(o.specs[o.list.length]));
+    if (o.list.length >= o.specs.length) { this._owed.shift(); this.entries.set(o.key, o.list); }
+  }
   free(key) {
+    const ow = this._owed.findIndex((o) => o.key === key);
+    if (ow >= 0) { for (const e of this._owed[ow].list) e.dispose(); this._owed.splice(ow, 1); }
     const list = this.entries.get(key); if (!list) return;
     for (const L of this.list.slice()) if (list.includes(L.b.entry)) { this.set.remove(L.b); this.list.splice(this.list.indexOf(L), 1); }
     for (const e of list) e.dispose();
@@ -63,6 +86,7 @@ export class BoardWalk {
     if (this.framed >= this.list.length) this._unframe();
   }
   place(key, spots, o = {}) {
+    if (!this.entries.has(key)) this._owe(key);
     const list = this.entries.get(key) || [];
     spots.forEach((s, k) => {
       const e = list[k]; if (!e) return;
@@ -96,6 +120,7 @@ export class BoardWalk {
   }
 
   update(dt, her, o = {}) {
+    if (this._owed.length) this._paintOne();
     this.set.update(dt);
     if (!her) return;
     const aspect = o.aspect || 16 / 9, speed = o.speed ?? 0;
@@ -191,5 +216,5 @@ export class BoardWalk {
   }
 
   warm(renderer, camera, target) { return this.set.warm(renderer, camera, target); }
-  dispose() { this.clear(); for (const k of [...this.entries.keys()]) this.free(k); this.set.dispose(); this.strip.dispose(); }
+  dispose() { this.clear(); for (const k of [...this.entries.keys(), ...this._owed.map((o) => o.key)]) this.free(k); this.set.dispose(); this.strip.dispose(); }
 }

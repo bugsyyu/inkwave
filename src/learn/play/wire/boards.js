@@ -79,7 +79,7 @@ export class BoardStation {
     if (g._boards) return g._boards.n;
     const specs = gateSpecs(g, this.flow.level);
     g._boards = { n: specs.length, placed: false };
-    if (specs.length) this.walk.prepare(g.id, specs);
+    if (specs.length) this.walk.prepareSoon(g.id, specs);   // (a board a frame — LEARN §48; place() paints what is still owed)
     return specs.length;
   }
   // the boards rise along the route to gate g (the stretch from the gate before it)

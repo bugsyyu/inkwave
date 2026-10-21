@@ -105,6 +105,7 @@ export class PlayHost {
     this.m1.update(dt);
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.beat.update(dt); this.flip.update(dt); this.boards.update(dt); this.exit.update(dt);
+    this.strip?.update?.(dt);   // (a timed note hides itself: the exit's 说完了 — LEARN §48)
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }

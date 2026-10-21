@@ -86,7 +86,9 @@ export class ExitStation {
       this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
       try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
       this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-      this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
+      // (LEARN §48: a timed note — on a phone held upright the strip stands where the walk bar is, and this one stayed up over
+      // 「自动走」 for the rest of the walk to the check-in pad)
+      this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.verdict({ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' }, { ms: 2600 }); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
       this.echo.on.classic = () => this._classic('speak', speak);
       this._keysOn(this.echo.walk);
       const at = spot(boards.length ? -2.4 : 0, -3.2);
