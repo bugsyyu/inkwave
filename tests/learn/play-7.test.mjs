@@ -111,6 +111,6 @@ test('the stations frame landscape typing in the column; the strip leaves it; th
   assert.match(host, /this\.mode === 'zone' && this\.kind === 'm1'/, 'the duel / the quiz (zone) yields only while its objects are up');
   assert.match(host, /this\.kind === 'echo' && /, '… and the boss while its booth board is framed');
   assert.match(host, /this\.kind === 'type' && !!this\.type\.cur/, '… and while the 打字蟹 is up');
-  // (LEARN §48: under the top row and clear of the HUD's board keys — hudBand's top, keysBand's sides)
-  assert.match(host, /walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBand\(aspect, w, h, safeInsets\(\)\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top\) \}; \};/, 'the boss booth board is framed under the top row');
+  // (LEARN §48: under the top row and clear of the HUD's board keys — hudBand's top, keysBandNow's sides)
+  assert.match(host, /walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top\) \}; \};/, 'the boss booth board is framed under the top row');
 });

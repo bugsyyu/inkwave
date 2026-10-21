@@ -46,12 +46,13 @@ export function frameBoard(board, aspect, o = {}) {
 // LEARN §48: the board's keys (hud-learn framed(): 看全文 · 继续 ›) — upright they keep the walk bar's place, the row's
 // bottom KEYS.row px under the top inset; turned they stand in a column at the left, KEYS.col px wide with its margins.
 // The band keeps clear of them and of the safe area (insets in px: src/ui/safe-area.js); the far side keeps the usual
-// margin, so a wide board is not shrunk on both sides for a column on one
+// margin — or, turned, clears what the touch layer's live keys reach in from the right (ins.reach px: jump, squid, ⏸
+// stood over a word board's rows there, and a tap on a row was a jump: landscape.js keysBandNow)
 export const KEYS = { row: 130, col: 160 };
 export function keysBand(aspect, W, H, ins = {}) {
   const b = boardBand(aspect, W, H), t = ins.top || 0, r = ins.right || 0, bo = ins.bottom || 0, l = ins.left || 0;
   if (aspect < 1) return { ...b, top: Math.max(b.top, t + KEYS.row), bottom: b.bottom + bo, side: b.side + Math.max(l, r) };
-  return { ...b, top: b.top + t, bottom: b.bottom + bo, left: l + KEYS.col, right: b.side + r };
+  return { ...b, top: b.top + t, bottom: b.bottom + bo, left: l + KEYS.col, right: Math.max(b.side + r, ins.reach ? ins.reach + 8 : 0) };
 }
 // the smallest text on a framed board, in screen px (canvas px × screen px per canvas px)
 export function onScreenFont(layout, frame, boardW) { return layout.minFont * (frame.rect.w / layout.W) * (boardW ? 1 : 1); }

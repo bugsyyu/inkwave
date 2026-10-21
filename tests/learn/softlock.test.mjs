@@ -241,6 +241,10 @@ test('keysBand: upright under the keys\' row, turned right of their column; both
   const up = keysBand(390 / 844, 390, 844, { top: 59, bottom: 34 }), turned = keysBand(844 / 390, 844, 390, { left: 59, right: 59, bottom: 21 });
   assert.equal(up.top, 59 + KEYS.row); assert.equal(up.bottom, boardBand(390 / 844, 390, 844).bottom + 34);
   assert.equal(turned.left, 59 + KEYS.col); assert.equal(turned.right, boardBand(844 / 390, 844, 390).side + 59); assert.equal(turned.bottom, boardBand(844 / 390, 844, 390).bottom + 21);
+  // turned on a phone: clear of the touch layer's live keys at the right (what they reach in from the edge)
+  assert.equal(keysBand(844 / 390, 844, 390, { left: 59, right: 59, reach: 203 }).right, 211);
+  assert.equal(keysBand(844 / 390, 844, 390, { left: 59, right: 59, reach: 40 }).right, boardBand(844 / 390, 844, 390).side + 59, 'the inset when the keys reach less');
+  assert.equal(keysBand(390 / 844, 390, 844, { top: 59, reach: 203 }).side, boardBand(390 / 844, 390, 844).side, 'upright: the keys are under the board, no reach');
   // no insets, no band: frameBoard as it was (the camera straight in front, x 0)
   const plain = frameBoard({ w: 2.44, h: 1.5 }, 844 / 390, { W: 844, H: 390 });
   assert.equal(plain.pos[0], 0); assert.equal(plain.look[0], 0);
@@ -257,7 +261,7 @@ test('keysBand: upright under the keys\' row, turned right of their column; both
 
 test('every week-2 board, framed in the keys\' band on an iPhone either way (Dynamic Island insets), fits, reads at ≥ 17 px and keeps clear of the keys', () => {
   const W0 = LEARN.board.w;
-  const views = [[390, 844, { top: 59, bottom: 34 }], [844, 390, { left: 59, right: 59, bottom: 21 }], [390, 844, {}], [844, 390, {}]];
+  const views = [[390, 844, { top: 59, bottom: 34 }], [844, 390, { left: 59, right: 59, bottom: 21 }], [844, 390, { left: 59, right: 59, bottom: 21, reach: 203 }], [390, 844, {}], [844, 390, {}]];
   for (const [tag, spec] of SPECS) {
     const Lb = layoutBoard(spec), h = (W0 * Lb.H) / Lb.W;
     for (const [Wd, Hd, ins] of views) {
@@ -266,7 +270,7 @@ test('every week-2 board, framed in the keys\' band on an iPhone either way (Dyn
       const font = Lb.minFont * ((f.rect.w * (W0 / (W0 + 0.14))) / Lb.W);
       assert.ok(font >= LEARN.board.font - 0.01, `${tag} ${Wd}×${Hd}: ${font.toFixed(1)} px`);
       if (Wd < Hd) assert.ok(f.rect.y >= (ins.top || 0) + KEYS.row - 0.5, `${tag}: under the keys' row`);
-      else assert.ok(f.rect.x >= (ins.left || 0) + KEYS.col - 0.5 && f.rect.x + f.rect.w <= Wd - (ins.right || 0) - 15.5, `${tag}: right of the keys' column, inside the right inset`);
+      else assert.ok(f.rect.x >= (ins.left || 0) + KEYS.col - 0.5 && f.rect.x + f.rect.w <= Wd - Math.max((ins.right || 0) + 16, (ins.reach || 0) + 8) + 0.5, `${tag}: right of the keys' column, left of the right inset and the touch keys`);
     }
   }
 });
@@ -317,7 +321,8 @@ test('the puzzle\'s boards hand the HUD their keys: framed → 看全文 / 继�
   // the exit's booth and signs, the same keys (wire/exit.js)
   const ex = src('src/learn/play/wire/exit.js');
   assert.match(ex, /this\._keysOn\(this\.echo\.walk\);/); assert.match(ex, /this\._keysOn\(this\.signs\.walk\);/);
-  assert.match(ex, /W\.bandFor = \(aspect, w, h\) => keysBand\(aspect, w, h, safeInsets\(\)\);/);
+  assert.match(ex, /W\.bandFor = keysBandNow;/);
+  assert.match(src('src/learn/play/wire/boards.js'), /W\.bandFor = keysBandNow;/);
   assert.ok(!/playMode\?\.\(true\)/.test(ex), 'the exit no longer hides the walk bar for a framed board');
   assert.ok(!/playMode\?\.\(true\)/.test(src('src/learn/play/wire/boards.js')), 'nor the boards');
 }));
@@ -338,6 +343,7 @@ test('the boss\'s booth: framed where she stands (a phone upright has no stick t
   assert.deepEqual(done, ['button'], '说完了');
   const host = src('src/learn/play/arena/host.js');
   assert.match(host, /this\.echo\.here = true;/);
+  assert.match(host, /this\.echo\.walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top\) \}; \};/);
   assert.match(host, /onGo: \(\) => this\.echo\?\._done\('button'\)/, 'the HUD\'s 继续 is 说完了');
   // without `here` (the puzzle's exit: the auto-walk takes her into the ring) nothing changed
   const E2 = new EchoBooth({ scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera() });

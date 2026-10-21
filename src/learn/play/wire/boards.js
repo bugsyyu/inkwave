@@ -14,8 +14,8 @@ import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { daySteps } from '../../api.js';
 import { BoardWalk } from '../board/walk.js';
-import { boardSpots, keysBand } from '../board/frame.js';
-import { safeInsets } from '../../../ui/safe-area.js';
+import { boardSpots } from '../board/frame.js';
+import { keysBandNow } from '../landscape.js';
 import { wordsSpec, soundsSpec, lessonSpec, passageSpec } from '../board/paint.js';
 
 export const BOARDS_MAX = 6;   // boards a gate shows at most (BoardSet's instances: the review day's 48 sounds would be 24)
@@ -61,7 +61,7 @@ export class BoardStation {
     // LEARN §48: a framed board turns the walk bar into its keys — 看全文, 继续 › (the auto-walk on: the next board, the
     // gate) — framed in the band they leave clear (before, the walk bar went, 「自动走」 with it, and a phone held upright
     // had nothing on the screen to go on with); a board she passes on the auto-walk, read before, leaves the walk bar be
-    W.bandFor = (aspect, w, h) => keysBand(aspect, w, h, safeInsets());
+    W.bandFor = keysBandNow;
     W.on.framed = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'framed', i }); if (!(this.flow.auto && W.read(i))) this._keys(i); };
     W.on.unframed = () => this.flow.hud?.framed?.(null);
     W.on.read = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i }); if (W.framed === i) this._keys(i); };

@@ -21,9 +21,7 @@ import { EchoBooth } from '../echo/booth.js';
 import { FlipStation } from '../wire/flip.js';
 import { PrepStation } from './prep.js';
 import { isFlipGate } from '../../forms/common.js';
-import { hudBand } from '../landscape.js';
-import { keysBand } from '../board/frame.js';
-import { safeInsets } from '../../../ui/safe-area.js';
+import { hudBand, keysBandNow } from '../landscape.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3();
@@ -41,7 +39,7 @@ class EchoStation {
     this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
     // (play-7: the board framed under the boss's HP bar and the clock, not behind them — LEARN §48: and clear of the HUD's
     // board keys, the safe area)
-    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBand(aspect, w, h, safeInsets()); return { ...k, top: Math.max(a.top, k.top) }; };
+    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBandNow(aspect, w, h); return { ...k, top: Math.max(a.top, k.top) }; };
     // LEARN §48: she is in the booth where she stands (a phone held upright has no stick to walk into its ring with — the
     // S phase waited out its clock): the board framed at once, the sample after sampleGap, and the HUD's keys — 看全文,
     // 继续 › = 说完了 — besides the board's own

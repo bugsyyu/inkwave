@@ -2,9 +2,11 @@
 // them (the 2D canvas: layout + text), uploading their faces (texImage2D + mipmaps, on the first frame each face is
 // drawn), opening the reading strip — with the CPU slowed by CDP (4× / 6×: a phone's main thread, relative) at her
 // density (DPR 3). The level is the one she was on: w2d3 from its 2nd gate (the 讲解板 on the way to a2 stands from the
-// start), the clock frozen and stepped by hand, every frame drawn; per frame its main-thread time, and inside it what the
-// boards cost, by kind; the events (the level's first frames, a gate opening and the next gates' boards, a board rising,
-// framed, 看全文). Not a pass / fail: the numbers go into LEARN §48 (> 200 ms in one frame is what item 6 splits).
+// start), the clock frozen and stepped by hand; per frame its main-thread time, and inside it what the boards cost, by
+// kind; the events (the level's first frames, a gate opening and the next gates' boards, a board rising, framed, 看全文).
+// Frames are drawn where the boards' faces can upload (they rise: the start, the gate opening; framed; the strip) and not
+// on the walks between (software GL at DPR 3 takes seconds a frame; nothing of the boards happens there). Not a pass /
+// fail: the numbers go into LEARN §48 (> 200 ms in one frame is what item 6 splits).
 //   node tools/learn/board-hitch.mjs [--cpu 4] [--dpr 3] [--learn w2d3] [--gate 2] [--view portrait|landscape] [--json <file>]
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/board-hitch.mjs …
 import http from 'node:http';
@@ -73,21 +75,23 @@ if (CPU > 1) { const cdp = await ctx.newCDPSession(page); await cdp.send('Emulat
 say('playing; CPU', CPU + '×');
 // one stepped, drawn frame: its main-thread time, and the board costs inside it
 const frames = [];
-async function step(n = 1, what = '') {
+async function step(n = 1, what = '', draw = true) {
   for (let i = 0; i < n; i++) {
-    const r = await ev(() => { const H = window.__bh, k = H.up.length, t = performance.now(); __inkwave._frame(1 / 30); return { ms: performance.now() - t, parts: H.up.slice(k).map((u) => [u[0], u[1], +u[2].toFixed(1)]) }; });
-    frames.push({ what, ms: +r.ms.toFixed(1), parts: r.parts });
+    const r = await ev((dr) => { const H = window.__bh, k = H.up.length, t = performance.now(); __inkwave._skipRender = !dr; try { __inkwave._frame(1 / 30); } finally { __inkwave._skipRender = false; } return { ms: performance.now() - t, parts: H.up.slice(k).map((u) => [u[0], u[1], +u[2].toFixed(1)]) }; }, draw);
+    frames.push({ what, ms: +r.ms.toFixed(1), parts: r.parts, drawn: draw });
   }
 }
 const state = () => ev(() => { const F = __inkwave.match.learn, H = F.play, W = H.boards.walk; return { phase: F.phase, cur: F.cur, auto: F.auto, framed: W ? W.framed : -1, boards: W ? W.list.length : 0, read: W && W.framed >= 0 ? W.read(W.framed) : null, strip: W ? W.strip.isOpen : false }; });
-// the first frames (the stations build, the first gates' boards are painted — under the match fade on her phone)
-await step(8, 'start');
+// the first frames (the stations build, the first gates' boards are painted and the first gate's rise — under the match
+// fade on her phone)
+await step(36, 'start');
 // the walk to the board (the level's own auto-walk: this probe measures, it does not play), framing, read
 await ev(() => __inkwave.match.learn.autoWalk(true));
 let s = null;
-for (let i = 0; i < 400; i++) { await step(1, 'walk'); if (i % 10 === 9) { s = await state(); if (s.framed >= 0 && !s.auto) break; } }
+for (let i = 0; i < 600; i++) { await step(1, 'walk', false); if (i % 10 === 9) { s = await state(); if (s.framed >= 0 && !s.auto) break; } }
 say('at the board', JSON.stringify(s));
-await step(Math.ceil(LEARN_READ_S() * 30) + 6, 'framed');
+await step(8, 'framed');
+await step(Math.ceil(LEARN_READ_S() * 30), 'framed', false);
 s = await state();
 // 看全文 (the HUD's key)
 const keyed = await ev(() => { const b = document.querySelector('.iw-learn__more'); if (b && !b.hidden) { b.click(); return 'key'; } const W = __inkwave.match.learn.play.boards.walk; return W && W.framed >= 0 && W.activate('more') ? 'hotspot' : false; });
@@ -98,9 +102,26 @@ await ev(() => document.querySelector('.iw-read__x')?.click());
 // on to the gate: its questions free the boards; then the gate opens by its answers — here the probe opens it (what
 // follows a gate opening is what is measured: the next gates' boards painted, the next ones placed)
 await ev(() => __inkwave.match.learn.autoWalk(true));
-for (let i = 0; i < 300; i++) { await step(1, 'walk2'); if (i % 10 === 9) { s = await state(); if (s.phase !== 'walk') break; } }
+for (let i = 0; i < 600; i++) { await step(1, 'walk2', false); if (i % 10 === 9) { s = await state(); if (s.phase !== 'walk') break; } }
 await ev(() => { const F = __inkwave.match.learn; F._open(F.gates[F.cur]); });
-await step(20, 'opened');
+await step(45, 'opened');
+// on towards the next gate's boards, drawn (a face uploads on the first frame it is drawn in view, before LEARN §48)
+await ev(() => __inkwave.match.learn.autoWalk(true));
+await step(75, 'walk3');
+// one board painted and one face uploaded on their own, at this CPU: what each costs
+const one = await ev(async () => {
+  const F = __inkwave.match.learn, W = F.play.boards.walk, g = F.gates[F.cur], now = () => performance.now();
+  const { gateSpecs } = await import(new URL('src/learn/play/wire/boards.js', location.href).href);
+  const specs = gateSpecs(g, F.level); if (!specs.length) return null;
+  const out = [];
+  for (let k = 0; k < Math.min(3, specs.length); k++) {
+    let t = now(); const e = W.set.paint(specs[k]); const paint = now() - t;
+    t = now(); __G.renderer.initTexture(e.tex); const upload = now() - t;
+    out.push({ kind: specs[k].kind, h: e.layout.H, paint: +paint.toFixed(1), upload: +upload.toFixed(1) });
+    e.dispose();
+  }
+  return out;
+});
 function LEARN_READ_S() { return 1.2; }
 const lt = await ev(() => window.__bh.lt);
 // the summary: per phase of the walk the frames' main-thread time (p50 / max) and the board costs by kind
@@ -114,7 +135,7 @@ const pct = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.leng
 const summary = Object.fromEntries(Object.entries(by).map(([k, b]) => [k, { frames: b.n, p50: pct(b.ms, 0.5), max: +Math.max(...b.ms).toFixed(1), kinds: Object.fromEntries(Object.entries(b.kinds).map(([kk, K]) => [kk, { n: K.n, sum: +K.sum.toFixed(1), max: K.max, at: K.max1 }])) }]));
 const worst = frames.slice().sort((a, b) => b.ms - a.ms).slice(0, 6).map((f) => ({ what: f.what, ms: f.ms, parts: f.parts.filter((p) => p[2] > 2).slice(0, 8) }));
 const boardMs = frames.map((f) => f.parts.filter((p) => p[0] !== 'mip' || true).reduce((a, p) => a + p[2], 0));
-const out = { cpu: CPU, dpr: DPR, view: V, learn: LEARN_Q, gate: GATE, summary, worst, boardsInOneFrameMax: +Math.max(...boardMs).toFixed(1), longTasks: { n: lt.length, over200: lt.filter((x) => x[1] > 200).length, max: lt.reduce((m, x) => Math.max(m, x[1]), 0) }, errors: errs };
+const out = { cpu: CPU, dpr: DPR, view: V, learn: LEARN_Q, gate: GATE, one, summary, worst, boardsInOneFrameMax: +Math.max(...boardMs).toFixed(1), longTasks: { n: lt.length, over200: lt.filter((x) => x[1] > 200).length, max: lt.reduce((m, x) => Math.max(m, x[1]), 0) }, errors: errs };
 console.log('[board-hitch] ' + JSON.stringify(out, null, 1));
 if (OUT) fs.writeFileSync(OUT, JSON.stringify({ ...out, frames }, null, 1));
 await browser.close(); srv.close();

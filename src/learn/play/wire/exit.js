@@ -21,8 +21,7 @@ import { LEARN } from '../../../config.js';
 import { EchoBooth } from '../echo/booth.js';
 import { Signs } from '../board/signs.js';
 import { openCheckin, checkinFor } from '../../../ui/checkin-card.js';   // 打卡 (LEARN §39): the check-in card on the pad
-import { keysBand } from '../board/frame.js';
-import { safeInsets } from '../../../ui/safe-area.js';
+import { keysBandNow } from '../landscape.js';
 
 const _v = new THREE.Vector3();
 
@@ -120,7 +119,7 @@ export class ExitStation {
   // next stop: stepping off the booth's pad is 说完了), framed in the band they leave clear
   _keysOn(W) {
     const F = this.flow;
-    W.bandFor = (aspect, w, h) => keysBand(aspect, w, h, safeInsets());
+    W.bandFor = keysBandNow;
     const keys = (i) => { const k = W.keysOf(i); if (k) F.hud?.framed?.({ ...k, onGo: () => F.autoWalk(true) }); };
     W.on.framed = (i) => keys(i);
     W.on.unframed = () => F.hud?.framed?.(null);

@@ -17,7 +17,9 @@
 //     ResizeObserver on the clock keeps --iw-clock-half (half its width) on the page's root; the two sit that far plus
 //     8 px from the middle, never nearer than the 52 px they had
 // Desktop (no max-height: 460px) keeps every position as it was; the split keyboard still opens the column there.
-import { boardBand, frameBoard } from './board/frame.js';
+import { boardBand, frameBoard, keysBand } from './board/frame.js';
+import { G } from '../../core/ctx.js';
+import { safeInsets } from '../../ui/safe-area.js';
 
 const CSS = `@media (max-height: 460px) and (orientation: landscape) {
   .iw-ps.is-typing .iw-ps__box { left: calc(var(--iw-sal, env(safe-area-inset-left)) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
@@ -106,4 +108,13 @@ export function hudBand(aspect, W, H, board = null) {
     band = { ...band, top: t };
   }
   return band;
+}
+
+/** LEARN §48: the band a framed board fills while the HUD shows its keys (board/frame.js keysBand), on this screen now — the
+ *  safe area, and on a phone turned what the touch layer's live keys reach in from the right edge */
+export function keysBandNow(aspect, W, H) {
+  const T = G.touch;
+  let reach = 0;
+  if (aspect >= 1 && T && T.enabled) for (const b of T.buttons) if (!b.off) reach = Math.max(reach, W - (b.cx - b.r));
+  return keysBand(aspect, W, H, { ...safeInsets(), reach: Math.ceil(reach) });
 }
