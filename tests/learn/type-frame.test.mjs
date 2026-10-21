@@ -7,6 +7,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PerformanceObserver, constants } from 'node:perf_hooks';
 import { frameFor, searchFrame, projectRig, FRAME, RIG_POINTS, hyp2, hyp3 } from '../../src/learn/play/type/frame.js';
+import { splitFrame, SPLIT, GLYPH_EM, SPLIT_PTS, SHEET_ENDS } from '../../src/learn/play/type/split.js';
+import { keyboardLayout } from '../../src/learn/play/type/keys.js';
 
 // ---- the old search, verbatim (inkwave 088c6dd src/learn/play/type/frame.js: project, search, frameFor) ----------------
 function oldProject(p, cam, look, fovY, aspect) {
@@ -82,6 +84,78 @@ function oldFrameFor(o = {}) {
   return withTarget.fits && Math.hypot(withTarget.pos[1] - 1.2, withTarget.pos[2]) < Math.hypot(rigOnly.pos[1] - 1.2, rigOnly.pos[2]) * 1.35 ? withTarget : rigOnly;
 }
 
+// ---- the old split-keyboard search, verbatim (inkwave 088c6dd src/learn/play/type/split.js: evalPose, better, splitFrame) ----
+const _oldSplitCache = new Map();
+
+// one pose: the camera behind her right shoulder (frame.js's FRAME.side), slid sideways by dx (m) — the column is in the
+// middle of the screen and a camera off to her right sees the plate lopsided — at height Hc, B m behind her feet
+function oldEvalPose(o, fov, B, Hc, dx = 0) {
+  const { W, H, pts, cy, yMid, xShift } = o, aspect = W / H, t = Math.tan((fov * Math.PI) / 360);
+  const zc = Math.hypot(1.0 + B, Hc - cy);
+  const cam = [FRAME.side + xShift * zc * t * aspect + dx, Hc, -B];
+  const ang = Math.atan2(cy - Hc, 1.0 + B) - Math.atan(yMid * t);
+  const look = [cam[0] - FRAME.side, Hc + Math.tan(ang) * (1.0 + B), 1.0];
+  let y0 = 1e9, y1 = -1e9, x0 = 1e9, x1 = -1e9;
+  for (const p of pts) {
+    const q = oldProject(p, cam, look, fov, aspect);
+    if (q[2] <= 0.3) return null;
+    const x = ((q[0] + 1) / 2) * W, y = ((1 - q[1]) / 2) * H;
+    if (y < o.yLo || y > o.yHi || x < o.xLo || x > o.xHi) return null;
+    if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x;
+  }
+  for (const p of o.wide) {
+    const q = oldProject(p, cam, look, fov, aspect);
+    if (q[2] <= 0.3) return null;
+    const x = ((q[0] + 1) / 2) * W, y = ((1 - q[1]) / 2) * H;
+    if (y < o.yLo || x < o.side || x > W - o.side) return null;
+    if (y > o.shelf && (x < o.xLo || x > o.xHi)) return null;
+  }
+  const hy = oldProject(RIG_POINTS.head, cam, look, fov, aspect)[1], ry = oldProject(RIG_POINTS.midRow, cam, look, fov, aspect)[1];
+  if (!(hy < ry - SPLIT.headMargin)) return null;
+  const g0 = oldProject(GLYPH_EM[0], cam, look, fov, aspect)[1], g1 = oldProject(GLYPH_EM[1], cam, look, fov, aspect)[1];
+  const glyph = ((g1 - g0) / 2) * H, h = y1 - y0;
+  const score = Math.min(glyph / SPLIT.want.glyph, h / SPLIT.want.h);
+  return { cam, look, fov, dx, score, px: { y0, y1, x0, x1, h, glyph, head: ((1 - hy) / 2) * H, row: ((1 - ry) / 2) * H } };
+}
+// the better of two: up to the cap the bigger; past it, the one nearer the cap with the less zoom
+function oldBetter(a, b) {
+  if (!b) return true;
+  const ca = Math.min(a.score, SPLIT.cap), cb = Math.min(b.score, SPLIT.cap);
+  if (Math.abs(ca - cb) > 0.002) return ca > cb;
+  if (a.fov !== b.fov) return a.fov > b.fov;
+  return a.score < b.score;
+}
+
+/** the typing frame in the open column of the split keyboard (rig frame) */
+function oldSplitFrame({ W, H, top, bottom = H, x0, x1, shelf = bottom, pts = SPLIT_PTS, wide = SHEET_ENDS, vfov = FRAME.vfov, pad = SPLIT.pad } = {}) {
+  const key = `${W}x${H}:${Math.round(top)}:${Math.round(bottom)}:${Math.round(x0)}-${Math.round(x1)}:${Math.round(shelf)}:${vfov}:${pad}:${pts.length}:${wide.length}`;
+  const hit = _oldSplitCache.get(key); if (hit) return hit;
+  const yLo = top + pad, yHi = bottom - Math.max(pad, SPLIT.padBottom), xLo = x0 + pad, xHi = x1 - pad;
+  const o = { W, H, pts, wide, yLo, yHi, xLo, xHi, shelf: shelf - pad, side: 16,
+    cy: (Math.min(...pts.map((p) => p[1])) + Math.max(...pts.map((p) => p[1]))) / 2,
+    yMid: 1 - (yLo + yHi) / H, xShift: (xLo + xHi) / W - 1 };
+  let best = null;
+  // coarse: zoom × distance × height, then a finer look around the best
+  for (let fov = vfov; fov >= vfov * SPLIT.minFov - 1e-6; fov -= 3)
+    for (let B = 0.8; B <= 9; B += 0.25) for (let Hc = 1.8; Hc <= 8; Hc += 0.2) { const c = oldEvalPose(o, fov, B, Hc); if (c && oldBetter(c, best)) best = c; }
+  if (best) {
+    // (finer, and slid sideways: up to 0.4 m either way)
+    const b0 = best;
+    for (let fov = Math.min(vfov, b0.fov + 2); fov >= Math.max(vfov * SPLIT.minFov, b0.fov - 2) - 1e-6; fov -= 1)
+      for (let B = Math.max(0.8, -b0.cam[2] - 0.25); B <= -b0.cam[2] + 0.25 + 1e-6; B += 0.05)
+        for (let Hc = Math.max(1.8, b0.cam[1] - 0.2); Hc <= b0.cam[1] + 0.2 + 1e-6; Hc += 0.05)
+          for (let dx = -0.4; dx <= 0.4 + 1e-6; dx += 0.1) { const c = oldEvalPose(o, fov, B, Hc, dx); if (c && oldBetter(c, best)) best = c; }
+  }
+  const r = (v) => +v.toFixed(3), rp = (v) => Math.round(v * 10) / 10;
+  const out = best
+    ? { pos: best.cam.map(r), look: best.look.map(r), fov: +best.fov.toFixed(2), fits: true, score: +best.score.toFixed(3), px: { y0: rp(best.px.y0), y1: rp(best.px.y1), x0: rp(best.px.x0), x1: rp(best.px.x1), h: rp(best.px.h), glyph: rp(best.px.glyph), head: rp(best.px.head), row: rp(best.px.row) }, key }
+    : null;
+  if (_oldSplitCache.size > 24) _oldSplitCache.clear();
+  _oldSplitCache.set(key, out);
+  return out;
+}
+
+
 // the screens she meets (iPhone 13 / 15 upright and turned, a small phone, an iPad, a desktop) × the bands the stations
 // ask (the strip's bottom, the keyboard's share, play-fix / §31's head margin), the word frames (short / long words, near
 // / far), and the odd ones: bands nothing fits (the fallback), another lens, another target height
@@ -125,6 +199,25 @@ test('取景搜索：searchFrame with the stations\' own rules (wire/type.js hea
   // a rule-free search with its own lowest height (the word phase's fallback)
   const a = [pts, [], { aspect: 0.46, vfov: 46, yLo: -0.2, yHi: 0.5, xLim: 0.92, cz: 4.3, minH: 2.8 }];
   assert.deepStrictEqual(searchFrame(...a), oldSearch(...a));
+});
+
+test('取景搜索：the split keyboard\'s column frame (turned phones) is the old one, bit for bit', () => {
+  let n = 0, fits = 0;
+  for (const [W, H] of [[844, 390], [852, 393], [932, 430], [667, 375], [1180, 820], [1280, 720]]) {
+    for (const safe of [{}, { left: 47, right: 47, bottom: 21 }, { left: 59, right: 59, bottom: 21 }]) {
+      for (const mode of ['word', 'sentence']) {
+        const L = keyboardLayout({ w: W, h: H }, safe, mode);
+        if (!L.mid) continue;
+        for (const top of [44, 52, 64, 115]) {
+          const col = { W, H, top, bottom: H, x0: L.mid.x0, x1: L.mid.x1, shelf: L.top };
+          const want = oldSplitFrame(col), got = splitFrame(col);
+          assert.deepStrictEqual(got, want, JSON.stringify(col));
+          n++; if (want) fits++;
+        }
+      }
+    }
+  }
+  assert.ok(n >= 60 && fits >= 30, `${n} columns (${fits} framed) — the same`);
 });
 
 test('取景搜索：hyp2 / hyp3 are Math.hypot, to the last bit, on what the search passes (finite, not all zero)', () => {
