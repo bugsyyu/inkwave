@@ -2297,7 +2297,9 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 首答推到她账号（Node，现编的学员、合成的 blob，一次推的 p50 CPU）：1 MB 8.9 → 0.15 ms、2 MB 21.4 → 0.17、4 MB 44.9 → 1.06。这里的 localStorage 是假的（存引用）：真机上 `getItem` / `setItem` 整份、镜像把整份交给 App 的那部分没量，也没变——localStorage 只能整份写，那部分只能靠「挪到安静的时候」（要定）。
 - 跑酷 flood（合成的一条 32.7 万格的路，一行）：第一次 77.5 → 3.2 ms，热了 12.6 → 0.06 ms。
 - 听者：站着不动每秒 540 个自动化事件 → 0；排名表：名次没变时 DOM 写 0 次。
-- 浏览器里的（打字取景 4× / 6× 降速、慢帧 6× 降速、HUD 的弹动）：排在浏览器锁后面，量完补在这里。
+- 打字取景在 Chromium 里、CDP 把主线程降速（`fn-throttle`，一页新的一页旧的，每格 5 次新的、取中位数，墙钟 ms；降速下 ThreadTime 和墙钟几乎一样——它把降速本身也算进去）：射（`wire/type.js` 一次三个墨字帧）1× 108.1 → 8.0、4× 484.2 → 15.1、**6× 708.2 → 22.4**；横屏的射 1× 238.7 → 3.4、4× 941.9 → 16.0、**6× 1 709.3 → 25.9**；打出一题（新一带的打字帧）1× 27.9 → 2.4、4× 104.0 → 9.8、**6× 193.3 → 14.3**。
+- HUD 的弹动（一页 600 行字，每次重来以前改一处字——HUD 每帧都在写——200 次）：1× 32.8 → 3.0 ms，排版 199 → 0 次（样式计算两边都是 200 次）；4× 165.8 → 10.4 ms。动画照样从头开始：重来以后两帧，`currentTime` 旧的 17 ms、新的 17 ms（自己的和子元素上的都是；不刷样式直接摘了再加是 433 ms，没重来）。
+- 慢帧（`slowframe-probe --scene duel`，6× 降速 8 s，新旧各两轮）：SwiftShader 里这一关一帧要 1.6 s 左右（帧间隔 p50 旧 1 683 / 新 1 658 ms），8 秒只有 2–7 帧，整帧的分布看不出差别；每帧摆姿势的次数 16 → 6.1（8 个小孩：旧的每个慢帧每人两次；新的每人至多一次，镜头外的按 15 Hz）。模拟那一段（`Match.update`）单独量的见下一条。
 
 **测试**：`npm run test:learn` 408 → 438 全过（+8 `type-frame`、+22 `cpu`）；`npm run check` 313 → 315 个文件；证据快照（`tools/learn/evidence-snapshot.mjs`）前后 sha256 一样（`bae04357…c84f`，128 270 个用例）；IELTS-Base `tests/base/game-*.test.mjs` 27 / 27。和另外四个分支（`wf-perf` `88e34dc`、`wf-softlock` `db21845`、`wf-classic` `032d3da`、`wf-artifact-game` `9fb798c`）一起试合并：没有冲突，`test:learn` 482 / 482、`check` 319 个文件。
 
@@ -2308,7 +2310,7 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 4. 镜头外 15 Hz、余量 1.5 m + 12 %（60 帧时一帧转 0.12 rad 的量）：远处的一秒摆 15 次。转得比这快（或者慢帧里转），进画面的那一帧最多是 1/15 s 前的姿势——身体的位置和朝向每一步都跟着，只是四肢——下一帧就摆上。
 5. 首答推的时机（0.8 s）和当场的 `save()` 没动（要定，见交接）。
 6. 空的特效池、空中没有弹丸时不画：热身照样编到；`environment.js` 烘环境图时藏 / 还原可见性是同一个同步调用里的，不受影响。
-7. `_restart` 只刷样式：CSS 动画（连子元素上的：`.iw-turf.is-tick i`、`.iw-bcn.is-press .iw-bcn__disc`）是在样式计算里取消 / 开始的；WebKit 读源码，非排版属性的 `getComputedStyle` 只 `updateStyleIfNeeded`。
+7. `_restart` 只刷样式：CSS 动画（连子元素上的：`.iw-turf.is-tick i`、`.iw-bcn.is-press .iw-bcn__disc`）是在样式计算里取消 / 开始的——Chromium 里量过（上面）；WebKit 没跑，读源码：非排版属性的 `getComputedStyle` 只 `updateStyleIfNeeded`。
 
 **没做的**：
 1. `world/paint.js` 里每个区域一份 flood 几何一直留到关卡结束（排查第 13 条的后一半：`wf-perf` 的文件）。
