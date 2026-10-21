@@ -271,7 +271,7 @@ export class LearnFlow {
   // ---------------------------------------------------------------------------------------------- auto-walk
   autoWalk(on = true) {
     this.auto = !!on;
-    this.autoPath = null; this.autoK = 0; this.autoStall = 0; this._autoMove = null;
+    this.autoPath = null; this.autoK = 0; this.autoStall = 0; this._autoMove = null; this._atStop = 0; this._prog = null;
     if (!on && this.match.local) this.match.local.intent.move.set(0, 0, 0);
     this.hud?.walk?.(null, { auto: this.auto });
     return this.auto;
@@ -290,21 +290,52 @@ export class LearnFlow {
       const from = nav.nearest(a.pos, 1.5, true);
       this.autoPath = from >= 0 ? nav.path(from, node, 0, 40000, true) : null;
       this.autoK = 1; this.autoStall = 0; this._autoNode = node;
-      if (!this.autoPath) { this.autoPath = [from, node]; }
+      // (LEARN §48: no node near her — a roof the stick took her onto — straight at the target: the path began at −1,
+      // nav.edge(−1, …) threw, and every frame after stopped before its render: the screen froze)
+      if (!this.autoPath) { this.autoPath = from >= 0 ? [from, node] : [node]; }
+      // (the way still to go from each node of it: how near the walk is, along the path — LEARN §48 below)
+      const P = this.autoPath, rem = (this._rem = new Array(P.length).fill(0));
+      for (let i = P.length - 2; i >= 0; i--) { const u = nav.nodes[P[i]], v = nav.nodes[P[i + 1]]; rem[i] = rem[i + 1] + (u && v ? Math.hypot(v.x - u.x, v.z - u.z) : 0); }
     }
     const path = this.autoPath;
-    if (tgt && tgt.stop) { const e = nav.nodes[path[path.length - 1]]; if (Math.hypot(e.x - a.pos.x, e.z - a.pos.z) < 0.7) { this.autoWalk(false); return; } }
+    if (tgt && tgt.stop) {
+      const e = nav.nodes[path[path.length - 1]];
+      if (Math.hypot(e.x - a.pos.x, e.z - a.pos.z) < 0.7) {
+        // (LEARN §48: at a board's stop the walk ends once a board is framed — its keys, 继续 ›, go on; a board that does not
+        // frame from there — its viewing spot off the node — counted unread for ever, nextSpot() kept her there and
+        // 「自动走」 stopped as soon as it was pressed: after 1.5 s standing it is passed, as the exit's boards are)
+        if (tgt.board >= 0 && this.play && this.play.boardFramed && this.play.boardFramed() < 0) {
+          it.move.set(0, 0, 0); it.jump = false; this._autoMove = { x: 0, z: 0 };
+          if ((this._atStop = (this._atStop || 0) + dt) >= 1.5) { this._atStop = 0; this.autoPath = null; this.play.boardPass?.(tgt.board); this._emit('learn:unstick', { board: tgt.board, why: 'unframed' }); }
+          return;
+        }
+        this.autoWalk(false); return;
+      }
+    }
+    this._atStop = 0;
     // advance past nodes already reached (xz within 0.6 m, or clearly behind on the way to the next one)
     while (this.autoK < path.length - 1) {
       const n = nav.nodes[path[this.autoK]];
       if (Math.hypot(n.x - a.pos.x, n.z - a.pos.z) < 0.6) this.autoK++; else break;
     }
-    const n = nav.nodes[path[Math.min(this.autoK, path.length - 1)]];
+    const ki = Math.min(this.autoK, path.length - 1), n = nav.nodes[path[ki]];
     const dx = n.x - a.pos.x, dz = n.z - a.pos.z, d = Math.hypot(dx, dz);
+    // (LEARN §48: no nearer the target along the path for walkStuckMax s — a jump that keeps failing, a stop behind
+    // something — had no end: a board's stop is passed; the gate is reached by the game's own super jump onto its node)
+    if (this.phase === 'walk') {
+      const left = ((this._rem && this._rem[ki]) || 0) + d, Pg = this._prog;
+      if (!Pg || Pg.node !== node || left < Pg.best - 0.5) this._prog = { node, best: left, t: 0 };
+      else if ((Pg.t += dt) > (this.P.walkStuckMax ?? LEARN.puzzle.walkStuckMax)) {
+        this._prog = null; this.autoPath = null;
+        const T = nav.nodes[node];
+        if (tgt && tgt.board >= 0) { this.play?.boardPass?.(tgt.board); this._emit('learn:unstick', { board: tgt.board, why: 'stuck' }); return; }
+        if (T && a.canSuperJump && a.canSuperJump() && a.superJump(new THREE.Vector3(T.x, T.y, T.z), { instant: true })) { this._emit('learn:unstick', { node, why: 'stuck' }); return; }
+      }
+    }
     const k = this.P.autoWalkSpeed;
     if (d > 1e-3) it.move.set((dx / d) * k, 0, (dz / d) * k);
     this._autoMove = { x: it.move.x, z: it.move.z };
-    const edge = this.autoK > 0 && this.autoK < path.length ? nav.edge(path[this.autoK - 1], path[this.autoK]) : null;
+    const edge = this.autoK > 0 && this.autoK < path.length && path[this.autoK - 1] >= 0 ? nav.edge(path[this.autoK - 1], path[this.autoK]) : null;
     it.jump = !!(edge && edge.type === 'jump' && d < this.P.jumpAhead + 0.8) || (n.y - a.pos.y > 0.45 && d < 1.2);
     it.squid = false; it.fire = false;
     // stuck (no progress for a while): re-plan from where we are

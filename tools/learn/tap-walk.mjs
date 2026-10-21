@@ -156,7 +156,7 @@ const sample = () => ev((I) => {
   const more = [...document.querySelectorAll('.iw-learn__more')].map((el) => check(el, 'more'));
   // the framed board: the puzzle's boards, the exit's booth and signs, the arena's booth and 备战 boards, the runner's
   const X = F.play && F.play.exit;
-  const walks = [F.play && F.play.boards && F.play.boards.walk, X && X.echo && X.echo.walk, X && X.signs && X.signs.walk, F.arena && F.arena.echo && F.arena.echo.echo && F.arena.echo.echo.walk, F.arena && F.arena.prepS && F.arena.prepS.board, F.bw && F.bw.walk].filter(Boolean);
+  const walks = [F.play && F.play.boards && F.play.boards.walk, X && X.echo && X.echo.walk, X && X.signs && X.signs.walk, F.arena && F.arena.echo && F.arena.echo.echo && F.arena.echo.echo.walk, F.arena && F.arena.prepS && F.arena.prepS.board, F.prepS && F.prepS.board, F.bw && F.bw.walk].filter(Boolean);
   const fw = walks.find((w) => w.framed >= 0 && w.list[w.framed]) || null;
   const framed = fw ? { i: fw.framed, read: fw.read(fw.framed), t: +fw.list[fw.framed].t.toFixed(2), hot: fw.set.project(fw.list[fw.framed].b, __G.camera, W, Ht).map((h) => ({ id: h.id, x: Math.round(h.rect.x), y: Math.round(h.rect.y), w: Math.round(h.rect.w), h: Math.round(h.rect.h) })), strip: fw.strip.isOpen } : null;
   const read = document.querySelector('.iw-read:not(.is-off) .iw-read__box');
@@ -283,7 +283,7 @@ const untilMet = (s) => {
   if (UNTIL === 'exit') return s.phase === 'exit';
   return false;
 };
-let noWay = null, moreTapped = 0, lastAct = 0, firstBoardShot = false, still = null;
+let noWay = null, moreTapped = 0, lastAct = 0, firstBoardShot = false, still = null, prepMore = false;
 const STALL_S = 15;   // s (game) the level may carry on by itself with nothing happening — no answer, no gate, no road
 try {
   for (let k = 0; ; k++) {
@@ -372,6 +372,31 @@ try {
         await tapEl(go, '继续'); lastAct = Date.now(); continue;
       }
       if (auto && !auto.on && !s.auto) { await tapEl(auto, '自动走'); lastAct = Date.now(); continue; }
+      // the runner's start line / the duel's 备战: a board framed, the strip holds the keys (看全文, the way on) — its own
+      // 「看全文」 hotspot first (the runner's fingers go through the swipe hook: G.playTap), then the strip's, once each
+      if (st && !auto && s.framed && !prepMore && !s.reading) {
+        prepMore = true;
+        const open = () => waitFor(() => !!document.querySelector('.iw-read:not(.is-off) .iw-read__box'), 8000, 200);
+        const shut = async () => { const x = await ev(() => { const b = document.querySelector('.iw-read:not(.is-off) .iw-read__x'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); if (x) { await tap(x[0], x[1], '收起 ✕'); await waitFor(() => !document.querySelector('.iw-read:not(.is-off)'), 6000, 200); } };
+        const h = s.framed.hot.find((q) => q.id === 'more');
+        if (h) {
+          await tap(h.x + h.w / 2, h.y + h.h / 2, '看全文 (board hotspot, ' + s.form + ')');
+          const op = await open();
+          report.more.push({ t: s.t, opened: !!op, via: 'hotspot', form: s.form, rect: h });
+          if (!op) fail('the board\'s 「看全文」 hotspot tapped (no HUD keys: the strip holds them): the reading strip did not open', { h, form: s.form });
+          else { await shot('reading-' + s.form); await shut(); }
+        }
+        const sm = await ev(() => { const b = [...document.querySelectorAll('.iw-ps:not(.is-off) .iw-ps__act')].find((e) => e.textContent.trim() === '看全文'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width, r.height]; });
+        if (h && !sm) fail('the board has more, the strip has no 「看全文」', { form: s.form });
+        if (sm) {
+          await tap(sm[0], sm[1], '看全文 (strip, ' + s.form + ')');
+          const op = await open();
+          report.more.push({ t: s.t, opened: !!op, via: 'strip', form: s.form });
+          if (!op) fail('the strip\'s 「看全文」 tapped: the reading strip did not open', { form: s.form });
+          else await shut();
+        }
+        lastAct = Date.now(); continue;
+      }
       if (st && !auto) { await tapEl(st, 'strip ' + st.text); lastAct = Date.now(); continue; }
     }
     if (k % 15 === 0) say('sample', JSON.stringify({ form: s.form, t: s.t, phase: s.phase, cur: s.cur, opened: s.opened, auto: s.auto, mech: s.mech, asking: s.asking, carried: s.carried, answers: s.answers, framed: s.framed && { i: s.framed.i, read: s.framed.read }, way: s.way.map((w) => w.kind + (w.ok ? '+' : '-') + (w.over.length ? '[' + w.over + ']' : '')), speed: s.speed, runner: s.runner && { s: s.runner.s, row: s.runner.row && s.runner.row.kind } }));

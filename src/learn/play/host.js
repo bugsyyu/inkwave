@@ -177,6 +177,10 @@ export class PlayHost {
   exitSkip(s) { this.exit.skip(s); }
   exitDone() { return this.exit.done; }
 
+  // LEARN §48: the auto-walk at a board's stop — is a board framed (−1: none) · pass board i (it counts as read)
+  boardFramed() { return this.boards.framed; }
+  boardPass(i) { this.boards.walk?.pass(i); }
+
   // ---------------------------------------------------------------------------------------------- shared helpers
   // the auto-walk's target on the way to gate g: the next unread board's viewing spot (she stops there), else null (the
   // gate); in the exit area the next station (the booth, the check-in pad)

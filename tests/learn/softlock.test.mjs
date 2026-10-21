@@ -7,6 +7,8 @@
 //     front of the check-in pad (the step onto it)
 //   · a form with no route (the duel, the boss, versus2) shows no 「自动走」 that walks nowhere; the duel's 备战 strip and
 //     the runner's start line have 看全文 too, and the start line's board takes its taps (the swipe hook asks it first)
+//   · 「自动走」 always gets somewhere: no node near her (it threw and froze the screen), a board's stop where no board
+//     frames, no nearer for LEARN.puzzle.walkStuckMax s
 //   · the board's 「读全文」 is 「看全文」 (she read it as "read it aloud"); the strip opens from the DOM key as from the hotspot
 //   · no 地图 key and no corner map in a level (it never answered while a board held the lens); versus2 keeps them
 //   · the safe area: the HUD's top row and the touch keys come out of the notch / the Dynamic Island / the home bar; a key the
@@ -87,6 +89,7 @@ const { EchoBooth } = await import('../../src/learn/play/echo/booth.js');
 const { Signs } = await import('../../src/learn/play/board/signs.js');
 const { ExitStation } = await import('../../src/learn/play/wire/exit.js');
 const { PrepStation } = await import('../../src/learn/play/arena/prep.js');
+const { LearnFlow } = await import('../../src/learn/flow.js');
 const { layoutBoard, wordsSpec, lessonSpec, passageSpec, echoSpec, soundsSpec, noteSpec } = await import('../../src/learn/play/board/paint.js');
 const { boardSpots } = await import('../../src/learn/play/board/frame.js');
 const { forgetInsets } = await import('../../src/ui/safe-area.js');
@@ -533,4 +536,58 @@ test('the swipe hook (the runner) asks G.playTap first: a finger on the framed b
     T._down(ev('pointerdown', 150, 700, 2)); T._move(ev('pointermove', 150, 700 - TOUCH.swipe - 30, 2)); T._up(ev('pointerup', 150, 700 - TOUCH.swipe - 30, 2));
     assert.deepEqual(swiped, ['up'], 'elsewhere: a swipe');
   } finally { G.match = was; G.playTap = null; }
+});
+
+// ------------------------------------------------------------------------------------------------ the auto-walk
+test('「自动走」 always gets somewhere: no node near her walks straight at it (nav.edge(−1) threw, the screen froze); a board\'s stop where no board frames is passed after 1.5 s; no nearer along the path for walkStuckMax s — a board passed, the gate by a super jump', () => {
+  const nodes = []; for (let i = 0; i < 20; i++) nodes.push({ x: 0, y: 0, z: i * 2 });
+  const nav = {
+    nodes,
+    nearest: (p) => { if (p.y > 5) return -1; let b = -1, bd = 1e9; nodes.forEach((n, i) => { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < bd) { bd = d; b = i; } }); return bd < 3 ? b : -1; },
+    path: (a, b) => { const o = []; for (let i = a; a <= b ? i <= b : i >= b; i += a <= b ? 1 : -1) o.push(i); return o; },
+    edge: (a) => { if (a < 0) throw new TypeError('nodes[-1] is undefined'); return { type: 'walk' }; },
+  };
+  const was = G.nav; G.nav = nav;
+  const flow = (play) => { const F = Object.assign(Object.create(LearnFlow.prototype), { P: LEARN.puzzle, phase: 'walk', auto: true, autoPath: null, autoK: 0, autoStall: 0, log: [], t: 0, hud: null, match: { local: null }, play }); F._emit = (n, p) => F.log.push({ name: n, ...p }); return F; };
+  const her = (x, y, z) => ({ pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), intent: { move: new THREE.Vector3(), jump: false, squid: false, fire: false }, jumps: [], canSuperJump() { return true; }, superJump(t) { this.jumps.push([t.x, t.y, t.z]); return true; } });
+  const run = (F, a, g, s, step = 0) => { for (let k = 0; k < Math.round(s * 30); k++) { F._autoWalk(a, g, 1 / 30); a.pos.z += step; } };
+  try {
+    // no node near her (up on a roof): straight at the gate, nothing thrown
+    let F = flow(null), a = her(0, 9, 3);
+    assert.doesNotThrow(() => run(F, a, { node: 10 }, 2));
+    assert.ok(a.intent.move.z > 0 && F.auto, 'walking at the gate');
+    // a board's stop she has reached where no board frames: held 1.5 s, then the board is passed (the walk goes on)
+    const passed = [];
+    let framed = -1;
+    const play = { autoTarget: () => ({ node: 5, stop: true, board: 0 }), boardFramed: () => framed, boardPass: (i) => passed.push(i) };
+    F = flow(play); a = her(0, 0, 10);
+    run(F, a, { node: 15 }, 1.2);
+    assert.ok(F.auto && passed.length === 0 && a.intent.move.lengthSq() === 0, 'standing at the stop, the walk still on');
+    run(F, a, { node: 15 }, 0.4);
+    assert.deepEqual(passed, [0], 'passed after 1.5 s');
+    assert.ok(F.log.some((e) => e.name === 'learn:unstick' && e.why === 'unframed'));
+    // a board framed there: the walk ends (its keys go on), as before
+    framed = 0; F = flow(play); a = her(0, 0, 10);
+    run(F, a, { node: 15 }, 0.1);
+    assert.equal(F.auto, false, 'framed: the walk stops, 继续 › takes over');
+    // no nearer along the path for walkStuckMax s: a board's stop is passed …
+    const stuck = []; F = flow({ autoTarget: () => ({ node: 15, stop: true, board: 2 }), boardFramed: () => -1, boardPass: (i) => stuck.push(i) }); a = her(0, 0, 0);
+    run(F, a, { node: 15 }, LEARN.puzzle.walkStuckMax - 0.5);
+    assert.deepEqual(stuck, [], 'not before walkStuckMax s');
+    run(F, a, { node: 15 }, 1);
+    assert.deepEqual(stuck, [2], 'the board passed');
+    // … the gate: the game's own super jump onto its node
+    F = flow({ autoTarget: () => null }); a = her(0, 0, 0);
+    run(F, a, { node: 15 }, LEARN.puzzle.walkStuckMax + 0.5);
+    assert.deepEqual(a.jumps, [[0, 0, 30]], 'a super jump onto the gate\'s node');
+    assert.ok(F.log.some((e) => e.name === 'learn:unstick' && e.node === 15));
+    // walking on (3 m/s along the path): never helped
+    F = flow({ autoTarget: () => null }); a = her(0, 0, 0);
+    run(F, a, { node: 19 }, 12, 0.1);
+    assert.deepEqual(a.jumps, [], 'a walk that gets nearer is left alone');
+    // the exit area keeps its own timer (exitWalkMax): no help there from this one
+    F = flow({ autoTarget: () => null }); F.phase = 'exit'; a = her(0, 0, 0);
+    run(F, a, { node: 15 }, LEARN.puzzle.walkStuckMax + 1);
+    assert.deepEqual(a.jumps, []);
+  } finally { G.nav = was; }
 });

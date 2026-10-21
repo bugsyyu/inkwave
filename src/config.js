@@ -585,6 +585,7 @@ export const LEARN = {
     autoWalkSpeed: 1,         // 0..1 of the run speed when the level walks her to the next gate (phones: one tap)
     jumpAhead: 0.7,           // m before a jump-up edge the auto-walk presses jump
     exitWalkMax: 40,          // s the exit area's walk may spend on one station before passing it over (play-wire)
+    walkStuckMax: 12,         // s the auto-walk may go no nearer its gate / board before it is helped on (LEARN §48)
   },
   ui: {
     hit: 44,                  // pt: the smallest tap target in the question layer (iPhone first)
