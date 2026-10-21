@@ -1063,9 +1063,10 @@ export class Menus {
     const tok = (this._pickTok = {});
     let plan = planFor(at.week, at.day), rec = (plan && plan.form) || 'puzzle';
     const lead1 = h('span', { class: 'iw-pick__lead1' }), lead2 = h('span', { class: 'iw-pick__lead2' });
+    let prog = null;   // (the day's scored items she has answered, once the week has loaded: store.progress)
     const setLead = () => {
       lead1.textContent = next ? '今天的课学完了 · 想提前学下一天，就选一种玩法' : plan && plan.review ? '复习日：这一周的内容串成一整圈 · 选一种玩法' : '选一种玩法：三种学的都是这一天的全部内容';
-      lead2.textContent = [next ? '想再练学过的：选别的一天' : '', plan && plan.minutes ? `课程约 ${hmZh(plan.minutes)}` : ''].filter(Boolean).join(' · ');
+      lead2.textContent = [next ? '想再练学过的：选别的一天' : '', prog && prog.total > 0 ? `答过 ${prog.done} / ${prog.total} 题` : '', plan && plan.minutes ? `课程约 ${hmZh(plan.minutes)}` : ''].filter(Boolean).join(' · ');
     };
     setLead();
     const lead = h('div', { class: 'iw-pick__lead' }, lead1, lead2);
@@ -1119,15 +1120,15 @@ export class Menus {
       const d = (wk.days || []).find((x) => x.d === at.day || Number(x.n) === at.day);
       title.textContent = (d && d.title) || wk.title || `第 ${at.week} 周`;
       restartAnim(title, 'is-in');
+      try { prog = learnStore.progress(wk, at.day); } catch (e) { prog = null; }
       const P = planFor(at.week, at.day);
-      if (P) {
-        plan = P; setLead();
-        if (P.form !== rec) {
-          const was = cards.find((b) => b.dataset.form === rec);
-          rec = P.form; mark(rec);
-          const now = cards.find((b) => b.dataset.form === rec);
-          if (now && this._focus === was) this._setFocus(now, { snap: true });
-        }
+      if (P) plan = P;
+      setLead();
+      if (P && P.form !== rec) {
+        const was = cards.find((b) => b.dataset.form === rec);
+        rec = P.form; mark(rec);
+        const now = cards.find((b) => b.dataset.form === rec);
+        if (now && this._focus === was) this._setFocus(now, { snap: true });
       }
       let due = []; try { due = learnStore.due(wk); } catch (e) { due = []; }
       const R = reviewSize(wk, due);
@@ -1793,11 +1794,16 @@ export class Menus {
       this._burstAt(from || this._scr.el.querySelector('.iw-btn--start, .iw-btn--today'), { count: 18, dist: 11, size: 1.4, ring: true });   // (from: the map's node, the 复习 button)
       this._sfx('splat_big');
     }
+    const from0 = this.current;
     this._runWipe(() => {
       this._starting = false;
-      safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
-      if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关)
+      const run = safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
+      if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关, the pick's cards)
       else if (this.current === 'map') this.show(null, { instantLeave: true });   // (第二期: a node of the course map)
+      // (a level that cannot be built — its week does not load, a day without a plan: main.js toasts why and starts nothing.
+      // The screen she came from comes back instead of leaving her on the bare stage, LEARN §49)
+      const back = () => { if (G.mode !== 'match' && this.current === null && !this._starting) this.show(['learn', 'map'].includes(from0) ? from0 : 'main'); };
+      Promise.resolve(run).then(back, back);
     });
   }
 

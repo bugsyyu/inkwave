@@ -56,7 +56,9 @@ test('the cards: one per form, each starts that day in that form (startLearn({ w
   assert.match(PICK, /b\.classList\.toggle\('iw-btn--primary', on\); b\.classList\.toggle\('is-rec', on\);/);
   assert.match(PICK, /h\('span', \{ class: 'iw-pick__rec' \}, today && !next \? '今天推荐' : '推荐'\)/);
   assert.match(PICK, /let plan = planFor\(at\.week, at\.day\), rec = \(plan && plan\.form\) \|\| 'puzzle';/);
-  assert.match(PICK, /if \(P\.form !== rec\) \{/, 'a pack\'s week knows its planned form once loaded: the mark moves');
+  assert.match(PICK, /if \(P && P\.form !== rec\) \{/, 'a pack\'s week knows its planned form once loaded: the mark moves');
+  assert.match(PICK, /prog = learnStore\.progress\(wk, at\.day\);/);
+  assert.match(PICK, /prog && prog\.total > 0 \? `答过 \$\{prog\.done\} \/ \$\{prog\.total\} 题` : ''/, 'the day\'s progress, as the game-first today button had it');
   assert.match(PICK, /initial: \(\) => cards\.find\(\(b\) => b\.dataset\.form === rec\) \|\| cards\[0\]/, 'the focus starts on the planned one');
   // the time each keeps, from the numbers the forms use (no clock in the puzzle; the race's clock is the lap's; a duel round 1–5 min)
   assert.match(M, /pace: '不计时，慢慢来'/);
@@ -133,4 +135,14 @@ test('the screen: §49\'s section at the end of ui.css — no blur of its own (t
   assert.match(body, /@media \(prefers-reduced-motion: reduce\) \{\n\s*\.iw-pick \.iw-in, \.iw-pick__title\.is-in \{ animation-name: iw-fade !important; \}/);
   assert.match(body, /@media \(orientation: portrait\) and \(max-width: 720px\) \{/);
   assert.match(body, /@media \(orientation: landscape\) and \(max-height: 520px\) \{/);
+});
+
+test('a level that cannot be built (its week does not load, a day without a plan) brings back the screen she came from — never the bare stage', () => {
+  assert.match(M, /const from0 = this\.current;\n\s*this\._runWipe\(\(\) => \{/);
+  assert.match(M, /const back = \(\) => \{ if \(G\.mode !== 'match' && this\.current === null && !this\._starting\) this\.show\(\['learn', 'map'\]\.includes\(from0\) \? from0 : 'main'\); \};\n\s*Promise\.resolve\(run\)\.then\(back, back\);/);
+  // main.js: a build that throws toasts why and returns with no match (G.mode stays 'menu'); one that starts sets G.mode first
+  const MAIN = src('src/main.js');
+  assert.match(MAIN, /try \{ learn = await buildLearn\([^\n]*\} catch \(e\) \{[^\n]*this\.menus\?\.toast\?\.\(\(e && e\.zh\) \|\| '这一天的课还没准备好'\); return; \}/);
+  const sm = MAIN.slice(MAIN.indexOf('  async startMatch(o = {}) {'), MAIN.indexOf('  _inPractice() {'));
+  assert.ok(sm.indexOf("G.mode = 'match';") > 0, 'startMatch sets the mode before it resolves');
 });
