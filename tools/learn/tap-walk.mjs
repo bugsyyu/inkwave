@@ -375,10 +375,14 @@ try {
       // the runner's start line / the duel's 备战: a board framed, the strip holds the keys (看全文, the way on) — its own
       // 「看全文」 hotspot first (the runner's fingers go through the swipe hook: G.playTap), then the strip's, once each
       if (st && !auto && s.framed && !prepMore && !s.reading) {
+        // (she reads it first: framed LEARN.board.readS — the lens has come round by then; a tap at a hotspot's projection
+        // while the camera still springs lands where the board was)
+        if (!s.framed.read) { await sleep(700); continue; }
         prepMore = true;
         const open = () => waitFor(() => !!document.querySelector('.iw-read:not(.is-off) .iw-read__box'), 8000, 200);
         const shut = async () => { const x = await ev(() => { const b = document.querySelector('.iw-read:not(.is-off) .iw-read__x'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); if (x) { await tap(x[0], x[1], '收起 ✕'); await waitFor(() => !document.querySelector('.iw-read:not(.is-off)'), 6000, 200); } };
-        const h = s.framed.hot.find((q) => q.id === 'more');
+        const s1 = await sample(), h = s1.framed && s1.framed.hot.find((q) => q.id === 'more');
+        if (h && (h.x < 0 || h.y < 0 || h.x + h.w > V.w || h.y + h.h > V.h)) fail('the framed board\'s 「看全文」 lies off the screen', { h, form: s.form });
         if (h) {
           await tap(h.x + h.w / 2, h.y + h.h / 2, '看全文 (board hotspot, ' + s.form + ')');
           const op = await open();
