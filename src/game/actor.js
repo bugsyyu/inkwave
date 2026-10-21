@@ -385,7 +385,9 @@ export class Actor {
       pressed = firePressed || buffered;
       this.fireBuffer = 0;
     }
-    const winp = { fire, firePressed: pressed, sub: intent.sub && !isSquid, subReleased: subReleased && !isSquid };
+    // (one object an actor, every field written each step: LEARN §52 — it was a new one per actor per step)
+    const winp = this._winp || (this._winp = { fire: false, firePressed: false, sub: false, subReleased: false });
+    winp.fire = fire; winp.firePressed = pressed; winp.sub = intent.sub && !isSquid; winp.subReleased = subReleased && !isSquid;
     const inkBefore = this.ink;
     // specials that replace the main weapon (zooka, stamp, blower, crab …) take the trigger; others may take the sub
     if (!(spx && G.specials.weapon(this, spx, dt, winp))) this.weaponRunner.update(dt, winp);

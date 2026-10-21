@@ -273,6 +273,70 @@ test('跑酷的 flood：and in a fraction of the time (same rows, same process, 
   assert.ok(now * 4 <= before, `30 rows: ${now.toFixed(1)} ms of CPU (the old scan: ${before.toFixed(1)} ms)`);
 });
 
+// ---------------------------------------------------------------------------------------------- 其余：听者、排名表
+const { AudioEngine } = await import('../../src/audio/audio.js');
+test('听者：the ears\' nine params are scheduled when they move or turn, not every frame they stand still', () => {
+  let calls = 0;
+  const param = () => ({ setTargetAtTime() { calls++; } });
+  const listener = {}; for (const k of ['positionX', 'positionY', 'positionZ', 'forwardX', 'forwardY', 'forwardZ', 'upX', 'upY', 'upZ']) listener[k] = param();
+  const eng = Object.create(AudioEngine.prototype); Object.assign(eng, { ctx: { currentTime: 0, listener }, L: { x: 0, y: 0, z: 0 } });
+  const pos = new THREE.Vector3(1, 2, 3), fwd = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0);
+  eng.setListener(pos, fwd, up);
+  assert.equal(calls, 9, 'the first frame: all nine');
+  for (let f = 0; f < 60; f++) eng.setListener(pos, fwd, up);
+  assert.equal(calls, 9, 'a second standing still: none (it was 540)');
+  pos.x += 0.005; eng.setListener(pos, fwd, up);
+  assert.equal(calls, 9, 'half a centimetre: none');
+  pos.x += 0.05; eng.setListener(pos, fwd, up);
+  assert.equal(calls, 12, 'a step: the position only');
+  fwd.set(Math.sin(0.02), 0, -Math.cos(0.02)); eng.setListener(pos, fwd, up);
+  assert.equal(calls, 18, 'a turn of ~1°: forward and up');
+  assert.deepStrictEqual(eng.L, { x: pos.x, y: 2, z: 3 }, 'where the ears are is kept every frame (distances, the low-pass)');
+});
+
+// a few elements are all FormsUi.setRank touches (Node has no DOM): children, text, className — each write counted
+function tinyDom() {
+  const D = { writes: 0, made: 0 };
+  const el = () => {
+    D.made++;
+    const e = { children: [], parent: null, _cls: '', _t: '', classList: { add() {}, remove() {}, toggle() {} }, style: {}, dataset: {},
+      get className() { return this._cls; }, set className(v) { this._cls = String(v); D.writes++; },
+      get textContent() { return this.children.length ? this.children.map((c) => c.textContent).join('') : this._t; },
+      set textContent(v) { this.children = []; this._t = String(v); D.writes++; },
+      appendChild(c) { c.parent = this; this.children.push(c); D.writes++; return c; },
+      get lastChild() { return this.children[this.children.length - 1] || null; },
+      remove() { const p = this.parent; if (p) { p.children.splice(p.children.indexOf(this), 1); this.parent = null; D.writes++; } },
+      setAttribute() {}, addEventListener() {} };
+    return e;
+  };
+  D.document = { createElement: el, createTextNode: (t) => ({ textContent: String(t), parent: null, remove() {} }) };
+  return D;
+}
+test('排名表：the race\'s standings keep their rows; only what changed is written (nothing while they stand)', async () => {
+  const { FormsUi } = await import('../../src/learn/forms/ui.js');
+  const D = tinyDom(), prev = globalThis.document;
+  globalThis.document = D.document;
+  try {
+    const ui = Object.create(FormsUi.prototype);
+    ui.rank = D.document.createElement('div');
+    const rows = (me, a, b) => [{ name: '你', me: true, cp: me, total: 4 }, { name: 'Mika', me: false, cp: a, total: 4 }, { name: 'Ren', me: false, cp: b, total: 4, finish: b >= 4 ? 30 : null }];
+    ui.setRank(rows(1, 1, 0));
+    const text = () => ui.rank.children.map((r) => r.textContent).join(' | ');
+    assert.equal(text(), '1你 1/4 | 2Mika 1/4 | 3Ren 0/4');
+    const made = D.made, w0 = D.writes;
+    for (let k = 0; k < 20; k++) ui.setRank(rows(1, 1, 0));   // (ten seconds of a race where nobody passed a checkpoint)
+    assert.equal(D.writes, w0, 'standing still: not one write'); assert.equal(D.made, made, 'and nothing built');
+    ui.setRank(rows(2, 1, 0));
+    assert.equal(text(), '1你 2/4 | 2Mika 1/4 | 3Ren 0/4');
+    assert.equal(D.writes - w0, 1, 'her checkpoint: one text'); assert.equal(D.made, made);
+    ui.setRank([{ name: 'Ren', me: false, cp: 4, total: 4, finish: 30 }, { name: '你', me: true, cp: 2, total: 4 }]);
+    assert.equal(text(), '1Ren 到了 | 2你 2/4');
+    assert.equal(ui.rank.children[1].className, 'is-me'); assert.equal(ui.rank.children[0].className, '');
+    ui.setRank(null);
+    assert.equal(ui.rank.children.length, 0, 'gone');
+  } finally { if (prev === undefined) delete globalThis.document; else globalThis.document = prev; }
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay

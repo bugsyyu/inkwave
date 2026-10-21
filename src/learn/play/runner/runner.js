@@ -282,8 +282,9 @@ export class RunnerFlow extends RaceFlow {
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
     if (!this.started) { this._start(); this.prepS?.update(dt); this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
     this.clock += dt;
-    const txt = `圈 ${fmtClock(this.clock)}`;
-    if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
+    // (the clock's text is a function of the second it shows: built when that changes — LEARN §52, it was every frame)
+    const sec = Math.max(0, Math.round(this.clock));
+    if ((sec !== this._clockS || !this._clockTxt) && G.hud?.timerTxt) { this._clockS = sec; const txt = `圈 ${fmtClock(this.clock)}`; if (txt !== this._clockTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; } }
     for (const r of this.racers) { this._botLap(r, dt); if (this.fairK < 1 && r.state === 'run') r.a.intent.move.multiplyScalar(this.fairK); }   // (fair: the bots slow with her on a 滑行段 / by the boards)
     if ((this._rankT -= dt) <= 0) { this._rankT = 0.5; this.me.progress = this.cum[this.pathIndexAt(Math.max(0, this.sNow))]; this._rank(); }
     this.glide.update(dt);

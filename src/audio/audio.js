@@ -27,6 +27,9 @@ const MAX_VOICES = 48;   // one-shots alive at once (oldest stolen beyond this)
 const MAX_LOOPS = 24;
 const taper = (v) => Math.pow(Math.min(1, Math.max(0, +v || 0)), 1.5);
 const validPos = (p) => !!p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
+const UP_Y = Object.freeze({ x: 0, y: 1, z: 0 });
+// the cosine between v and (x, y, z)
+const unitDot = (v, x, y, z) => { const a = Math.hypot(v.x, v.y, v.z) * Math.hypot(x, y, z); return a > 0 ? (v.x * x + v.y * y + v.z * z) / a : 0; };
 const distCut = (d) => (d < 10 ? 22000 : Math.max(900, 22000 * Math.pow(0.5, (d - 10) / 13)));
 
 /* ------------------------------------------------------------------------------------------------------------
@@ -171,21 +174,29 @@ export class AudioEngine {
     this.sfxBus.gain.setTargetAtTime(taper(this.vol.sfx), t, 0.04);
   }
 
+  // LEARN §52: every frame scheduled all nine of the listener's params again (540 automation events a second) even when
+  // the ears had not moved — now only a move of over 1 cm, a turn of over ~0.5°, is scheduled (it glides there: 10 ms)
   setListener(pos, forward, up) {
     if (!this.ctx || !validPos(pos)) return;
     this.L.x = pos.x; this.L.y = pos.y; this.L.z = pos.z;
     const l = this.ctx.listener, t = this.ctx.currentTime;
     const okF = validPos(forward) && (forward.x || forward.y || forward.z);
-    const u = validPos(up) && (up.x || up.y || up.z) ? up : { x: 0, y: 1, z: 0 };
+    const u = validPos(up) && (up.x || up.y || up.z) ? up : UP_Y;
+    const S = this._ls || (this._ls = { x: NaN, y: 0, z: 0, fx: NaN, fy: 0, fz: 0, ux: NaN, uy: 0, uz: 0 });
+    const moved = (pos.x - S.x) ** 2 + (pos.y - S.y) ** 2 + (pos.z - S.z) ** 2 > 1e-4 || !(S.x === S.x);
+    const turned = okF && (!(S.fx === S.fx) || 1 - unitDot(forward, S.fx, S.fy, S.fz) > 4e-5 || 1 - unitDot(u, S.ux, S.uy, S.uz) > 4e-5);
+    if (!moved && !turned) return;
+    if (moved) { S.x = pos.x; S.y = pos.y; S.z = pos.z; }
+    if (turned) { S.fx = forward.x; S.fy = forward.y; S.fz = forward.z; S.ux = u.x; S.uy = u.y; S.uz = u.z; }
     if (l.positionX) {
-      l.positionX.setTargetAtTime(pos.x, t, 0.01); l.positionY.setTargetAtTime(pos.y, t, 0.01); l.positionZ.setTargetAtTime(pos.z, t, 0.01);
-      if (okF) {
+      if (moved) { l.positionX.setTargetAtTime(pos.x, t, 0.01); l.positionY.setTargetAtTime(pos.y, t, 0.01); l.positionZ.setTargetAtTime(pos.z, t, 0.01); }
+      if (turned) {
         l.forwardX.setTargetAtTime(forward.x, t, 0.01); l.forwardY.setTargetAtTime(forward.y, t, 0.01); l.forwardZ.setTargetAtTime(forward.z, t, 0.01);
         l.upX.setTargetAtTime(u.x, t, 0.01); l.upY.setTargetAtTime(u.y, t, 0.01); l.upZ.setTargetAtTime(u.z, t, 0.01);
       }
     } else {
-      if (l.setPosition) l.setPosition(pos.x, pos.y, pos.z);
-      if (okF && l.setOrientation) l.setOrientation(forward.x, forward.y, forward.z, u.x, u.y, u.z);
+      if (moved && l.setPosition) l.setPosition(pos.x, pos.y, pos.z);
+      if (turned && l.setOrientation) l.setOrientation(forward.x, forward.y, forward.z, u.x, u.y, u.z);
     }
   }
 
@@ -327,15 +338,17 @@ export class AudioEngine {
       return NOOP_HANDLE;
     }
     const eng = this;
-    let stopped = false;
+    let stopped = false, lastV = NaN, lastP = NaN;
     const h = {
       name,
       get playing() { return !stopped && !v.dead; },
       set(p = {}) {
         if (stopped || v.dead || !p) return;
         const now = eng.ctx.currentTime;
-        if (p.volume != null && Number.isFinite(+p.volume)) outG.setTargetAtTime(Math.max(0, +p.volume) * gain, now, 0.04);
-        if (p.pitch != null && Number.isFinite(+p.pitch) && ctl.pitch) ctl.pitch(Math.max(0.05, +p.pitch), now);
+        // (LEARN §52: a volume or a pitch that has not changed is not scheduled again — the ambience and her own loops set
+        // theirs every frame)
+        if (p.volume != null && Number.isFinite(+p.volume)) { const g = Math.max(0, +p.volume) * gain; if (!(Math.abs(g - lastV) < 0.002)) { lastV = g; outG.setTargetAtTime(g, now, 0.04); } }
+        if (p.pitch != null && Number.isFinite(+p.pitch) && ctl.pitch) { const r = Math.max(0.05, +p.pitch); if (!(Math.abs(r - lastP) < 0.002)) { lastP = r; ctl.pitch(r, now); } }
         if (p.params && ctl.params) ctl.params(p.params, now);
         if (p.pos) eng._setPos(voice, p.pos, now);
       },
