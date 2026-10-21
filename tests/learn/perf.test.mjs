@@ -67,3 +67,176 @@ test('the ink atlas dries only while ink is wet: the same wetness texel for texe
   assert.match(P, /if \(!drew\) \{[^\n]*\n\s+else this\._dryLeft = 255;/, 'a flood that drew ink restarts the drying');
   assert.match(method(P, 'clear'), /this\._dryLeft = 0;/);
 });
+
+// ---- the live ladder's state machine (src/core/render-gov.js LiveGov; config.js RENDER_LIVE) on synthetic frame streams
+import { RENDER_STEPS, RENDER_RUNGS, RENDER_LIVE, TOUCH } from '../../src/config.js';
+import { LiveGov, framePixels, rungDensity } from '../../src/core/render-gov.js';
+
+// feed `secs` of frames of `ms` each (js ms of main thread), paced at the ladder's own cap on a 120 Hz screen; → the moves
+function feed(L, secs, ms, js = 3, at = { t: 0 }) {
+  const moves = [];
+  for (const end = at.t + secs * 1000; at.t < end;) {
+    const m = typeof ms === 'function' ? ms(at.t) : ms;
+    at.t += m;
+    if (L.frame(m, js, L.cap ? 1000 / L.cap : 1000 / 120)) moves.push({ t: +(at.t / 1000).toFixed(3), why: L.why, rung: L.rung, cap: L.cap });
+  }
+  return moves;
+}
+
+test('LiveGov: every session starts at 60 on the start rung; down within one 0.5 s window, one rung (or 120 → 60) at a time; a lone hitch, a gap, a hidden page move nothing', () => {
+  const C = RENDER_LIVE;
+  assert.ok(C.win <= 0.5 && C.down60 <= 0.15 && C.down120 <= 0.08, 'down fast: a half-second window, a few late frames');
+  let L = new LiveGov({ start: 2, ceil: 4, hz120: true });
+  assert.deepEqual([L.rung, L.cap, L.why], [2, 60, 'start']);
+  // 33 ms frames at 60 (every one late): the first move ≤ 0.55 s in, then one every ≤ 0.8 s, down to the floor and no further
+  let mv = feed(L, 3, 33.3);
+  assert.deepEqual(mv.map((m) => [m.why, m.rung]), [['late', 1], ['late', 0]]);
+  assert.ok(mv[0].t <= 0.55 && mv[1].t - mv[0].t <= 0.8, JSON.stringify(mv));
+  // a lone 150 ms hitch among clean 60 Hz frames: one late frame in its window (< 15 %) — nothing moves
+  L = new LiveGov({ start: 2, ceil: 4 });
+  mv = feed(L, 6, (t) => (t > 3000 && t < 3100 ? 150 : 1000 / 60));
+  assert.deepEqual(mv, []);
+  // a gap (a hidden page, a load: > gapMs) breaks the window instead of counting as late
+  L = new LiveGov({ start: 2, ceil: 4 });
+  mv = feed(L, 0.3, 1000 / 60); assert.equal(L.frame(400, 3, 1000 / 60), false); assert.equal(L.frame(0, 3, 1000 / 60), false);
+  mv = mv.concat(feed(L, 2, 1000 / 60));
+  assert.deepEqual(mv, []); assert.equal(L.lateAll, 0);
+  // at 120, judder (16.7 ms frames against an 8.3 ms target) → 60 first, the rung kept
+  L = new LiveGov({ start: 4, ceil: 4, hz120: true }); L.cap = 0;
+  mv = feed(L, 0.8, 1000 / 60);
+  assert.deepEqual(mv.map((m) => [m.why, m.rung, m.cap]), [['late120', 4, 60]]); assert.ok(mv[0].t <= 0.55);
+});
+
+test('LiveGov: up slow — 8 s of clean windows a rung, a rung that fails within 4 s of being reached waits twice as long (up to 128 s); hot holds it down', () => {
+  assert.ok(RENDER_LIVE.upHold >= 8 && RENDER_LIVE.probation >= 4);
+  let L = new LiveGov({ start: 1, ceil: 3 }), at = { t: 0 };
+  let mv = feed(L, 7.9, 1000 / 60, 3, at); assert.deepEqual(mv, [], 'nothing before 8 s');
+  mv = feed(L, 0.7, 1000 / 60, 3, at); assert.deepEqual(mv.map((m) => [m.why, m.rung]), [['clean', 2]]);
+  // rung 2 turns out too heavy: late at once → back to 1, and rung 2 now waits 16 s
+  mv = feed(L, 0.8, 30, 3, at); assert.deepEqual(mv.map((m) => [m.why, m.rung]), [['late', 1]]);
+  assert.equal(L.wait[2], 16);
+  mv = feed(L, 15.5, 1000 / 60, 3, at); assert.deepEqual(mv, [], 'no try before 16 s');
+  mv = feed(L, 1, 1000 / 60, 3, at); assert.deepEqual(mv.map((m) => m.rung), [2]);
+  for (let i = 0; i < 6; i++) { feed(L, 0.8, 30, 3, at); feed(L, L.wait[2] + 1, 1000 / 60, 3, at); }
+  assert.equal(L.wait[2], RENDER_LIVE.upMax, 'the wait stops doubling at upMax');
+  // a later slowdown (long after the climb) is not the rung's fault: no doubling
+  L = new LiveGov({ start: 1, ceil: 3 }); at = { t: 0 };
+  feed(L, 9, 1000 / 60, 3, at); assert.equal(L.rung, 2);
+  feed(L, 6, 1000 / 60, 3, at); feed(L, 0.8, 30, 3, at); assert.deepEqual([L.rung, L.wait[2]], [1, 8]);
+  // hot: 60, one rung under the start at once; no climbing while hot; cool → the usual 8 s
+  L = new LiveGov({ start: 2, ceil: 4, hz120: true }); at = { t: 0 };
+  feed(L, 9, 1000 / 60, 3, at); assert.equal(L.rung, 3);
+  assert.equal(L.setHot(true), true); assert.deepEqual([L.rung, L.cap, L.why], [1, 60, 'hot']);
+  assert.equal(L.setHot(true), false, 'already hot: no move');
+  assert.deepEqual(feed(L, 40, 1000 / 60, 3, at), []);
+  L.setHot(false);
+  assert.deepEqual(feed(L, 7.4, 1000 / 60, 3, at), [], 'cool: the usual 8 s first (± one window)');
+  assert.deepEqual(feed(L, 1.2, 1000 / 60, 3, at).map((m) => m.rung), [2]);
+});
+
+test('LiveGov: 120 only on the top rung, after 20 s clean at 60, with the frame\'s JS p90 ≤ 5 ms and a 120 Hz screen; a failed try doubles the wait (up to 320 s)', () => {
+  assert.ok(RENDER_LIVE.hzHold >= 20 && RENDER_LIVE.hzJs <= 5);
+  let L = new LiveGov({ start: 4, ceil: 4, hz120: true }), at = { t: 0 };
+  assert.deepEqual(feed(L, 19.9, 1000 / 60, 3, at), [], 'not before 20 s');
+  assert.deepEqual(feed(L, 0.7, 1000 / 60, 3, at).map((m) => [m.why, m.cap]), [['try120', 0]]);
+  // under the top rung: climb first, never 120 there
+  L = new LiveGov({ start: 3, ceil: 4, hz120: true }); at = { t: 0 };
+  const mv = feed(L, 25, 1000 / 60, 3, at);
+  assert.deepEqual(mv.map((m) => m.why), ['clean'], 'the rung first'); assert.equal(L.cap, 60);
+  // JS over 5 ms (p90), or no 120 Hz screen: never
+  L = new LiveGov({ start: 4, ceil: 4, hz120: true }); assert.deepEqual(feed(L, 120, 1000 / 60, 5.5), []);
+  L = new LiveGov({ start: 4, ceil: 4, hz120: false }); assert.deepEqual(feed(L, 120, 1000 / 60, 2), []);
+  // failed tries (a frame that holds 60, not 120): each back to 60 within 0.8 s on the same rung; the waits 20 → 40 → 80 … ≤ 320 s
+  L = new LiveGov({ start: 4, ceil: 4, hz120: true });
+  const all = feed(L, 1000, 1000 / 60), tries = all.filter((m) => m.why === 'try120'), fails = all.filter((m) => m.why === 'late120');
+  assert.equal(tries.length, 6, JSON.stringify(all)); assert.equal(fails.length, 6); assert.ok(all.every((m) => m.rung === 4));
+  const gaps = tries.map((t, i) => t.t - (i ? fails[i - 1].t : 0));
+  [20, 40, 80, 160, 320, 320].forEach((w, i) => assert.ok(gaps[i] >= w && gaps[i] < w + 1, `try ${i} after ${gaps[i].toFixed(2)} s (wait ${w})`));
+  fails.forEach((f, i) => assert.ok(f.t - tries[i].t <= 0.8 && f.cap === 60, 'back to 60 at once'));
+});
+
+test('LiveGov: nothing allocated per frame (two rings, no closures, no literals in frame / _judge); the readout\'s percentiles from the last frames', () => {
+  const R = src('src/core/render-gov.js');
+  const frame = method(R, 'frame'), judge = method(R, '_judge');
+  for (const [n, b] of [['frame', frame], ['_judge', judge]]) assert.ok(!/new |=>|\[\]|\{\s*\w+:|`/.test(b), n + ' allocates nothing');
+  const L = new LiveGov({ start: 2, ceil: 4 });
+  for (let i = 0; i < 200; i++) L.frame(i % 10 === 9 ? 33.3 : 1000 / 60, i % 2 ? 2 : 6, 1000 / 60);
+  assert.equal(L.rn, RENDER_LIVE.ring);
+  assert.ok(Math.abs(L.ivP(0.5) - 1000 / 60) < 0.01 && Math.abs(L.ivP(0.95) - 33.3) < 0.01);
+  assert.equal(L.jsP(0.5), 2); assert.equal(L.jsP(0.95), 6);
+});
+
+// ---- the frame's pixels (render-gov.js framePixels) — the GPU's load as a count, on her 393 × 852 @ 3
+const HER = { w: 393, h: 852, dpr: 3 };
+const OLD = [   // the steps before LEARN §50 (config.js then): what each class launched with
+  { pixelRatio: 2.5, pixels: 3.2e6, ao: true, bloom: true, shadows: true, shadowSize: 2048 },
+  { pixelRatio: 2.25, pixels: 3.2e6, ao: false, bloom: true, shadows: true, shadowSize: 2048 },
+  { pixelRatio: 2.0, pixels: 2.1e6, ao: false, bloom: true, shadows: false, shadowSize: 2048 },
+  { pixelRatio: 2.0, pixels: 2.1e6, ao: false, bloom: true, shadows: false, shadowSize: 1024 },
+];
+
+test('framePixels: the old chain reproduces what tools/learn/perf-probe measured pass by pass (w2d3, the old step 0); every class now launches on well under half of it, the best rung still costs less than the old start', () => {
+  // the probe, 10-21, puzzle w2d3 at the old step 0 (982 × 2130): px per pass (perf-probe passes[].px)
+  const measured = { shadow: 4194304, main: 2092725, 'ao:normals': 523980, ao: 523980, 'ao:denoise': 523980, 'ao:copy': 2092725, 'ao:blend': 2092725, 'bloom:bright': 522915, 'bloom:blur': 1394518, 'bloom:composite': 522915, 'bloom:blend': 2092725, grade: 2092725, output: 2092725, 'smaa:edges': 2092725, 'smaa:weights': 2092725, 'smaa:blend': 2093790 };
+  const old0 = framePixels({ ...HER, legacy: OLD[0] });
+  assert.equal(old0.density, 2.5);
+  for (const [k, px] of old0.passes) assert.ok(Math.abs(px - measured[k]) / measured[k] < 0.001, `${k}: model ${px}, measured ${measured[k]}`);
+  assert.equal(old0.passes.length, Object.keys(measured).length);
+  const before = old0.px;   // ≈ 27.0 MP (+ 2.1 with the screen FX on)
+  // the launch of each class now (start rung, screen FX off) vs before
+  const top = framePixels({ ...HER, step: 0 }), high = framePixels({ ...HER, step: 2 }), base = framePixels({ ...HER, step: 3 });
+  assert.ok(top.px <= 12.6e6 && top.px / before <= 0.47, `top: ${(top.px / 1e6).toFixed(2)} MP (before ${(before / 1e6).toFixed(2)})`);
+  assert.ok(high.px <= 8.4e6 && high.px / framePixels({ ...HER, legacy: OLD[2] }).px <= 0.77, `high: ${(high.px / 1e6).toFixed(2)} MP`);
+  assert.ok(base.px <= 6.2e6 && base.px / framePixels({ ...HER, legacy: OLD[3] }).px <= 0.6, `base: ${(base.px / 1e6).toFixed(2)} MP`);
+  // the best rung of the best step (2.5× + the AO: the old step 0's look) still under the old one: copy, blend and output gone
+  const best = framePixels({ ...HER, step: 0, rung: 5 });
+  assert.ok(best.px <= 20.9e6 && best.px < before - 6.2e6, `best: ${(best.px / 1e6).toFixed(2)} MP`);
+  for (const p of ['ao:copy', 'bloom:blend', 'output']) assert.ok(!best.passes.some((q) => q[0] === p), p + ' gone');
+  // every rung of every step: bounded, and no richer rung cheaper than a poorer one
+  for (const s of RENDER_STEPS) {
+    let last = 0;
+    for (let r = s.rungs[0]; r <= s.rungs[1]; r++) { const f = framePixels({ ...HER, step: s.step, rung: r }); assert.ok(f.px >= last && f.px <= 20.9e6, `step ${s.step} rung ${r}`); last = f.px; }
+  }
+  // the screen FX while on adds one pass the size of the screen, never two (it ends with the output step itself)
+  assert.ok(Math.abs(framePixels({ ...HER, step: 0, fx: true }).px - top.px - top.passes.find((p) => p[0] === 'main')[1]) < 1);
+});
+
+test('the output step folded into the last pass before SMAA is three\'s OutputPass word for word: Neutral tone mapping, then the sRGB transfer; the bloom\'s composite added in the grade as its blend (ONE, ONE) did', () => {
+  const R = src('src/core/renderer.js'), T = src('vendor/three/build/three.module.js');
+  const theirs = /vec3 NeutralToneMapping\( vec3 color \) \{\\n([^"]*?)\\n\}\\nvec3 CustomToneMapping/.exec(T)[1].split('\\n').map((l) => l.replace(/\\t/g, '').trim());
+  const ours = /vec3 iwNeutral\( vec3 color \) \{\n([\s\S]*?)\n\s*\}\n\s*vec4 iwOut/.exec(R)[1].split('\n').map((l) => l.trim()).filter(Boolean);
+  assert.deepEqual(ours, theirs.map((l) => l.replace('toneMappingExposure', 'uToneExp')));
+  assert.match(R, /vec4 iwOut\( vec4 c \) \{ if \( uOut < 0\.5 \) return c; c\.rgb = iwNeutral\( c\.rgb \); return sRGBTransferOETF\( c \); \}/);
+  assert.match(src('vendor/three/jsm/shaders/OutputShader.js'), /gl_FragColor\.rgb = NeutralToneMapping\( gl_FragColor\.rgb \);[\s\S]*gl_FragColor = sRGBTransferOETF\( gl_FragColor \);/, 'what OutputPass does');
+  assert.match(R, /r\.toneMapping = THREE\.NeutralToneMapping;/);
+  // the bloom: three's own blend is ONE, ONE (premultiplied additive) of its composite onto the frame — the grade adds the composite
+  const B = src('vendor/three/jsm/postprocessing/UnrealBloomPass.js');
+  assert.match(B, /this\.blendMaterial = new ShaderMaterial\( \{[\s\S]*?premultipliedAlpha: true,\s*blending: AdditiveBlending/);
+  assert.match(T, /case AdditiveBlending:\s*gl\.blendFunc\( gl\.ONE, gl\.ONE \);/);
+  assert.match(R, /if \(uBloomOn > 0\.5\) c \+= texture2D\(tBloom, vUv\);/);
+  assert.match(R, /this\.grade\.uniforms\.tBloom\.value = this\.bloom\.renderTargetsHorizontal\[0\]\.texture;/);
+  // only where SMAA comes last (touch): the grade or the screen FX ends with the output step, the output pass off
+  assert.match(R, /this\.mergeOut = !!\(q\.msaa && !this\.samples\);\n\s+this\.output\.enabled = !this\.mergeOut;/);
+  assert.match(src('src/fx/screenfx.js'), /gl_FragColor = iwOut\(vec4\(col, 1\.0\)\);/);
+});
+
+test('in a level nothing blurs over the live 3D: the touch buttons, the map\'s tilt bands and the splat tint all lose their backdrop-filter there; no blur rule targets the level\'s own layers', () => {
+  const rules = (css) => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const vals = (r) => [...r.body.matchAll(/(?:^|[;\s])(?:-webkit-)?backdrop-filter\s*:\s*([^;]+)/g)].map((m) => m[1].replace(/!important/, '').trim());
+  const blurs = (css) => rules(css).filter((r) => vals(r).some((v) => v !== 'none'));
+  const nones = (css) => rules(css).filter((r) => vals(r).length && vals(r).every((v) => v === 'none'));
+  const HUD = src('styles/hud.css'), TOUCH_CSS = src('styles/touch.css'), UI = src('styles/ui.css');
+  // the HUD's and the touch layer's blurs: exactly these three surfaces …
+  assert.deepEqual(blurs(HUD).map((r) => r.sel).sort(), ['.iw-dio__tilt', '.iw-spl__tint']);
+  assert.deepEqual(blurs(TOUCH_CSS).map((r) => r.sel), ['.iw-touch__btn']);
+  // … and each is off in a level: the splat tint whenever the screen FX is attached (it attaches itself: screenfx.js), the
+  // map's tilt bands and the touch buttons under the level's class (hud-learn / the runner set it on both layers)
+  assert.ok(nones(HUD).some((r) => r.sel === '.iw-hud--fx .iw-spl__tint'));
+  assert.ok(nones(HUD).some((r) => r.sel === '.iw-hud.is-learn .iw-dio__tilt'));
+  assert.ok(nones(TOUCH_CSS).some((r) => r.sel === '.iw-touch.is-learn .iw-touch__btn, .iw-touch.is-runner .iw-touch__btn'));
+  assert.match(src('src/ui/hud-learn.js'), /this\.hud\.el\?\.classList\.add\('is-learn'\);\n\s+G\.touch\?\.el\?\.classList\.add\('is-learn'\);/);
+  assert.match(src('src/learn/play/runner/runner.js'), /G\.hud\?\.el\?\.classList\.add\('is-learn', 'is-runner'\);[^\n]*\n\s+G\.touch\?\.el\?\.classList\.add\('is-runner'\);/);
+  assert.match(src('src/fx/screenfx.js'), /this\.G\.hud\?\.attachScreenFX\?\.\(this\);/, 'the screen FX attaches itself to the HUD (→ iw-hud--fx)');
+  // the menus' glass (ui.css) never targets the level's layers: the HUD, the strip, the game keyboard, the touch layer
+  for (const r of blurs(UI)) assert.ok(!/\.iw-(hud|ps|pk|learn|touch|run|xh)\b/.test(r.sel), r.sel);
+});

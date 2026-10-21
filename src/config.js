@@ -894,32 +894,64 @@ export function rendererQuality(settings, touch, apple = false, profile = null) 
 }
 
 // Her App's render step (RENDER_STEPS, picked by src/core/render-gov.js for the device her App names) over a touch quality
-// t: the density, its pixel budget, the bloom, the AO, the shadow map and the particles come from the step; the paint atlas
-// stays the tier's. Only while the tier is the step's own — a tier she picked herself in the settings wins (rendererQuality
+// t: the passes the step has (the bloom, the AO), its shadow map, its particles and its live rungs ([start, ceiling]: the
+// density and which of those passes are on move within the session — LiveGov) come from the step; the paint atlas stays the
+// tier's. The density starts at the start rung's pixel budget under no fixed ratio (pixelRatio 3: the screen's own, up to a
+// 3× iPhone's). Only while the tier is the step's own — a tier she picked herself in the settings wins (rendererQuality
 // then as without a step). Never on a desktop.
 export function withProfile(t, profile, settings) {
   if (!profile || !t || !t.apple || profile.quality !== settings?.quality) return t;
-  return { ...t, pixelRatio: profile.pixelRatio, pixels: profile.pixels, bloom: profile.bloom, ao: profile.ao,
-    shadowSize: profile.shadowSize, particles: profile.particles, step: profile.step };
+  const [r0, r1] = profile.rungs, on = RENDER_RUNGS.slice(0, r1 + 1);
+  return { ...t, pixelRatio: 3, pixels: RENDER_RUNGS[r0].px, bloom: on.some((r) => r.bloom), ao: on.some((r) => r.ao),
+    shadowSize: profile.shadowSize, particles: profile.particles, step: profile.step, rungs: profile.rungs };
 }
 
-// The render steps for her App, best first (src/core/render-gov.js picks one per device and moves it a step at a time
-// between matches, by the real frame times; within a match nothing that recompiles a shader changes). What each looks like:
-//   0  影子 + 接触暗部 + 墨的辉光，2.5×：the whole post stack — soft sun shadows under every squid and crate, GTAO contact
-//      shading where things meet the deck, the ink's glow; drawn near the 3× screen's own density (the top iPhones: A17 Pro on)
-//   1  影子 + 辉光，2.25×：no contact AO (the costliest pass), the rest as 0
-//   2  辉光，2×：no shadow pass (one program variant fewer per material), medium tier, fewer particles
-//   3  辉光，2×：the low tier (small ink atlas), 0.4 particles — what an Apple phone got before the steps (TOUCH.apple*)
-//   4  平光，1.5×：no bloom, the touch floor density — the phone default before 10-17; smooth before anything else
-// pixels caps the render target (CSS w × h × ratio²) as TOUCH.applePixels does; the top steps may hold more of it.
-export const RENDER_STEPS = [
-  { step: 0, quality: 'high',   shadows: true,  shadowSize: 2048, ao: true,  bloom: true,  pixelRatio: 2.5,  pixels: 3.2e6, particles: 1.0 },
-  { step: 1, quality: 'high',   shadows: true,  shadowSize: 2048, ao: false, bloom: true,  pixelRatio: 2.25, pixels: 3.2e6, particles: 1.0 },
-  { step: 2, quality: 'medium', shadows: false, shadowSize: 2048, ao: false, bloom: true,  pixelRatio: 2.0,  pixels: 2.1e6, particles: 0.7 },
-  { step: 3, quality: 'low',    shadows: false, shadowSize: 1024, ao: false, bloom: true,  pixelRatio: 2.0,  pixels: 2.1e6, particles: 0.4 },
-  { step: 4, quality: 'low',    shadows: false, shadowSize: 1024, ao: false, bloom: false, pixelRatio: 1.5,  pixels: 2.1e6, particles: 0.4 },
+// The live ladder for her App (LEARN §50, the owner 10-21: 「手机上真的很卡」), cheapest first: src/core/render-gov.js LiveGov
+// moves along it within a session by the drawn frames' real intervals; nothing on it recompiles a shader (passes on or off,
+// the targets resized). px is the whole render target's pixel budget (CSS w × h × density²): the density follows the screen,
+// never above its own dpr nor under the touch floor (TOUCH.minPixelRatio). On her 393 × 852 iPhone: 0 → 1.5× (the old phone
+// default), 1 → 1.73×, 2 → 2.0×, 3 → 2.25×, 4 → 2.5×, 5 → 2.5× with the contact AO. bloom / ao: those passes on, where the
+// step has them (and her settings allow the bloom).
+export const RENDER_RUNGS = [
+  { rung: 0, px: 0.76e6, bloom: false, ao: false },
+  { rung: 1, px: 1.0e6,  bloom: true,  ao: false },
+  { rung: 2, px: 1.35e6, bloom: true,  ao: false },
+  { rung: 3, px: 1.7e6,  bloom: true,  ao: false },
+  { rung: 4, px: 2.1e6,  bloom: true,  ao: false },
+  { rung: 5, px: 2.1e6,  bloom: true,  ao: true },
 ];
-// where each device class (src/core/device.js deviceClass) starts
+// LiveGov's numbers: judged on win s windows of drawn frames (≥ minN); a frame is late past late × the interval it was paced
+// for (a vsync missed). Down at once on a window with ≥ down60 of its frames late at 60 (a rung down) / ≥ down120 at 120 (back
+// to 60 first: a ProMotion screen that cannot hold 120 judders between 8 and 16 ms — a steady 60 reads smoother); up a rung
+// only after upHold s of clean windows (≤ clean late), and a rung that fails within probation s of being reached waits twice
+// as long the next time (≤ upMax); 120 only on the top rung, after hzHold s clean at 60 with the frame's main-thread ms (p90)
+// under hzJs, a failed try doubling hzHold (≤ hzMax). settle s of frames after a move are not judged (a resize, a pass on);
+// a frame over gapMs (a hidden page, a load, a hitch) starts the window over. ring: the frames kept for the readout.
+export const RENDER_LIVE = {
+  win: 0.5, minN: 4, late: 1.4, down60: 0.15, down120: 0.08, clean: 0.03, settle: 0.25,
+  upHold: 8, upMax: 128, probation: 4, hzHold: 20, hzMax: 320, hzJs: 5, gapMs: 250, ring: 120,
+};
+
+// The render steps for her App, best first: what is fixed for a launch — the tier (the ink atlas), the shadows and their map,
+// the particles, and the rungs the live ladder may use [start, ceiling] (src/core/render-gov.js picks the step per device and
+// moves it one at a time between launches by whole matches' frame records; a new step recompiles shaders). Every session
+// starts at 60 on the start rung; 120 is earned on the top rung, never assumed (LEARN §50). What each looks like:
+//   0  影子 + 辉光，2.0× 起步，最高 2.5× + 接触暗部（GTAO）：at its top rung the whole post stack, as step 0 always looked — soft
+//      sun shadows under every squid and crate, the ink's glow, the contact shading where things meet the deck (the top iPhones,
+//      A17 Pro on, start here)
+//   1  影子 + 辉光，2.0× 起步，最高 2.5×：no contact AO pass at all
+//   2  辉光，2.0× 起步，最高 2.5×：no shadow pass (one program variant fewer per material), medium tier, fewer particles
+//   3  辉光，1.73× 起步，最高 2.25×：the low tier (small ink atlas), 0.4 particles
+//   4  平光，1.5× 起步（no bloom: the old phone default），最高 2.0×
+export const RENDER_STEPS = [
+  { step: 0, quality: 'high',   shadows: true,  shadowSize: 2048, particles: 1.0, rungs: [2, 5] },
+  { step: 1, quality: 'high',   shadows: true,  shadowSize: 2048, particles: 1.0, rungs: [2, 4] },
+  { step: 2, quality: 'medium', shadows: false, shadowSize: 2048, particles: 0.7, rungs: [2, 4] },
+  { step: 3, quality: 'low',    shadows: false, shadowSize: 1024, particles: 0.4, rungs: [1, 3] },
+  { step: 4, quality: 'low',    shadows: false, shadowSize: 1024, particles: 0.4, rungs: [0, 2] },
+];
+// where each device class (src/core/device.js deviceClass) starts — step 0 itself launches on its rung 2 at 60 now: the 2.5×,
+// the contact AO and 120 are each earned by the frames, not assumed (before LEARN §50 it launched at 2.5× + AO aiming at 120)
 export const RENDER_START = { top: 0, high: 2, base: 3 };
 
 // The render density (renderer pixel ratio before the dynamic scale) for a quality q on a screen of dpr and w × h CSS px:

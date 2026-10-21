@@ -28,6 +28,9 @@
   opacity: 0; visibility: hidden;
 }
 .iw-touch.is-live .iw-touch__btn { opacity: 1; visibility: visible; transition: background .1s, border-color .1s, scale .07s var(--out), opacity .16s var(--out), visibility 0s; }
+/* 关卡学习 (LEARN §50): nothing blurs over the live 3D in a level — under each button the moving stage would be blurred again
+   every frame, on her phone's GPU, for 2 px nobody sees under a thumb; the tint and the rim stay as they are */
+.iw-touch.is-learn .iw-touch__btn, .iw-touch.is-runner .iw-touch__btn { -webkit-backdrop-filter: none; backdrop-filter: none; }
 .iw-touch__btn.is-down { background: rgba(255, 255, 255, .30); border-color: rgba(255, 255, 255, .8); scale: .92; }
 .iw-touch__btn.is-on { background: rgba(255, 138, 20, .55); border-color: var(--a, #ff8a14); color: var(--a-ink, #15121c); }
 

@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { on, G as CTX, clamp, damp, lerp } from '../core/ctx.js';
 import { QUALITY } from '../config.js';
+import { OUT_FRAG } from '../core/renderer.js';   // (the output step, when this is the last pass before SMAA — LEARN §50)
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
@@ -33,6 +34,7 @@ const reducedMotion = () => !!(RM_Q && RM_Q.matches);
 const VERT = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
 const FRAG = /* glsl */`
+  ${OUT_FRAG}
   uniform sampler2D tDiffuse;
   uniform sampler2D tLens;
   uniform vec2 uRes;
@@ -326,7 +328,7 @@ const FRAG = /* glsl */`
       col = mix(col, vec3(luma(col)), clamp(uFlash.a * 0.35, 0.0, 0.5));
       col += uFlash.rgb * uFlash.a * (0.2 + 0.8 * smoothstep(0.12, 0.95, r));   // edge-weighted: the centre (the action) stays readable
     }
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = iwOut(vec4(col, 1.0));
   }
 `;
 
@@ -555,6 +557,7 @@ export class ScreenFX {
         uFocus: { value: 0 }, uCharge: { value: new THREE.Vector4(1, 1, 1, 0) }, uShimmer: { value: new THREE.Vector4(0, 0, 0, 0) },
         uFlood: { value: new THREE.Vector4(0, 0, 0, 0) }, uFloodDrip: { value: 0 }, uFloodClear: { value: 0 }, uHole: { value: 0 }, uHoleRim: { value: new THREE.Color(1, 1, 1) },
         uFlash: { value: new THREE.Vector4(1, 1, 1, 0) }, uDesat: { value: 0 }, uSat: { value: 1 }, uKill: { value: new THREE.Vector4(1, 1, 1, 0) },
+        uOut: { value: 0 }, uToneExp: { value: 1 },   // (the renderer turns the output step on here while this pass is on: renderer.js render)
       },
       vertexShader: VERT,
       fragmentShader: FRAG,

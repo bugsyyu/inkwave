@@ -777,6 +777,7 @@ body.iw-dio-on .iw-spl__tint { visibility: hidden; }
 .iw-dio { position: absolute; inset: 0; pointer-events: none; opacity: 0; display: none; --pinK: 0; }
 .iw-dio.is-on { display: block; }
 .iw-dio__tilt { position: absolute; left: 0; right: 0; -webkit-backdrop-filter: blur(6px) saturate(1.12); backdrop-filter: blur(6px) saturate(1.12); }
+.iw-hud.is-learn .iw-dio__tilt { -webkit-backdrop-filter: none; backdrop-filter: none; }   /* (a learning level: nothing blurs over the live 3D — LEARN §50) */
 .iw-dio__tilt--top { top: 0; height: 28%;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .55) 42%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .55) 42%, transparent 100%); }
 .iw-dio__tilt--bot { bottom: 0; height: 22%;

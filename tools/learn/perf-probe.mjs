@@ -103,10 +103,25 @@ function hook() {
   r.render = (scene, cam) => {
     const c0 = info.calls, t0 = info.triangles, s0 = P.shadowCalls, st0 = P.shadowTris;
     const [w, h, bpp] = target();
+    const was = P.pass; P.pass = label(scene, cam);
     const out = render(scene, cam);
-    add(label(scene, cam), info.calls - c0 - (P.shadowCalls - s0), info.triangles - t0 - (P.shadowTris - st0), w * h, bpp);
+    add(P.pass, info.calls - c0 - (P.shadowCalls - s0), info.triangles - t0 - (P.shadowTris - st0), w * h, bpp);
+    P.pass = was;
     return out;
   };
+  // program look-ups (three's getProgram → getParameters → material.customProgramCacheKey(): a draw whose material last drew
+  // another kind of object — instanced / skinned / plain —, other lights, another target … pays a whole parameter build):
+  // counted by pass · material · object kind
+  P.thrash = {};
+  const rbd = r.renderBufferDirect;
+  r.renderBufferDirect = function (camera, scene, geometry, material, object) { P.obj = object; return rbd.apply(this, arguments); };
+  const kind = (o) => (o ? (o.isInstancedMesh ? 'inst' : o.isSkinnedMesh ? 'skin' : o.isBatchedMesh ? 'batch' : o.isMesh ? 'mesh' : o.type) : '?');
+  const count = (m) => { if (!P.on) return; const k = (P.pass || '?') + ' · ' + (m.name || m.type) + ' · ' + kind(P.obj); P.thrash[k] = (P.thrash[k] || 0) + 1; };
+  const wrapKey = (o, f) => function () { count(this); return f.call(this); };
+  const proto = Object.getPrototypeOf(Object.getPrototypeOf(G.scene.children.find((c) => c.material)?.material || {})) || null;
+  let M0 = proto; while (M0 && !Object.prototype.hasOwnProperty.call(M0, 'customProgramCacheKey')) M0 = Object.getPrototypeOf(M0);
+  if (M0) M0.customProgramCacheKey = wrapKey(M0, M0.customProgramCacheKey);
+  G.scene.traverse((o) => { for (const m of [].concat(o.material || [])) if (m && Object.prototype.hasOwnProperty.call(m, 'customProgramCacheKey')) m.customProgramCacheKey = wrapKey(m, m.customProgramCacheKey); });
   P.shadowCalls = 0; P.shadowTris = 0;
   const sm = r.shadowMap, smr = sm.render.bind(sm);
   sm.render = (lights, scene, cam) => {
@@ -198,11 +213,18 @@ await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
 await cdp.send('HeapProfiler.startSampling', { samplingInterval: 8192, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
 await cdp.send('Profiler.start');
 const m0 = await metrics();
-await ev(() => { const P = __pp; P.on = true; P.frames = []; P.passes = {}; });
+await ev(() => {
+  const P = __pp; P.on = true; P.frames = []; P.passes = {}; P.mut = {};
+  // what the DOM had written into it, frame by frame (a recalc / a layout needs a write): node · what changed
+  const name = (n) => { const e = n.nodeType === 1 ? n : n.parentElement; if (!e) return '?'; const c = typeof e.className === 'string' ? e.className.split(' ')[0] : e.tagName; return c || e.tagName; };
+  P.mo = new MutationObserver(() => {});
+  P.mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+  P.take = () => { for (const r of P.mo.takeRecords()) { const k = name(r.target) + ' · ' + (r.type === 'attributes' ? '@' + r.attributeName : r.type); P.mut[k] = (P.mut[k] || 0) + 1; } };
+});
 for (let i = 0; i < FRAMES; i++) {
-  await ev((i) => { if (i % 30 === 0 && __inkwave.rig && window.__duel) __inkwave.rig.yaw += 0.9; __inkwave.debug.step(16.7); }, i);
+  await ev((i) => { if (i % 30 === 0 && __inkwave.rig && window.__duel) __inkwave.rig.yaw += 0.9; __pp.take(); __inkwave.debug.step(16.7); }, i);
 }
-await ev(() => { __pp.on = false; });
+await ev(() => { __pp.take(); __pp.mo.disconnect(); __pp.on = false; });
 const m1 = await metrics();
 const cpu = (await cdp.send('Profiler.stop')).profile;
 const heap = (await cdp.send('HeapProfiler.stopSampling')).profile;
@@ -216,20 +238,30 @@ rep.passes = passes;
 const tot = passes.reduce((s, p) => ({ calls: s.calls + p.calls, tris: s.tris + p.tris, px: s.px + p.px, mb: s.mb + p.mb }), { calls: 0, tris: 0, px: 0, mb: 0 });
 rep.perFrame = { calls: tot.calls, tris: tot.tris, mpx: +(tot.px / 1e6).toFixed(2), mbWritten: +tot.mb.toFixed(1), screenMpx: +((VW * VH * DPR * DPR) / 1e6).toFixed(2) };
 rep.domPerFrame = { recalc: +((m1.RecalcStyleCount - m0.RecalcStyleCount) / n).toFixed(2), layout: +((m1.LayoutCount - m0.LayoutCount) / n).toFixed(2) };
-// allocation: the sampled heap profile's nodes (selfSize is V8's scaled estimate) → bytes per frame and the top sites
+rep.writesPerFrame = Object.entries(await ev(() => __pp.mut)).map(([k, v]) => [k, +(v / n).toFixed(2)]).sort((a, b) => b[1] - a[1]).slice(0, 16);
+rep.programLookups = Object.entries(await ev(() => __pp.thrash)).map(([k, v]) => [k, +(v / n).toFixed(1)]).sort((a, b) => b[1] - a[1]);
+rep.programLookupsPerFrame = +rep.programLookups.reduce((a, x) => a + x[1], 0).toFixed(1);
+rep.programLookups = rep.programLookups.slice(0, 16);
+// allocation and cpu are split by whether main.js _frame is on the stack: a stepped frame takes seconds of SwiftShader wall
+// time, and what timers run meanwhile (the music scheduler's worker ticks) is per second, not per frame
+const wall = Math.max(0.001, (m1.Timestamp - m0.Timestamp));
+const keyOf = (cf) => `${cf.functionName || '(anon)'} ${String(cf.url).replace(/^.*\/game\//, '')}:${cf.lineNumber + 1}`;
 {
-  const sites = new Map(); let total = 0;
-  const walk = (nd, stack) => { const cf = nd.callFrame, key = `${cf.functionName || '(anon)'} ${String(cf.url).replace(/^.*\/game\//, '')}:${cf.lineNumber + 1}`; total += nd.selfSize; if (nd.selfSize) sites.set(key, (sites.get(key) || 0) + nd.selfSize); for (const c of nd.children || []) walk(c, stack); };
-  walk(heap.head, []);
-  rep.gc = { kbPerFrame: +(total / 1024 / n).toFixed(1), top: [...sites.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => [k, +(v / 1024 / n).toFixed(1)]), heapGrowKB: +((m1.JSHeapUsedSize - m0.JSHeapUsedSize) / 1024).toFixed(1) };
+  const inF = new Map(), outF = new Map(); let fT = 0, oT = 0;
+  const walk = (nd, under) => { const u = under || nd.callFrame.functionName === '_frame'; if (nd.selfSize) { const k = keyOf(nd.callFrame), M = u ? inF : outF; M.set(k, (M.get(k) || 0) + nd.selfSize); if (u) fT += nd.selfSize; else oT += nd.selfSize; } for (const c of nd.children || []) walk(c, u); };
+  walk(heap.head, false);
+  const top = (M, d) => [...M.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => [k, +(v / 1024 / d).toFixed(1)]);
+  rep.gc = { kbPerFrame: +(fT / 1024 / n).toFixed(1), top: top(inF, n), otherKbPerSec: +(oT / 1024 / wall).toFixed(1), otherTop: top(outF, wall).slice(0, 8), heapGrowKB: +((m1.JSHeapUsedSize - m0.JSHeapUsedSize) / 1024).toFixed(1) };
 }
-// cpu: self time by function (url:line), the game's own files first
 {
-  const byId = new Map(cpu.nodes.map((nd) => [nd.id, nd])), self = new Map();
+  const byId = new Map(cpu.nodes.map((nd) => [nd.id, nd])), par = new Map();
+  for (const nd of cpu.nodes) for (const c of nd.children || []) par.set(c, nd.id);
+  const under = new Map(), isUnder = (id) => { if (under.has(id)) return under.get(id); const nd = byId.get(id); const u = nd.callFrame.functionName === '_frame' || (par.has(id) && isUnder(par.get(id))); under.set(id, u); return u; };
+  const inF = new Map(), outF = new Map(); let gc = 0, fMs = 0;
   const dts = cpu.timeDeltas || [];
-  cpu.samples.forEach((id, i) => { const nd = byId.get(id), cf = nd.callFrame; const key = `${cf.functionName || '(anon)'} ${String(cf.url).replace(/^.*\/game\//, '')}:${cf.lineNumber + 1}`; self.set(key, (self.get(key) || 0) + (dts[i] || 0) / 1000); });
-  const all = [...self.entries()].filter(([k]) => !/^\((idle|program|garbage collector)\)/.test(k));
-  rep.cpu = { gcMs: +((self.get('(garbage collector) :0') || 0) / n).toFixed(2), top: all.sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, +(v / n).toFixed(2)]) };
+  cpu.samples.forEach((id, i) => { const nd = byId.get(id), k = keyOf(nd.callFrame), ms = (dts[i] || 0) / 1000; if (/^\(garbage collector\)/.test(k)) { gc += ms; return; } if (/^\((idle|program|root)\)/.test(k)) return; const M = isUnder(id) ? inF : outF; M.set(k, (M.get(k) || 0) + ms); if (M === inF) fMs += ms; });
+  rep.cpu = { frameMs: +(fMs / n).toFixed(2), gcMsPerSec: +(gc / wall).toFixed(2), top: [...inF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, +(v / n).toFixed(2)]),
+    otherMsPerSec: +([...outF.values()].reduce((a, b) => a + b, 0) / wall).toFixed(2), otherTop: [...outF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, +(v / wall).toFixed(2)]) };
 }
 // the main pass's triangles by owner (meshes in the camera's frustum; instances counted), and the GPU's memory
 rep.objects = await ev(async () => {
@@ -269,7 +301,7 @@ rep.dom = await ev(() => {
     }
   }
   const an = document.getAnimations().filter((a) => a.playState === 'running');
-  const names = {}; for (const a of an) { const k = a.animationName || a.transitionProperty || (a.effect && a.effect.target && a.effect.target.className) || '?'; names[k] = (names[k] || 0) + 1; }
+  const names = {}; for (const a of an) { const t = a.effect && a.effect.target, el = t && (t.nodeType === 1 ? t : t.element); const k = (a.animationName || a.transitionProperty || '?') + (el && !vis(el) ? ' (hidden)' : ''); names[k] = (names[k] || 0) + 1; }
   return { backdrop: bf.length, backdropList: bf.slice(0, 12), animations: an.length, animationNames: names, elements: document.querySelectorAll('*').length };
 });
 try {
@@ -281,6 +313,8 @@ try {
 if (duel) await ev(() => __inkwave.debug.key('KeyW', false));
 say('js', JSON.stringify(rep.js));
 say('per frame', JSON.stringify(rep.perFrame), 'dom/frame', JSON.stringify(rep.domPerFrame));
+say('DOM writes / frame', JSON.stringify(rep.writesPerFrame));
+say('program look-ups / frame', rep.programLookupsPerFrame, JSON.stringify(rep.programLookups));
 for (const p of passes) say(`  ${p.pass.padEnd(34)} ×${String(p.renders).padEnd(5)} calls ${String(p.calls).padStart(4)} · tris ${String(p.tris).padStart(8)} · px ${String(p.px).padStart(9)} · ${p.mb} MB`);
 say('objects', JSON.stringify(rep.objects));
 say('gc', JSON.stringify(rep.gc));
