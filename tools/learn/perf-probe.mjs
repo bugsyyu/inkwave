@@ -282,9 +282,12 @@ const keyOf = (cf) => `${cf.functionName || '(anon)'} ${String(cf.url).replace(/
   const under = new Map(), isUnder = (id) => { if (under.has(id)) return under.get(id); const nd = byId.get(id); const u = nd.callFrame.functionName === '_frame' || (par.has(id) && isUnder(par.get(id))); under.set(id, u); return u; };
   const inF = new Map(), outF = new Map(); let gc = 0, fMs = 0, pMs = 0;
   const dts = cpu.timeDeltas || [];
-  cpu.samples.forEach((id, i) => { const nd = byId.get(id), k = keyOf(nd.callFrame), ms = (dts[i] || 0) / 1000; if (/^\(garbage collector\)/.test(k)) { gc += ms; return; } if (/^\((idle|program|root)\)/.test(k)) return; if (own(nd.callFrame)) { pMs += ms; return; } const M = isUnder(id) ? inF : outF; M.set(k, (M.get(k) || 0) + ms); if (M === inF) fMs += ms; });
+  // (a native call's own time — bufferSubData, texSubImage2D … — also by the game function that made it: its nearest caller with a url)
+  const via = new Map(), caller = (id) => { for (let p = par.get(id); p != null; p = par.get(p)) { const cf = byId.get(p).callFrame; if (cf.url) return keyOf(cf); } return '?'; };
+  cpu.samples.forEach((id, i) => { const nd = byId.get(id), k = keyOf(nd.callFrame), ms = (dts[i] || 0) / 1000; if (/^\(garbage collector\)/.test(k)) { gc += ms; return; } if (/^\((idle|program|root)\)/.test(k)) return; if (own(nd.callFrame)) { pMs += ms; return; } const M = isUnder(id) ? inF : outF; M.set(k, (M.get(k) || 0) + ms); if (M === inF) { fMs += ms; if (!nd.callFrame.url) { const v = k + ' ← ' + caller(id); via.set(v, (via.get(v) || 0) + ms); } } });
   rep.cpu = { frameMs: +(fMs / n).toFixed(2), probeMsPerFrame: +(pMs / n).toFixed(2), gcMsPerSec: +(gc / wall).toFixed(2), top: [...inF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, +(v / n).toFixed(2)]),
-    otherMsPerSec: +([...outF.values()].reduce((a, b) => a + b, 0) / wall).toFixed(2), otherTop: [...outF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, +(v / wall).toFixed(2)]) };
+    otherMsPerSec: +([...outF.values()].reduce((a, b) => a + b, 0) / wall).toFixed(2), otherTop: [...outF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, +(v / wall).toFixed(2)]),
+    nativeVia: [...via.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, +(v / n).toFixed(2)]) };
 }
 // the main pass's triangles by owner (meshes in the camera's frustum; instances counted), and the GPU's memory
 rep.objects = await ev(async () => {
