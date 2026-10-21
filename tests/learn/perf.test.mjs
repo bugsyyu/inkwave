@@ -272,3 +272,42 @@ test('waterHeightAt (every floating thing, every frame): no array, no iterator p
   }
   assert.equal(n, 800);
 });
+
+test('the scene\'s world matrices are walked once a frame (not again by every pass that renders it), and the harbour reflection builds no arrays or closures per frame', () => {
+  const R = src('src/core/renderer.js'), E = src('src/world/environment.js');
+  const render = R.slice(R.indexOf('\n  render() {'), R.indexOf('\n  }\n', R.indexOf('\n  render() {')));   // (Renderer's own, not the passes')
+  assert.match(render, /if \(sc && auto\) \{ sc\.updateMatrixWorld\(\); sc\.matrixWorldAutoUpdate = false; \}\n\s+try \{ this\.composer\.render\(\); \} finally \{ if \(sc && auto\) sc\.matrixWorldAutoUpdate = true; \}/);
+  assert.ok(render.indexOf('sc.updateMatrixWorld()') > render.indexOf('this.resize();'), 'after the camera\'s aspect is set');
+  const refl = method(E, '_renderReflection');
+  assert.ok(!/\.map\(|\.forEach\(|\.\.\.this\._reflSkips|const hide = \[/.test(refl), 'the hide / vis lists are kept, filled by index');
+  assert.match(refl, /const hide = this\._reflHide \|\| \(this\._reflHide = \[\]\), vis = this\._reflVis \|\| \(this\._reflVis = \[\]\);/);
+  const skips = method(E, '_reflSkips');
+  assert.ok(!/\+ ':' \+|\.find\(/.test(skips), 'no key string, no closure');
+});
+
+test('a match\'s compile() with no target bound compiles for the composer\'s HDR buffer (the target the level draws into); bound targets and the menus untouched; a puzzle\'s stations warm behind the black', () => {
+  const M = src('src/main.js');
+  const a = M.indexOf('      const r = this.R.renderer, compile = r.compile.bind(r);'), b = M.indexOf('\n    }\n', a);
+  const block = M.slice(a, b);
+  // run the block on a stand-in renderer
+  const log = [], RB = { isWebGLRenderTarget: true, name: 'hdr' };
+  const r = { cur: null, getRenderTarget() { return this.cur; }, setRenderTarget(t) { this.cur = t; }, compile(sc, cam, tg) { log.push(this.cur ? this.cur.name || 'rt' : 'canvas'); return 'ok'; } };
+  const Gs = { mode: 'match' };
+  const self = { R: { renderer: r, composer: { readBuffer: RB } } };
+  new Function('G', block).call(self, Gs);
+  assert.equal(r.compile({}, {}, {}), 'ok'); assert.deepEqual(log, ['hdr']); assert.equal(r.cur, null, 'the canvas bound again after');
+  r.cur = { name: 'atlas' }; r.compile({}, {}); assert.equal(log[1], 'atlas', 'a target already bound is kept'); r.cur = null;
+  Gs.mode = 'menu'; r.compile({}, {}); assert.equal(log[2], 'canvas', 'outside a match: as three does');
+  Gs.mode = 'match'; const thrower = { ...r, compile() { throw new Error('x'); } };
+  // (a throwing compile still unbinds: the wrapper's finally)
+  const r2 = { cur: null, getRenderTarget() { return this.cur; }, setRenderTarget(t) { this.cur = t; }, compile() { throw new Error('boom'); } };
+  new Function('G', block).call({ R: { renderer: r2, composer: { readBuffer: RB } } }, Gs);
+  assert.throws(() => r2.compile({}, {})); assert.equal(r2.cur, null); void thrower;
+  assert.match(M, /compileAsync calls this\.compile: one wrapper covers both/);
+  assert.match(src('vendor/three/build/three.module.js'), /this\.compileAsync = function \( scene, camera, targetScene = null \) \{\s*const materials = this\.compile\( scene, camera, targetScene \);/, 'three r186: compileAsync goes through this.compile');
+  // the puzzle host's warm-up (stations + the first gates' boards) runs inside _warmStage, before the stage compile and the real frame
+  const W = M.slice(M.indexOf('  async _warmStage() {'), M.indexOf('\n  }\n', M.indexOf('  async _warmStage() {')));
+  assert.ok(W.indexOf('P._warmAll()') > 0 && W.indexOf('P._warmAll()') < W.indexOf('await warmScene(') && W.indexOf('await warmScene(') < W.indexOf('this._frame(1 / 60);'));
+  assert.match(W, /if \(P && P\._warmT > 0 && typeof P\._warmAll === 'function'\) \{ P\._warmT = 0; try \{ P\._warmAll\(\); \}/, 'once: its own timer cleared');
+  assert.match(src('src/learn/play/host.js'), /if \(this\._warmT > 0\) \{ this\._warmT -= dt; if \(this\._warmT <= 0\) this\._warmAll\(\); \}/, 'the host warms on its timer only while it is set');
+});

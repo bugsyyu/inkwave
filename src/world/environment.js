@@ -1868,23 +1868,29 @@ export class Environment {
     // scenery comes from the baked far-reflection cube; below ultra the squid kids, FX particles, lamp posts, palms,
     // flags, light glows and spinners stay out too — they are most of the pass's draw calls (its real cost is CPU:
     // ~50 µs per draw) and all but vanish in a wave-broken reflection.
-    const hide = [this.sea, this.sky, this.lhBeam, this.city, this.terrain, this.staticScenery, this.ferris, this.trees, this.sailInst, this.gullInst];
+    // (the two lists kept from frame to frame: no arrays, no closures per frame — LEARN §50)
+    const hide = this._reflHide || (this._reflHide = []), vis = this._reflVis || (this._reflVis = []);
+    hide.length = 0;
+    hide.push(this.sea, this.sky, this.lhBeam, this.city, this.terrain, this.staticScenery, this.ferris, this.trees, this.sailInst, this.gullInst);
     if (q !== 'ultra') {
-      for (const a of G.actors || []) if (a.character && a.character.root) hide.push(a.character.root);
-      hide.push(...this._reflSkips(scene));
+      const A = G.actors;
+      if (A) for (let i = 0; i < A.length; i++) { const a = A[i]; if (a.character && a.character.root) hide.push(a.character.root); }
+      const sk = this._reflSkips(scene);
+      for (let i = 0; i < sk.length; i++) hide.push(sk[i]);
     }
     for (let i = hide.length - 1; i >= 0; i--) if (!hide[i]) hide.splice(i, 1);
-    const vis = hide.map((o) => o.visible);
+    vis.length = hide.length;
+    for (let i = 0; i < hide.length; i++) vis[i] = hide[i].visible;
     this._reflBusy = true;
     try {
-      for (const o of hide) o.visible = false;
+      for (let i = 0; i < hide.length; i++) hide[i].visible = false;
       renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false;
       renderer.setRenderTarget(rt);
       renderer.setClearColor(0x000000, 0);
       renderer.clear(true, true, false);
       renderer.render(scene, rc);
     } finally {
-      hide.forEach((o, i) => { o.visible = vis[i]; });
+      for (let i = 0; i < hide.length; i++) hide[i].visible = vis[i];
       renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = sAuto; renderer.shadowMap.needsUpdate = sNeed;
       renderer.setClearColor(_rCol, ca);
       renderer.setRenderTarget(prevRT);
@@ -1935,13 +1941,17 @@ export class Environment {
 
   // Scene parts left out of the planar reflection below ultra (cached per prop build): FX, decor, small prop batches.
   _reflSkips(scene) {
-    const props = scene.children.find((o) => o.name === 'props');
-    const key = scene.children.length + ':' + (props ? props.uuid + props.children.length : '-');
-    if (this._reflSkipKey === key) return this._reflSkipList;
+    const C = scene.children;
+    let props = null;
+    for (let i = 0; i < C.length; i++) if (C[i].name === 'props') { props = C[i]; break; }
+    // (the same scene, the same props group with as many meshes: the list as it was — no key string built per frame)
+    const pn = props ? props.children.length : -1;
+    if (this._reflSkipList && this._reflSkipN === C.length && this._reflSkipP === props && this._reflSkipPN === pn) return this._reflSkipList;
+    this._reflSkipN = C.length; this._reflSkipP = props; this._reflSkipPN = pn;
     const list = [];
     for (const o of scene.children) if (o.name === 'FX' || o.name === 'decor') list.push(o);
     if (props) for (const m of props.children) if (/glow|blink|flags|spin:|fence|blob|foliage/.test(m.name || '')) list.push(m);
-    this._reflSkipKey = key; this._reflSkipList = list;
+    this._reflSkipList = list;
     return list;
   }
 

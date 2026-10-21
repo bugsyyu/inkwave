@@ -159,6 +159,18 @@ class Game {
     this.R = new Renderer(app, this.settings);
     G.renderer = this.R.renderer;
     this._liveInit();   // (her App's live ladder, LEARN §50: the step's rungs, the session starting at 60)
+    // A match's compile() with no target bound compiles for the composer's HDR buffer (LEARN §50): three keys a program by the
+    // target bound when it compiles (the canvas: sRGB, tone-mapped; any render target: linear, none), and the learning
+    // stations' warm-ups bind none — so they built the canvas's programs and the first real frame built the right ones again.
+    {
+      const r = this.R.renderer, compile = r.compile.bind(r);   // (compileAsync calls this.compile: one wrapper covers both)
+      r.compile = (scene, camera, target) => {
+        const rt = G.mode === 'match' && r.getRenderTarget() === null ? this.R.composer?.readBuffer : null;
+        if (!rt) return compile(scene, camera, target);
+        r.setRenderTarget(rt);
+        try { return compile(scene, camera, target); } finally { r.setRenderTarget(null); }
+      };
+    }
     // Device capability probe. Reported before anything heavy runs so it arrives even when a later step dies, and it
     // is the only way to see a phone's real limits without a console on that phone.
     try {
@@ -963,6 +975,10 @@ class Game {
     if (params.has('lazycompile')) return;
     this._warming = true;
     try {
+      // (a puzzle's stations — the typewriter, the beat pads, the flip deck, the first gates' boards — built and compiled here
+      // behind the black, not on the level's first frames during the fade-in: its host warms once, at its _warmT — LEARN §50)
+      const P = this.match?.learn?.play;
+      if (P && P._warmT > 0 && typeof P._warmAll === 'function') { P._warmT = 0; try { P._warmAll(); } catch (e) { console.warn('[inkwave] stations warm-up', e); } }
       await warmScene(G.renderer, G.scene, G.camera, { target: this.R.composer?.readBuffer || warmTarget(), pause: nextFrame });
       await this._warmPaint({ pause: nextFrame });   // (a level's world has its own ink atlas: its drying pass came after the fade-in, §42)
       this._frame(1 / 60);

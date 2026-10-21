@@ -379,6 +379,10 @@ export class Renderer {
     const fx = this.extraPass && this.extraPass.uniforms && this.extraPass.uniforms.uOut ? this.extraPass.uniforms : null, fxOn = !!(fx && this.extraPass.enabled);
     u.uOut.value = this.mergeOut && !fxOn ? 1 : 0; u.uToneExp.value = this.renderer.toneMappingExposure;
     if (fx) { fx.uOut.value = this.mergeOut && fxOn ? 1 : 0; fx.uToneExp.value = this.renderer.toneMappingExposure; }
-    this.composer.render();
+    // the scene's world matrices once for the whole frame: each of its renders (the main pass, the AO's normals, the harbour's
+    // reflection) used to walk the whole tree again (LEARN §50); nothing moves between them
+    const sc = this.scene, auto = sc ? sc.matrixWorldAutoUpdate : false;
+    if (sc && auto) { sc.updateMatrixWorld(); sc.matrixWorldAutoUpdate = false; }
+    try { this.composer.render(); } finally { if (sc && auto) sc.matrixWorldAutoUpdate = true; }
   }
 }
