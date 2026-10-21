@@ -1085,10 +1085,10 @@ export class Menus {
       return b;
     });
     const mark = (form) => cards.forEach((b) => {
-      const on = b.dataset.form === form, r = b.querySelector('.iw-pick__rec');
-      b.classList.toggle('iw-btn--primary', on); b.classList.toggle('is-rec', on);
-      if (on && !r) b.appendChild(h('span', { class: 'iw-pick__rec' }, today && !next ? '今天推荐' : '推荐'));
-      else if (!on && r) r.remove();
+      const hit = b.dataset.form === form, r = b.querySelector('.iw-pick__rec');
+      b.classList.toggle('iw-btn--primary', hit); b.classList.toggle('is-rec', hit);
+      if (hit && !r) b.appendChild(h('span', { class: 'iw-pick__rec' }, today && !next ? '今天推荐' : '推荐'));
+      else if (!hit && r) r.remove();
     });
     mark(rec);
     const more = h('div', { class: 'iw-pick__more' });

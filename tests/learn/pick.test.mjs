@@ -53,7 +53,7 @@ test('the cards: one per form, each starts that day in that form (startLearn({ w
   assert.deepEqual(THREE.map((f) => FORM_ZH[f]), ['解密闯关', '墨浪跑酷', '对抗赛']);
   assert.match(PICK, /label: FORM_ZH\[f\.id\]/);
   assert.match(PICK, /accept: \(\) => this\._startLearn\(\{ week: at\.week, day: at\.day, kind: f\.id \}, b\)/);
-  assert.match(PICK, /b\.classList\.toggle\('iw-btn--primary', on\); b\.classList\.toggle\('is-rec', on\);/);
+  assert.match(PICK, /b\.classList\.toggle\('iw-btn--primary', hit\); b\.classList\.toggle\('is-rec', hit\);/);
   assert.match(PICK, /h\('span', \{ class: 'iw-pick__rec' \}, today && !next \? '今天推荐' : '推荐'\)/);
   assert.match(PICK, /let plan = planFor\(at\.week, at\.day\), rec = \(plan && plan\.form\) \|\| 'puzzle';/);
   assert.match(PICK, /if \(P && P\.form !== rec\) \{/, 'a pack\'s week knows its planned form once loaded: the mark moves');
