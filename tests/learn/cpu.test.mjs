@@ -366,6 +366,16 @@ test('每帧的小对象：a racer bot stands still as before (waiting, answerin
   for (const a of [390 / 844, 0.62, 0.8, 1, 1.25, 16 / 9, 844 / 390, 3]) { const f = cam.frame(a); assert.strictEqual(f, first, 'one array'); assert.deepStrictEqual([...f], old(a), `aspect ${a}`); }
 });
 
+// ---------------------------------------------------------------------------------------------- HUD 的弹动
+const { HUD } = await import('../../src/ui/hud.js');
+test('HUD 的弹动：_restart takes the class off, flushes the style (never reads the layout), puts it back', () => {
+  const log = [], prev = globalThis.getComputedStyle;
+  const el = { classList: { remove: (c) => log.push(['off', c]), add: (c) => log.push(['on', c]) }, get offsetWidth() { log.push(['layout']); return 0; }, get offsetHeight() { log.push(['layout']); return 0; } };
+  globalThis.getComputedStyle = (e) => { assert.strictEqual(e, el); return { get animationName() { log.push(['style']); return 'none'; } }; };
+  try { HUD.prototype._restart.call({}, el, 'is-tick'); } finally { if (prev === undefined) delete globalThis.getComputedStyle; else globalThis.getComputedStyle = prev; }
+  assert.deepStrictEqual(log, [['off', 'is-tick'], ['style'], ['on', 'is-tick']]);
+});
+
 // ---------------------------------------------------------------------------------------------- 小地图
 const { Minimap } = await import('../../src/game/minimap.js');
 // a real Minimap on a 2 × 2 m stage (4 × 4 px), its canvases recording what is drawn on them; the static layers stay

@@ -1981,9 +1981,11 @@ export class HUD {
     for (const [name, fn] of this._fxMap) { let keep = true; try { keep = fn(dt) !== false; } catch (e) { console.error('[hud]', e); keep = false; } if (!keep) this._fxMap.delete(name); }
     this._rafId = this._fxMap.size ? requestAnimationFrame(this._fxLoop) : 0;
   }
+  // a CSS animation from its start again: the class off, a style flush, the class on (LEARN §52: `void el.offsetWidth`
+  // flushed the layout too — every hit, kill, turf tick, beacon press — where only the style has to see the class gone)
   _restart(el, cls) {
     el.classList.remove(cls);
-    void el.offsetWidth; // eslint-disable-line no-void
+    void getComputedStyle(el).animationName; // eslint-disable-line no-void
     el.classList.add(cls);
   }
   _expireFeed(el, fast) {
