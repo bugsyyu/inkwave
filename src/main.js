@@ -1404,7 +1404,9 @@ class Game {
   // only with the step in effect (her App named the device, the tier is the step's): its rungs, the session starting at 60
   _liveInit() {
     const q = this.R.q, D = this.device;
-    this.live = q.rungs && D ? new LiveGov({ start: this.R.rung ?? q.rungs[0], ceil: q.rungs[1], hz120: false }) : null;
+    // (?rung=N: pinned on rung N of the step's — a look at one rung, the audits' way to measure it; nothing moves)
+    const pin = params.has('rung') ? clamp(+params.get('rung') | 0, q.rungs ? q.rungs[0] : 0, q.rungs ? q.rungs[1] : 0) : null;
+    this.live = q.rungs && D ? new LiveGov({ start: pin ?? this.R.rung ?? q.rungs[0], ceil: q.rungs[1], hz120: false, pin: pin != null }) : null;
     this._hz120 = !!(D && D.highRefresh && D.maxFps >= 110);   // (her App turned WebKit's 60 clamp off on a 120 Hz screen)
     if (this.live) { this._autoCap = this.live.cap; this._capWhy = null; this.R.setRung(this.live.rung); }
     else if (this._autoCap && this._capWhy !== 'hot') this._autoCap = 0;

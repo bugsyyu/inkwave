@@ -155,6 +155,12 @@ test('LiveGov: 120 only on the top rung, after 20 s clean at 60, with the frame\
   fails.forEach((f, i) => assert.ok(f.t - tries[i].t <= 0.8 && f.cap === 60, 'back to 60 at once'));
 });
 
+test('LiveGov pinned (?rung=N): never moves, still counts for the readout', () => {
+  const L = new LiveGov({ start: 3, ceil: 4, hz120: true, pin: true });
+  assert.deepEqual(feed(L, 30, 40), []); assert.deepEqual(feed(L, 60, 1000 / 60), []);
+  assert.deepEqual([L.rung, L.cap], [3, 60]); assert.equal(L.rn, RENDER_LIVE.ring);
+});
+
 test('LiveGov: nothing allocated per frame (two rings, no closures, no literals in frame / _judge); the readout\'s percentiles from the last frames', () => {
   const R = src('src/core/render-gov.js');
   const frame = method(R, 'frame'), judge = method(R, '_judge');
@@ -239,4 +245,30 @@ test('in a level nothing blurs over the live 3D: the touch buttons, the map\'s t
   assert.match(src('src/fx/screenfx.js'), /this\.G\.hud\?\.attachScreenFX\?\.\(this\);/, 'the screen FX attaches itself to the HUD (→ iw-hud--fx)');
   // the menus' glass (ui.css) never targets the level's layers: the HUD, the strip, the game keyboard, the touch layer
   for (const r of blurs(UI)) assert.ok(!/\.iw-(hud|ps|pk|learn|touch|run|xh)\b/.test(r.sel), r.sel);
+});
+
+test('waterHeightAt (every floating thing, every frame): no array, no iterator per call — and the same heights as the loop it replaced', async () => {
+  const E = src('src/world/environment.js');
+  const { Environment } = await import('../../src/world/environment.js');
+  const { PLAYER } = await import('../../src/config.js');
+  const body = method(E, 'waterHeightAt');
+  assert.ok(!/\[M\.decks|for \(const/.test(body), 'no array literal, no for…of');
+  // the replaced loop, run on the same helpers (sdRectJS and smooth from the module's own source)
+  const helper = (re) => re.exec(E)[0];
+  const old = new Function('x', 'z', 't', 'WATER_Y', `${helper(/function sdRectJS\([\s\S]*?\n\}\n/)}${helper(/const smooth = [^\n]*\n/)}
+    let d = 1e5; const M = this._marinaData;
+    for (const set of M ? [M.decks, M.wet] : [this.footprint]) for (const r of set) {
+      const ex = Math.max(r.minX - x, x - r.maxX, 0), ez = Math.max(r.minZ - z, z - r.maxZ, 0);
+      if (ex * ex + ez * ez < d * d) d = Math.min(d, sdRectJS(r, x, z));
+    }
+    ${body.slice(body.indexOf('let amp'))}`);
+  const rect = (cx, cz, hx, hz, a) => ({ cx, cz, hx, hz, ax: Math.cos(a), az: Math.sin(a), minX: cx - hx - hz, maxX: cx + hx + hz, minZ: cz - hx - hz, maxZ: cz + hx + hz });
+  const rs = [rect(0, 0, 10, 6, 0.3), rect(25, -8, 4, 9, -0.7), rect(-30, 20, 12, 3, 1.1)];
+  const stubs = [{ footprint: rs, time: 3.2 }, { _marinaData: { decks: rs.slice(0, 2), wet: rs.slice(2) }, bounds: { minX: -60, maxX: 60, minZ: -80, maxZ: 80 }, footprint: [], time: 7.7 }];
+  let n = 0;
+  for (const S of stubs) for (let i = 0; i < 400; i++) {
+    const x = Math.sin(i * 12.9898) * 90, z = Math.cos(i * 78.233) * 110;
+    assert.equal(Environment.prototype.waterHeightAt.call(S, x, z), old.call(S, x, z, S.time, PLAYER.waterY)); n++;
+  }
+  assert.equal(n, 800);
 });

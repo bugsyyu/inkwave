@@ -1175,6 +1175,14 @@ function inRect(r, x, z, pad = 0) {
   return Math.abs(dx * r.ax + dz * r.az) < r.hx + pad && Math.abs(dz * r.ax - dx * r.az) < r.hz + pad;
 }
 // signed distance (m) from (x, z) to rect r (matches sdORect in the sea shaders)
+// the distance from (x, z) to the nearest of rects, if under d (a rect is never nearer than its AABB)
+function nearestRect(rects, x, z, d) {
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i], ex = Math.max(r.minX - x, x - r.maxX, 0), ez = Math.max(r.minZ - z, z - r.maxZ, 0);
+    if (ex * ex + ez * ez < d * d) d = Math.min(d, sdRectJS(r, x, z));
+  }
+  return d;
+}
 function sdRectJS(r, x, z) {
   const dx = x - r.cx, dz = z - r.cz;
   const qx = Math.abs(dx * r.ax + dz * r.az) - r.hx, qz = Math.abs(dz * r.ax - dx * r.az) - r.hz;
@@ -2938,12 +2946,9 @@ export class Environment {
   // ------------------------------------------------------------------ public API
   // Water surface height at (x, z) (includes the gentle swell). Matches the sea vertex shader.
   waterHeightAt(x, z, t = this.time) {
-    let d = 1e5;
     const M = this._marinaData;
-    for (const set of M ? [M.decks, M.wet] : [this.footprint]) for (const r of set) {
-      const ex = Math.max(r.minX - x, x - r.maxX, 0), ez = Math.max(r.minZ - z, z - r.maxZ, 0);
-      if (ex * ex + ez * ez < d * d) d = Math.min(d, sdRectJS(r, x, z));   // (a rect is never nearer than its AABB)
-    }
+    // (it runs for every floating thing every frame: no array, no iterator — LEARN §50)
+    const d = M ? nearestRect(M.wet, x, z, nearestRect(M.decks, x, z, 1e5)) : nearestRect(this.footprint, x, z, 1e5);
     let amp = 0.035 + (0.16 - 0.035) * smooth(3, 70, d);
     if (M) {   // sheltered basin (matches basinK in the sea vertex shader)
       const b = this.bounds, qx = Math.abs(x - (b.minX + b.maxX) / 2) - (b.maxX - b.minX) / 2, qz = Math.abs(z - (b.minZ + b.maxZ) / 2) - (b.maxZ - b.minZ) / 2;

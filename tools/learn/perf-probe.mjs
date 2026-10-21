@@ -14,12 +14,13 @@
 //   long     long tasks (≥ 50 ms, PerformanceObserver) — over the real seconds, and for --scene boot the whole load
 //   gpu      programs, textures, geometries; the render targets' and the shadow map's bytes
 //   node tools/learn/perf-probe.mjs --scene puzzle|runner|duel|review|menu|boot [--native iphone16|iphone15|iphone12|none]
-//        [--dpr 3] [--size 393x852] [--throttle 4] [--frames 16] [--real 8] [--step N] [--query '&x=1'] [--json <file>]
+//        [--dpr 3] [--size 393x852] [--throttle 4] [--frames 16] [--real 8] [--jit 600] [--step N] [--query '&x=1'] [--json <file>]
 // Scenes: puzzle = w2d3 解密闯关 on Terrace Heights at dusk (where she got stuck), the auto-walk on; runner = w1d3 墨浪跑酷;
 // duel = w1d6 对抗赛 (her stick held forward); review = w1d7 复习日 (its planned form); menu = her App's way in to the main
 // menu (title → a tap → main); boot = her App's load to the title screen (throttled from the first byte).
 // --step N writes a stored render step for the device before the page loads (src/core/render-gov.js), to measure another
-// step. No screenshots; no account (nothing of hers is read or written).
+// step; --query adds to the URL (e.g. '&rung=4'). Before the stepped frames, --jit sim-only frames warm the JIT (the numbers
+// are the steady state's). No screenshots; no account (nothing of hers is read or written).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,7 +32,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const SCENE = opt('scene', 'puzzle'), DPR = +opt('dpr', 3), THROTTLE = +opt('throttle', 4), FRAMES = +opt('frames', 16), REAL = +opt('real', 8);
 const [VW, VH] = opt('size', '393x852').split('x').map(Number);
-const STEP = opt('step', null), EXTRA = opt('query', '');
+const STEP = opt('step', null), EXTRA = opt('query', ''), JIT = +opt('jit', 600);
 // (the same made-up native pages as parity-shots / hitch-probe: display / device, no message handlers)
 const NATIVE = {
   iphone16: { platform: 'ios', display: { maxFps: 120, highRefresh: true }, device: { model: 'iPhone16,1', memGB: 8, cores: 6 } },
@@ -207,6 +208,9 @@ if (duel) await ev(() => { window.__duel = true; __inkwave.debug.key('KeyW', tru
 // ---- the stepped frames: the clock frozen and stepped at 60 Hz, every frame timed and its passes counted
 await ev(() => { __inkwave.debug.freeze(); });
 for (let i = 0; i < 2; i++) await ev(() => __inkwave.debug.step(16.7));   // (a frame or two for whatever the thaw left)
+// the JIT warmed first: --jit sim-only frames (debug.step draws only its last one), so what is measured is the steady state
+// (in a few interpreted frames every double is a fresh heap number — allocation that a phone a minute into a level does not have)
+if (JIT > 0) { await ev((n) => __inkwave.debug.step(16.7 * n), JIT); await ev(() => __inkwave.debug.step(16.7)); }
 await cdp.send('HeapProfiler.enable');
 await cdp.send('Profiler.enable');
 await cdp.send('Profiler.setSamplingInterval', { interval: 200 });

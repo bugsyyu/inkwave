@@ -65,8 +65,9 @@ export function hotPower(p) { return !!p && (p.lowPower === true || p.thermal ==
 //   hot        her phone hot / Low Power Mode: 60 and a rung under the start at once, no climbing until it cools
 // frame() returns true when it moved (rung / cap / why changed). No allocation per frame: two rings of the last frames.
 export class LiveGov {
-  constructor({ start, ceil, hz120 = false, cfg = RENDER_LIVE } = {}) {
-    this.cfg = cfg; this.ceil = Math.max(0, ceil | 0); this.start = Math.min(this.ceil, Math.max(0, start | 0));
+  // (pin: held on its start rung at 60, never moving — ?rung=N, for a look at one rung; the readout still counts)
+  constructor({ start, ceil, hz120 = false, pin = false, cfg = RENDER_LIVE } = {}) {
+    this.cfg = cfg; this.ceil = Math.max(0, ceil | 0); this.start = Math.min(this.ceil, Math.max(0, start | 0)); this.pin = !!pin;
     this.rung = this.start; this.cap = 60; this.hz120 = !!hz120; this.hot = false;
     this.wait = new Float32Array(this.ceil + 1).fill(cfg.upHold);   // clean seconds that climbing onto each rung needs
     this.hzWait = cfg.hzHold;
@@ -84,6 +85,7 @@ export class LiveGov {
     if (!(ms > 0) || ms > C.gapMs || !(tgt > 0)) { this.wT = 0; this.wN = 0; this.wL = 0; return false; }   // (a break, not a frame)
     this.iv[this.ri] = ms; this.js[this.ri] = js; this.ri = (this.ri + 1) % this.iv.length; if (this.rn < this.iv.length) this.rn++;
     this.t += ms / 1000;
+    if (this.pin) return false;
     if (this.settle > 0) { this.settle -= ms / 1000; return false; }   // (the frame or two after a move: a resize, a pass turned on)
     this.wT += ms / 1000; this.wN++; this.nAll++;
     if (ms > tgt * C.late) { this.wL++; this.lateAll++; }

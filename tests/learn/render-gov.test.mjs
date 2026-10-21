@@ -194,7 +194,8 @@ test('the wiring: the step applied at launch only (each choice of hers still win
   assert.equal((M.match(/const cap = this\.settings\.fpsCap \|\| this\._autoCap \|\| 0;/g) || []).length, 2, '_loop and _frameTarget');
   assert.ok(/shadowSize: \(this\.R\.q \|\| q\)\.shadowSize/.test(M)); assert.ok(/new fxMod\.FX\(scene, \{ quality: this\.R\.q \|\| q \}\)/.test(M));
   assert.ok(M.indexOf('this._liveInit();') > M.indexOf('G.renderer = this.R.renderer;'), 'the ladder once the renderer exists');
-  assert.match(M, /this\.live = q\.rungs && D \? new LiveGov\(\{ start: this\.R\.rung \?\? q\.rungs\[0\], ceil: q\.rungs\[1\], hz120: false \}\) : null;/);
+  assert.match(M, /this\.live = q\.rungs && D \? new LiveGov\(\{ start: pin \?\? this\.R\.rung \?\? q\.rungs\[0\], ceil: q\.rungs\[1\], hz120: false, pin: pin != null \}\) : null;/);
+  assert.match(M, /const pin = params\.has\('rung'\) \? clamp\(\+params\.get\('rung'\) \| 0, q\.rungs \? q\.rungs\[0\] : 0, q\.rungs \? q\.rungs\[1\] : 0\) : null;/, '?rung=N pins one of the step\'s own rungs');
   assert.match(M, /if \(this\.live\) \{ this\._autoCap = this\.live\.cap; this\._capWhy = null; this\.R\.setRung\(this\.live\.rung\); \}/, 'every session starts at the ladder\'s 60');
   assert.match(M, /if \(this\.R && !!this\.R\.q\.rungs !== !!this\.live\) this\._liveInit\(\);/, 'a tier of her own turns the ladder off (and back)');
   const loop = M.slice(M.indexOf('  _loop(ts) {'), M.indexOf('  _trackVsync(ts) {'));
@@ -225,11 +226,12 @@ const M = readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
 const NAMES = ['_loop', '_liveInit', '_liveFrame', '_liveApply', '_liveNote', '_frameTarget', '_dynRes', '_govWin', '_govEnd', '_onPower', '_matchPower'];
 // a stand-in phone: a 120 Hz screen her App unlocked, frames that cost `cost(t)` ms of GPU (the next vsync after it is when the
 // frame lands), the real _loop pacing at the ladder's cap
-function phone({ step = 1, power = { lowPower: false, thermal: 'nominal' }, showFps = false } = {}) {
+function phone({ step = 1, power = { lowPower: false, thermal: 'nominal' }, showFps = false, query = '' } = {}) {
   const saved = [], win = { __iwNative: { power } }, rungs = RENDER_STEPS[step].rungs;
   const body = { children: [], appendChild(e) { this.children.push(e); } };
   const env = { requestAnimationFrame: () => {}, document: { hidden: false, body, createElement: () => ({ style: {}, textContent: '', remove() { body.children.splice(body.children.indexOf(this), 1); } }) },
-    window: win, innerWidth: 393, innerHeight: 852, LiveGov, liveReadout, RENDER_LIVE, afterMatch, RENDER_START, hotPower, saveGov: (r) => { saved.push(r); return true; } };
+    window: win, innerWidth: 393, innerHeight: 852, LiveGov, liveReadout, RENDER_LIVE, afterMatch, RENDER_START, hotPower, saveGov: (r) => { saved.push(r); return true; },
+    params: new URLSearchParams(query), clamp: (v, a, b) => Math.max(a, Math.min(b, v)) };
   const g = { settings: { quality: RENDER_STEPS[step].quality, fpsCap: 0, showFps }, _vs: { ms: 1000 / 120 }, device: { model: 'iPhone16,1', cls: 'top', highRefresh: true, maxFps: 120 }, gov: null, saved, win, env,
     fpsAcc: 0, fpsN: 0, frames: 0, fps: 60,
     timer: { p: undefined, d: 0, update(t) { this.d = this.p === undefined ? 0 : (t - this.p) / 1000; this.p = t; }, getDelta() { return this.d; } },
@@ -314,6 +316,9 @@ test('the ladder with the heat, a cap of hers, a tier of her own; the readout bo
   assert.ok(box && /^\d+ 帧 · 第 1 档 · 2\/4 级 · 2\.01× · 1\.4 MP\n间隔 16\.7 \/ 16\.7 ms · JS 3\.0 ms · 稳 60 · 起步$/.test(box.textContent), box && box.textContent);
   g.settings.showFps = false; g.run(1, () => 5);
   assert.equal(g.env.document.body.children.length, 0);
+  // ?rung=4: pinned there at 60 however the frames go (and a rung outside the step's own is pulled inside it)
+  g = phone({ step: 1, query: '?rung=4' }); g.run(10, () => 26); assert.deepEqual([g.R.rung, g._autoCap, g.moves.length], [4, 60, 0]);
+  g = phone({ step: 3, query: '?rung=9' }); assert.equal(g.R.rung, RENDER_STEPS[3].rungs[1]);
   // a tier of her own (no rungs): no ladder, the old pacing (no cap of the ladder's)
   g = phone({ step: 1 }); g.R.q = { step: undefined }; g._liveInit();
   assert.equal(g.live, null); assert.equal(g._autoCap, 0);
