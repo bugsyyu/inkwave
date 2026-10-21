@@ -234,7 +234,9 @@ export class RunnerFlow extends RaceFlow {
     this._reap(dt);
     if (this.finishT >= 0) { this.finishT -= dt; this._steer(a, dt); if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
-    if (!this.started) { this._start(); this.prepS?.update(dt); this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
+    // (LEARN §48: the start line's board takes its taps — 听全文 / 看全文 — through G.playTap, which the swipe hook asks first)
+    if (!this.started) { this._start(); this.prepS?.update(dt); G.playTap = (this.prepS && this.prepS.tapApi) || null; this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
+    if (this.prepS && G.playTap === this.prepS.board?.tapApi) G.playTap = null;
     this.clock += dt;
     const txt = `圈 ${fmtClock(this.clock)}`;
     if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }

@@ -73,7 +73,10 @@ export class LearnHud {
     this._L = {};
     this.el.classList.remove('is-off', 'is-done');
     this.el.setAttribute('aria-hidden', 'false');
-    this.el.classList.add('is-walk');
+    // (LEARN §48: a form with no route to walk — the duel, the boss, versus2: flow.walkBar false — has no walk bar: its
+    // 「自动走」 lit up and walked nowhere)
+    this._walks = flow.walkBar !== false;
+    this.el.classList.toggle('is-walk', this._walks);
     colorVars(this.el, 'self', (G.teamHex || [])[0] || '#ff8a14');   // her ink colour on the buttons and the ring
     // the HUD's clock reads the day instead of a time (practice mode leaves the text alone: time is null)
     if (this.hud.timerTxt) this.hud.timerTxt.textContent = `第 ${flow.week} 周 · 第 ${flow.day} 天`;
@@ -104,7 +107,7 @@ export class LearnHud {
     this.playOn = !!on;
     this.el.classList.toggle('is-play', this.playOn);
     if (this.playOn) this.el.classList.remove('is-walk');
-    else if (this.on && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
+    else if (this.on && this._walks && !this.el.classList.contains('is-done')) this.el.classList.add('is-walk');
   }
 
   // 往前走 (LEARN §48): a board / the booth / a sign framed while no question is up — the walk bar turns into its keys
@@ -145,7 +148,7 @@ export class LearnHud {
   // playMode(true))
   hide() {
     stopAudio();   // the recording or the device's voice
-    if (this.on) this.el.classList.add('is-walk');
+    if (this.on && this._walks) this.el.classList.add('is-walk');
   }
 
   // ================================================================ sound: the recording, or the device's English voice

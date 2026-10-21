@@ -131,7 +131,7 @@ const sample = () => ev((I) => {
   const glide = form === 'RunnerFlow' && F.glide && F.glide.cur && !F.glide.cur.answered ? F.glide.cur : null;
   const runnerAsk = !!(row && row.kind !== 'boards') || !!glide;
   // the level moving on by itself: the runner's ink carries her, a duel round / the boss fight asks its next question
-  const carried = form === 'RunnerFlow' ? !!(F.started && !F.stop && a && Math.hypot(a.vel.x, a.vel.z) > 0.5) : form === 'DuelFlow' ? F.phase === 'round' : form === 'BossFlow' ? F.phase !== 'done' && !(H && H.kind === 'echo') : false;
+  const carried = form === 'RunnerFlow' ? !!(F.started && !F.stop && a && Math.hypot(a.vel.x, a.vel.z) > 0.5) : form === 'DuelFlow' ? F.phase === 'round' || F.phase === 'between' : form === 'BossFlow' ? F.phase !== 'done' && !(H && H.kind === 'echo') : false;
   const strip = document.querySelector('.iw-ps:not(.is-off) .iw-ps__box');
   const done = F.phase === 'done' || !!document.querySelector('.iw-learn.is-done') || !!document.querySelector('.iw-ci.is-in');
   const W = innerWidth, Ht = innerHeight, safe = { l: I.l, t: I.t, r: W - I.r, b: Ht - I.b };

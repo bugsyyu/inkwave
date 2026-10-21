@@ -3,7 +3,10 @@
 //     「看全文」 (when the board has more) and 「继续 ›」 (the station's way on), 继续 lit with one hop once the board is read;
 //     a question's own strip (playMode) never hides them; on a phone turned they stand in a column the framing keeps clear
 //   · the stations hand the keys over: the puzzle's boards (继续 = the auto-walk on), the exit's booth and signs, the boss's
-//     booth (framed where she stands, 继续 = 说完了)
+//     booth (framed where she stands, 继续 = 说完了); 继续 always does something — before a board counts as read too, in
+//     front of the check-in pad (the step onto it)
+//   · a form with no route (the duel, the boss, versus2) shows no 「自动走」 that walks nowhere; the duel's 备战 strip and
+//     the runner's start line have 看全文 too, and the start line's board takes its taps (the swipe hook asks it first)
 //   · the board's 「读全文」 is 「看全文」 (she read it as "read it aloud"); the strip opens from the DOM key as from the hotspot
 //   · no 地图 key and no corner map in a level (it never answered while a board held the lens); versus2 keeps them
 //   · the safe area: the HUD's top row and the touch keys come out of the notch / the Dynamic Island / the home bar; a key the
@@ -81,6 +84,9 @@ const { LearnHud } = await import('../../src/ui/hud-learn.js');
 const { BoardWalk } = await import('../../src/learn/play/board/walk.js');
 const { BoardStation } = await import('../../src/learn/play/wire/boards.js');
 const { EchoBooth } = await import('../../src/learn/play/echo/booth.js');
+const { Signs } = await import('../../src/learn/play/board/signs.js');
+const { ExitStation } = await import('../../src/learn/play/wire/exit.js');
+const { PrepStation } = await import('../../src/learn/play/arena/prep.js');
 const { layoutBoard, wordsSpec, lessonSpec, passageSpec, echoSpec, soundsSpec, noteSpec } = await import('../../src/learn/play/board/paint.js');
 const { boardSpots } = await import('../../src/learn/play/board/frame.js');
 const { forgetInsets } = await import('../../src/ui/safe-area.js');
@@ -147,6 +153,28 @@ test('the HUD: no 地图 key and no corner map in a level — versus2 (a Zone Co
   assert.ok(!L.hud.el.classList.contains('is-nomap') && !touchEl.classList.contains('is-nomap'));
   L.end();
   assert.match(src('src/learn/forms/versus2.js'), /get mapKey\(\) \{ return true; \}/);
+});
+
+test('the HUD: a form with no route to walk (the duel, the boss, versus2) shows no walk bar — no 「自动走」 that walks nowhere; a board framed there still has its keys', () => {
+  const L = hudOf(); G.touch = { el: new El('div'), relayout() {} };
+  const cls = () => L.el.classList;
+  L.start({ ...flowOf(), walkBar: false });
+  assert.ok(!cls().contains('is-walk'), 'no walk bar');
+  L.playMode(true); L.playMode(false);
+  assert.ok(!cls().contains('is-walk'), 'not after a question either');
+  L.hide();
+  assert.ok(!cls().contains('is-walk'), 'nor after hide()');
+  L.framed({ key: {}, more: false, read: false, onGo() {} });
+  assert.ok(cls().contains('is-framed'), 'the boss\'s booth: its keys (is-framed shows the bar on its own — the CSS)');
+  L.framed(null);
+  assert.ok(!cls().contains('is-walk'));
+  L.end();
+  L.start(flowOf());
+  assert.ok(cls().contains('is-walk'), 'a route to walk: the walk bar');
+  L.playMode(true); L.playMode(false); assert.ok(cls().contains('is-walk'));
+  L.end();
+  for (const f of ['duel', 'boss', 'versus2']) assert.match(src(`src/learn/forms/${f}.js`), /get walkBar\(\) \{ return false; \}/, `${f}: no walk bar`);
+  assert.match(src('styles/hud.css'), /\.iw-learn\.is-framed \.iw-learn__walk \{ opacity: 1; visibility: visible;/);
 });
 
 test('the CSS: the keys stay visible while framed whatever else the layer says; turned they stand in a column at the left; 44 pt; transform-only hop', () => {
@@ -311,11 +339,12 @@ test('the puzzle\'s boards hand the HUD their keys: framed → 看全文 / 继�
   const her = new THREE.Vector3(S.walk.list[0].view.x, 0, S.walk.list[0].view.z);
   for (let k = 0; k < 20; k++) S.walk.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
   assert.ok(got.length >= 1 && got[0] && got[0].more === true && got[0].read === false, 'framed: the keys, 看全文 with them');
-  got[0].onGo();
+  for (let k = 0; k < Math.ceil(LEARN.board.readS * 60) + 4; k++) S.walk.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
+  const lit = got.find((x) => x && x.read === true);
+  assert.ok(lit, 'read: the keys again, lit');
+  lit.onGo();
   assert.deepEqual(F.calls, [true], '继续: the auto-walk on (to the next board, the gate)');
   F.auto = false;
-  for (let k = 0; k < Math.ceil(LEARN.board.readS * 60) + 4; k++) S.walk.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
-  assert.ok(got.some((x) => x && x.read === true), 'read: the keys again, lit');
   her.z += 12; for (let k = 0; k < 4; k++) S.walk.update(1 / 60, her, { aspect: 390 / 844, speed: 3 });
   assert.equal(got[got.length - 1], null, 'walked on: the keys let go');
   // the exit's booth and signs, the same keys (wire/exit.js)
@@ -325,6 +354,72 @@ test('the puzzle\'s boards hand the HUD their keys: framed → 看全文 / 继�
   assert.match(src('src/learn/play/wire/boards.js'), /W\.bandFor = keysBandNow;/);
   assert.ok(!/playMode\?\.\(true\)/.test(ex), 'the exit no longer hides the walk bar for a framed board');
   assert.ok(!/playMode\?\.\(true\)/.test(src('src/learn/play/wire/boards.js')), 'nor the boards');
+}));
+
+test('继续 › always does something: before a board counts as read it goes on (that board and the ones she walked past read), in the booth it is 说完了, at the check-in board the step onto the pad', noDom(() => {
+  G.scene = new THREE.Scene(); G.camera = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 300); G.renderer = null; G.hud = { root: {} };
+  const got = [], emitted = [];
+  const F = { ...flowOf(), t: 0, phase: 'walk', level: {}, hud: { framed: (x) => got.push(x), playMode() {} }, _emit: (n, p) => emitted.push(n) };
+  const O = { aspect: 390 / 844, speed: 0 };
+  // the puzzle's boards: three along the way; she walked past the first on her own and stands at the second
+  const S = new BoardStation({ flow: F, match: { local: null }, reduced: false, say() {} });
+  S.warm();
+  const words = daySteps(W2, 3).find((s) => s.meta.type === 'words').items.map((it) => ({ en: it.en, ipa: it.meta.ipaUs || it.meta.ipa, zh: it.zh }));
+  S.walk.prepare('g', [0, 1, 2].map((k) => wordsSpec(words.slice(k * 5, k * 5 + 5), k + 1, 3)));
+  const route = []; for (let z = 0; z <= 40; z++) route.push({ x: 0, y: 0, z });
+  S.walk.place('g', boardSpots(route, 3));
+  const her = new THREE.Vector3(S.walk.list[1].view.x, 0, S.walk.list[1].view.z);
+  for (let k = 0; k < 10; k++) S.walk.update(1 / 60, her, O);
+  assert.equal(S.walk.framed, 1);
+  const k1 = got[got.length - 1];
+  assert.ok(k1 && k1.read === false, 'framed 1/6 s: not read yet (LEARN.board.readS)');
+  assert.equal(S.nextSpot().i, 0, 'before: the auto-walk\'s next stop was the board behind her');
+  k1.onGo();
+  assert.deepEqual(F.calls, [true], '继续: the auto-walk on');
+  assert.ok(S.walk.read(0) && S.walk.read(1) && !S.walk.read(2), 'this board and the one she walked past count as read');
+  assert.equal(S.nextSpot().i, 2, 'the next stop: the board ahead, never back');
+  // the exit: the booth (wire/exit.js _keysOn — the same keys)
+  const X = new ExitStation({ flow: F, match: { local: null } });
+  const item = daySteps(W2, 3).find((s) => s.meta.type === 'speak').items[0], said = [];
+  X.echo = new EchoBooth({ scene: G.scene, camera: G.camera });
+  X.echo.on.speak = (t, o) => o?.onEnd?.(); X.echo.on.done = (d) => { X.spoke = true; said.push(d.how); };
+  X._keysOn(X.echo.walk);
+  X.echo.open({ key: 'e', item, at: new THREE.Vector3(20, 0, 0), yaw: 0 });
+  const near = new THREE.Vector3(20, 0, -1.8);   // (in the board's zone, not yet on the booth's pad)
+  got.length = 0; let t = 0;
+  for (let k = 0; k < 10; k++) { t += 1 / 60; X.echo.update(1 / 60, t, near, O); }
+  assert.equal(X.echo.state, 'ready'); assert.ok(got[got.length - 1], 'the booth\'s board framed: its keys');
+  got[got.length - 1].onGo();
+  assert.deepEqual(F.calls, [true, true], 'before the booth: 继续 walks her in (the auto-walk\'s next stop is the booth)');
+  near.set(20, 0, -0.4);
+  for (let k = 0; k < 40; k++) { t += 1 / 60; X.echo.update(1 / 60, t, near, O); }
+  assert.equal(X.echo.state, 'in');
+  got[got.length - 1].onGo();
+  assert.deepEqual(said, ['button'], 'in the booth: 继续 = 说完了');
+  assert.equal(F.calls.length, 3, 'and the auto-walk on to the next stop');
+  // the signs: a weekly board, then the check-in pad (at its board's viewing spot)
+  X.signs = new Signs({ scene: G.scene, camera: G.camera });
+  X.signs.on.checkin = (sg) => X._checkin(sg);
+  X._keysOn(X.signs.walk);
+  X.signs.prepare('exit', [{ id: 'wk', kind: 'weekly', title: '周复盘' }, { id: 'ci', kind: 'checkin', title: '今天的打卡', text: '今天走完了。' }]);
+  X.signs.place('exit', [{ x: -20, y: 0, z: 0, yaw: 0, view: { x: -20, y: 0, z: 1.7 } }, { x: -30, y: 0, z: 0, yaw: 0, view: { x: -30, y: 0, z: 1.7 } }]);
+  const at = new THREE.Vector3(-20, 0, 1.7);
+  for (let k = 0; k < 10; k++) { t += 1 / 60; X.signs.update(1 / 60, t, at, O); }
+  assert.equal(X.signs.walk.framed, 0);
+  got[got.length - 1].onGo();
+  assert.ok(X.signs.walk.read(0), 'the weekly board counts as read (the exit\'s next stop moves on)');
+  assert.equal(F.calls.length, 4);
+  // in front of the pad, not on it (the walk's nav node stood off its centre): framed, nothing happened
+  at.set(-30, 0, 1.7 + 1.6);
+  for (let k = 0; k < 40; k++) { t += 1 / 60; X.signs.update(1 / 60, t, at, O); }
+  assert.equal(X.signs.walk.framed, 1); assert.equal(X.checked, false, 'not on the pad');
+  got[got.length - 1].onGo();
+  assert.ok(X.signs.checked && X.checked, '继续 at the check-in board: the step onto the pad — the day ends');
+  assert.ok(emitted.includes('learn:sign'));
+  assert.equal(F.calls.length, 4, '(no auto-walk: the day is over)');
+  assert.equal(X.signs.checkIn(), false, 'once');
+  // (and the pad's 「这一天走完了 ★」 goes when the cards come — it had no end and stood over them)
+  assert.match(src('src/learn/flow.js'), /_results\(\) \{\s*this\.finishT = -1;\s*this\.match\.paused = true;\s*G\.input\?\.exitLock\?\.\(\);\s*this\.play\?\.strip\?\.hide\?\.\(\);/);
 }));
 
 test('the boss\'s booth: framed where she stands (a phone upright has no stick to walk into its ring); the sample plays; walking does not end it, 继续 = 说完了 does', noDom(() => {
@@ -395,4 +490,47 @@ test('the boards ahead are painted a board a frame (prepareSoon), what place() n
 test('the puzzle\'s boards station queues the gates ahead (a board a frame) — PlayHost._prep paints none at once', () => {
   assert.match(src('src/learn/play/wire/boards.js'), /if \(specs\.length\) this\.walk\.prepareSoon\(g\.id, specs\);/);
   assert.match(src('src/learn/play/board/walk.js'), /update\(dt, her, o = \{\}\) \{\s*if \(this\._owed\.length\) this\._paintOne\(\);/);
+});
+
+// ------------------------------------------------------------------------------------------------ the start line, the 备战 boards
+test('the duel\'s 备战 board and the runner\'s start line: 看全文 on the strip too (the same reading strip); the start line\'s board takes its taps', noDom(() => {
+  globalThis.innerWidth = 390; globalThis.innerHeight = 844;
+  G.scene = new THREE.Scene(); G.camera = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 300); G.renderer = null; G.level = null; G.physics = null; G.hud = { root: {} };
+  const shown = [];
+  const strip = { show() {}, fit() {}, verdict: (v) => shown.push(v), hide() {} };
+  const a = { pos: new THREE.Vector3(0, 0, 0), vel: { x: 0, z: 0 }, yaw: 0 };
+  const P = new PrepStation({ flow: { t: 0 }, match: { local: a }, strip, m1: { _topKeys: () => [] }, facingYaw: () => 0, reduced: false, say() {} });
+  P.board = new BoardWalk({ scene: G.scene, camera: G.camera, max: 2 });
+  const lesson = lessonOf(W2, 3);
+  P.show([lessonSpec(lesson.title, lesson.meta.lesson)], { head: '起跑前读一读', go: '出发！' });
+  const acts = () => shown[shown.length - 1].actions.map((x) => x.text);
+  assert.deepEqual(acts(), ['看全文', '出发！'], 'the strip: 看全文 and the way on');
+  for (let k = 0; k < 10; k++) P.update(1 / 60);
+  assert.ok(P.board.framed >= 0 && P.tapApi, 'framed as it rises: its taps are on');
+  shown[shown.length - 1].actions[0].onTap();
+  assert.equal(P.board.strip.isOpen, true, '看全文 opens the reading strip');
+  assert.deepEqual(acts(), ['看全文', '出发！'], 'and the strip\'s keys come back');
+  // a board with nothing more: no 看全文
+  P.show([wordsSpec([{ en: 'rice', ipa: 'raɪs', zh: '米饭' }])], { go: '开始这一轮' });
+  assert.deepEqual(acts(), ['开始这一轮']);
+  P.dispose();
+  // the runner hands the start line's board to G.playTap before the start, and takes it back after
+  const r = src('src/learn/play/runner/runner.js');
+  assert.match(r, /if \(!this\.started\) \{ this\._start\(\); this\.prepS\?\.update\(dt\); G\.playTap = \(this\.prepS && this\.prepS\.tapApi\) \|\| null;/);
+  assert.match(r, /if \(this\.prepS && G\.playTap === this\.prepS\.board\?\.tapApi\) G\.playTap = null;/);
+}));
+
+test('the swipe hook (the runner) asks G.playTap first: a finger on the framed board\'s hotspot is a tap on it, anywhere else a swipe as before', () => {
+  const T = touchOf(390, 844, { top: 59, right: 0, bottom: 34, left: 0 }, true, true);
+  T.enabled = true;
+  const swiped = [], taps = [], was = G.match;
+  G.match = { learn: { swipe: (d) => swiped.push(d) } };
+  G.playTap = { down: (x, y) => { const on = x > 100 && x < 200 && y > 300 && y < 360; if (on) taps.push('down'); return on; }, up: (x, y, id) => { taps.push('up:' + id); return true; } };
+  const ev = (type, x, y, id) => ({ type, pointerType: 'touch', clientX: x, clientY: y, pointerId: id, target: { closest: () => null }, preventDefault() {} });
+  try {
+    T._down(ev('pointerdown', 150, 330, 1)); T._up(ev('pointerup', 150, 330, 1));
+    assert.deepEqual(swiped, []); assert.deepEqual(taps, ['down', 'up:1'], 'the board\'s hotspot: a tap');
+    T._down(ev('pointerdown', 150, 700, 2)); T._move(ev('pointermove', 150, 700 - TOUCH.swipe - 30, 2)); T._up(ev('pointerup', 150, 700 - TOUCH.swipe - 30, 2));
+    assert.deepEqual(swiped, ['up'], 'elsewhere: a swipe');
+  } finally { G.match = was; G.playTap = null; }
 });

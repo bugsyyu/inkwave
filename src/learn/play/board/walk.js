@@ -24,6 +24,8 @@
 //                                            holds more than the default allows for (the boss's HP bar: arena/host.js)
 //   W.tapApi { down(x, y, id) → bool, up(x, y, id, cancel) }   taps on the framed board's hotspots (touch.js G.playTap)
 //   W.keysOf(i) → { key, more, read, onMore() } | null   what the HUD's board keys need (LEARN §48)
+//   W.pass(i)                                LEARN §48: 继续 › — board i counts as read now, and the ones before it (she
+//                                            walked past them): the auto-walk goes on from here, never back
 //   W.on = { speak(text, { slow, onEnd }), framed(i), unframed(i), read(i), more(i), hotspot(id, board, data) }
 //   W.clear() · W.dispose() · W.warm(renderer, camera)
 import * as THREE from 'three';
@@ -112,6 +114,8 @@ export class BoardWalk {
     return { key: L, more: hs.some((h) => h.id === 'more'), read: L.read, onMore: () => { if (this.list[this.framed] === L) this.activate('more'); } };
   }
   allRead() { return this.list.every((L) => L.read); }
+  // (LEARN §48: 继续 › pressed before BD.readS was a no-op — nextSpot() was this board's own spot, where she stood)
+  pass(i) { for (let k = 0; k <= i && k < this.list.length; k++) this.list[k].read = true; }
   nextSpot() {
     const i = this.list.findIndex((L) => !L.read);
     if (i < 0) return null;

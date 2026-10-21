@@ -459,6 +459,7 @@ export class LearnFlow {
     this.finishT = -1;
     this.match.paused = true;
     G.input?.exitLock?.();
+    this.play?.strip?.hide?.();   // (LEARN §48: the pad's 「这一天走完了 ★」 stayed over the cards)
     // 打卡 (LEARN §39): the check-in card the 打卡垫 asked for comes first (the level is over and held); the results after it
     if (this.play?.exit?.card?.(() => this._resultsCard())) return;
     this._resultsCard();

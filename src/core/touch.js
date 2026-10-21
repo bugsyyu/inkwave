@@ -209,6 +209,9 @@ export class TouchControls {
     if (swipeTo) {
       if (e.target && e.target.closest && e.target.closest('button')) return;
       const pb = this._btnAt(e.clientX, e.clientY);
+      // (LEARN §48: a finger on a framed board's hotspot is the board's — the start line's reading passage: 听全文 / 看全文
+      // took no finger here before, every one was a swipe)
+      if (!pb && G.playTap && G.playTap.down(e.clientX, e.clientY, e.pointerId)) { this.roles.set(e.pointerId, 'tap'); e.preventDefault(); return; }
       if (!(pb && pb.name === 'pause')) { this.roles.set(e.pointerId, 'swipe'); (this._sw || (this._sw = new Map())).set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); return; }
     }
     // ---- (end of the swipe hook)

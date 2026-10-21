@@ -38,6 +38,7 @@ const now = () => performance.now() / 1000;
 const r1 = (x) => Math.round(x * 10) / 10;
 
 export class Versus2Flow extends LearnFlow {
+  get walkBar() { return false; }   // (LEARN §48: no route to walk — a Zone Control match: no walk bar, hud-learn start())
   // (LEARN §48: a Zone Control match with a team — the HUD keeps its 地图 key and corner map here, hud-learn start())
   get mapKey() { return true; }
   constructor(match, opts = {}) {

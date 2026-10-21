@@ -66,7 +66,15 @@ export class BoardStation {
     W.on.unframed = () => this.flow.hud?.framed?.(null);
     W.on.read = (i) => { this.log.push({ t: +this.flow.t.toFixed(2), ev: 'read', i }); if (W.framed === i) this._keys(i); };
   }
-  _keys(i) { const k = this.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, onGo: () => this.flow.autoWalk(true) }); }
+  // (继续 ›: this board and the ones before it count as read — pressed before BD.readS it was a no-op, the auto-walk's next
+  // stop being the spot she stood on — then the auto-walk on: the next board, the gate)
+  _keys(i) { const k = this.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, onGo: () => this._go(k.key) }); }
+  _go(L) {
+    const W = this.walk, i = W ? W.list.indexOf(L) : -1;
+    if (i >= 0) W.pass(i);
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'go', i });
+    this.flow.autoWalk(true);
+  }
   warm() { this._ensure(); }
   get pose() { return this.walk && this.walk.framing ? this.walk.framing : null; }
   get framed() { return this.walk ? this.walk.framed : -1; }

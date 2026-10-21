@@ -115,15 +115,26 @@ export class ExitStation {
     this.log.push({ t: +F.t.toFixed(2), ev: 'exit', spots: this.spots.map((s) => s.kind) });
     return true;
   }
-  // LEARN §48: the booth's board, a sign framed → the walk bar turns into its keys (看全文, 继续 › = the auto-walk on to the
-  // next stop: stepping off the booth's pad is 说完了), framed in the band they leave clear
+  // LEARN §48: the booth's board, a sign framed → the walk bar turns into its keys (看全文, 继续 ›), framed in the band they
+  // leave clear. 继续 › always does something: in the booth it is 说完了, before it the auto-walk takes her in; at the
+  // check-in board it is the step onto the pad (the day ends); at the other signs the sign counts as read and the
+  // auto-walk goes on (before, pressed in the 1.2 s before a sign counted as read, or in front of the pad, it walked to
+  // the stop she stood at and stopped there)
   _keysOn(W) {
     const F = this.flow;
     W.bandFor = keysBandNow;
-    const keys = (i) => { const k = W.keysOf(i); if (k) F.hud?.framed?.({ ...k, onGo: () => F.autoWalk(true) }); };
+    const keys = (i) => { const k = W.keysOf(i); if (k) F.hud?.framed?.({ ...k, onGo: () => this._go(W, k.key) }); };
     W.on.framed = (i) => keys(i);
     W.on.unframed = () => F.hud?.framed?.(null);
     W.on.read = (i) => { if (W.framed === i) keys(i); };
+  }
+  _go(W, L) {
+    const F = this.flow, i = W.list.indexOf(L);
+    this.log.push({ t: +F.t.toFixed(2), ev: 'go', kind: W === this.echo?.walk ? 'echo' : (L && L.sign && L.sign.kind) || '?' });
+    if (W === this.echo?.walk) { if (this.echo.state === 'in') this.echo._done('button'); F.autoWalk(true); return; }
+    if (L && L.sign && L.sign.kind === 'checkin' && this.signs.checkIn()) return;
+    if (i >= 0) W.pass(i);
+    F.autoWalk(true);
   }
   _checkin(sg) {
     this.checked = true;

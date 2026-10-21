@@ -49,6 +49,7 @@ export function zoneCellsXYZ(zone) {
 }
 
 export class DuelFlow extends LearnFlow {
+  get walkBar() { return false; }   // (LEARN §48: no route to walk — a duel round asks its questions where she stands: no walk bar, hud-learn start())
   constructor(match, opts = {}) {
     super(match, opts);   // B: the level and hud.start; _place() below makes the gates rounds (no route)
     this.form = 'duel';

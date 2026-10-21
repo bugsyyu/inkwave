@@ -8,6 +8,8 @@
 //   S.place(key, spots)                 one spot per sign [{ x, y, z, yaw }] (the board); a check-in sign's pad lies at its
 //                                       viewing spot (she walks onto it to read the teacher's words)
 //   S.update(dt, t, herPos, { aspect, speed }) · S.framing · S.tapApi · S.inZone(pos)
+//   S.checkIn() → bool                  LEARN §48: her 继续 › at the check-in board is a step onto the pad (the pad's centre
+//                                       is the board's viewing spot, which the auto-walk's nav node may stand off)
 //   S.on = { checkin(sign), classic(sign), speak(text, o) }
 //   S.clear() · S.warm() · S.dispose()
 import * as THREE from 'three';
@@ -52,16 +54,19 @@ export class Signs {
   }
   update(dt, t, her, o = {}) {
     this.walk.update(dt, her, o);
-    if (this.pad && her && !this.checked && Math.hypot(her.x - this.pad.x, her.z - this.pad.z) < this.pad.r) {
-      // 踩上去 = 这一天走完了: her ink fills the pad (the flow keeps it in the star table — not evidence)
-      this.checked = true;
-      this.pads.set(this.pad, { color: '#' + this.ink.getHexString(), ink: 1, glow: 1, streak: 1 }); this.pads.pulse(this.pad, 1.4);
-      _v.set(this.pad.x, this.pad.y + 0.2, this.pad.z);
-      G.fx?.ring?.(_v, _up, this.ink, { radius: 1.8, life: 0.5 });
-      G.audio?.play?.('refill_full', { pos: _v, volume: 0.7 });
-      this.on.checkin?.(this.padSign);
-    }
+    if (this.pad && her && !this.checked && Math.hypot(her.x - this.pad.x, her.z - this.pad.z) < this.pad.r) this.checkIn();
     if (this.pads.pads.length) this.pads.update(dt, t, 0);
+  }
+  // 踩上去 = 这一天走完了: her ink fills the pad (the flow keeps it in the star table — not evidence)
+  checkIn() {
+    if (!this.pad || this.checked) return false;
+    this.checked = true;
+    this.pads.set(this.pad, { color: '#' + this.ink.getHexString(), ink: 1, glow: 1, streak: 1 }); this.pads.pulse(this.pad, 1.4);
+    _v.set(this.pad.x, this.pad.y + 0.2, this.pad.z);
+    G.fx?.ring?.(_v, _up, this.ink, { radius: 1.8, life: 0.5 });
+    G.audio?.play?.('refill_full', { pos: _v, volume: 0.7 });
+    this.on.checkin?.(this.padSign);
+    return true;
   }
   free(key) { this.walk.free(key); }
   clear() { this.walk.clear(); this.pads.clear(); this.pad = null; this.signs = []; }
