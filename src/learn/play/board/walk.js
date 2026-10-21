@@ -29,6 +29,7 @@
 //   W.on = { speak(text, { slow, onEnd }), framed(i), unframed(i), read(i), more(i), hotspot(id, board, data) }
 //   W.clear() · W.dispose() · W.warm(renderer, camera)
 import * as THREE from 'three';
+import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { BoardSet } from './set.js';
 import { ReadStrip } from './strip.js';
@@ -37,6 +38,8 @@ import { pickHotspot } from './hotspot.js';
 
 const BD = LEARN.board;
 const _v = new THREE.Vector3();
+// the frame now: the game's clock moves once a frame, before the match's sub-steps (NaN without one: every update a frame)
+const frameNow = () => (typeof G.time === 'number' ? G.time : NaN);
 
 export class BoardWalk {
   constructor({ scene, camera, color = '#ff8a14', reduced = false, root = null, max = 6 } = {}) {
@@ -69,12 +72,15 @@ export class BoardWalk {
   _owe(key) {
     const k = this._owed.findIndex((o) => o.key === key); if (k < 0) return false;
     const o = this._owed[k]; this._owed.splice(k, 1);
+    if (o.list.length < o.specs.length) this._paintF = frameNow();   // (the queue waits a frame: this one has painted)
     for (const s of o.specs.slice(o.list.length)) o.list.push(this.set.paint(s));
     this.entries.set(key, o.list);
     return true;
   }
+  // (a board a frame — not one an update: a slow frame runs the match in two sub-steps, and her phone is slow just then)
   _paintOne() {
-    const o = this._owed[0]; if (!o) return;
+    const o = this._owed[0], f = frameNow(); if (!o || f === this._paintF) return;
+    this._paintF = f;
     o.list.push(this.set.paint(o.specs[o.list.length]));
     if (o.list.length >= o.specs.length) { this._owed.shift(); this.entries.set(o.key, o.list); }
   }

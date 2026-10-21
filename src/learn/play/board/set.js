@@ -104,8 +104,10 @@ export class BoardSet {
 
   update(dt) {
     let busy = false;
-    // one face up a frame (texImage2D + its mipmaps now, not on the first frame it is drawn), then it shows and rises
-    for (const b of this.boards) if (!b.up) { try { G.renderer?.initTexture?.(b.entry.tex); } catch (e) { /* drawn the first time instead */ } b.up = true; b.face.visible = true; break; }
+    // one face up a frame (texImage2D + its mipmaps now, not on the first frame it is drawn), then it shows and rises —
+    // a frame, not an update (a slow frame runs the match in two sub-steps; NaN without a clock: every update)
+    const f = typeof G.time === 'number' ? G.time : NaN;
+    if (f !== this._upF) for (const b of this.boards) if (!b.up) { this._upF = f; try { G.renderer?.initTexture?.(b.entry.tex); } catch (e) { /* drawn the first time instead */ } b.up = true; b.face.visible = true; break; }
     for (const b of this.boards) {
       if (!b.up) { busy = true; continue; }
       if (b.popT < 1) { b.popT += dt; b.pop = b.popT <= 0 ? 0.001 : b.popT >= 0.55 ? 1 : easeOutBack(b.popT / 0.55); busy = true; this.dirty = true; }

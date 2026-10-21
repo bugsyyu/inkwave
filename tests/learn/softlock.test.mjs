@@ -474,16 +474,20 @@ test('the boards ahead are painted a board a frame (prepareSoon), what place() n
   W.prepareSoon('g3', specs); W.prepareSoon('g4', specs.slice(0, 2));
   assert.equal(painted.length, 0, 'nothing painted as the gates are queued');
   const her = new THREE.Vector3(0, 0, -50);
-  W.update(1 / 60, her, {}); assert.equal(painted.length, 1, 'one board a frame');
-  W.update(1 / 60, her, {}); assert.equal(painted.length, 2);
+  // (a frame: the game's clock moves once, then the match updates — twice on a slow frame, its two sub-steps)
+  const frame = (X, subs = 1) => { G.time = (G.time || 0) + 1 / 60; for (let k = 0; k < subs; k++) X.update(1 / 60 / subs, her, {}); };
+  frame(W); assert.equal(painted.length, 1, 'one board a frame');
+  frame(W, 2); assert.equal(painted.length, 2, 'a slow frame\'s two sub-steps: still one');
   const route = []; for (let z = 0; z <= 40; z++) route.push({ x: 0, y: 0, z });
   W.place('g3', boardSpots(route, 5));
   assert.equal(painted.length, 5, 'placing a gate paints what it still owes at once');
   assert.equal(W.list.length, 5);
-  for (let k = 0; k < 2; k++) W.update(1 / 60, her, {});
+  W.update(1 / 60, her, {});
+  assert.equal(painted.length, 5, 'and the queue waits for the next frame');
+  for (let k = 0; k < 2; k++) frame(W);
   assert.equal(painted.length, 7, 'the next gate, a frame each');
-  W.prepareSoon('g5', specs.slice(0, 3)); W.update(1 / 60, her, {}); W.free('g5');
-  for (let k = 0; k < 4; k++) W.update(1 / 60, her, {});
+  W.prepareSoon('g5', specs.slice(0, 3)); frame(W); W.free('g5');
+  for (let k = 0; k < 4; k++) frame(W);
   assert.equal(painted.length, 8, 'a freed gate owes nothing');
   // the faces: with a renderer, hidden until their upload — one a frame — and only then do they rise
   const ups = [];
@@ -494,11 +498,11 @@ test('the boards ahead are painted a board a frame (prepareSoon), what place() n
     for (const e of S2.entries.get('g')) e.canvas = e.canvas || {};   // (Node paints no canvas: stand one in, as on the page)
     S2.place('g', boardSpots(route, 3));
     assert.ok(S2.set.boards.every((b) => !b.face.visible && !b.up), 'not shown before the upload');
-    S2.update(1 / 60, her, {});
-    assert.equal(ups.length, 1, 'one upload a frame'); assert.ok(S2.set.boards[0].face.visible && !S2.set.boards[1].face.visible);
-    for (let k = 0; k < 2; k++) S2.update(1 / 60, her, {});
+    frame(S2, 2);
+    assert.equal(ups.length, 1, 'one upload a frame (a slow frame\'s two sub-steps too)'); assert.ok(S2.set.boards[0].face.visible && !S2.set.boards[1].face.visible);
+    for (let k = 0; k < 2; k++) frame(S2);
     assert.equal(ups.length, 3);
-    for (let k = 0; k < 60; k++) S2.update(1 / 60, her, {});
+    for (let k = 0; k < 60; k++) frame(S2);
     assert.ok(S2.set.boards.every((b) => b.face.visible && b.pop === 1), 'all up and risen');
   } finally { G.renderer = null; }
 }));
