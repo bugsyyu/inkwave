@@ -311,6 +311,35 @@ test('every week-2 board, framed in the keys\' band on an iPhone either way (Dyn
   }
 });
 
+test('a board\'s footer keys keep their labels inside them: one row while the labels shrink with it, else rows at minFont (the booth\'s four spilled over each other and off the board)', async () => {
+  const { approxMeasure } = await import('../../src/learn/play/board/text.js');
+  const { signBoard } = await import('../../src/learn/play/board/signs.js');
+  const { BOARD } = await import('../../src/learn/play/board/paint.js');
+  let echo = 0;
+  for (const wk of [1, 2, 3]) {
+    const W = await loadWeek(wk);
+    for (let d = 1; d <= 7; d++) for (const s of daySteps(W, d)) {
+      const t = s.meta.type, specs = [];
+      if (s.meta.lesson && s.meta.lesson.length) specs.push(lessonSpec(s.title, s.meta.lesson));
+      if (t === 'reading' && s.meta.passage) specs.push(passageSpec(s.meta.passage));
+      if (t === 'speak') specs.push(echoSpec(s.items[0]));
+      if (t === 'checkin') specs.push(signBoard({ kind: 'checkin', title: s.title, text: s.items[0].zh }));
+      if (t === 'weekly' || t === 'placement') specs.push(signBoard({ kind: t, title: s.title }));
+      for (const sp of specs) {
+        const L = layoutBoard(sp), pills = L.ops.filter((o) => o.op === 'pill');
+        for (const o of pills) {
+          const need = approxMeasure(o.label, o.px) + (o.icon ? o.h * 0.5 + 14 : 0) + 20;
+          assert.ok(need <= o.w + 0.5, `w${wk}d${d} ${sp.kind} 「${o.label}」: ${need.toFixed(0)} px of label in a ${o.w.toFixed(0)} px key`);
+          assert.ok(o.px >= BOARD.minFont && o.x >= BOARD.pad - 0.5 && o.x + o.w <= L.W - BOARD.pad + 0.5, `w${wk}d${d} ${sp.kind} 「${o.label}」 on the board`);
+        }
+        for (let i = 0; i < pills.length; i++) for (let j = i + 1; j < pills.length; j++) { const p = pills[i], q = pills[j]; assert.ok(p.x + p.w <= q.x + 0.5 || q.x + q.w <= p.x + 0.5 || p.y + p.h <= q.y + 0.5 || q.y + q.h <= p.y + 0.5, `w${wk}d${d} ${sp.kind}: 「${p.label}」 and 「${q.label}」 apart`); }
+        if (sp.kind === 'echo') { echo++; assert.equal(new Set(pills.map((o) => o.y)).size, 2, 'the booth: two rows of keys'); assert.ok(pills.find((o) => o.label === '说完了').y === pills[0].y, '说完了 in the first row'); }
+      }
+    }
+  }
+  assert.ok(echo >= 21, `every day's booth (${echo})`);
+});
+
 // ------------------------------------------------------------------------------------------------ the stations
 // (the boards paint the Node way — a data texture, no canvas — so these run without the small DOM)
 const noDom = (fn) => () => { const d = globalThis.document; delete globalThis.document; try { return fn(); } finally { globalThis.document = d; } };
