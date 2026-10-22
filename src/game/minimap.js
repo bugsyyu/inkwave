@@ -372,14 +372,16 @@ export class Minimap {
     // which is why every earlier probe missed it while 3D scene objects kept measuring free.
     // dt is accumulated rather than dropped so the compose's own time-based effects keep their real speed.
     // LEARN §52: and only when the picture would change — new ink / base, a flash still fading (one more to clear it),
-    // anything the live layer moves, blinks or fades (_moving); a still map (the spawn pads alone) is left as it is: no
+    // anything the live layer moves, blinks or fades (_moving: and one more once it is gone, to take it off — a sensor
+    // cloud, a curtain, a bubble ends with no ink and no mark); a still map (the spawn pads alone) is left as it is: no
     // blit, no upload. (The dt still accumulates: the next compose's effects keep their real speed.)
     this._cAcc = (this._cAcc || 0) + dt;
     this._cN = (this._cN || 0) + 1;
     if (this._cN >= MAP_COMPOSE_EVERY) {
       this._cN = 0;
-      if (this._dirty || this.flashT < 0.45 || this._flashOn || this._moving()) {
-        const acc = this._cAcc; this._cAcc = 0; this._dirty = false;
+      const mv = this._moving();
+      if (this._dirty || this.flashT < 0.45 || this._flashOn || mv || this._mvOn) {
+        const acc = this._cAcc; this._cAcc = 0; this._dirty = false; this._mvOn = mv;
         this._compose(acc);
         this.composed = (this.composed || 0) + 1;
       } else this._cAcc = 0;

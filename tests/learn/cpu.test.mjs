@@ -428,7 +428,23 @@ test('小地图：on the screen it composes only when the picture would change �
   assert.equal(mm.composed - c1, 20, 'a bomb on the map: its ~20 Hz');
   G.projectiles.bombs.length = 0;
   for (let f = 0; f < 60; f++) mm.update(1 / 60);
-  assert.equal(mm.composed - c1, 20, 'gone: still again');
+  assert.equal(mm.composed - c1, 21, 'gone: one compose takes it off the map, then still again');
+});
+
+// (review: the live layer's last picture stayed on the map when what it showed went away with nothing else changing)
+test('小地图：what the live layer showed goes off the map with it — a sensor cloud running out (no ink, no mark)', () => {
+  stage();
+  const mm = tinyMap();
+  for (let f = 0; f < 6; f++) mm.update(1 / 60);
+  const cloud = { state: 'cloud', team: 0, pos: { x: 1, z: 1 }, sub: { radius: 1 } };
+  G.subs.items.push(cloud);
+  for (let f = 0; f < 30; f++) mm.update(1 / 60);
+  const c0 = mm.composed, a0 = mm.ctx.calls.arc || 0;
+  assert.ok(a0 >= 1, 'the cloud is drawn while it stands');
+  cloud.state = 'dead';   // (its time is up — subs.js _cloud: no ink, no event, nothing else on the map changes)
+  for (let f = 0; f < 60; f++) mm.update(1 / 60);
+  assert.equal(mm.composed - c0, 1, 'one compose takes it off the map, then the map is still again');
+  assert.equal(mm.ctx.calls.arc || 0, a0, '… and that compose does not draw it');
 });
 
 test('小地图：main.js draws it only when it is on the screen (the setting, a level\'s is-nomap, the strike map)', async () => {
