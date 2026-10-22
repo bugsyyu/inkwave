@@ -37,21 +37,34 @@ function project(p, cam, look, fovY, aspect) {
   return [x / (z * t * aspect), y / (z * t), z];
 }
 
-// Math.hypot(a, b) / (a, b, c) as the builtin computes them (V8's and JavaScriptCore's alike: scaled by the largest,
-// Kahan-summed), for finite arguments not all zero — all the search passes. In JS because the builtin boxes its
-// arguments and its result (three calls a pose: most of what the search still allocated); one return each, so the result
-// stays a raw double (tests/learn/type-frame.test.mjs: the same as Math.hypot, bit for bit)
-export function hyp2(a, b) {
+// Math.hypot(a, b) / (a, b, c) as the builtin computes them, for finite arguments not all zero — all the search passes.
+// V8's builtin (and JavaScriptCore's up to Safari 18) scales by the largest and Kahan-sums: kahan2 / kahan3, in JS because
+// V8's boxes its arguments and its result (three calls a pose: most of what the search still allocated); one return each,
+// so the result stays a raw double. JavaScriptCore since Safari 26 (WebKit 7622 — her iPhone) calls std::hypot instead,
+// and boxes no double: an engine whose builtin is not the Kahan form (probed once, here) keeps the builtin. Either way the
+// search's arithmetic is the builtin's, as it was (tests/learn/type-frame.test.mjs: bit for bit, on both kinds of engine)
+function kahan2(a, b) {
   a = Math.abs(a); b = Math.abs(b);
   const m = b > a ? b : a, x = a / m, y = b / m;
   return Math.sqrt(x * x + y * y) * m;
 }
-export function hyp3(a, b, c) {
+function kahan3(a, b, c) {
   a = Math.abs(a); b = Math.abs(b); c = Math.abs(c);
   let m = a; if (b > m) m = b; if (c > m) m = c;
   const x = a / m, y = b / m, z = c / m, s1 = x * x, s2 = y * y, p = s1 + s2, k = (p - s1) - s2;
   return Math.sqrt(p + (z * z - k)) * m;
 }
+export const hypotKahan = (() => {
+  let s = 20261022;
+  const r = () => { s = (Math.imul(s, 1103515245) + 12345) | 0; return ((s >>> 0) / 4294967296 - 0.5) * 30 || 0.5; };
+  for (let i = 0; i < 1024; i++) {
+    const a = r(), b = r(), c = r();
+    if (!Object.is(Math.hypot(a, b), kahan2(a, b)) || !Object.is(Math.hypot(a, b, c), kahan3(a, b, c))) return false;
+  }
+  return true;
+})();
+export const hyp2 = hypotKahan ? kahan2 : (a, b) => Math.hypot(a, b);
+export const hyp3 = hypotKahan ? kahan3 : (a, b, c) => Math.hypot(a, b, c);
 // the points' fixed parts (reused), and the pose the rules project through: cam H, cam Z, forward f, up u, tan(fov/2)
 let _d0 = new Float64Array(16), _py = new Float64Array(16), _pz = new Float64Array(16), _d2 = new Float64Array(16);
 const _Q = new Float64Array(9);
