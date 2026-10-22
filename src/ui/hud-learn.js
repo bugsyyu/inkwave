@@ -9,7 +9,7 @@
 // always hit) and 「继续 ›」 (the station's way on: the auto-walk to the next board / the gate / the next stop, the booth's
 // 说完了). Once the board counts as read 继续 lights in her ink with one small hop. On a phone held upright the keys keep
 // the walk bar's place (the board is framed under them); turned, they stand in a column at the left, in the margin the
-// framing keeps clear (board/frame.js keysBand). framed(info | null): info { more, read, onMore, onGo }; playMode(true)
+// framing keeps clear (board/frame.js keysBand). framed(info | null): info { more, read, onMore, onGo, top? }; playMode(true)
 // (a question's strip and objects) hides the walk bar but never the board's keys.
 //
 // 题即玩法 (docs/PLAY.md; play-8, LEARN §27): there is no question card any more — a question is a thing on the stage and
@@ -117,6 +117,8 @@ export class LearnHud {
     const was = this._fr, same = !!(was && info && was.key === info.key);
     this._fr = info || null;
     this.el.classList.toggle('is-framed', !!info);
+    // (info.top: the HUD's top row reaches lower here — the boss's bar and its phase tag: upright the keys stand under it)
+    if (info && info.top > 0) this.el.style.setProperty('--iw-keys-top', `${Math.round(info.top)}px`); else this.el.style.removeProperty?.('--iw-keys-top');
     if (!info) { this.goBtn.classList.remove('is-ready', 'is-hop'); this.moreBtn.hidden = true; return; }
     this.moreBtn.hidden = !info.more;
     const ready = !!info.read;

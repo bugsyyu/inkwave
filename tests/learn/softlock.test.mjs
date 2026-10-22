@@ -36,7 +36,7 @@ class ClassList {
 }
 class El {
   constructor(tag) { this.tagName = String(tag).toUpperCase(); this.classList = new ClassList(this); this.children = []; this.attrs = {}; this.dataset = {}; this.listeners = {}; this.hidden = false; this._text = ''; this._html = ''; this.parentElement = null;
-    const st = {}; Object.defineProperty(st, 'setProperty', { value: (k, v) => { st[k] = String(v); } }); Object.defineProperty(st, 'getPropertyValue', { value: (k) => st[k] || '' }); st.cssText = ''; this.style = st; }
+    const st = {}; Object.defineProperty(st, 'setProperty', { value: (k, v) => { st[k] = String(v); } }); Object.defineProperty(st, 'getPropertyValue', { value: (k) => st[k] || '' }); Object.defineProperty(st, 'removeProperty', { value: (k) => { delete st[k]; } }); st.cssText = ''; this.style = st; }
   get className() { return [...this.classList.s].join(' '); }
   set className(v) { this.classList.s = new Set(String(v).split(/\s+/).filter(Boolean)); }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'hidden') this.hidden = true; }
@@ -125,6 +125,12 @@ test('the HUD: the walk bar walking, its keys while a board is framed — 看全
   assert.ok(L.goBtn.classList.contains('is-ready') && L.goBtn.classList.contains('is-hop'), 'read: 继续 lit, one hop');
   L.moreBtn.click(); L.goBtn.click();
   assert.deepEqual([more, go], [1, 1], 'the keys do what the station said');
+  // the HUD's top row reaching lower (the boss's bar): upright the keys stand under it — a top for the CSS — and only then
+  L.framed({ key, more: true, read: true, top: 141, onMore: () => more++, onGo: () => go++ });
+  assert.equal(L.el.style.getPropertyValue('--iw-keys-top'), '141px');
+  L.framed({ key, more: true, read: true, onMore: () => more++, onGo: () => go++ });
+  assert.equal(L.el.style.getPropertyValue('--iw-keys-top'), '', 'no top: the keys\' usual place');
+  assert.match(src('styles/hud.css'), /@media \(orientation: portrait\) and \(max-width: 640px\) \{ \.iw-learn\.is-framed \.iw-learn__walk \{ top: max\(calc\(var\(--hudtop, 58px\) \+ var\(--iw-sat\)\), var\(--iw-keys-top, 0px\)\); \} \}/);
   // a question's strip (playMode) never hides the board's keys
   L.playMode(true);
   assert.ok(cls().contains('is-play') && cls().contains('is-framed'), 'is-play and is-framed together: the CSS keeps the keys');
@@ -488,7 +494,11 @@ test('the boss\'s booth: framed where she stands (a phone upright has no stick t
   assert.deepEqual(done, ['button'], '说完了');
   const host = src('src/learn/play/arena/host.js');
   assert.match(host, /this\.echo\.here = true;/);
-  assert.match(host, /this\.echo\.walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top\) \}; \};/);
+  // (framed under the top row, clear of the keys — and upright the keys under the boss's bar and its phase tag, the board
+  // under them: keysTop + the keys' row)
+  assert.match(host, /this\.echo\.walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top, aspect < 1 \? keysTop\(w, h\) \+ KEYS\.row - 58 : 0\) \}; \};/);
+  assert.match(host, /const keysTop = \(w, h\) => Math\.max\(58 \+ safeInsets\(\)\.top, hudRowBottom\(w, h\) \+ 4\);/);
+  assert.match(host, /top: innerWidth < innerHeight \? keysTop\(innerWidth, innerHeight\) : 0, onGo: \(\) => this\.echo\?\._done\('button'\)/);
   assert.match(host, /onGo: \(\) => this\.echo\?\._done\('button'\)/, 'the HUD\'s 继续 is 说完了');
   // (its 说完了 note goes by itself before the next card — upright it stood over that card's keys — and the host ticks it)
   assert.match(host, /this\.host\.strip\?\.verdict\(\{ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' \}, \{ ms: 1400 \}\)/);

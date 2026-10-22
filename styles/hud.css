@@ -1510,6 +1510,8 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
   .iw-learn.is-framed .iw-learn__walk { left: calc(16px + var(--iw-sal)); right: auto; top: 50%; transform: translateY(-50%); max-width: none;
     flex-direction: column; align-items: stretch; gap: 10px; padding: 10px; border-radius: 24px; }
 }
+/* (upright, under the HUD's top row where it reaches lower — the boss's bar and its phase tag: hud-learn framed(info.top)) */
+@media (orientation: portrait) and (max-width: 640px) { .iw-learn.is-framed .iw-learn__walk { top: max(calc(var(--hudtop, 58px) + var(--iw-sat)), var(--iw-keys-top, 0px)); } }
 /* (no 地图 key and no corner map in a level — hud-learn start(); the keys left close up: touch.js _layout) */
 .iw-touch.is-learn.is-nomap .iw-touch__btn:nth-child(6) { display: none; }
 .iw-hud.is-learn.is-nomap .iw-map { display: none !important; }

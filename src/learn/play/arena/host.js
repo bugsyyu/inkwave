@@ -21,7 +21,9 @@ import { EchoBooth } from '../echo/booth.js';
 import { FlipStation } from '../wire/flip.js';
 import { PrepStation } from './prep.js';
 import { isFlipGate } from '../../forms/common.js';
-import { hudBand, keysBandNow } from '../landscape.js';
+import { hudBand, keysBandNow, hudRowBottom } from '../landscape.js';
+import { KEYS } from '../board/frame.js';
+import { safeInsets } from '../../../ui/safe-area.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3();
@@ -39,12 +41,14 @@ class EchoStation {
     this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
     // (play-7: the board framed under the boss's HP bar and the clock, not behind them — LEARN §48: and clear of the HUD's
     // board keys, the safe area)
-    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBandNow(aspect, w, h); return { ...k, top: Math.max(a.top, k.top) }; };
+    // (upright the keys stand under the boss's bar and its phase tag — keysTop — and the board under the keys)
+    const keysTop = (w, h) => Math.max(58 + safeInsets().top, hudRowBottom(w, h) + 4);
+    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBandNow(aspect, w, h); return { ...k, top: Math.max(a.top, k.top, aspect < 1 ? keysTop(w, h) + KEYS.row - 58 : 0) }; };
     // LEARN §48: she is in the booth where she stands (a phone held upright has no stick to walk into its ring with — the
     // S phase waited out its clock): the board framed at once, the sample after sampleGap, and the HUD's keys — 看全文,
     // 继续 › = 说完了 — besides the board's own
     this.echo.here = true;
-    const keys = (i) => { const k = this.echo.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, onGo: () => this.echo?._done('button') }); };
+    const keys = (i) => { const k = this.echo.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, top: innerWidth < innerHeight ? keysTop(innerWidth, innerHeight) : 0, onGo: () => this.echo?._done('button') }); };
     this.echo.walk.on.framed = (i) => keys(i);
     this.echo.walk.on.unframed = () => this.flow.hud?.framed?.(null);
     this.echo.walk.on.read = (i) => { if (this.echo.walk.framed === i) keys(i); };

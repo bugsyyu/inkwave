@@ -110,6 +110,10 @@ export function hudBand(aspect, W, H, board = null) {
   return band;
 }
 
+/** LEARN §48: how far down the HUD's top row reaches now (the clock, the boss's bar, its phase tag, the standings) over the
+ *  middle of the screen — px, 0 without a page */
+export function hudRowBottom(W, H) { return topOver(W * 0.15, W * 0.85, H, 0, ROW_SEL); }
+
 /** LEARN §48: the band a framed board fills while the HUD shows its keys (board/frame.js keysBand), on this screen now — the
  *  safe area, and on a phone turned what the touch layer's live keys reach in from the right edge */
 export function keysBandNow(aspect, W, H) {
