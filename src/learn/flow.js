@@ -134,11 +134,14 @@ export class LearnFlow {
     for (const g of this.gates) {
       const grp = new THREE.Group();
       grp.position.copy(g.pos);
-      const ring = new THREE.Mesh(ringG, mat({ color: col.clone(), opacity: 0.85 }));
+      // (forceSinglePass: three draws a transparent double-sided material twice a frame — back faces, then front — and rebuilds
+      // its program parameters before each; a flat ring and an additive beam look the same in one pass. The lock, a closed
+      // shape seen through itself, keeps the two — LEARN §50)
+      const ring = new THREE.Mesh(ringG, mat({ color: col.clone(), opacity: 0.85, forceSinglePass: true }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06;
       const lock = new THREE.Mesh(lockG, mat({ color: col.clone(), opacity: 0.95 }));
       lock.position.y = 1.7;
-      const beam = new THREE.Mesh(beamG, mat({ color: col.clone(), opacity: 0.22, blending: THREE.AdditiveBlending }));
+      const beam = new THREE.Mesh(beamG, mat({ color: col.clone(), opacity: 0.22, blending: THREE.AdditiveBlending, forceSinglePass: true }));
       beam.position.y = 4.6; beam.visible = false;
       grp.add(ring, lock, beam);
       g.mesh = { grp, ring, lock, beam };
@@ -174,12 +177,12 @@ export class LearnFlow {
       const grp = new THREE.Group();
       grp.position.set(at.x, at.y, at.z);
       grp.rotation.y = Math.atan2(-fx, -fz);   // the board faces back along the route, towards her
-      const ringM = new THREE.MeshBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+      const ringM = new THREE.MeshBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, forceSinglePass: true });
       const ring = new THREE.Mesh(ringG, ringM); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.scale.set(0.8, 0.8, 1);
       const postM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#2c2540'), toneMapped: false });
       const post = new THREE.Mesh(postG, postM); post.position.y = 0.75;
       const tex = signTexture(name, sg.title || '', col);
-      const boardM = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, side: THREE.DoubleSide });
+      const boardM = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, side: THREE.DoubleSide, forceSinglePass: true });
       const board = new THREE.Mesh(boardG, boardM); board.position.y = 1.95;
       grp.add(ring, post, board);
       this._mats.push(ringM, postM, boardM); (this._texs || (this._texs = [])).push(tex);

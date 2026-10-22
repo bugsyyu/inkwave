@@ -83,7 +83,7 @@ function inkMaterial() {
 }
 
 function plateMaterial() {
-  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, forceSinglePass: true });   // (flat quads: one pass, not three's two — LEARN §50)
   const U = { uOutline: { value: new THREE.Color(COLORS.ink) }, uCoral: { value: new THREE.Color(COLORS.coral) } };
   mat.userData.u = U;
   const F = FRAME, f = (v) => Number(v).toFixed(2);

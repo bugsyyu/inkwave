@@ -419,3 +419,21 @@ test('a rung taken before the first composer exists (?rung=N at boot: main.js _l
   assert.deepEqual(log, ['pr 2', 'composer pr 2', 'composer 393x852', 'passes']);
   assert.equal(setRung.call(self, RENDER_RUNGS, 3), false, 'the same rung: nothing');
 });
+
+test('flat and additive see-through markers draw in one pass: three draws a transparent double-sided material twice a frame (back faces, then front) and rebuilds its program parameters before each — the gate rings, the beams, the finish ring, the question plates no longer; the gate lock (a closed shape seen through itself) keeps the two', () => {
+  const T = src('vendor/three/build/three.module.js');
+  assert.match(T, /if \( material\.transparent === true && material\.side === DoubleSide && material\.forceSinglePass === false \) \{\s*material\.side = BackSide;\s*material\.needsUpdate = true;\s*_this\.renderBufferDirect\( camera, scene, geometry, material, object, group \);\s*material\.side = FrontSide;\s*material\.needsUpdate = true;/, 'three r186: two passes, a needsUpdate (= a program look-up) before each');
+  const F = src('src/learn/flow.js'), body = method(F, '_buildMeshes');
+  assert.match(body, /const ringG = new THREE\.RingGeometry\(/, 'the ring is flat');
+  assert.match(body, /const ring = new THREE\.Mesh\(ringG, mat\(\{ color: col\.clone\(\), opacity: 0\.85, forceSinglePass: true \}\)\);/);
+  assert.match(body, /const beam = new THREE\.Mesh\(beamG, mat\(\{ color: col\.clone\(\), opacity: 0\.22, blending: THREE\.AdditiveBlending, forceSinglePass: true \}\)\);/, 'the beam adds: any order is the same sum');
+  assert.match(body, /const lock = new THREE\.Mesh\(lockG, mat\(\{ color: col\.clone\(\), opacity: 0\.95 \}\)\);/, 'the lock keeps three\'s back-then-front');
+  const signs = method(F, '_buildSigns');
+  assert.match(signs, /const ringM = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
+  assert.match(signs, /boardG = new THREE\.PlaneGeometry\(/); assert.match(signs, /const boardM = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
+  assert.match(src('src/learn/forms/race.js'), /const ring = new THREE\.Mesh\(this\._geos\[0\], new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\)\);/);
+  assert.match(body, /this\._geos = \[ringG, lockG, beamG\];/, 'the race\'s _geos[0] is the flat ring');
+  const P = src('src/learn/play/targets.js');
+  assert.match(P, /this\.plateGeo = new THREE\.PlaneGeometry\(1, 1\);/);
+  assert.match(P, /\nfunction plateMaterial\(\) \{\n  const mat = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
+});

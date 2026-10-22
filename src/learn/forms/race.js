@@ -65,7 +65,7 @@ export class RaceFlow extends LearnFlow {
   }
   _finishMesh() {
     const col = G.teamColors[0] || new THREE.Color('#ff8a14');
-    const ring = new THREE.Mesh(this._geos[0], new THREE.MeshBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+    const ring = new THREE.Mesh(this._geos[0], new THREE.MeshBasicMaterial({ color: col.clone(), transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, forceSinglePass: true }));   // (flat: one pass, LEARN §50)
     ring.rotation.x = -Math.PI / 2; ring.position.copy(this.finish.pos); ring.position.y += 0.06; ring.scale.set(1.6, 1.6, 1);
     this._mats.push(ring.material);
     this.group.add(ring);
