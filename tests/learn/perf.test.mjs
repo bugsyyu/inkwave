@@ -472,3 +472,27 @@ test('the ladder\'s frame target never follows the slow frames: a 60 Hz phone th
   ({ moves } = run(20, 1000 / 60, 1)); assert.deepEqual(moves, []);
   ({ moves } = run(20, 1000 / 60, 2, 30)); assert.deepEqual(moves, []);
 });
+
+test('the warm-up frames draw with every pass the step has — at boot and behind a level\'s black — then go back to the rung\'s own: a rung that turns the AO (its normal pass draws the stage\'s own kinds of mesh) or the bloom on later builds nothing mid-level', async () => {
+  const { RENDER_RUNGS } = await import('../../src/config.js');
+  const R = src('src/core/renderer.js'), M = src('src/main.js');
+  const warm = new Function('on', method(R, 'warmPasses')), passes = new Function('RENDER_RUNGS', method(R, '_rungPasses'));
+  const mk = (rung, bloomSetting = true, ao = true) => {
+    const self = { rung, q: { rungs: [2, 5], bloom: true }, settings: { bloom: bloomSetting }, bloom: { enabled: false }, gtao: ao ? { enabled: false } : null };
+    self._rungPasses = () => passes.call(self, RENDER_RUNGS);
+    self._rungPasses();
+    return self;
+  };
+  let r = mk(2);
+  assert.deepEqual([r.bloom.enabled, r.gtao.enabled], [true, false], 'rung 2: the bloom, no AO');
+  warm.call(r, true); assert.deepEqual([r.bloom.enabled, r.gtao.enabled], [true, true], 'warming: both');
+  warm.call(r, false); assert.deepEqual([r.bloom.enabled, r.gtao.enabled], [true, false], 'then the rung\'s own again');
+  r = mk(0); warm.call(r, true); assert.deepEqual([r.bloom.enabled, r.gtao.enabled], [true, true]); warm.call(r, false); assert.deepEqual([r.bloom.enabled, r.gtao.enabled], [false, false], 'rung 0: neither');
+  r = mk(2, false); warm.call(r, true); assert.equal(r.bloom.enabled, false, 'her bloom setting off: never drawn, so never warmed');
+  r = mk(2, true, false); warm.call(r, true); assert.equal(r.gtao, null, 'a step without the AO has no pass to warm');
+  r = mk(null); r.bloom.enabled = false; warm.call(r, true); assert.equal(r.bloom.enabled, false, 'no ladder (a tier of her own, a desktop): untouched');
+  // the boot's three warm frames and the level's one, each between warmPasses(true) and warmPasses(false)
+  assert.match(M, /this\.R\.warmPasses\(true\);[^\n]*\n\s+for \(let i = 0; i < 3; i\+\+\) \{ this\._frame\(1 \/ 60\);[^\n]*\n\s+this\.R\.warmPasses\(false\);/);
+  const W = M.slice(M.indexOf('  async _warmStage() {'), M.indexOf('\n  }\n', M.indexOf('  async _warmStage() {')));
+  assert.match(W, /await this\._warmPaint\(\{ pause: nextFrame \}\);[^\n]*\n(\s+\/\/[^\n]*\n)*\s+this\.R\.warmPasses\(true\);\n\s+try \{ this\._frame\(1 \/ 60\); \} finally \{ this\.R\.warmPasses\(false\); \}/);
+});
