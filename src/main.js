@@ -1427,12 +1427,14 @@ class Game {
     if (this.live) { this._autoCap = this.live.cap; this._capWhy = null; this.R.setRung(this.live.rung); }
     else if (this._autoCap && this._capWhy !== 'hot') this._autoCap = 0;
   }
-  // every drawn frame: its interval, its main-thread ms (_frame) and the interval it was paced for; a move goes to the
-  // renderer (the rung) and the pacing (_autoCap) at once. 120 only where her App unlocked it, the screen is one and she set no cap.
+  // every drawn frame: its interval, its main-thread ms (_frame) and the interval it was paced for — the cap's, or the display's
+  // own but never read as slower than 60 Hz (a 60 Hz phone that draws every frame a vsync late pulls _trackVsync's estimate
+  // down to 30 Hz, and those frames would then read as on time); a move goes to the renderer (the rung) and the pacing
+  // (_autoCap) at once. 120 only where her App unlocked it, the screen is one and she set no cap.
   _liveFrame(iv) {
-    const L = this.live;
-    L.hz120 = this._hz120 && !this.settings.fpsCap && (this._vs ? this._vs.ms : 1000 / 60) < 10;
-    if (L.frame(document.hidden ? 0 : iv, this._ftMs || 0, this._frameTarget())) this._liveApply();
+    const L = this.live, vs = this._vs ? this._vs.ms : 1000 / 60, cap = this.settings.fpsCap || this._autoCap || 0;
+    L.hz120 = this._hz120 && !this.settings.fpsCap && vs < 10;
+    if (L.frame(document.hidden ? 0 : iv, this._ftMs || 0, Math.max(Math.min(vs, 1000 / 60), cap ? 1000 / cap : 0))) this._liveApply();
   }
   _liveApply() {
     this.R.setRung(this.live.rung);

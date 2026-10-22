@@ -437,3 +437,38 @@ test('flat and additive see-through markers draw in one pass: three draws a tran
   assert.match(P, /this\.plateGeo = new THREE\.PlaneGeometry\(1, 1\);/);
   assert.match(P, /\nfunction plateMaterial\(\) \{\n  const mat = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
 });
+
+test('the ladder\'s frame target never follows the slow frames: a 60 Hz phone that draws every frame a vsync late (a steady 30) pulls _trackVsync\'s estimate down to 30 Hz — the ladder still reads those frames as late, steps down within 0.55 s and never climbs back on them; a cap of her own (30) is the target', async () => {
+  const M = src('src/main.js');
+  const RATES = JSON.parse(/\nconst REFRESH_RATES = (\[[^\]]*\]);/.exec(M)[1]);
+  const track = new Function('REFRESH_RATES', 'ts', method(M, '_trackVsync'));
+  const liveFrame = new Function('document', 'iv', method(M, '_liveFrame')), apply = new Function(method(M, '_liveApply')), target = new Function(method(M, '_frameTarget'));
+  // _loop's pacing, as it reads (the vsync estimate first, the cap's skip, the interval since the last drawn frame)
+  assert.match(method(M, '_loop'), /this\._trackVsync\(ts\);\n\s+const cap = this\.settings\.fpsCap \|\| this\._autoCap \|\| 0;[^\n]*\n\s+if \(cap && ts !== undefined && this\._lastTs !== undefined && ts - this\._lastTs < 1000 \/ cap - 2\) return;\n\s+const iv = ts !== undefined && this\._lastTs !== undefined \? ts - this\._lastTs : 0;/);
+  assert.match(method(M, '_loop'), /this\._frame\(dt\);\n\s+if \(this\.live\) this\._liveFrame\(iv\);/);
+  const run = (secs, vsyncMs, every, fpsCap = 0, start = 4) => {
+    const self = { settings: { fpsCap }, _hz120: false, _ftMs: 9, R: { setRung() {} } };
+    self.live = new LiveGov({ start, ceil: 4 }); self._autoCap = self.live.cap; self._liveApply = () => apply.call(self); self._frameTarget = () => target.call(self);
+    const doc = { hidden: false }, moves = [];
+    let ts = 0, last;
+    for (let i = 0; ts < secs * 1000; i++) {
+      ts += vsyncMs * every;   // (the browser's rAF: the vsync after each frame's work is done)
+      track.call(self, RATES, ts);
+      const cap = self.settings.fpsCap || self._autoCap || 0;
+      if (cap && last !== undefined && ts - last < 1000 / cap - 2) continue;
+      const iv = last !== undefined ? ts - last : 0; last = ts;
+      const r = self.live.rung;
+      liveFrame.call(self, doc, iv);
+      if (self.live.rung !== r) moves.push([+(ts / 1000).toFixed(2), self.live.rung]);
+    }
+    return { self, moves };
+  };
+  // a 60 Hz screen, every frame two vsyncs: 33.3 ms
+  let { self, moves } = run(40, 1000 / 60, 2);
+  assert.ok(self._vs.ms > 30, `the rAF estimate went to 30 Hz (${self._vs.ms.toFixed(1)} ms)`);
+  assert.ok(moves[0][0] <= 0.55 && moves[0][1] === 3, JSON.stringify(moves));
+  assert.deepEqual(moves.map((m) => m[1]), [3, 2, 1, 0], 'down to the floor, and no climb on 33 ms frames: ' + JSON.stringify(moves));
+  // the same screen keeping up (16.7 ms): clean, nothing moves; at a cap of her own (settings.fpsCap 30) 33.3 ms is on time
+  ({ moves } = run(20, 1000 / 60, 1)); assert.deepEqual(moves, []);
+  ({ moves } = run(20, 1000 / 60, 2, 30)); assert.deepEqual(moves, []);
+});
