@@ -1448,7 +1448,7 @@ class Game {
   // render) — fps · step · rung · density · pixels, the drawn frames' interval p50 / p95, the JS p95, the cap, the last move
   _liveNote() {
     const on = !!(this.settings.showFps && this.live);
-    this.fpsNote = on ? liveReadout(this.fps, this.R.q.step, this.live, this.R.renderer.getPixelRatio(), innerWidth, innerHeight) : undefined;
+    this.fpsNote = on ? liveReadout(this.fps, this.R.q.step, this.live, this.R.renderer.getPixelRatio(), this.R._w || innerWidth, this.R._h || innerHeight) : undefined;   // (the renderer's size of the window: no layout read)
     if (!on) { if (this._noteEl) { this._noteEl.remove(); this._noteEl = null; } return; }
     let el = this._noteEl;
     if (!el) {

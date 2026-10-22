@@ -290,6 +290,7 @@ test('the scene\'s world matrices are walked once a frame (not again by every pa
   assert.match(render, /if \(this\._sizeDirty \|\| now - this\._sizeT > 1000\) \{ this\._sizeDirty = false; this\._sizeT = now; this\.resize\(\); \}/);
   assert.match(R, /window\.addEventListener\('resize', dirty\); window\.addEventListener\('orientationchange', dirty\);/);
   assert.match(src('src/main.js'), /const W = this\.R\._w \|\| innerWidth, H = this\.R\._h \|\| innerHeight;/, 'the HUD reuses it');
+  assert.match(src('src/main.js'), /liveReadout\(this\.fps, this\.R\.q\.step, this\.live, this\.R\.renderer\.getPixelRatio\(\), this\.R\._w \|\| innerWidth, this\.R\._h \|\| innerHeight\)/, 'so does the 显示帧率 box');
   const refl = method(E, '_renderReflection');
   assert.ok(!/\.map\(|\.forEach\(|\.\.\.this\._reflSkips|const hide = \[/.test(refl), 'the hide / vis lists are kept, filled by index');
   assert.match(refl, /const hide = this\._reflHide \|\| \(this\._reflHide = \[\]\), vis = this\._reflVis \|\| \(this\._reflVis = \[\]\);/);
