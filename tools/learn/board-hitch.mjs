@@ -11,6 +11,7 @@
 // keeps what it drew (triangles, draw calls) and where the lens was — a drawn frame's time is mostly the software GL's.
 // Not a pass / fail: the numbers go into LEARN §48 (> 200 ms in one frame is what item 6 splits).
 //   node tools/learn/board-hitch.mjs [--cpu 4] [--dpr 3] [--learn w2d3] [--gate 0] [--view portrait|landscape] [--json <file>]
+//        [--profile] (a CPU profile of the walk after gate 2: the functions that took the time)
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/board-hitch.mjs …
 import http from 'node:http';
 import fs from 'node:fs';
@@ -77,7 +78,10 @@ await ev(async () => {
   const N = __G.nav, path = N && N.path;
   if (path) N.path = function (...a) { const t = now(); const r = path.apply(this, a); H.up.push(['path', a[0] + '>' + a[1], now() - t, t]); return r; };
 });
-if (CPU > 1) { const cdp = await ctx.newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU }); }
+const cdp = await ctx.newCDPSession(page);
+if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU });
+// --profile: a CPU profile of the walk on after gate 2 (walk3) — the functions that took the time, by self time
+const PROFILE = args.includes('--profile');
 say('playing; CPU', CPU + '×');
 // one stepped, drawn frame: its main-thread time, and the board costs inside it
 const frames = [];
@@ -121,7 +125,19 @@ await ev(() => { const F = __inkwave.match.learn; F._open(F.gates[F.cur]); });
 await step(45, 'opened2');
 // on towards the next gate's boards, drawn (a face uploads on the first frame it is drawn in view, before LEARN §48)
 await ev(() => __inkwave.match.learn.autoWalk(true));
+if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 1000 }); await cdp.send('Profiler.start'); }
 await step(75, 'walk3');
+let prof = null;
+if (PROFILE) {
+  const { profile } = await cdp.send('Profiler.stop');
+  const self = new Map(), byId = new Map(profile.nodes.map((n) => [n.id, n]));
+  const dt = profile.timeDeltas || [], per = new Map();
+  (profile.samples || []).forEach((id, i) => per.set(id, (per.get(id) || 0) + (dt[i] || 0)));
+  for (const [id, us] of per) { const n = byId.get(id), f = n.callFrame, k = `${f.functionName || '(anon)'} ${String(f.url).replace(/^.*\/game\//, '')}:${f.lineNumber + 1}`; self.set(k, (self.get(k) || 0) + us); }
+  const total = [...self.values()].reduce((a, b) => a + b, 0);
+  prof = { totalMs: +(total / 1000).toFixed(0), top: [...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, us]) => [k, +(us / 1000).toFixed(1)]) };
+  say('profile (walk3, self ms)', JSON.stringify(prof));
+}
 // one board painted and one face uploaded on their own, at this CPU: what each costs
 const one = await ev(async () => {
   const F = __inkwave.match.learn, W = F.play.boards.walk, g = F.gates[F.cur], now = () => performance.now();
@@ -152,7 +168,7 @@ const worst = frames.slice().sort((a, b) => b.ms - a.ms).slice(0, 6).map((f) => 
 const isBoard = (p) => p[0] === 'paint' || p[0] === 'strip' || ((p[0] === 'tex' || p[0] === 'sub') && /Canvas[^:]*:1024x/.test(p[1]));
 const boardMs = frames.map((f) => f.parts.filter(isBoard).reduce((a, p) => a + p[2], 0)), pathMs = frames.map((f) => f.parts.filter((p) => p[0] === 'path').reduce((a, p) => a + p[2], 0));
 for (const [k, b] of Object.entries(summary)) { const fr = frames.filter((f) => f.what === k); b.tris = pct(fr.map((f) => f.tris || 0), 0.5); b.lens = [...new Set(fr.map((f) => f.lens))].join(','); b.framed = fr.some((f) => f.framed >= 0); }
-const out = { cpu: CPU, dpr: DPR, view: V, learn: LEARN_Q, gate: GATE, one, summary, worst, boardsInOneFrameMax: +Math.max(...boardMs).toFixed(1), pathInOneFrameMax: +Math.max(0, ...pathMs).toFixed(1), longTasks: { n: lt.length, over200: lt.filter((x) => x[1] > 200).length, max: lt.reduce((m, x) => Math.max(m, x[1]), 0) }, errors: errs };
+const out = { cpu: CPU, dpr: DPR, view: V, learn: LEARN_Q, gate: GATE, one, prof, summary, worst, boardsInOneFrameMax: +Math.max(...boardMs).toFixed(1), pathInOneFrameMax: +Math.max(0, ...pathMs).toFixed(1), longTasks: { n: lt.length, over200: lt.filter((x) => x[1] > 200).length, max: lt.reduce((m, x) => Math.max(m, x[1]), 0) }, errors: errs };
 console.log('[board-hitch] ' + JSON.stringify(out, null, 1));
 if (OUT) fs.writeFileSync(OUT, JSON.stringify({ ...out, frames }, null, 1));
 await browser.close(); srv.close();
