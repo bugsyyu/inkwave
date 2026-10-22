@@ -50,7 +50,7 @@ class EchoStation {
     this.echo.walk.on.read = (i) => { if (this.echo.walk.framed === i) keys(i); };
     try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-    this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); this.flow._echoDone?.(C.g, C.item, d); };
+    this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.verdict({ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' }, { ms: 1400 }); this.flow._echoDone?.(C.g, C.item, d); };   // (LEARN §48: a timed note, gone before the next card comes 1.5 s on — upright it stood over that card's 继续)
     this.echo.on.classic = () => { this.flow._emit('learn:classic', { kind: 'speak', id: this.cur && this.cur.item.id }); G.game?.menus?.toast?.('口语评分在经典页（课本）'); };
   }
   warm() { this._ensure(); }
@@ -189,6 +189,7 @@ export class ArenaHost {
     if (xhOff !== !!this._xhOff) { this._xhOff = xhOff; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = xhOff ? 'hidden' : ''; }
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.echo?.update(dt); this.flip.update(dt); this.prepS.update(dt);
+    this.strip?.update?.(dt);   // (a timed note hides itself: the boss's 说完了 — LEARN §48)
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     // she fell while typing: the question comes back later, nothing written
     if (S === this.type && a && !a.alive && this.type.cur) { this.type.abort(); this.kind = null; this.cur = null; this.cam.release(G.rig, a); this.resized = false; return; }

@@ -490,6 +490,10 @@ test('the boss\'s booth: framed where she stands (a phone upright has no stick t
   assert.match(host, /this\.echo\.here = true;/);
   assert.match(host, /this\.echo\.walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top\) \}; \};/);
   assert.match(host, /onGo: \(\) => this\.echo\?\._done\('button'\)/, 'the HUD\'s 继续 is 说完了');
+  // (its 说完了 note goes by itself before the next card — upright it stood over that card's keys — and the host ticks it)
+  assert.match(host, /this\.host\.strip\?\.verdict\(\{ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' \}, \{ ms: 1400 \}\)/);
+  assert.match(host, /this\.strip\?\.update\?\.\(dt\);/);
+  assert.ok(1400 / 1000 < 1.5 && /this\.askT = 1\.5;/.test(src('src/learn/forms/boss.js')), 'the next card comes 1.5 s on');
   // without `here` (the puzzle's exit: the auto-walk takes her into the ring) nothing changed
   const E2 = new EchoBooth({ scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera() });
   E2.open({ key: 'k', item, at: new THREE.Vector3(0, 0, 0), yaw: 0 });
