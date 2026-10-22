@@ -1541,10 +1541,10 @@ export class Menus {
     if (ciBtn) {
       ciPaint(); this._fx(ciBtn);
       this._bind(ciBtn, { id: 'cmap-checkin', accept: () => {
+        // (the map that is up when it closes says it: a turn of the phone while the card was open draws a new one, LEARN §49)
         openCheckin({ week: T.week, day: T.day, from: 'map', onClose: (r) => {
-          if (!r || !r.saved || this._scr !== scr) return;
-          ciPaint(); paint(); restartAnim(ciBtn, 'is-stamp');
-          const k = T.week === st.week ? nodes[T.day - 1] : null; if (k) restartAnim(k, 'is-cistamp');
+          const s = this._scr;
+          if (r && r.saved && this.current === 'map' && s && typeof s.ciSaved === 'function') s.ciSaved();
         } });
       } });
     }
@@ -1574,6 +1574,8 @@ export class Menus {
     if (mq && mq.addEventListener) mq.addEventListener('change', turn);
     scr = {
       el, initial: first,
+      // (today's 打卡 saved over this map: the pill, today's node and its sticker, the stamp)
+      ciSaved: ciBtn ? () => { ciPaint(); paint(); restartAnim(ciBtn, 'is-stamp'); const k = T.week === st.week ? nodes[T.day - 1] : null; if (k) restartAnim(k, 'is-cistamp'); } : null,
       onNav: (dir) => {
         if (dir === 'tab_prev' || dir === 'tab_next') { weekSeg.adjust(dir === 'tab_prev' ? -1 : 1); return true; }
         return false;

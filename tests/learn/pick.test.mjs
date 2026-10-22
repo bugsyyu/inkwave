@@ -146,3 +146,15 @@ test('a level that cannot be built (its week does not load, a day without a plan
   const sm = MAIN.slice(MAIN.indexOf('  async startMatch(o = {}) {'), MAIN.indexOf('  _inPractice() {'));
   assert.ok(sm.indexOf("G.mode = 'match';") > 0, 'startMatch sets the mode before it resolves');
 });
+
+test('today\'s 打卡 from the course map (its entry in her App now): saved, the map that is up says it — also after a turn of the phone while the card was open (a new map is drawn)', () => {
+  const MAP = M.slice(M.indexOf('  _scr_map('), M.indexOf('  // ================================================================', M.indexOf('  _scr_map(') + 10));
+  assert.ok(MAP.length > 4000, 'found _scr_map');
+  // (the card's onClose asks the screen that is up — never the one it was opened on, which a turn has replaced)
+  assert.match(MAP, /openCheckin\(\{ week: T\.week, day: T\.day, from: 'map', onClose: \(r\) => \{\n\s*const s = this\._scr;\n\s*if \(r && r\.saved && this\.current === 'map' && s && typeof s\.ciSaved === 'function'\) s\.ciSaved\(\);\n\s*\} \}\);/);
+  assert.ok(!/this\._scr !== scr\) return;\n\s*ciPaint\(\)/.test(MAP), 'not the map it was opened on');
+  // (each map has its own: the pill, today's node and its sticker, the stamp)
+  assert.match(MAP, /ciSaved: ciBtn \? \(\) => \{ ciPaint\(\); paint\(\); restartAnim\(ciBtn, 'is-stamp'\); const k = T\.week === st\.week \? nodes\[T\.day - 1\] : null; if \(k\) restartAnim\(k, 'is-cistamp'\); \} : null,/);
+  // (a turn of the phone draws the map again, forced, on the same stack)
+  assert.match(MAP, /const turn = \(\) => \{ if \(this\._scr === scr\) this\.show\('map', \{ force: true, under: this\._stack\.slice\(0, -1\), wipe: false \}\); \};/);
+});
