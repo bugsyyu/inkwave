@@ -135,11 +135,11 @@ export class LearnFlow {
       const grp = new THREE.Group();
       grp.position.copy(g.pos);
       // (forceSinglePass: three draws a transparent double-sided material twice a frame — back faces, then front — and rebuilds
-      // its program parameters before each; a flat ring and an additive beam look the same in one pass. The lock, a closed
-      // shape seen through itself, keeps the two — LEARN §50)
+      // its program parameters before each; a flat ring, an additive beam and the lock look the same in one pass — the lock is
+      // closed and seen through itself, but one unlit colour: its back and front blend the same, in either order — LEARN §50)
       const ring = new THREE.Mesh(ringG, mat({ color: col.clone(), opacity: 0.85, forceSinglePass: true }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06;
-      const lock = new THREE.Mesh(lockG, mat({ color: col.clone(), opacity: 0.95 }));
+      const lock = new THREE.Mesh(lockG, mat({ color: col.clone(), opacity: 0.95, forceSinglePass: true }));
       lock.position.y = 1.7;
       const beam = new THREE.Mesh(beamG, mat({ color: col.clone(), opacity: 0.22, blending: THREE.AdditiveBlending, forceSinglePass: true }));
       beam.position.y = 4.6; beam.visible = false;

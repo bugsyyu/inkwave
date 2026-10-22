@@ -420,14 +420,21 @@ test('a rung taken before the first composer exists (?rung=N at boot: main.js _l
   assert.equal(setRung.call(self, RENDER_RUNGS, 3), false, 'the same rung: nothing');
 });
 
-test('flat and additive see-through markers draw in one pass: three draws a transparent double-sided material twice a frame (back faces, then front) and rebuilds its program parameters before each — the gate rings, the beams, the finish ring, the question plates no longer; the gate lock (a closed shape seen through itself) keeps the two', () => {
+test('flat, additive and one-colour see-through markers draw in one pass: three draws a transparent double-sided material twice a frame (back faces, then front) and rebuilds its program parameters before each — the gate rings, the beams, the locks, the finish ring, the signs, the question plates no longer', () => {
   const T = src('vendor/three/build/three.module.js');
   assert.match(T, /if \( material\.transparent === true && material\.side === DoubleSide && material\.forceSinglePass === false \) \{\s*material\.side = BackSide;\s*material\.needsUpdate = true;\s*_this\.renderBufferDirect\( camera, scene, geometry, material, object, group \);\s*material\.side = FrontSide;\s*material\.needsUpdate = true;/, 'three r186: two passes, a needsUpdate (= a program look-up) before each');
   const F = src('src/learn/flow.js'), body = method(F, '_buildMeshes');
   assert.match(body, /const ringG = new THREE\.RingGeometry\(/, 'the ring is flat');
   assert.match(body, /const ring = new THREE\.Mesh\(ringG, mat\(\{ color: col\.clone\(\), opacity: 0\.85, forceSinglePass: true \}\)\);/);
   assert.match(body, /const beam = new THREE\.Mesh\(beamG, mat\(\{ color: col\.clone\(\), opacity: 0\.22, blending: THREE\.AdditiveBlending, forceSinglePass: true \}\)\);/, 'the beam adds: any order is the same sum');
-  assert.match(body, /const lock = new THREE\.Mesh\(lockG, mat\(\{ color: col\.clone\(\), opacity: 0\.95 \}\)\);/, 'the lock keeps three\'s back-then-front');
+  // the lock is closed (seen through itself) but one unlit colour with one opacity: a back face and a front face over the same
+  // pixel blend the same way, so either order gives the same colour — c·a + (c·a + d·(1 − a))·(1 − a), both ways
+  assert.match(body, /const lock = new THREE\.Mesh\(lockG, mat\(\{ color: col\.clone\(\), opacity: 0\.95, forceSinglePass: true \}\)\);/);
+  assert.match(body, /const mat = \(o\) => \{ const m = new THREE\.MeshBasicMaterial\(\{ transparent: true, depthWrite: false, toneMapped: false, side: THREE\.DoubleSide, \.\.\.o \}\);/, 'unlit, no depth write, no map: one colour');
+  assert.ok(!/M\.lock\.material\.(map|vertexColors|emissive)/.test(F), 'nothing gives the lock a second colour');
+  const over = (c, a) => (d) => c * a + d * (1 - a);   // (normal blending of one face over what is under it)
+  for (const [c, a, d] of [[0.9, 0.95, 0.1], [0.42, 0.3, 0.8], [0, 0.7, 1]]) { const back = over(c, a), front = over(c, a); assert.equal(front(back(d)), back(front(d)), 'one colour: either order'); }
+  assert.notEqual(over(0.9, 0.95)(over(0.1, 0.95)(0.5)), over(0.1, 0.95)(over(0.9, 0.95)(0.5)), '(two colours would not be: a lit or textured closed shape keeps the two passes)');
   const signs = method(F, '_buildSigns');
   assert.match(signs, /const ringM = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
   assert.match(signs, /boardG = new THREE\.PlaneGeometry\(/); assert.match(signs, /const boardM = new THREE\.MeshBasicMaterial\(\{[^}]*side: THREE\.DoubleSide, forceSinglePass: true \}\);/);
