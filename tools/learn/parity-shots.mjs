@@ -51,7 +51,8 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   page.on('pageerror', (e) => errs.push(e.message));
   const q = `?autostart=180&nofullscreen` + (QUAL ? `&quality=${QUAL}` : '') + (NAT ? '&applegpu' : '');
   await page.goto(base + 'index.html' + q, { waitUntil: 'load', timeout: 180000 });
-  await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.state === 'playing', null, { timeout: 240000, polling: 250 }).catch(() => errs.push('never playing'));
+  // (and the stage's warm-up done: until then the black fade is still over it — a shot taken then is one flat colour)
+  await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.state === 'playing' && !__inkwave._warming, null, { timeout: 900000, polling: 250 }).catch(() => errs.push('never playing'));
   await page.evaluate(() => __inkwave.debug.freeze());
   for (let s = 0; s < SECS * 2; s++) await page.evaluate(() => __inkwave.debug.step(500));
   const info = await page.evaluate(() => { const R = __inkwave.R, cv = R && R.renderer && R.renderer.domElement; const q = (R && R.q) || {}; return { quality: __inkwave.settings.quality, shadows: __inkwave.settings.shadows, pr: R && R.renderer.getPixelRatio(), buf: cv ? cv.width + 'x' + cv.height : '', dpr: devicePixelRatio, touch: !!__inkwave.touchMode, step: q.step, density: q.pixelRatio, ao: !!(R && R.gtao), bloom: !!(R && R.bloom && R.bloom.enabled), shadowMap: !!(R && R.renderer.shadowMap.enabled), shadowSize: q.shadowSize, particles: q.particles }; });
