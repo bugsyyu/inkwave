@@ -567,6 +567,12 @@ test('the duel\'s 备战 board and the runner\'s start line: 看全文 on the st
   // a board with nothing more: no 看全文
   P.show([wordsSpec([{ en: 'rice', ipa: 'raɪs', zh: '米饭' }])], { go: '开始这一轮' });
   assert.deepEqual(acts(), ['开始这一轮']);
+  // the duel's 备战 with boards still to come: 「下一块」 and the way on — 看全文 waits for the last board (three keys took a
+  // second row upright, and the taller strip covered the board's title); the board's own hotspot opens it meanwhile
+  P.show([lessonSpec(lesson.title, lesson.meta.lesson), lessonSpec(lesson.title, lesson.meta.lesson)], { go: '开始这一轮' });
+  assert.deepEqual(acts(), ['下一块 2 / 2', '开始这一轮']);
+  shown[shown.length - 1].actions[0].onTap();
+  assert.deepEqual(acts(), ['看全文', '开始这一轮'], 'the last board: 看全文 and the way on');
   P.dispose();
   // the runner hands the start line's board to G.playTap before the start, and takes it back after
   const r = src('src/learn/play/runner/runner.js');

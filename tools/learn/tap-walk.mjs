@@ -391,7 +391,9 @@ try {
           else { await shot('reading-' + s.form); await shut(); }
         }
         const sm = await ev(() => { const b = [...document.querySelectorAll('.iw-ps:not(.is-off) .iw-ps__act')].find((e) => e.textContent.trim() === '看全文'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width, r.height]; });
-        if (h && !sm) fail('the board has more, the strip has no 「看全文」', { form: s.form });
+        // (the strip's 看全文 stands with the way on only — beside 「下一块」 it would take a second row: prep.js)
+        const nextUp = await ev(() => [...document.querySelectorAll('.iw-ps:not(.is-off) .iw-ps__act')].some((e) => /^下一块/.test(e.textContent.trim())));
+        if (h && !sm && !nextUp) fail('the board has more, the strip has no 「看全文」', { form: s.form });
         if (sm) {
           await tap(sm[0], sm[1], '看全文 (strip, ' + s.form + ')');
           const op = await open();
