@@ -402,3 +402,20 @@ test('the typewriter\'s instanced type-bars draw with a plastic of their own (sa
     if (/new THREE\.InstancedMesh\(/.test(line)) assert.ok(!/\bplastic\b|getPlasticMaterial\(\)/.test(line), `${f}: ${line.trim()}`);
   }
 });
+
+test('a rung taken before the first composer exists (?rung=N at boot: main.js _liveInit runs before setScene builds it) only sets the rung — the composer is then built at its density; later moves resize it', async () => {
+  const { RENDER_RUNGS } = await import('../../src/config.js');
+  const R = src('src/core/renderer.js'), M = src('src/main.js');
+  assert.ok(M.indexOf('this._liveInit();') < M.indexOf('this.R.setScene(scene, camera);'), 'the ladder is set up before the composer');
+  assert.match(method(R, '_buildComposer'), /const pr = this\._density\(\) \* this\.dynScale;/, 'the composer takes the rung\'s density');
+  const setRung = new Function('RENDER_RUNGS', 'n', method(R, 'setRung'));
+  const log = [];
+  const self = { q: { rungs: [2, 5] }, rung: 2, _w: 393, _h: 852, _density: () => (self.rung >= 4 ? 2.5 : 2), _rungPasses: () => log.push('passes'),
+    renderer: { pr: 2, getPixelRatio() { return this.pr; }, setPixelRatio(p) { this.pr = p; log.push('pr ' + p); } } };
+  assert.equal(setRung.call(self, RENDER_RUNGS, 5), true); assert.equal(self.rung, 5); assert.deepEqual(log, [], 'nothing to resize yet');
+  // (setScene → _buildComposer: the targets at rung 5's density)
+  self.composer = { setPixelRatio: (p) => log.push('composer pr ' + p), setSize: (w, h) => log.push(`composer ${w}x${h}`) }; self.renderer.pr = self._density();
+  assert.equal(setRung.call(self, RENDER_RUNGS, 3), true);
+  assert.deepEqual(log, ['pr 2', 'composer pr 2', 'composer 393x852', 'passes']);
+  assert.equal(setRung.call(self, RENDER_RUNGS, 3), false, 'the same rung: nothing');
+});

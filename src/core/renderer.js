@@ -301,6 +301,7 @@ export class Renderer {
   setRung(n) {
     if (!this.q.rungs || !RENDER_RUNGS[n] || n === this.rung) return false;
     this.rung = n;
+    if (!this.composer) return true;   // (before the first composer, ?rung=N at boot: it is built at this rung's density — _buildComposer)
     const pr = this._density();
     if (Math.abs(pr - this.renderer.getPixelRatio()) > 1e-3) { this.renderer.setPixelRatio(pr); this.composer.setPixelRatio(pr); this.composer.setSize(this._w, this._h); }
     this._rungPasses();
