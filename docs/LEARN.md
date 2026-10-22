@@ -2272,7 +2272,7 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 
 业主 10-21：「原来的界面跟流程就蛮好的 现在的游戏很好，我觉得可以给游戏加一个单独入口，我们可以点进去之后选择游戏方式」。这推翻了 10-17 的「游戏为主体」（IELTS-Base `docs/GAME-FIRST.md` 开头记下了）：App 打开是工作台；工作台的「游戏」入口（底栏 / 目录、今天页的卡片）整页去 `game/index.html?from=app&today=wXdY`；游戏标题画面之后的第一屏是「选游戏方式」。
 
-（接手：10-22 约 02:45 和 04:35 UTC 容器重启了两次，做这块的前两个子代理都被打断、没交回汇报，它们的提交都已推送。第三个子代理把两条分支的提交逐个读过、对照任务书逐条核了，补了一处漏改（小镇里这一页还叫「关卡」，先定的 12），写完这一节。测试照主会话 10-22 04:40 的规矩：分支上只跑 `test:learn`、`check`、证据快照、IELTS-Base 的单元和三个证明这块改动的浏览器测试，其余的 e2e 合并以后由主会话统一跑。下面「测试」里的数字都是第三个子代理在最后的提交上跑的。）
+（接手：10-22 约 02:45、04:35、05:24 UTC 容器重启了三次，做这块的前三个子代理都被打断、没交回汇报，它们的提交都已推送。第三个子代理把两条分支的提交逐个读过、对照任务书逐条核了，补了一处漏改（小镇里这一页还叫「关卡」，先定的 12），写完这一节；第四个照主会话 05:30 的规矩不再跑浏览器，把已经跑出来的结果填进「测试」，没跑成的写明合并后由主会话跑。测试照主会话 04:40 的规矩：分支上只跑 `test:learn`、`check`、证据快照、IELTS-Base 的单元和三个证明这块改动的浏览器测试，其余的 e2e 合并以后由主会话统一跑。下面「测试」里每个数字都写了是在哪两个提交上跑的。）
 
 **先读了什么**：IELTS-Base `docs/GAME-FIRST.md`（第一期的入口、第二期、第三期）、`app/index.html`（`<head>` 的决定、`gameFirst` / `gameFirstUrl` / `openGame`、底栏、今天页）、`app/life/today.js` 的旁注；本文件 §17（`appLearnOnly`）、§34（课程地图）、§36（复习关）、§37（课本）、§39（打卡）、§41（今日小考）、§44（每一周）、§46（老师页把今天往前推）、§47（玻璃的规矩）；代码：`menus.js`（`_scr_main`、`_scr_learn`、`_startLearn`、`_bind` / `_nav` / `_spatial`、`_quizItem`、`_checkinItem`、`_appTodayDue`）、`hud-learn.js` 的结算卡、`flow.js` / `duel.js` / `boss.js` / `runner.js` 的 `_results`、`forms/index.js`（`buildLearn`、今日小考的钩子）、`design.js`（`planFor`、`alt`、`planDay`）、`main.js`（`startLearn`、`quitToMenu`）、`touch.js` 的 `PORTRAIT_SCREENS`；LEVELS §2（四种形式）、§3.1（复习日）。
 
@@ -2297,14 +2297,14 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - `tests/learn/pick.test.mjs`（新，9 条）；`tests/learn/course-map.test.mjs`（复习按钮的守卫照两处菜单查）；`tests/learn/i18n.test.mjs`（她的路上多两个方法：`_scr_pick`、`_pickResults`）；`tests/learn/game-first.test.mjs` / `course-map.test.mjs` 的说明照 10-21 改（断言没动：它们读的是开关后面留着的游戏为主体主菜单）。
 - IELTS-Base（分支 `wf-classic`，提交 `215d3a2`、`d82c511`、`76c7d39`、`7fedf9b`、`6ab8774`、`729e426`）：`app/index.html`（`<head>` 的开关 `GAME_FIRST`、`has-game`；底栏「游戏 Game」；`openGame` 先存好手上的、去游戏首屏，没带游戏时说「这个版本没带游戏」——原来 404 在成功的那一支里抛错，一句话都没有；今天页的卡片 `gameCardHTML`）、`app/life/world/core.js`（先定的 12）、`tests/base/game-entry.test.mjs`（新，5 条）、`tests/base/embed.test.mjs`（一句说明）、八个游戏 e2e 和 `world-e2e`、`open-everything-e2e`（一句说明）照新流程改、`tools/game/ui-glass-shots.mjs` 量这一屏（打卡卡片改从地图进）、`docs/GAME-FIRST.md` 开头一段。
 
-**测试**（第三个子代理在最后的提交上跑的：inkwave `380699d` + 这一节；IELTS-Base `729e426`）：
-- `npm run test:learn` 408 → 417（+9 `pick.test`），`npm run check` 313 个文件。`tools/learn/evidence-snapshot.mjs`：128 270 个情形、sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`，和改之前逐字节相同（判分 / 题的路径没动）。
-- IELTS-Base 单元：（在跑，结果补在下一个提交）
-- IELTS-Base 浏览器（`--game` 这个分支的 dist，锁里一个一个跑）：（在跑，结果补在下一个提交）
-- `ui-glass-shots`（`--tag after`、固定队色 seed 7）：（在跑，结果补在下一个提交）
-- 合并以后由主会话跑（04:40 的规矩，分支上没跑）：游戏为主体的另外六个 e2e（`book`、`exams`、`notes`、`weeks`、`guides`、`teacher`——都改成从工作台的「游戏」进，功能的断言照旧）、`world-e2e`（`back` 那一段：「游戏」一步去游戏首屏）、`open-everything-e2e`、经典页 8 个、单元里起 Chromium 的 `tests/base/patch.test.mjs`（测的是补丁脚本对旧页面的版本，和这条分支无关）。
+**测试**（最后的提交：inkwave 是这一节所在的提交——游戏的代码（`src/`、`styles/`，dist 就从它们打）和 `00920a8` 一样，`380699d` 只改了两个测试的说明；IELTS-Base `729e426`）：
+- `npm run test:learn` 408 → 417（+9 `pick.test`），`npm run check` 313 个文件。`tools/learn/evidence-snapshot.mjs`：128 270 个情形、sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`，和改之前逐字节相同（判分 / 题的路径没动）。（第四个子代理在最后的提交上又跑了一遍：417 / 417 过、313 个文件、128 270 个情形、sha256 相同。）
+- IELTS-Base 单元（`729e426`，除了起 Chromium 的 `tests/base/patch.test.mjs`，116 个文件）：1 078 条，1 077 过、0 失败、1 跳过（ktx2 一套：这台机器上没有 KTX-Software，原来就跳），284 s（基线 1 078 条里有 `patch.test` 的 5 条；这条分支加了 `game-entry` 的 5 条）。同一个提交上，这条分支碰到的 13 个文件（`tests/base/` 的 `game-entry`、`embed`、`native-shim`、`app-mode`、`game-weeks`、`game-checkin`；读小镇页名的 `tests/world/` `director`、`people`、`places`、`scene-talk`、`scenes`、`talk`、`walk`）又跑了一遍：145 / 145 过。
+- IELTS-Base 浏览器（`--game` 这个分支的 dist，锁里一个一个跑）：`game-first-e2e` 24 / 24 过、没有页面错误（IELTS-Base `729e426` + `380699d` 打的 dist，10-22 05:18–05:21 UTC；早一轮在 `6ab8774` + `00920a8` 上也是 24 / 24）；`checkin-e2e` 14 / 14 过、没有页面错误（`6ab8774` + `00920a8` 的 dist，04:09–04:13；之后游戏的代码没变，IELTS-Base 只多了 `729e426` 改小镇里的一个页名——在最后的提交上排队时容器第三次重启，没跑成）。
+- `ui-glass-shots`（`--tag after`、固定队色 seed 7）：白天退出 0，字出框 0 处、对比度低于 4.5 : 1 的 0 处（`6ab8774` + `00920a8` 的 dist，04:32–04:35）。「选游戏方式」这一屏：竖屏 23 段字最低 5.76 : 1（「解密闯关」22 px）、横屏 21 段最低 7.04 : 1（卡上那句节奏，11 px），一层模糊（`iw-main__menu`），10 颗按钮最小 44；结果卡 3 颗最小 52、最低 5.2 : 1；课程地图 8 颗最小 44、最低 5.24 : 1。黄昏（`--time dusk`）排在队里时容器第二、第三次重启，没跑成。
+- 合并以后由主会话跑（04:40 / 05:30 的规矩：分支上没跑，或者没在最后的提交上跑）：`game-first-e2e`、`checkin-e2e`、`ui-glass-shots --time dusk`（黄昏）；游戏为主体的另外六个 e2e（`book`、`exams`、`notes`、`weeks`、`guides`、`teacher`——都改成从工作台的「游戏」进，功能的断言照旧）、`world-e2e`（`back` 那一段：「游戏」一步去游戏首屏）、`open-everything-e2e`、经典页 8 个、单元里起 Chromium 的 `tests/base/patch.test.mjs`（测的是补丁脚本对旧页面的版本，和这条分支无关）。
 
-**截图**（不提交，看完删）：（在跑，结果补在下一个提交）
+**截图**（不提交，看完删）：第二个子代理看过 checkin-e2e 的（打卡以后课程地图上写「今天打过卡了 😵 · 改一改」、今天的节点有贴纸），第三个看过最后一轮 game-first-e2e 的；草稿目录里 `r2/shots`、`r3/shots` 都已删，第四个子代理没有新截图。
 
 **拿不准的（自己定了）**：
 1. **卡上的时间**：只写形式真有的节奏（解密闯关不计时、跑酷只记圈时间、对抗赛一轮 1–5 分钟、小考 8 题约 6 分钟、复习关照 `reviewPlan` 估的分钟数）；一整天的分钟数是课程的（三种一样）。每种玩法一整天实际要玩多久没有量过——要的话得拿真机（或者她的实际用时）量，再写进卡上。
