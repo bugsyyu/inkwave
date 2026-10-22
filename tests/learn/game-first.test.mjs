@@ -3,6 +3,9 @@
 // today (learn/app.js appToday); the main menu's first button is that day's level; 回课本 goes back with ?classic (the lesson
 // page stays for the session); a push that changed her blob is mirrored into the App's folder (workbench.js mirror — the
 // same message as app/native.js mirrorFlush); a game that cannot start hands her back to the lesson page (index.html).
+// 10-21 the owner turned it back (LEARN §49: 「原来的界面跟流程就蛮好的……可以给游戏加一个单独入口」): the App opens on the
+// workbench, its 游戏 entry comes here with the same today, and her first screen is 选游戏方式 (tests/learn/pick.test.mjs).
+// The game-first main menu stays behind the switch (LEARN.appPick false): the second test reads that code.
 // 用法：node --test tests/learn/game-first.test.mjs
 import { register } from 'node:module';
 register(new URL('./three-hook.mjs', import.meta.url));
@@ -22,7 +25,7 @@ test('her course\'s today from the lesson page: ?from=app&today=wXdY[&done=1]; a
   assert.equal(BOOK_URL, '../index.html?classic=1');
 });
 
-test('the main menu in her App: today\'s level first (its planned form, the due words once the week loads), 选关 next, 回课本 with ?classic', () => {
+test('the game-first main menu (LEARN.appPick false; her App opens on 选游戏方式 now): today\'s level first (its planned form, the due words once the week loads), 选关 next, 回课本 with ?classic', () => {
   const M = src('src/ui/menus.js');
   // (let: the book's 老师 page moves it on after an import — the lesson page says her today again, LEARN §46)
   assert.ok(/\nlet APP_TODAY = typeof location !== 'undefined' \? appToday\(location\.search\) : null;/.test(M));

@@ -95,7 +95,8 @@ test('the menu: a registered map screen (week tabs, the nodes start the day\'s p
   assert.ok(/this\.toast\('先学到这一天'/.test(M), 'a locked node says why');
   assert.ok(/learnStore\.progress\(w, d\)/.test(M), 'progress from the store, on the loaded week object');
   assert.ok(/this\._cmapProg\[W\] = /.test(M), 'once per week, cached — never per frame');
-  // the main menu: 开始今天的关 → 课程地图 → (复习 K 个) → 选关 → 回课本
+  // the game-first main menu (LEARN.appPick false): 开始今天的关 → 课程地图 → (复习 K 个) → 选关 → 回课本; in her App the map is
+  // 选游戏方式's row (pick.test.mjs)
   assert.ok(/items\.unshift\(today, \{ \.\.\.learn, label: '选关'/.test(M) && /items\.splice\(1, 0, mapBtn\);/.test(M), 'the map right under today\'s level');
   assert.ok(/id: 'map', label: '课程地图'/.test(M) && /accept: \(\) => this\._go\('map'\)/.test(M));
   assert.ok(/今天 \$\{p\.done\} \/ \$\{p\.total\}/.test(M), 'today\'s progress on the today button\'s second line');
