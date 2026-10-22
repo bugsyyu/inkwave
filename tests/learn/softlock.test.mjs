@@ -169,6 +169,25 @@ test('the HUD: no 地图 key and no corner map in a level — versus2 (a Zone Co
   assert.match(r, /classList\.remove\('is-learn', 'is-runner', 'is-nomap'\);\s*G\.touch\?\.el\?\.classList\.remove\('is-runner'\); G\.touch\?\.relayout\?\.\(\);/);
 });
 
+test('the corner map a level hides is not drawn at all — hidden, it was still composed ~20 Hz (on software GL, seconds a frame after ~300 frames); shown again, the whole ink at once', async () => {
+  const { Minimap } = await import('../../src/game/minimap.js');
+  const did = { ink: [], compose: 0, build: 0 };
+  // (the real one paints canvases: here its drawing is counted — the per-frame logic is Minimap's own)
+  const mm = Object.assign(Object.create(Minimap.prototype), { _built: true, time: 0, timer: 0, version: 4, paint: { version: 7 }, h: 90, flashT: 9, _band: 0, _theme: 'day', _teamKey: '',
+    _drawInk(y0, y1) { did.ink.push([y0, y1]); }, _compose() { did.compose++; }, _build() { did.build++; }, _drawBase() {} });
+  const hudEl = new El('div'), was = G.hud;
+  hudEl.classList.add('is-learn', 'is-nomap'); G.hud = { el: hudEl };
+  try {
+    for (let i = 0; i < 40; i++) mm.update(1 / 60);
+    assert.deepEqual([did.ink.length, did.compose, did.build], [0, 0, 0], 'hidden: no ink drawn, no compose, no build');
+    assert.equal(mm.version, -1, 'and the next time it shows it redraws');
+    hudEl.classList.remove('is-nomap');
+    mm.update(1 / 60);
+    assert.deepEqual(did.ink[0], [0, 90], 'shown: the whole ink in one go (the first update)');
+  } finally { G.hud = was; }
+  assert.match(src('src/main.js'), /this\.minimap\.update\(dt\)/, 'main.js updates it every frame — the minimap itself checks is-nomap');
+});
+
 test('the HUD: a form with no route to walk (the duel, the boss, versus2) shows no walk bar — no 「自动走」 that walks nowhere; a board framed there still has its keys', () => {
   const L = hudOf(); G.touch = { el: new El('div'), relayout() {} };
   const cls = () => L.el.classList;

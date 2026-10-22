@@ -342,6 +342,10 @@ export class Minimap {
 
   // ------------------------------------------------------------------------------------------ per frame
   update(dt, force = false) {
+    // LEARN §48: a learning level hides the corner map (the HUD's is-nomap: hud-learn start(), the runner) — nothing is
+    // drawn for it; the hidden canvas was composed ~20 Hz all the same, and on software GL its never-shown draws piled up
+    // in the GPU process (seconds a frame after ~300 frames). Shown again, the first update redraws the whole ink, quietly.
+    if (!force && G.hud?.el?.classList?.contains('is-nomap')) { this.version = -1; return; }
     if (!this._built) this._build();
     this.time += dt;
     this.timer -= dt;
