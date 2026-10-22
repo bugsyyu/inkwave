@@ -2280,13 +2280,14 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 3. **学习版里课本没有游戏自己画的页**（这一节的第一处改动）：积累本、学习日志、学习方法、老师这四页会写副本（`notes.js` / `guides.js` / `teacher.js`），而副本回到她账号的只有证据、打卡、今日小考三样（宁可少做也不能写坏她的账号：这几样页面那边能证明对）。`?in=learn` 时 `book.js nativeOf()` 一律回 null：每个书签都是经典页的 iframe，载进来就照第 2 条关上游戏、在页面上打开那一页——在学习版里她写积累本，就是在她账号里写。
 4. **桌面上锁鼠标：框说不行就不再要**（10-22 接手后加的，第二处改动）：学习版外面 Claude 的查看器是 sandbox 框；里面没有 `allow-pointer-lock` 时，浏览器拒绝每一次 `requestPointerLock`，每次一行控制台报错（Chromium：`Blocked pointer lock on an element because the element's frame is sandboxed…`）。原来 `input.js` 每次被拒还接着要一次不带 `unadjustedMovement` 的，开关卡、每答一题、继续时都再要——检查里桌面一关就是 8 行。现在被拒的理由是 sandbox（`SecurityError`、话里有 sandbox）时记下 `_noLock`：这一页不再要（不重试、下一题和继续也不要），一页最多一行；别的拒绝（没有手势、选项不支持、玩家刚按了 Esc）照旧重试、下次照旧要。手机没有这一步（触屏不要锁）。查看器到底给不给锁，要在测试链接上用电脑看（IELTS-Base `tools/artifact/README.md`「学习版里的游戏」）；不给的话桌面上鼠标转不了视角（键盘、自动走、点答案照常）。
 
-**改了什么**（inkwave，2 个提交 + 文档）：
+**改了什么**（inkwave，3 个提交 + 文档）：
 - `src/learn/book.js`：`inLearn(search)`；`nativeOf(view, search = location.search)` 在 `in=learn` 时回 null（App 和网页照旧：`notes`、`log`、`guides`、`teacher` 是游戏自己的页）。
 - `src/core/input.js`：`requestLock` 认 sandbox 的拒绝（`_noLock`），见第 4 条；别的路径一个字没改。
 - `tests/learn/pointer-lock.test.mjs`：新 4 条（sandbox 拒绝：只要一次、不重试、以后不要；直接抛出的同样；没有手势 / 选项不支持 / 刚退出的拒绝照旧重试、下次照旧要；触屏一次都不要）。
 - `tests/learn/book.test.mjs`：+1 条（`inLearn` 认 `in=learn`、不认 `in=learner`；`in=learn` 时九个书签都不是游戏自己的页、App 里照旧；`_scr_book` 只在 `show` 里经 `nativeOf` 挂游戏自己的页）。
+- `tests/learn/relay.test.mjs`（10-22 第二次重启后接手时修的，和学习版无关）：「relay framing」里原始套接字的三处（握手的 101、ping 的 pong、没掩码的帧回 1002）等到字节到了再断言（最多 2 s，和这个文件自己 `next()` 的默认一样），不再等固定的 80 / 60 ms。断言一个字没改。
 
-**测试**：`npm run test:learn` 408 → 413 全过（book +1、pointer-lock +4）；`npm run check` 313 个文件语法都对。没动判分和题的路径（`evidence-snapshot` 不用比）。页面那边的测试和检查见 IELTS-Base `wf-artifact-game` 的汇报（`tests/base/learn-game.test.mjs` 用 `app/game` 里真的 `workbench.js` 写、`tools/artifact/check-game.mjs` 在接近 artifact 的环境里从学习版进游戏、打完第一道门、回来、核她的账号）。
+**测试**：`npm run test:learn` 408 → 413 全过（book +1、pointer-lock +4）；`npm run check` 313 个文件语法都对。没动判分和题的路径（`evidence-snapshot` 不用比）。10-22 接手后重跑：第一次 412 / 413——「pong with the same payload」拿到空的。原因：写完 ping 就排了 60 ms 的计时器再读缓冲，机器负载 5（4 个 CPU、几个 agent 在跑 SwiftShader）时进程被挂起超过 60 ms，醒来先走计时器、套接字还没读。同一个进程里复现（计时器排上以后 `Atomics.wait` 停 70 ms，不占 CPU）：旧写法每次失败、话一样，新写法过；改完 413 / 413，`check` 313。页面那边的测试和检查见 IELTS-Base `wf-artifact-game` 的汇报（`tests/base/learn-game.test.mjs` 用 `app/game` 里真的 `workbench.js` 写、`tools/artifact/check-game.mjs` 在接近 artifact 的环境里从学习版进游戏、打完第一道门、回来、核她的账号）。
 
 **拿不准的（自己定了）**：
 1. 学习版的标记用 `in=learn` 加在 `from=app` 后面，不换 `from` 的值：`from=app` 的十来处（`menus.js`、`touch.js`、`main.js`、`session.js`、`news.js`、`index.html`……）在学习版里都该照 App 的样子，换值就要逐处改、和别的分支撞车。
