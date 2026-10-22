@@ -162,6 +162,29 @@ test('屏幕外的角色：posed every frame in view (and hers always); out of v
   } finally { G.camera = was.cam; G.time = was.t; }
 });
 
+// (review: the body's margin did not cover its shadow — a low sun's reaches the picture first)
+test('屏幕外的角色：a kid whose shadow is in the picture counts as in view (shadows on, the sunset\'s low sun); shadows off or a high sun: still out', () => {
+  const cam = new THREE.PerspectiveCamera(52, 390 / 844, 0.1, 500);   // (at the origin, looking down −z; the ground 2 m below)
+  cam.updateMatrixWorld();
+  const was = { cam: G.camera, t: G.time, r: G.renderer, env: G.env };
+  const sun = (deg) => new THREE.Vector3(Math.cos((deg * Math.PI) / 180), Math.sin((deg * Math.PI) / 180), 0);   // (from +x: shadows lie toward −x)
+  const at = (shadows, deg) => { G.time += 1 / 60; G.renderer = { shadowMap: { enabled: shadows } }; G.env = { U: { uSunDir: { value: sun(deg) } } }; };
+  G.camera = cam; G.time = 0;
+  try {
+    const kid = { x: 7.6, y: -2, z: -12 };   // past the right edge, past the body's margin too
+    // its shadow's tip (1.7 m of kid, the sunset's 15° sun) is on the screen: x 7.6 − 6.34 m, inside the edge (2.7 m out there)
+    const tip = new THREE.Vector3(kid.x - 1.7 / Math.tan((15 * Math.PI) / 180), kid.y, kid.z).project(cam);
+    assert.ok(Math.abs(tip.x) < 1 && Math.abs(tip.y) < 1 && tip.z < 1, `the shadow's tip on the screen (ndc ${tip.x.toFixed(2)}, ${tip.y.toFixed(2)})`);
+    at(false, 15);
+    assert.equal(maySee(kid), false, 'shadows off: the body alone — out of view');
+    at(true, 15);
+    assert.equal(maySee(kid), true, 'shadows on, the sunset\'s sun: its shadow is in the picture — posed every frame');
+    at(true, 39);
+    assert.equal(maySee({ x: 9, y: -2, z: -12 }), false, 'the day\'s 39° sun: a short shadow — a kid out there is out of view');
+    assert.equal(maySee({ x: 0, y: 0, z: 40 }), false, 'behind the camera, its shadow too');
+  } finally { G.camera = was.cam; G.time = was.t; G.renderer = was.r; G.env = was.env; }
+});
+
 // ---------------------------------------------------------------------------------------------- 实例缓冲
 const { Projectiles } = await import('../../src/game/weapons.js');
 const { FX } = await import('../../src/fx/fx.js');

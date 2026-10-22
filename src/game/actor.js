@@ -34,15 +34,28 @@ const _dodgeV = new THREE.Vector3();
 // LEARN §52: a squidkid out of the camera's view was posed every frame all the same (pose, IK, hair). Now one that is
 // surely out of it (not her own) is posed at OFF_HZ, catching up by the whole time (the character's springs and hair take
 // any step), and at once the frame it may be on screen. "May": last frame's camera — the pose comes before the camera
-// moves — and its body's sphere grown by a turn of the camera in a frame (1.5 m + 12 % of the distance).
+// moves — and its body's sphere grown by a turn of the camera in a frame (1.5 m + 12 % of the distance). And its shadow
+// (the review): with the sun's shadows on, a low sun lays a kid's far past that margin — the sunset's 15° about 6 m, into
+// the picture before the body — so the ground from its feet to the shadow's tip counts too (half of it + 2 m + 12 %).
 export const OFF_HZ = 15;
+const KID_H = 1.7;   // (the shadow's tip: a kid's height with the hair, laid along the sun)
 const _fr = new THREE.Frustum(), _frM = new THREE.Matrix4(), _frS = new THREE.Sphere(), _frP = new THREE.Vector3();
-let _frT = NaN, _frC = null;
+let _frT = NaN, _frC = null, _shX = 0, _shZ = 0;
 export function maySee(pos, cam = G.camera) {
   if (!cam || !cam.isPerspectiveCamera) return true;
-  if (_frT !== G.time || _frC !== cam) { _frT = G.time; _frC = cam; _fr.setFromProjectionMatrix(_frM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); _frP.setFromMatrixPosition(cam.matrixWorld); }
+  if (_frT !== G.time || _frC !== cam) {
+    _frT = G.time; _frC = cam; _fr.setFromProjectionMatrix(_frM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); _frP.setFromMatrixPosition(cam.matrixWorld);
+    // half the shadow, feet → tip (the sun stands at uSunDir from the arena: environment.js _fitShadow); none, shadows off
+    const sm = G.renderer && G.renderer.shadowMap, U = sm && sm.enabled && G.env && G.env.U, u = U && U.uSunDir ? U.uSunDir.value : null;
+    const k = u && u.y > 0.05 ? (0.5 * KID_H) / u.y : 0;
+    _shX = -(u ? u.x : 0) * k; _shZ = -(u ? u.z : 0) * k;
+  }
   _frS.center.set(pos.x, pos.y + 0.75, pos.z);
   _frS.radius = 2.8 + 0.12 * Math.sqrt(_frS.center.distanceToSquared(_frP));
+  if (_fr.intersectsSphere(_frS)) return true;
+  if (!_shX && !_shZ) return false;
+  _frS.center.set(pos.x + _shX, pos.y, pos.z + _shZ);
+  _frS.radius = Math.hypot(_shX, _shZ) + 2 + 0.12 * Math.sqrt(_frS.center.distanceToSquared(_frP));
   return _fr.intersectsSphere(_frS);
 }
 
