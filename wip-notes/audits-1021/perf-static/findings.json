@@ -1,0 +1,242 @@
+[
+ {
+  "severity": "高",
+  "where": "inkwave src/learn/play/type/frame.js:27-67（project/search）；调用 wire/type.js:194,204,228,297,162-163,301；arena/type.js:115,160,169,257；runner/glide.js:273,294；arena/m1.js:167",
+  "what": "打字题的机位是暴力网格搜索（约 1 万个机位），每个机位新建 50–70 个临时数组 / 对象（project() 每次 5 个数组，每次都重算相机基底和 tan）。出题、按「射」、点提示、转屏时，同步卡住主线程。",
+  "evidence": "V8（这台机器）：type 34–36 ms，word 竖屏 52 ms、横屏 105 ms，长词 12.5 ms。wire/type.js 的「射」最多试 3 次 frameFor('word')：竖屏约 155 ms，横屏约 315 ms。splitFrame 不命中缓存 17–23 ms。标量重写（同一网格、同样的运算顺序）7/7 输出逐字节相同，快 ×4.5–5.7（probe/frame-search-noalloc.mjs）。",
+  "fix": "1）search() 改成标量：每个机位只算一次基底，点直接投影不建数组，规则的 P 每次搜索只建一个闭包，cand 只在赢了时才建；探针里的 searchFast 可以直接搬过去。2）frameFor('word') 按取整后的 (aspect, kb, top, dist, word w/h/y) 缓存。3）打字时按正确答案的词框，在空闲帧把 word 机位预先算好，网格按 B 分列摊到几帧里。4）可选的粗网格 + 细搜会改变结果，要拿审计网格对照暴力搜索。",
+  "covered_by": "wf-perf 没改（量具步进 16 帧、冻住的 1/60 时钟，碰不上这些时刻）",
+  "gain": "「射」那一下 52–315 ms → 10–55 ms（只重写）→ 约 0（再预先算 / 缓存）；出题 35 ms → 6–8 ms",
+  "she_sees": "按「射」或出打字题时画面停 0.05–0.3 s"
+ },
+ {
+  "severity": "高",
+  "where": "inkwave src/main.js:1684（没有条件），:1785；src/game/minimap.js:14,344-375,293-341,377-492",
+  "what": "小地图每帧都更新，所有玩法都是，被隐藏或设置关掉也一样。墨一变，每 0.15 s 分 3 带逐像素重画墨层，再加两次 putImageData；不管墨变没变，都约 20 Hz 合成整张画布 2–3 次，再加上 DOM 画布的上传。角上的小地图在 3× 屏上竖屏只有约 170 物理像素，画布却有 644–770 px。",
+  "evidence": "画布 216k–561k px。墨层一带 2.8 / 3.8 / 8.3 ms、整张 8.7 / 10.5 / 24.0 ms（halyard / tidewater / kelpline，合成数据的上限，V8）。墨在变时每 9 帧里有 3 帧要画一带。minimap.js 自己的注释：Adreno 730 上平均每帧 8.8 ms、峰值 189 ms（改 20 Hz 之前）。学习关里也显示着：没有 is-learn 的 CSS，config.js:870 默认 minimap: true。LiveGov 要 p90 JS ≤ 5 ms 才试 120 Hz。",
+  "fix": "1）设置关了、又没在瞄超级跳 / 打击时跳过 update，只记 paint.version，再显示时强制画一次整张。2）合成加脏标记：墨层版本没变、闪光层 ≥ 0.45 s、没有特效 / 云 / 炸弹 / 副武器 / 特殊武器 / 超级跳线 / 区域，就不合成。3）墨层改成每帧 ≤ 40k px 的预算，不再固定分 3 带。4）学习关用 3.5 px/m 建（main.js:431），角上仍然 ≥ 1:1，各项开销都变成四分之一。",
+  "covered_by": "wf-perf 没改",
+  "gain": "墨在变时每 3 帧一次的 3–8 ms 尖峰 → ≤ 1 ms；学习关里大多数合成都能省掉；挡住 120 Hz 的那一项没了",
+  "she_sees": "跑酷、对抗赛里每秒好几次的小顿挫；120 Hz 的手机一直被压在 60"
+ },
+ {
+  "severity": "高",
+  "where": "inkwave src/main.js:1452-1453；src/game/match.js:211-270；src/game/actor.js:1015；src/game/character.js:1318-1366,3838；src/learn/play/runner/runner.js:156-166,470-514",
+  "what": "dt > 1/45 s 时 m.update 跑两遍。两遍里都有：学习关 flow 和所有站点与相机、机器人的脑子、每个角色的整套姿势 / IK / 头发（头发自己已经分了子步）、boss、O(n²) 推挤。跑酷的 _after 和 RunnerCam 也是每个子步一次。",
+  "evidence": "读代码：子步把整份 Match.update 包在里面。量具每帧冻住走 1/60，sub 永远是 1，所以看不到。是正反馈：慢一帧，下一帧就要多算一倍。",
+  "fix": "只给物理分子步：Match.update 拆成 step(dt)（移动、碰撞、发射计时、推挤）和 tick(dt)（学习关、脑子、boss、_finishFrame / ch.update，每帧一次，用完整的 dt）。最小的改法是传 { last, frameDt }：learn.update 只在第一个子步跑，_finishFrame 和跑酷的 _after 只在最后一个子步跑。审计的时钟是 1/60，结果不变。",
+  "covered_by": "wf-perf 没改",
+  "gain": "已经掉帧的时候，模拟 / 姿势那一份每帧少一半",
+  "she_sees": "卡起来之后很难恢复，越卡越卡"
+ },
+ {
+  "severity": "中高（要先用 ?proglog 确认）",
+  "where": "inkwave src/learn/play/targets.js:207；board/set.js:150；beat/stage.js:416；beat/padset.js:56；flip/deck.js:264；flip/targets.js:139；type/rig.js:483,193-194；type/inkword.js:455；runner/runner.js:939；play/host.js:64,104；arena/host.js:84,165；duo/coop.js:183；对比 src/game/character.js:1078-1081 和 main.js:958-966",
+  "what": "学习站点的着色器预热没有设渲染目标，编出来的是画布那一版程序（sRGB 输出、色调映射），而比赛画进的是合成器的 HDR 目标（线性、NoToneMapping）。第三个参数 G.scene 只是 three 的 targetScene。时机也晚：_warmT 0.05 s 落在 _warmStage 之后；打字机到 mount() 才进场景；跑酷的预热行编完就被拿掉。",
+  "evidence": "src/learn 里没有一处 setRenderTarget。character.js:1078-1081 的注释：「programs are keyed by the render target … compile against one of those」。three r186 的程序缓存键按当前的渲染目标取 outputColorSpace / toneMapping。WebKit 没有 KHR_parallel_shader_compile。",
+  "fix": "站点的编译都包上 setRenderTarget(G.post?.composer?.readBuffer || warmTarget())（照 character.js 抽一个 compileForMatch 放进 core/shader-warm.js）；_warmStage 之前同步跑宿主的 _warmAll，让 warmScene 也能遍历到这些物件；打字机在场景里留一个隐藏的实例。用 ?proglog（__progKeys）加 day-run.mjs 或 hitch-probe.mjs --level 120 确认淡入以后没有新建程序。",
+  "covered_by": "wf-perf 没改（它的 warmPasses 只管后期通道）",
+  "gain": "关里第一次出现站点时，每个独有的变体省掉一次几十到几百 ms 的同步编译",
+  "she_sees": "第一道打字题、第一块展板、第一个节拍台出来时画面冻一下"
+ },
+ {
+  "severity": "中高",
+  "where": "inkwave src/learn/play/host.js:153-161（gateOpened）,133-142（_prep）,127-132（_warmAll）；wire/boards.js:20,72-79；board/set.js:50-60；board/paint.js:255-301",
+  "what": "开门那一帧同步准备后面两道门：节拍台标签图集排字和上传、最多 6 张 1024×≤930 的展板画布（渐变、裁剪、大号的中英文字）、展板网格。开场一次准备 3 道门。",
+  "evidence": "读代码；估计一张展板在手机上 5–15 ms，开门那一帧 30–100 ms，正好叠在开门动画和特效上。",
+  "fix": "放进准备队列，每帧做一件，或者每帧给 4 ms 的预算，从开门的下一帧开始（展板要几秒后才用得上）。开场的也走这个队列，在淡入完成之前做完。",
+  "covered_by": "wf-perf 没改",
+  "gain": "开门那一帧 30–100 ms → 每帧 ≤ 4 ms",
+  "she_sees": "门一开就顿一下"
+ },
+ {
+  "severity": "中",
+  "where": "inkwave src/learn/play/board/set.js:56-57,62-67",
+  "what": "展板贴图（CanvasTexture，anisotropy 8，生成 mipmap）没有 initTexture，第一次画到的那一帧才上传，同一段路上几张一起上传；画的时候 Titan One 还没到，到了就整张重画、再传一遍。",
+  "evidence": "一张约 3.8 MB，加 mipmap 约 5 MB；最多 3 道门的展板同时活着，每张还留着一张画布。",
+  "fix": "画完排进队列，每帧 renderer.initTexture 一张；Titan One 在加载画面就 document.fonts.load 好；上传完、字体也到了以后释放画布。",
+  "covered_by": "wf-perf 没改",
+  "gain": "展板第一次进入视野时不再顿；少一次重复上传；省一些内存",
+  "she_sees": "展板出现时顿一下"
+ },
+ {
+  "severity": "中",
+  "where": "inkwave src/learn/store.js:119-120,197-221；src/learn/workbench.js:143-157（pushEvidence）,318-338（mirrorSend / mirror）",
+  "what": "每次首答都同步 save() 一次；0.8 s 后 pushToWorkbench：getItem 拷出整个 ielts-workbench:data:v1，和缓存逐字比较，整份 JSON.stringify，整份 setItem；5 s 后 mirrorSend 又 getItem 整份、JSON.parse 整份（只为了确认有 profile）、再 postMessage 整份给 App。",
+  "evidence": "合成数据，V8：1 MB stringify 8.9 / parse 7.5 ms，2 MB 9.5 / 14.6 ms，4 MB 27.1 / 40.5 ms（probe/blob-json.mjs），还没算 WebKit 存储的拷贝和持久化。她的数据多大不知道（没读），代码注释写「up to a few megabytes」。量具不带账号，看不到。",
+  "fix": "1）cache.raw 还有效（没调过 invalidate()）时，mirrorSend 直接发它，省掉一次 getItem 和 parse。2）序列化改成增量的：顶层字段的 JSON 文本缓存，base 里只重新序列化变了的 ev-<周一>，要和原来逐字节相同、有测试对照；写前重读（LEARN §39 / §41）保留。3）推的时机挪到安静的时候，要定。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每次首答后的两次停顿（估计 20–80 ms 和 10–50 ms）大约减半；挪时机的话停顿落在不显眼的时候",
+  "she_sees": "每答对一题，过一会儿顿一下，几秒以后再顿一下"
+ },
+ {
+  "severity": "中",
+  "where": "inkwave src/ui/hud.js:1521,1559-1560,1479-1516",
+  "what": "墨罐每次画都读 cv.clientWidth / clientHeight。同一帧前面 HUD 已经写过样式，这一读就强制同步布局。每次画还新建一个深度渐变，拼一个 cDeep+'66' 字符串。转相机就会带动晃动，所以几乎每帧都画。",
+  "evidence": "读代码：只有墨满、闲着、没有气泡、晃动停了才不画。学习关里墨罐也显示着。",
+  "fix": "尺寸在 resize 时缓存；渐变按取整后的液面高度缓存，颜色串提前算好；晃动时限 30 Hz 重画。",
+  "covered_by": "wf-perf 的量具能看到每帧的布局次数，但没改",
+  "gain": "每帧少一次整页强制布局",
+  "she_sees": "不会单独看出来，算在整体的卡里"
+ },
+ {
+  "severity": "中",
+  "where": "inkwave src/main.js:1768,1772,1774-1796；src/game/match.js:300-307；src/game/zones.js:416-424；src/ui/hud.js:979,1734-1735,1749-1752",
+  "what": "HUD 每帧新建临时对象：teamSummary() 的摘要和数组、frame 和它的子对象、zones.state() 再加一次展开、actors.some 闭包、_updMap 的 fit 闭包和解构数组、每个点拼一个 toFixed 的 key 字符串、zkey 的 map().join()。",
+  "evidence": "估计解密闯关每帧 15–25 个对象 / 字符串，对抗赛每帧 50–60 个。",
+  "fix": "frame 改成常驻的、每帧原地填；teamSummary(out) 和 zones.state(out) 写进传进来的对象；key 改成逐项的数值比较；fit 内联。",
+  "covered_by": "wf-perf 的量具（gc）能看到，但没改",
+  "gain": "每秒少几千个短命对象，GC 停顿更少",
+  "she_sees": "偶尔的小顿（GC）"
+ },
+ {
+  "severity": "中",
+  "where": "inkwave src/game/actor.js:1015；src/game/character.js:1318-1366,561-567",
+  "what": "屏幕外的角色每帧照样摆全套姿势、IK、头发；_camHook 记了画到它的帧号，但姿势更新没有拿它来判断要不要跳过。",
+  "evidence": "读代码；对抗赛 8 个人、赛跑 / 跑酷有好几个对手，常常有一半在镜头外。",
+  "fix": "用游戏自己的帧号（main.js 的 _frameN）记「上一帧画到没有」，不能用 info.render.frame（它每一趟 render 都加一）。没画到、又不是她本人的：只更新根节点，dt 累加，每 4 帧摆一次完整姿势，头发暂停。",
+  "covered_by": "wf-perf 没改",
+  "gain": "对抗赛 / 赛跑里姿势那一份大约少一半",
+  "she_sees": "多人的玩法里更顺"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/game/weapons.js:631,1940-1943",
+  "what": "弹丸的三个实例缓冲（MAX_BLOBS 700）每帧整块 needsUpdate，没有设 updateRanges；一颗弹丸都没有也照传，还照样提交一次空绘制。",
+  "evidence": "700×(16+3+4)×4 B ≈ 64 KB / 帧，60 Hz 下约 3.9 MB/s 的 bufferSubData。",
+  "fix": "照 fx.js:645-655 的 markUpdated 设 updateRanges(0, n×itemSize)；n 和上一帧都是 0 就不传；B.visible = n > 0。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每帧少 64 KB 上传，空的时候少一次绘制",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/fx/fx.js:645-655,740,872,944,1027,1084,1157；vendor/three/build/three.module.js:2295,4341",
+  "what": "7 个特效实例池都设了 frustumCulled = false，空着也一直 visible；markUpdated 用 max(1, n)，空着也传一个元素。three r186 对 primcount 0 也照样走 setProgram（上传 uniform）、VAO 和状态设置，透明的还要参加排序。",
+  "evidence": "读 three r186 的 renderBufferDirect / renderInstances：要到 primcount === 0 才返回。",
+  "fix": "每个池子 visible = n > 0；n 和上一帧都是 0 就不 markUpdated。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每一趟包含它们的渲染少走 7 次白的绘制设置",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/learn/play/runner/runner.js:628-655；对比 src/learn/play/run.js:502-522；src/world/paint.js:734-786,925-926",
+  "what": "跑酷每答对一题，_floodRow 扫查到的每个块、每个朝上的面的所有格子，每格做一次带数组解构的 inPoly。每次还新建一个 region，paint 就跟着新建一份 flood 几何，一直留到关卡结束。",
+  "evidence": "读代码；路面一块就是几千格，一次 5k–30k 格，估计 1–10 ms。",
+  "fix": "照 floodRegion 先把范围换算到面的坐标里、只扫这个范围，inPoly 不解构；更好的办法是每一行生成时就把 region 算好存起来，答对时直接 flood，缓存也能命中。",
+  "covered_by": "wf-perf 没改",
+  "gain": "答对那一下少 1–10 ms；不再每题新建一份几何",
+  "she_sees": "跑酷答对时的小顿"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/ui/play-keys.js:215-220（_flash）,95-102（safeInsets）,175-194（layout）",
+  "what": "每按一个键，90 ms 后用 void el.offsetWidth 重启弹动动画，就是一次整页强制重排；layout() 每次都新建一个探针 div，再 getComputedStyle，强制样式计算。",
+  "evidence": "读代码；她打字快的时候每秒 5–10 次强制布局。",
+  "fix": "弹动改用 el.animate()（Web Animations），或者在 is-pop-a / is-pop-b 两个类之间轮换；safeInsets 缓存起来，只在 resize / 转屏时重新量。",
+  "covered_by": "wf-perf 只拿掉了触屏按钮的模糊，这里没改",
+  "gain": "打字时每个键少一次整页布局",
+  "she_sees": "快速打字时键盘跟手一点"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/ui/hud.js:1984-1988；调用 :448-449,656,883,970,975,1663,1676-1684",
+  "what": "HUD 的 _restart 用 void el.offsetWidth 重启动画：命中、击倒、涂地数字（涂墨时每秒约 2.5 次）、区域受罚 / 夺取、特殊武器就绪、死亡标记时，都强制重排一次。",
+  "evidence": "读代码。",
+  "fix": "用 Web Animations，或者两个类轮换。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每个事件少一次整页布局",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "中低",
+  "where": "inkwave src/learn/play/host.js:203-298（stageSpot）；wire/beat.js:66",
+  "what": "每道门的第一道节拍题出题那一下，沿路线和两侧搜节拍台的位置，每个候选都做好几次 los / 射线检测，加起来几千次。",
+  "evidence": "读代码；估计在杂物多的广场上 10–50 ms。",
+  "fix": "在准备队列里预先算好，放进 this.open；出题时只检查她当前位置的视线。",
+  "covered_by": "wf-perf 没改",
+  "gain": "节拍题出题时少 10–50 ms",
+  "she_sees": "节拍题出来时顿一下"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave src/learn/play/run.js:176-213（_frame）,248-316（_place）,131-146（_screen）,121-126",
+  "what": "M1 墨靶出题时：28 个机位 × 探测 / 视线检测，约 800 次射线，再加上读布局。",
+  "evidence": "读代码。",
+  "fix": "能预先算的放进准备队列；题条的矩形每题只读一次。",
+  "covered_by": "wf-perf 没改",
+  "gain": "墨靶题出题时少几到十几 ms",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave src/learn/forms/ui.js:109；src/learn/play/runner/runner.js:242",
+  "what": "setRank 每 0.5 s 用 innerHTML='' 清掉排名表，再整个重建所有行。",
+  "evidence": "读代码。",
+  "fix": "行元素留着，只在名次或数字变了时改文字和顺序。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每秒少两次 DOM 重建和样式计算",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave src/audio/audio.js:174-190,333-339；src/main.js:1605-1657",
+  "what": "听者的 9 个 AudioParam 每帧都 setTargetAtTime；循环音和环境音的音量没变也每帧重设。",
+  "evidence": "读代码；每秒 540 个以上的自动化事件。",
+  "fix": "做脏检查：位置变化 < 1 cm、方向变化 < 0.5°、音量差 < 0.005 就不排。打字时相机不动，几乎全部能省掉。",
+  "covered_by": "wf-perf 没改",
+  "gain": "主线程和音频线程都少一点",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave src/ui/menus.js:786-810,465-471",
+  "what": "有焦点的菜单界面开着时（暂停菜单、主菜单），每帧 getComputedStyle + getBoundingClientRect。",
+  "evidence": "读代码；游戏进行中不走。",
+  "fix": "只在焦点换了、resize 时重新量。",
+  "covered_by": "wf-perf 没改",
+  "gain": "菜单里少每帧的布局读",
+  "she_sees": "菜单更顺一点"
+ },
+ {
+  "severity": "低（帧）/ 内存，要定",
+  "where": "inkwave src/main.js:495；src/game/showcase.js:1581,2105-2118；src/game/lobbySet-tex.js:60",
+  "what": "开机就预载联机大厅（2048² 的贴花图集），之后一直挂着；她在 App 里可能从不打开联机。",
+  "evidence": "估计显存 16–21 MB，再加 CPU 那边的副本。",
+  "fix": "from=app 时不预载，第一次打开联机再建；要业主 / 主会话定。",
+  "covered_by": "wf-perf 没改",
+  "gain": "内存更宽松，GC 更少，进程更不容易被系统杀掉",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave 解密闯关的门网格（learn 的门：门框、锁、光）",
+  "what": "门没有合并成实例：每道门约 3 次透明绘制，还要参加透明物体的排序。",
+  "evidence": "读代码。",
+  "fix": "合并成实例，或者只画最近的两道门。",
+  "covered_by": "wf-perf 没改",
+  "gain": "每帧少十几次绘制",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低",
+  "where": "inkwave actor.js:370；forms/race.js 的 _bot；runner/cam.js 的 frame()；play/cam.js:75；learn/flow.js:247,306；runner.js:239；main.js:283,865；world/paint.js:466-544,887-889；weapons.js 的 weapon:impact（例如 :625）；minimap.js:346；fx/screenfx.js 的 _decayAll；core/input.js 的 pollPad；bots.js 约 :570,1785",
+  "what": "零星的每帧分配：对象字面量、闭包、slice / map 出来的数组、字符串、Vector3 的 clone、coverage() 返回的新数组、每帧的 regionStats。",
+  "evidence": "读代码；每处每帧 1 到几个。",
+  "fix": "都改成模块级的常量或可复用的对象，一次改掉。",
+  "covered_by": "wf-perf 的量具（gc）能看到来源，但没改",
+  "gain": "GC 压力小一点",
+  "she_sees": "不会单独看出来"
+ },
+ {
+  "severity": "低-中（等 wf-perf 合了再改）",
+  "where": "three r186 的 renderer.render → scene.updateMatrixWorld；inkwave src/core/renderer.js 的 render()；GTAO 法线那一趟；src/world/environment.js:1813-1889（_renderReflection）",
+  "what": "每一趟场景渲染（主通道、GTAO 法线、港口反射）都把整棵场景树的 updateMatrixWorld 重新遍历一遍；反射每帧还新建 hide / vis 数组。",
+  "evidence": "读 three r186 的源码。",
+  "fix": "scene.matrixWorldAutoUpdate = false，每帧在合成器前手动更新一次；在两趟之间改了矩阵的东西（onBeforeRender、反射相机）要自己更新。这要碰 renderer.js，等 wf-perf 合进来以后再做。",
+  "covered_by": "wf-perf 在改 renderer.js 的 render()，这一项本身没改",
+  "gain": "每帧少 1–2 次整棵树的遍历",
+  "she_sees": "不会单独看出来"
+ }
+]

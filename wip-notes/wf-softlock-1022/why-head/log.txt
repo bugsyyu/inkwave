@@ -1,0 +1,17 @@
+[w3why  133.0] playing /home/user/inkwave/.claude/worktrees/wf-softlock
+[w3why  685.4] at the board {"phase":"walk","cur":1,"auto":false,"framed":0}
+[w3why  725.5] opened2 p50 5.8 max 1725.4 keyed key
+[w3why  746.0] walk3 9 frames; onset 6 p50 1166.7 max 4637.1 ms: 5.5 1166.7 233 465.3 3119.3 533.9 4196.2 4521.5 4637.1
+[w3why  752.0] layers: pre 35 o2 30 w3 30
+[w3why  752.0] painted during opened2 [["390x844","dpc 0","new","DIV.class iw-prompt is-out"],["158x116","dpc 1","new","DIV.class iw-learn__walk"],["142x105","dpc 2","new","BUTTON.class iw-learn__btn iw-learn__go type button"],["30x30","dpc 3","","DIV.class iw-sp__orb"]]
+[w3why  752.0] painted during walk3 []
+[w3why  752.0] biggest layers [["390x844","","",0],["390x844","","","#document."],["390x844","","","#document."],["390x844","draws","","#document."],["390x844","","","DIV.id app"],["390x844","draws","","CANVAS.data-engine three.js r186 id game-canvas width 585 height 1266 style display: block; width"],["390x844","draws","","DIV.id ui-root"],["390x844","","","DIV.class iw-learn is-walk is-framed aria-hidden false style --self: #ff8a14; --self-rgb: 255,"],["390x844","","","DIV.class iw-ui data-screen  style --a: #ff8a14; --a-rgb: 255,138,20; --a-dark: #b36217; --a-d"],["390x844","","","DIV.class iw-hud-over iw-hud--fx style --self: #ff8a14; --self-rgb: 255,138,20; --self-dark: #"],["390x844","","","DIV.class iw-prompt is-out"],["492x398","draws","","DIV.class iw-pk__panel style height: 296px;"]]
+[w3why  752.0] canvas calls opened2 {"21":{"d":"iw-tank__cv 36x148 in-doc hidden <iw-tank is-idle>","frames":29,"calls":290,"m":{"clearRect":29,"fill":116,"clip":29,"fillRect":58,"stroke":58}}}
+[w3why  752.0] canvas calls walk3 {"21":{"d":"iw-tank__cv 36x148 in-doc hidden <iw-tank is-idle>","frames":9,"calls":90,"m":{"clearRect":9,"fill":36,"clip":9,"fillRect":18,"stroke":18}}}
+[w3why  752.0] uploads walk3 []
+[w3why  752.0] dom / anims walk3 ["1688/19","1688/19","1688/19","1688/19","1688/18","1688/18","1688/18","1688/18","1688/18"]
+[w3why  798.0] learn off 3133.7 4812.9 4468.2 4840.5 4662.2 4908.9 | on 5742.1 4425.6 5160.9 3779.6
+[w3why  831.1] touch off 3394.2 3458.4 3533.7 3829 3847.2 3764.6 | on 3783 16.1 3622.1 3821.4
+[w3why  850.1] ui-root off 3574.5 3715.7 8.3 282.7 3729.6 3639.8 | on 154.2 3405 4.8 296
+[w3why  860.6] norender 2.8 1.3 1.2 1.2 1.2 0.9 | back 3420.6 3611.4 9.5 3438.4
+[w3why  860.6] errors []

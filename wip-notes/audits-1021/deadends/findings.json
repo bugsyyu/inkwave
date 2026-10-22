@@ -1,0 +1,246 @@
+[
+ {
+  "severity": "卡死（竖屏）",
+  "where": "src/learn/play/wire/boards.js:61-62；src/ui/hud-learn.js:82-87",
+  "what": "展板框住时走路条和「自动走」一起收起，竖屏屏幕上没有往前走的东西（业主 10-21 第 2 周第 3 天那一屏）",
+  "evidence": "W.on.framed 调 hud.playMode(true)，is-play 去掉了 is-walk；自动走停在展板前就自己关掉（flow.js:296）；摇杆不可见，要按在左 44%、高度 16% 以下才出现（touch.js:222）",
+  "fix": "框住时把走路条变成展板的键：「看全文 · 继续 ›」",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "讲解板占满屏幕，没有任何按钮能往前走；「读全文」只打开阅读条，不朗读"
+ },
+ {
+  "severity": "卡死（竖屏）",
+  "where": "src/learn/play/arena/host.js:47-61；src/learn/forms/boss.js:130-133；src/learn/play/echo/booth.js:57",
+  "what": "Boss S 段的回声亭立在她前方 2.6 m，但展板要站进 2.4 m 才框住；亭子开着时这一段的钟停走，没有题条也没有按钮",
+  "evidence": "config.js:807 echoAhead 2.6，config.js:666 zone 2.4；cards 为真时 busy，phaseLeft 不减；EchoStation.ask 把题条收起；tapApi 只在框住时有效",
+  "fix": "站着就框住（here），继续 = 说完了",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "S 段前方有个亭子，什么都点不了，钟也不走"
+ },
+ {
+  "severity": "卡死（竖屏，最多 40 s 后这一站被跳过）",
+  "where": "src/learn/play/wire/exit.js:89、:101",
+  "what": "出口区的回声亭和告示牌框住时，走路条同样整条收起",
+  "evidence": "framed 调 playMode(true)；flow.js:258-260 的 exitWalkMax 40 s 之后才把这一站跳过",
+  "fix": "_keysOn：走路条变成展板的键",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "出口区站着，最长空等 40 s"
+ },
+ {
+  "severity": "高（点了没反应 / 学不到全文）",
+  "where": "src/core/touch.js:196-201；src/learn/play/runner/runner.js:296-308；src/learn/play/runner/boards.js:106-110",
+  "what": "跑酷起跑前的阅读课文展板（PrepStation）上，「听全文」「读全文 / 看全文」点了都没反应",
+  "evidence": "滑动钩子把除 button 和 ⏸ 以外的手指全记成 swipe，不再问 G.playTap；runner.js 里没有一处 G.playTap；RunnerBoards 的捕获监听只服务看板段；起跑前 _apply 直接 return；21 天里 20 天有 reading-room（只读探针）",
+  "fix": "起跑前用一个捕获监听把点击转给 prepS.tapApi（照 RunnerBoards._pd/_pu），或者滑动钩子先问 G.playTap；再给 prepS 接上 HUD 的「看全文」DOM 键；tap-walk 的 walks 列表加上 F.prepS.board",
+  "covered_by": "未修（prep.js、runner/*.js 只改了注释）",
+  "she_sees": "课文板只露第一段，两颗胶囊点不动，只有「下一块 / 出发！」能点",
+  "gain": "跑酷日和复习关都能读全文、听全文"
+ },
+ {
+  "severity": "中（卡死：画面冻住；概率低）",
+  "where": "src/learn/flow.js:290-293、:307；src/game/nav.js:246",
+  "what": "自动走的起点节点是 −1 时 nav.edge(-1) 抛 TypeError，之后每帧都在渲染前中断",
+  "evidence": "nearest 只搜 3 圈（约 3 m），找不到就是 −1；于是 autoPath = [-1, node]，nav.edge 读 nodes[-1].nb 出错；match.js:213 先跑学关，_frame 没有 try，_loop 先排下一帧（main.js:1316）",
+  "fix": "from < 0 时关掉自动走（或直线走过去）；nav.edge 遇到越界返回 null",
+  "covered_by": "未修",
+  "she_sees": "画面定住，只剩 ⏸ 能点，只能离开这一关"
+ },
+ {
+  "severity": "中（卡死风险）",
+  "where": "src/learn/flow.js:258-260、:296、:311-313；src/learn/play/host.js:186-188",
+  "what": "走路阶段没有兜底计时（出口区才有 exitWalkMax）：到不了的停点或门会无限重试起跳；框不住的展板会让「自动走」一按就自己停",
+  "evidence": "stall 时每 1.6 s 重新规划一次并起跳；停点节点离观看点超过约 1.7 m 就进不了 2.4 m 的框住区，这块板永远算没读，nextSpot 永远返回它",
+  "fix": "每个停点和门各加计时（例如 12 s 没有进展就记成读过或跳过）；boardSpots 把太远的停点挪近",
+  "covered_by": "未修",
+  "she_sees": "原地反复跳，或者「自动走」按了没反应"
+ },
+ {
+  "severity": "中（要摸索，可能变成卡死）",
+  "where": "src/learn/play/wire/beat.js:75、:101-109；src/learn/play/host.js:110；styles/hud.css:1441-1442",
+  "what": "节拍台题条写「下一拍跳上去」，可看得见的「跳」键在站点里没有用；不作答就无上限地推迟",
+  "evidence": "站点把 jump 和 move 清零；真正答题要点台子、滑或方向键；_defer 直接 g.queue.push，没有计数（跑酷是 3 次就留到下次）",
+  "fix": "题条改成「点你选的台子（或往那边滑）」；站点期间把跳和潜墨变暗；推迟两次以后改用墨靶或留到下次",
+  "covered_by": "未修",
+  "she_sees": "按「跳」没反应，这题一遍遍回来"
+ },
+ {
+  "severity": "点了没反应",
+  "where": "src/core/touch.js:295；src/game/cameraRig.js:219；src/ui/hud.js:1696",
+  "what": "「地图」键只在跟随镜头时才拉成俯瞰，开关还不复位；左下小地图没有点击处理",
+  "evidence": "展板或站点占着镜头时 mode 是 path，按了不画；开关一直开着，镜头交还后突然升空；mapK>0.05 时墨靶不收点击（run.js:456）",
+  "fix": "关卡里不放地图键和角落小地图（versus2 除外）",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "左下、右上两个「地图」都点不动"
+ },
+ {
+  "severity": "点了没反应",
+  "where": "src/core/touch.js:175-178；styles/hud.css:1441-1442",
+  "what": "藏起来的开火、副、特殊、加油键还在做几何命中，吃掉落在墨靶、展板热点、节拍台和道具格上的点击",
+  "evidence": "display:none 只是不画，_btnAt 照样命中；墨靶避让时看 getClientRects，藏起来的键不在避让范围里",
+  "fix": "b.off：藏起来的键不收触摸",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "点了墨靶或展板按钮没反应"
+ },
+ {
+  "severity": "中（难看、误导；coop2 客人点了没反应）",
+  "where": "src/ui/hud-learn.js:145-160；src/learn/forms/coop2.js:338-342；boss.js:341；duel.js:389；forms/index.js:145-152；forms/ui.js:122-130；quiz-run.js:53-62",
+  "what": "共用的结果卡在关和关之间串状态：标题、按钮文字和 disabled、额外几行和星星、小考按钮和徽章都不重置",
+  "evidence": "results() 只重画 rScore 和 rDue；coop2 客人 rAgain.disabled = true 之后再不改回；小考按钮只在解密第 1-6 天结束时才清掉",
+  "fix": "results() 开头把标题和按钮文字恢复默认、disabled = false，删掉 .iw-lf__extra/.iw-lf__stars/.iw-qrec/.iw-learn__quiz",
+  "covered_by": "未修",
+  "she_sees": "解密的结果卡写「今日小考做完了」，或者「再来一关」按不动、写着「等房主回房间」"
+ },
+ {
+  "severity": "中（点了没反应）",
+  "where": "src/learn/play/wire/exit.js:136-141；src/learn/play/board/signs.js:24-26；board/paint.js:72；arena/host.js:44",
+  "what": "「开经典页」「复制周报 · 经典页」「写一句 · 经典页」「评分 · 经典页」只弹一句 toast",
+  "evidence": "只发 learn:classic 再弹提示；IELTS-Base 的 app/ 里（游戏副本以外）没人监听；游戏自己的课本也没接上",
+  "fix": "关卡结束后在游戏课本里打开对应那一页，或者把按钮改名为「在课本里做」（要业主定）",
+  "covered_by": "未修",
+  "she_sees": "按钮写着「开经典页」，点了什么都没打开"
+ },
+ {
+  "severity": "中（要摸索）",
+  "where": "src/config.js:715；src/learn/play/runner/boards.js:83-90；board/walk.js:113-117",
+  "what": "跑酷看板段的「看全文」大约 2.8 s 就自己关了",
+  "evidence": "潮速 0.25 × 11.8 ≈ 2.95 m/s，两块板间隔 8 m；一游出这块板的那段路就 _unframe，接着 strip.close",
+  "fix": "阅读条开着时把潮速和 fairK 一起降到接近 0，或者只有按 ✕ 才关（和 PLAY §1.1 冲突，要业主定）",
+  "covered_by": "未修",
+  "she_sees": "全文一闪就没了"
+ },
+ {
+  "severity": "低（点了没反应）",
+  "where": "src/learn/flow.js:65；src/ui/hud-learn.js:62、:86；arena/run.js:86；arena/host.js:143；boss.js:107、:162",
+  "what": "Boss 和对抗赛开头（Boss 每段开头、S 段两张卡之间也是）露出一个没用的「自动走」",
+  "evidence": "hud.start 加上 is-walk，两种玩法都不像 versus2 那样去掉；它们的 update 不调 _autoWalk；gateOpened 和 clear 调 playMode(false) 又把它加回来",
+  "fix": "没有路线的玩法在构造时去掉 is-walk，并且不让 playMode(false) 再加回来",
+  "covered_by": "未修",
+  "she_sees": "「下一道门 / 自动走」，点了人不动"
+ },
+ {
+  "severity": "低（卡死风险）",
+  "where": "src/learn/play/run.js:334-341",
+  "what": "墨靶不出来时的兜底条件 Fr.t > frameFor + 0.6 永远达不到，只能靠 _settled()",
+  "evidence": "Fr.t 只在 Fr.on 期间增长，一过 frameFor 就关掉 Fr.on；臂长被夹在 0.45（cameraRig.js:384）或她一直在动时就放不出来",
+  "fix": "另计「问出来以后过了多久」，约 1.5 s 就强制放出",
+  "covered_by": "未修",
+  "she_sees": "题条上有题，场上什么都没有"
+ },
+ {
+  "severity": "低（卡死风险）",
+  "where": "src/learn/play/hit.js:93-101；src/learn/play/run.js:357",
+  "what": "她这一发先打中了别的球，就不算答；几何不变，再点一次还是一样",
+  "evidence": "只认线段上最近的球，deliberate 为 false 时只溅墨不收答案；1.4 s 后才让她再点",
+  "fix": "打中这道题的任何一颗、或者子弹没飞到，都按她点的那颗收答案",
+  "covered_by": "未修",
+  "she_sees": "点了球、出了一发，不算"
+ },
+ {
+  "severity": "低（卡死风险）",
+  "where": "src/learn/flow.js:330-338",
+  "what": "站点 ask() 抛错后停在 ask，屏幕上什么都没有",
+  "evidence": "先改 phase = 'ask' 再调 play.ask，外面没有 try；stageSpot 依赖舞台几何（host.js:203-298）",
+  "fix": "加 try/catch，出错就退回墨靶或者跳过这一站",
+  "covered_by": "未修",
+  "she_sees": "什么都不出来"
+ },
+ {
+  "severity": "低（要摸索）",
+  "where": "src/learn/play/wire/exit.js:107-109、:162、:169；board/signs.js:50-55；flow.js:296",
+  "what": "打卡垫的圆心不在 nav 节点上，自动走可能停在垫子外面；这时「继续」是空操作，40 s 后被跳过，打卡卡片不出",
+  "evidence": "垫子半径 1.05 m、圆心在观看点；停点在最近节点前 0.7 m，离圆心 0-1.4 m；_reach 不把打卡垫算作到达；skip 时把 checked 设成真，但不调 _checkin；wire-audit.mjs:512 在 3 周的舞台上都通过了",
+  "fix": "判定半径放宽到 r+0.7，或者把垫子放到停点节点上；tap-walk 加一条「打卡卡片出来了」的检查",
+  "covered_by": "未修（wf 的继续在这里是空操作）",
+  "she_sees": "站在垫子旁边，按「继续」不动"
+ },
+ {
+  "severity": "低（wf-softlock 新功能的边角）",
+  "where": "wf-softlock src/learn/play/wire/boards.js（_keys 里的 onGo）；src/learn/play/host.js:186",
+  "what": "展板算读完之前（框住后 1.2 s 内）按「继续 ›」是空操作",
+  "evidence": "autoWalk(true) 的目标仍是这块没读完的板，在 0.7 m 内马上停",
+  "fix": "按继续时把这块板记成读过再走，或者读完之前不收点击并显示倒计时",
+  "covered_by": "wf-softlock 自己的功能，未处理",
+  "she_sees": "点了继续不动"
+ },
+ {
+  "severity": "难看",
+  "where": "styles/hud.css（.iw-hud__top）；src/core/touch.js:164-167",
+  "what": "钟在灵动岛下面；竖屏的 ⏸ 被走路条压住一半",
+  "evidence": "HUD 顶排和触屏顶排都没有加 safe-area-inset",
+  "fix": "统一用 --iw-sa* 和 safeInsets()",
+  "covered_by": "wf-softlock 4f9053e 已修",
+  "she_sees": "顶上的「第 n 周 · 第 n 天」看不全"
+ },
+ {
+  "severity": "难看",
+  "where": "src/learn/play/wire/exit.js:118；src/ui/play-strip.js:29、:160；src/ui/hud-learn.js:52",
+  "what": "「这一天走完了 ★」这条没有时限，压在结果卡的溅墨和标题上",
+  "evidence": "_results 不把它收起来；.iw-ps 和 .iw-learn 同是 z 18，它后插入，画在上面",
+  "fix": "改成限时结论条，或者 _results 里先 strip.hide()",
+  "covered_by": "未修（回声亭那条 b0ecff1 已改成限时）",
+  "she_sees": "结果卡顶部被一条题条挡住"
+ },
+ {
+  "severity": "低（点不准）",
+  "where": "src/learn/forms/ui.js:22、:38、:52",
+  "what": "道具格、名次、段条不避开安全区",
+  "evidence": "right 16px、left 16px，没有用任何 inset；灵动岛横屏时左右 inset 是 59 px",
+  "fix": "用 --iw-sar / --iw-sal / --iw-sat",
+  "covered_by": "未修",
+  "she_sees": "道具格有一半在灵动岛那边，点不准"
+ },
+ {
+  "severity": "低",
+  "where": "src/core/touch.js:217",
+  "what": "桌面浏览器上展板热点点不到，DOM 键要先解锁指针",
+  "evidence": "G.playTap 只走触屏；Esc 解锁会打开暂停菜单",
+  "fix": "加键盘键 R / Enter / L，或者准星对准热点再按开火",
+  "covered_by": "未修",
+  "she_sees": "在电脑上看全文、听全文、跟读都用不了"
+ },
+ {
+  "severity": "低",
+  "where": "src/ui/play-keys.js:229-231；src/learn/play/type/shot.js:118",
+  "what": "空着按「射」没有任何反馈",
+  "evidence": "文字为空时直接 return",
+  "fix": "空按时抖一下，并提示「先打几个字母（不会就随便打）」",
+  "covered_by": "未修",
+  "she_sees": "按「射」没反应"
+ },
+ {
+  "severity": "iOS 风险（未在真机验证）",
+  "where": "src/ui/hud-learn.js:135-140",
+  "what": "设备语音先 cancel() 马上又 speak()，utterance 也没有保存",
+  "evidence": "没有一处流程等 onend，只会让 ▶ 一直亮着；但声音本身可能在 WebKit 上丢掉，听写就听不到",
+  "fix": "把 utterance 存下来；cancel 之后推迟一帧再 speak",
+  "covered_by": "未修",
+  "she_sees": "▶ 一直亮着，有时没有声音"
+ },
+ {
+  "severity": "低",
+  "where": "src/learn/forms/boss.js:162、:247",
+  "what": "Boss 竖屏下要她「走近 Boss」「躲一下」，可是屏幕上没有看得见的摇杆",
+  "evidence": "8 s 后选项会自己飘过来，不会卡死",
+  "fix": "竖屏换一种说法",
+  "covered_by": "未修",
+  "she_sees": "让她做做不到的事"
+ },
+ {
+  "severity": "低",
+  "where": "src/game/cameraRig.js:219；src/learn/play/arena/host.js:105",
+  "what": "versus2 保留了地图键，但打字站点占着镜头时打不开俯瞰",
+  "evidence": "inPlay 只认 follow 或 spectate",
+  "fix": "打字时把地图键变暗",
+  "covered_by": "未修（wf 决定保留 versus2 的地图键）",
+  "she_sees": "打字时按地图没反应"
+ },
+ {
+  "severity": "按设计",
+  "where": "src/learn/forms/coop2.js:159",
+  "what": "coop2 队友挂机时一直等",
+  "evidence": "站垫子和线索方等作答都没有时限",
+  "fix": "可选：等 60 s 后提示「队友好像离开了」",
+  "covered_by": "不需要修",
+  "she_sees": "一直等，只能 ⏸ 离开"
+ }
+]
