@@ -365,6 +365,22 @@ test('shadow casters: one depth material per caster kind — instanced, instance
   // checked on a new scene and every 60 frames, not every frame
   const render = R.slice(R.indexOf('\n  render() {'), R.indexOf('\n  }\n', R.indexOf('\n  render() {')));
   assert.match(render, /if \(this\.scene !== this\._depthScene \|\| !\(\+\+this\._depthN < 60\)\) \{ this\._depthScene = this\.scene; this\._depthN = 0; this\._depthKinds\(\); \}/);
+  // … and at once when a stage has been built: the game has one scene and a level's world is built into it, so no new-scene
+  // check sees it — its casters drew on three's shared material until the next 60-frame check (the probe's w2d3 run: 6 look-ups
+  // a frame, all of them the stage's own: the pilings, the dock, the puzzle's stations, the hero)
+  const line = R.match(/\n  checkCasters\(\) \{ ([^\n]*) \}\n/);
+  assert.ok(line, 'checkCasters');
+  const late = cast(new THREE.InstancedMesh(geo, mat, 2)); late.setColorAt(0, new THREE.Color(0, 1, 0));
+  assert.equal(late.customDepthMaterial, undefined, 'built after the last check');
+  const st = { scene: sc, renderer: self.renderer, _depthMats: self._depthMats, _depthScene: sc, _depthN: 37 };
+  st._depthKinds = () => kinds.call(st, THREE);
+  new Function(line[1]).call(st);
+  assert.equal(late.customDepthMaterial, c.customDepthMaterial, 'its kind (instanced with colours) at once');
+  assert.deepEqual([st._depthScene, st._depthN], [sc, 0], 'the 60-frame count starts over');
+  // (main.js _warmStage: after the puzzle's stations are built, before the stage's warm-up draws — its shadow pass among them)
+  const M = src('src/main.js'), W = M.slice(M.indexOf('  async _warmStage() {'), M.indexOf('\n  }\n', M.indexOf('  async _warmStage() {')));
+  const iC = W.indexOf('this.R.checkCasters();');
+  assert.ok(W.indexOf('P._warmAll()') > 0 && W.indexOf('P._warmAll()') < iC && iC < W.indexOf('await warmScene(') && iC < W.indexOf('this._frame(1 / 60);'));
 });
 
 test('nothing out of sight keeps animating: the map\'s faded jump line, the put-away keyboard\'s caret, the cursor with no focus pause; the squad bar hidden in practice / learning stops', () => {

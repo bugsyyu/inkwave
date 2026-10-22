@@ -979,6 +979,7 @@ class Game {
       // behind the black, not on the level's first frames during the fade-in: its host warms once, at its _warmT — LEARN §50)
       const P = this.match?.learn?.play;
       if (P && P._warmT > 0 && typeof P._warmAll === 'function') { P._warmT = 0; try { P._warmAll(); } catch (e) { console.warn('[inkwave] stations warm-up', e); } }
+      this.R.checkCasters();   // (the stage's shadow casters into their depth kinds now: its first frames draw with them — LEARN §50)
       await warmScene(G.renderer, G.scene, G.camera, { target: this.R.composer?.readBuffer || warmTarget(), pause: nextFrame });
       await this._warmPaint({ pause: nextFrame });   // (a level's world has its own ink atlas: its drying pass came after the fade-in, §42)
       // (with every pass the step has, as at boot: the AO's normal pass draws this stage's own kinds of mesh — a rung that

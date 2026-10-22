@@ -372,7 +372,9 @@ export class Renderer {
   // the caster kind changes — instanced, plain, skinned: ~9 times a frame in a level (LEARN §50). One depth material per kind
   // instead (same programs: three's cache shares them by key). A caster that needs three's own per-material copy (alpha-tested,
   // displaced, clipped, alpha-to-coverage, morphed) keeps it, and so does one with a depth material of its own (cloth, flags).
-  // Checked every 60 frames and on a new scene: casters come and go, materials change.
+  // Checked every 60 frames and on a new scene: casters come and go, materials change — and at once when a stage has been built
+  // (checkCasters: the game has one scene, a level's world is built into it, so its first frames would wait for the next check).
+  checkCasters() { this._depthScene = this.scene; this._depthN = 0; this._depthKinds(); }
   _depthKinds() {
     const sc = this.scene;
     if (!sc || !this.renderer.shadowMap.enabled) return;
