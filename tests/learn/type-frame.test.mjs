@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PerformanceObserver, constants } from 'node:perf_hooks';
-import { frameFor, searchFrame, projectRig, FRAME, RIG_POINTS, hyp2, hyp3 } from '../../src/learn/play/type/frame.js';
+import { frameFor, searchFrame, projectRig, FRAME, RIG_POINTS, hyp2, hyp3, hypotKahan } from '../../src/learn/play/type/frame.js';
 import { splitFrame, SPLIT, GLYPH_EM, SPLIT_PTS, SHEET_ENDS } from '../../src/learn/play/type/split.js';
 import { keyboardLayout } from '../../src/learn/play/type/keys.js';
 
@@ -232,6 +232,29 @@ test('取景搜索：hyp2 / hyp3 are Math.hypot, to the last bit, on what the se
     assert.ok(Object.is(hyp3(c, a, b), Math.hypot(c, a, b)), `hyp3(${c}, ${a}, ${b})`);
   }
   for (let B = 1.2; B <= 14; B += 0.1) for (let H = 1.8; H <= 10; H += 0.1) assert.ok(Object.is(hyp2(B, H - 1.2), Math.hypot(B, H - 1.2)));
+});
+
+// (review: JavaScriptCore since Safari 26 — WebKit 7622, her iPhone — computes Math.hypot(a, b) and (a, b, c) with
+// std::hypot, not the Kahan form: there hyp2 / hyp3 must be the engine's own, or the search is not the old one)
+test('取景搜索：an engine whose Math.hypot is not the Kahan form (Safari 26: std::hypot) keeps its own — the old answers there too, bit for bit', async () => {
+  assert.equal(hypotKahan, true, 'V8: the Kahan form, in JS (nothing boxed)');
+  const real = Math.hypot;
+  Math.hypot = function hypot(...v) { let s = 0; for (const x of v) s += x * x; return Math.sqrt(s); };   // (a stand-in: another hypot)
+  try {
+    const F = await import('../../src/learn/play/type/frame.js?engine=not-kahan');
+    assert.equal(F.hypotKahan, false, 'the probe sees it');
+    let seed = 77, other = 0;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return (seed / 4294967296 - 0.5) * 30; };
+    for (let i = 0; i < 20000; i++) {
+      const a = rnd(), b = rnd(), c = rnd();
+      assert.ok(Object.is(F.hyp2(a, b), Math.hypot(a, b)) && Object.is(F.hyp3(a, b, c), Math.hypot(a, b, c)), `${a}, ${b}, ${c}`);
+      if (!Object.is(Math.hypot(a, b), hyp2(a, b))) other++;
+    }
+    assert.ok(other > 2000, `the stand-in is another hypot (${other} of 20000 pairs differ from the Kahan form)`);
+    let n = 0;
+    for (const o of CASES.filter((_, i) => i % 6 === 0)) { assert.deepStrictEqual(F.frameFor(o), oldFrameFor(o), JSON.stringify(o)); n++; }
+    assert.ok(n >= 12, `${n} frames, the old answers with that engine's Math.hypot`);
+  } finally { Math.hypot = real; }
 });
 
 test('取景搜索：an answer is kept by its inputs, handed out as a copy; another screen is another answer', () => {
