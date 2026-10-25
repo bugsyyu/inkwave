@@ -20,6 +20,7 @@ export class Input {
     // phone: Android Chrome synthesizes compatibility mouse events (mousemove/mousedown) after every tap, so a handler
     // that guards on the virtual `locked` would turn each tap into a phantom shot and a jolt of bogus camera motion.
     this._plock = false;
+    this._noLock = false;           // this page may never lock the pointer (a sandboxed frame said so: requestLock)
     this.enabled = true;
     this.pad = null;
     this.padPrev = [];
@@ -115,12 +116,16 @@ export class Input {
   releaseCode(code) { this.keys.delete(code); }
 
   requestLock() {
-    if (this.touch.active || this._plock) return;   // touch has no pointer to lock
+    if (this.touch.active || this._plock || this._noLock) return;   // touch has no pointer to lock
+    // A frame sandboxed without allow-pointer-lock (an embed: Claude's viewer around the 学习版, LEARN §51) refuses every
+    // request for as long as the page lives, each with a console error — so the first refusal is the last request: no
+    // plain retry, nothing on the next answer or resume. Any other refusal (a gesture missing, an option unsupported) as before.
+    const sandboxed = (e) => !!e && e.name === 'SecurityError' && /sandbox/i.test(String(e.message || ''));
     try {
       const p = this.canvas.requestPointerLock({ unadjustedMovement: true });
       // some platforms reject unadjustedMovement: fall back to a plain request
-      if (p && p.catch) p.catch(() => { try { const q = this.canvas.requestPointerLock(); if (q && q.catch) q.catch(() => {}); } catch { /* ignore */ } });
-    } catch { /* not allowed without a gesture */ }
+      if (p && p.catch) p.catch((e) => { if (sandboxed(e)) { this._noLock = true; return; } try { const q = this.canvas.requestPointerLock(); if (q && q.catch) q.catch(() => {}); } catch { /* ignore */ } });
+    } catch (e) { if (sandboxed(e)) this._noLock = true; /* else: not allowed without a gesture */ }
   }
   exitLock() { if (document.pointerLockElement) document.exitPointerLock(); }
 

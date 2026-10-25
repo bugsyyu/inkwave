@@ -2538,3 +2538,35 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 5. 分支上没跑全套 e2e（见「测试」最后一条）。
 
 **交接**：inkwave 分支 `wf-classic`（从 `088c6dd` 建）；IELTS-Base 分支 `wf-classic`（从 `fd996edd` 建）。合并后同步 `app/game`（`tools/game/sync-inkwave.sh`），再不带 `--game` 跑一遍八个游戏 e2e 和上面列的那些。要改回 10-17 的样子：IELTS-Base `<head>` 的 `GAME_FIRST = true`、inkwave `LEARN.appPick = false`。
+
+## 51. wf-artifact-game 交付（2026-10-21，子代理，分支 `wf-artifact-game`：游戏进学习版——不等 CI 也能到她手上）
+
+业主 10-21：「github action ci暂时没钱 你想其他办法自动推进 不需要问我」「原来的界面跟流程就蛮好的 现在的游戏很好，我觉得可以给游戏加一个单独入口」。iOS 的包要 GitHub Actions 的 macOS 机器才编得出来，现在没钱；她每天也用学习版（Claude 里的 artifact，iPhone 上的 Claude App 打开）。这一节是游戏这边的一行；页面那边（把她账号的一份副本借给游戏、游戏开在页面上面的同源框里、回来照经典页的规矩并回她的账号、打包和分批发布）在 IELTS-Base 分支 `wf-artifact-game`，`tools/artifact/README.md`「学习版里的游戏」。
+
+**先读了什么**：本文件 §16（游戏写她账号：`workbench.js`）、§37 / §43 / §45 / §46（课本：经典页的 iframe 和游戏自己画的四页）、§39（打卡）、§41（今日小考）；`src/learn/{app,book,workbench,store,notes,guides,teacher}.js`、`src/ui/menus.js` 的 `_scr_book`、`index.html` 的看门狗；IELTS-Base `app/index.html` 的 cloud 模式（`startCloud`、`Save`、`cloudBulk`、`mergeBlob`、`mergeLocalFallback`）。
+
+**先定的**：
+1. **游戏不知道自己在学习版里也照样跑**：学习版用 `?from=app`（只有学习、竖屏、小图、不全屏、不锁横屏、看门狗、`today=`），多一个 `&in=learn`。游戏照旧读写同源 localStorage 的 `ielts-workbench:data:v1`——那是页面交给它的副本；并回她账号的是页面。没有原生桥：镜像本来就什么都不做。
+2. **回经典页不用改游戏**：游戏的「回课本」、看门狗的 `&why=`、课本的 `&embed=<页>` 都是把 `../index.html?classic=1…` 载进它的框——载进来的是学习版页面自己，它 `<head>` 最前面那一小段认出外面是自己的游戏，交给外面那一页（关上游戏、去那一页）、`window.stop()`。框有 Navigation API 时（Chromium；较新的 Safari）更早一步：页面在游戏的框要离开游戏的那一刻拦下这一跳（框的 `navigate` 事件），就地关上游戏，框里不载页面；课本的 `&embed=` 是框里的又一层框，照旧由那一小段接住。两条都不用游戏配合。
+3. **学习版里课本没有游戏自己画的页**（这一节的第一处改动）：积累本、学习日志、学习方法、老师这四页会写副本（`notes.js` / `guides.js` / `teacher.js`），而副本回到她账号的只有证据、打卡、今日小考三样（宁可少做也不能写坏她的账号：这几样页面那边能证明对）。`?in=learn` 时 `book.js nativeOf()` 一律回 null：每个书签都是经典页的 iframe，载进来就照第 2 条关上游戏、在页面上打开那一页——在学习版里她写积累本，就是在她账号里写。
+4. **桌面上锁鼠标：框说不行就不再要**（10-22 接手后加的，第二处改动）：学习版外面 Claude 的查看器是 sandbox 框；里面没有 `allow-pointer-lock` 时，浏览器拒绝每一次 `requestPointerLock`，每次一行控制台报错（Chromium：`Blocked pointer lock on an element because the element's frame is sandboxed…`）。原来 `input.js` 每次被拒还接着要一次不带 `unadjustedMovement` 的，开关卡、每答一题、继续时都再要——检查里桌面一关就是 8 行。现在被拒的理由是 sandbox（`SecurityError`、话里有 sandbox）时记下 `_noLock`：这一页不再要（不重试、下一题和继续也不要），一页最多一行；别的拒绝（没有手势、选项不支持、玩家刚按了 Esc）照旧重试、下次照旧要。手机没有这一步（触屏不要锁）。查看器到底给不给锁，要在测试链接上用电脑看（IELTS-Base `tools/artifact/README.md`「学习版里的游戏」）；不给的话桌面上鼠标转不了视角（键盘、自动走、点答案照常）。
+
+**改了什么**（inkwave，3 个提交 + 文档）：
+- `src/learn/book.js`：`inLearn(search)`；`nativeOf(view, search = location.search)` 在 `in=learn` 时回 null（App 和网页照旧：`notes`、`log`、`guides`、`teacher` 是游戏自己的页）。
+- `src/core/input.js`：`requestLock` 认 sandbox 的拒绝（`_noLock`），见第 4 条；别的路径一个字没改。
+- `tests/learn/pointer-lock.test.mjs`：新 4 条（sandbox 拒绝：只要一次、不重试、以后不要；直接抛出的同样；没有手势 / 选项不支持 / 刚退出的拒绝照旧重试、下次照旧要；触屏一次都不要）。
+- `tests/learn/book.test.mjs`：+1 条（`inLearn` 认 `in=learn`、不认 `in=learner`；`in=learn` 时九个书签都不是游戏自己的页、App 里照旧；`_scr_book` 只在 `show` 里经 `nativeOf` 挂游戏自己的页）。
+- `tests/learn/relay.test.mjs`（10-22 第二次重启后接手时修的，和学习版无关）：「relay framing」里原始套接字的三处（握手的 101、ping 的 pong、没掩码的帧回 1002）等到字节到了再断言（最多 2 s，和这个文件自己 `next()` 的默认一样），不再等固定的 80 / 60 ms。断言一个字没改。
+
+**测试**：`npm run test:learn` 408 → 413 全过（book +1、pointer-lock +4）；`npm run check` 313 个文件语法都对。没动判分和题的路径（`evidence-snapshot` 不用比）。10-22 接手后重跑：第一次 412 / 413——「pong with the same payload」拿到空的。原因：写完 ping 就排了 60 ms 的计时器再读缓冲，机器负载 5（4 个 CPU、几个 agent 在跑 SwiftShader）时进程被挂起超过 60 ms，醒来先走计时器、套接字还没读。同一个进程里复现（计时器排上以后 `Atomics.wait` 停 70 ms，不占 CPU）：旧写法每次失败、话一样，新写法过；改完 413 / 413，`check` 313。页面那边的测试和检查见 IELTS-Base `wf-artifact-game` 的汇报（`tests/base/learn-game.test.mjs` 用 `app/game` 里真的 `workbench.js` 写、`tools/artifact/check-game.mjs` 在接近 artifact 的环境里从学习版进游戏、打完第一道门、回来、核她的账号）。
+
+**拿不准的（自己定了）**：
+1. 学习版的标记用 `in=learn` 加在 `from=app` 后面，不换 `from` 的值：`from=app` 的十来处（`menus.js`、`touch.js`、`main.js`、`session.js`、`news.js`、`index.html`……）在学习版里都该照 App 的样子，换值就要逐处改、和别的分支撞车。
+2. 课本整本还在（主菜单上的「课本」归 `wf-classic` 定）：在学习版里点它，书升起来、翻到的页一载入就回到页面上的那一页——比「这个版本不能用课本」多走一步，但哪个书签都不会写坏她的账号。
+
+**没做的**：
+- 桌面上锁不住鼠标时的另一种转视角（按住拖动）：要不要做，业主定（学习版主要在 iPhone 上用）。
+- 学习版里的「联机 / 双人」：artifact 的 CSP 是 `connect-src 'self'`，主机上没有中继，连不上（游戏会说「连不上」，不会卡住）。`wf-classic` 的选玩法一屏「双人（联机能用时；不能用就不放）」：`in=learn` 时就是不能用。
+- 游戏自己的证据（`inkwave:learn:v1`）不分 Claude 账号：同一个浏览器换账号用学习版的游戏，前一个账号的游戏证据会推进下一个账号的副本。她的 iPhone 上只有她一个账号。
+
+**交接**：主会话合并以后照常 `tools/game/sync-inkwave.sh` 同步进 IELTS-Base `app/game/`，再从那个提交 `tools/artifact/build.sh --game` 打学习版。

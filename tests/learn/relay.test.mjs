@@ -164,9 +164,12 @@ test('relay framing (RFC 6455 by hand): 16- and 64-bit lengths both ways, fragme
     const s = tcp(port, '127.0.0.1');
     let raw = Buffer.alloc(0);
     s.on('data', (d) => { raw = Buffer.concat([raw, d]); });
+    // (waits for the bytes, not a fixed sleep: a process away longer than the sleep on a busy machine wakes to the timer
+    // before the socket is read — the pong was missed that way with the machine at load 5 on 4 CPUs)
+    const got = async (f, ms = 2000) => { for (const end = Date.now() + ms; !f() && Date.now() < end;) await sleep(5); };
     await new Promise((r) => s.once('connect', r));
     s.write(`GET /room/FRAME?name=R&v=${PROTO} HTTP/1.1\r\nHost: x\r\nOrigin: ${ORIGIN}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${randomBytes(16).toString('base64')}\r\n\r\n`);
-    await sleep(80);
+    await got(() => raw.includes('\r\n\r\n'));
     assert.match(raw.toString('latin1'), /^HTTP\/1\.1 101/);
     assert.ok(!/Sec-WebSocket-Extensions/i.test(raw.toString('latin1')), 'no extension negotiated');
     const frame = (fin, op, text, mask = true) => {
@@ -178,11 +181,11 @@ test('relay framing (RFC 6455 by hand): 16- and 64-bit lengths both ways, fragme
     assert.match(await b.next((x) => x.endsWith('|hello')), /^m\|[0-9A-Z]{4}\|hello$/);
     raw = Buffer.alloc(0);
     s.write(frame(true, 0x9, 'hb'));
-    await sleep(60);
+    await got(() => raw.length >= 4);
     assert.deepEqual([...raw.subarray(0, 4)], [0x8a, 2, 104, 98], 'pong with the same payload');
     raw = Buffer.alloc(0);
     s.write(frame(true, 0x1, 'b|x', false));
-    await sleep(60);
+    await got(() => raw.length >= 4);
     assert.equal(raw[0], 0x88); assert.equal(raw.readUInt16BE(2), 1002);
     s.destroy();
   });

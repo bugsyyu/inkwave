@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { BOOK_TABS, BOOK_ALIAS, bookTab, pageUrl, flipDir, sameOrigin, pageMessage } from '../../src/learn/book.js';
+import { BOOK_TABS, BOOK_ALIAS, bookTab, pageUrl, flipDir, sameOrigin, pageMessage, nativeOf, inLearn } from '../../src/learn/book.js';
 import { loadWeek, daySteps } from '../../src/learn/content.js';
 import { store, setBackend, KEY } from '../../src/learn/store.js';
 import { DATA_KEY, PREF_KEY, readBlob, herEv, invalidate } from '../../src/learn/workbench.js';
@@ -35,6 +35,25 @@ test('the page\'s address: next to the game, ?classic=1&embed=<page>; an id the 
   assert.equal(pageUrl('../x'), '../index.html?classic=1&embed=today');
   assert.equal(pageUrl('Notes'), '../index.html?classic=1&embed=today');
   assert.equal(pageUrl(null), '../index.html?classic=1&embed=today');
+});
+
+test('学习版 (?in=learn, LEARN §51): no page of the book is the game\'s own — every bookmark is the lesson page\'s (its own page there, not the copy)', () => {
+  assert.equal(inLearn('?from=app&today=w1d3&in=learn'), true);
+  assert.equal(inLearn('?in=learn'), true);
+  assert.equal(inLearn('?in=learn&from=app'), true);
+  assert.equal(inLearn('?from=app&today=w1d3'), false);
+  assert.equal(inLearn('?in=learner'), false);
+  assert.equal(inLearn(''), false);
+  assert.equal(inLearn(undefined), false);
+  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id, '?from=app&today=w1d3&in=learn')), BOOK_TABS.map(() => null));
+  assert.equal(nativeOf('resources', '?in=learn'), null);
+  // the App (and the web) as before
+  assert.deepEqual(BOOK_TABS.map((b) => nativeOf(b.id, '?from=app&today=w1d3')), [null, null, null, null, 'notes', 'log', 'guides', 'teacher', null]);
+  assert.equal(nativeOf('resources', '?from=app'), 'guides');
+  // the book asks nativeOf for every page it shows or turns to (menus.js _scr_book: show, turn) — no other way to a page of its own
+  const menus = src('src/ui/menus.js');
+  assert.equal((menus.match(/mountNative\(/g) || []).length, 1, 'mountNative is called once: from show');
+  assert.match(menus, /const show = \(view\) => \{\n\s+const id = nativeOf\(view\);\n\s+if \(id\) \{ mountNative\(id, view\); return; \}/);
 });
 
 test('the leaf turns forward to a later bookmark, back to an earlier one', () => {
