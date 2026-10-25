@@ -149,5 +149,6 @@ on('learn:done', (data) => {
   btns.querySelectorAll('.iw-learn__quiz').forEach((b) => b.remove());
   const b = h('button', { class: 'iw-learn__btn iw-learn__big iw-learn__quiz', type: 'button' }, h('i', { html: GLYPHS.swords }), h('span', null, `今日小考 · ${LEARN.quiz.n} 题 · 傍晚一轮对抗赛`));
   b.addEventListener('click', () => { G.hud.playSound?.('ui_confirm'); G.game?.api?.startLearn?.({ week: data.week, day: data.day, kind: 'quiz' }); });
+  b._forResult = data;   // (the card this result fills keeps it: hud-learn _resetCard drops only an earlier level's)
   btns.insertBefore(b, btns.firstChild);
 });

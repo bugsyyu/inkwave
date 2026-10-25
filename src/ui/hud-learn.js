@@ -187,6 +187,7 @@ export class LearnHud {
   results(data, actions) {
     this.hide();
     this.framed(null);
+    this._resetCard(data);
     this.el.classList.remove('is-walk', 'is-play'); this.el.classList.add('is-done');
     this.rScore.innerHTML = '';
     const num = h('b', null, String(data.done));
@@ -200,6 +201,20 @@ export class LearnHud {
     this.rMenu.onclick = () => { this._snd('ui_back'); actions.menu?.(); };
     if (!prefersReducedMotion()) { restartAnim(this.rFrame, 'is-enter'); this._countUp(num, data.done); } else restartAnim(this.rFrame, 'is-fade');   // (reduced: the card only fades in)
     setTimeout(() => this.rAgain.focus?.(), 50);
+  }
+  // One card for every level (LEARN §48 review): what a form or a hook wrote on it for an earlier level goes before this one is
+  // filled — the title (the quiz's, the boss's, coop2's), the two keys' words and disabled (coop2's guest), the extra lines and
+  // stars (FormsUi.resultsExtra), the quiz record's badge, the pick's 回到工作台 (its hook adds it again) and a 今日小考 key from
+  // an earlier result — not the one learn:done has just put there for this one (forms/index.js marks it with its data: the
+  // puzzle emits learn:done before it fills the card). The forms write their own after this
+  _resetCard(data) {
+    this.rTitle.textContent = '这一关走完了';
+    const ag = this.rAgain.querySelector('span'), mn = this.rMenu.querySelector('span');
+    if (ag) ag.textContent = '再来一关';
+    if (mn) mn.textContent = '回到菜单';
+    this.rAgain.disabled = false; this.rMenu.disabled = false;
+    this.results_.querySelectorAll('.iw-lf__extra, .iw-lf__stars, .iw-qrec, .iw-learn__home').forEach((e) => e.remove());
+    this.results_.querySelectorAll('.iw-learn__quiz').forEach((b) => { if (b._forResult !== data) b.remove(); });
   }
   // the score counts up as its line rises in (INKWAVE's results count their numbers too). The element keeps the real
   // number (what the page says — a screen reader, an audit — never reads a 0) at its final width; the count is drawn
