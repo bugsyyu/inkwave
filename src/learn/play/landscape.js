@@ -48,6 +48,12 @@ export function ensureLandscapeCss() {
   const el = document.createElement('style'); el.id = 'iw-play-landscape-css'; el.textContent = CSS; document.head.appendChild(el);
   watchClock();
 }
+// (wf-logic, LEARN §54) a touch screen held upright shows no stick: the learning levels walk by auto-walk there
+// (src/learn/flow.js), and a form with no route to walk — the boss fight — has nothing she can walk with
+export function noStick() {
+  if (typeof innerWidth === 'undefined') return false;
+  return innerHeight > innerWidth && !!(G.input && G.input.touch && G.input.touch.active);
+}
 // (play-9) a landscape phone: the media query the CSS above is for (one MediaQueryList, read per frame without allocating)
 let mq = null;
 export function landscapePhone() {
