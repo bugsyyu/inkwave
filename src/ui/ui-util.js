@@ -140,10 +140,14 @@ export function colorVars(el, name, color) {
   s.setProperty(`--${name}-deep`, shade(hex, -0.62));
   s.setProperty(`--${name}-light`, shade(hex, 0.45));
   s.setProperty(`--${name}-ink`, inkOn(hex));
-  s.setProperty(`--${name}-hi`, inkLift(hex));
-  s.setProperty(`--${name}-on`, inkFace(hex));
+  const t = tones(hex);
+  s.setProperty(`--${name}-hi`, t[0]);
+  s.setProperty(`--${name}-on`, t[1]);
   return hex;
 }
+// (the two tones per ink, once: the HUD writes colorVars on every kill-feed line)
+const TONES = new Map();
+const tones = (hex) => { let t = TONES.get(hex); if (!t) { t = [inkLift(hex), inkFace(hex)]; if (TONES.size > 64) TONES.clear(); TONES.set(hex, t); } return t; };
 
 // ---------------------------------------------------------------- shapes
 const f1 = (v) => Math.round(v * 10) / 10;
