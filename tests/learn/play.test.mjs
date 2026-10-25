@@ -16,7 +16,7 @@ import { planDay } from '../../src/learn/design.js';
 import { LEARN } from '../../src/config.js';
 import { layoutTargets, isBanner, insideSafe, overlaps, asProjected, textWidth, labelBox } from '../../src/learn/play/layout.js';
 import { pickTarget } from '../../src/learn/play/pick.js';
-import { segSpheres, raySpheres, plankSpheres, ShotTargets } from '../../src/learn/play/hit.js';
+import { segSpheres, raySpheres, plankSpheres, ShotTargets, onPath, dropAhead } from '../../src/learn/play/hit.js';
 import { gateLabels, packLabels, fitAtlas } from '../../src/learn/play/atlas.js';
 import { isM1Item, canPlayM1, targetLabels, answerOfTarget, verdictLines, firstSentence } from '../../src/learn/play/m1.js';
 import { FrameTimes, percentile } from '../../src/learn/play/frametime.js';
@@ -196,6 +196,50 @@ test('only a deliberate direct hit answers: a tapped / crosshair round on its ow
     const at = src.indexOf(`  ${fn}(`), body = src.slice(at, src.indexOf('\n  }\n', at));
     assert.ok(at > 0 && !/playTargets/.test(body), `${fn} never reaches the question objects`);
   }
+});
+
+test('挡住 is not 打偏 (LEARN §54): the tapped object behind another of the same question — the round flies through that one and answers on its own; both in one step: its own answers; its own behind it or off its line: a stray splats and answers nothing; the drop still to come counts as on its way', () => {
+  const T = new ShotTargets(), hits = [];
+  T.onHit = (target, point, deliberate) => hits.push({ target, deliberate });
+  // Y (option 0) 4 m before X (option 1) on the line from her muzzle — X is what she tapped
+  const Y = { x: 0, y: 2, z: 10, r: 0.6, target: 0 }, X = { x: 0, y: 2, z: 14, r: 0.6, target: 1 };
+  T.set([Y, X], 5);
+  const seg = (z0, z1, vz = 34, o = {}) => ({ prev: { x: 0, y: 2, z: z0 }, pos: { x: 0, y: 2, z: z1 }, vel: { x: 0, y: 0, z: vz }, size: 0.15, playTag: 0, ghost: false, ...o });
+  const p = T.tag(seg(9, 10.5), 1);
+  assert.equal(T.shotHit(p), false, 'blocked by Y: through it, no splat (without the fix: true — it splats on Y and X never answers)');
+  assert.deepEqual(hits, [], 'nothing answered yet');
+  p.prev.z = 13.2; p.pos.z = 14.7;
+  assert.equal(T.shotHit(p), true); assert.deepEqual(hits.pop(), { target: 1, deliberate: true }, 'then it reaches X: her answer');
+  // X directly behind an overlapping Y, both met in one step: X answers, Y does not eat the round
+  T.set([{ ...Y }, { ...X, z: 11 }], 6);
+  assert.equal(T.shotHit(T.tag(seg(9, 12), 1)), true); assert.deepEqual(hits.pop(), { target: 1, deliberate: true }, 'in the same step');
+  // a stray: tagged for X but X is behind the round (it flies away from it) → splats on Y as any round, answers nothing
+  T.set([Y, X], 7);
+  assert.equal(T.shotHit(T.tag(seg(10.8, 9.3, -34), 1)), true); assert.deepEqual(hits.pop(), { target: 0, deliberate: false }, 'X behind it: a stray');
+  // off its line: X 3 m to the side of the round's path → a stray (the earlier test's round(-2) spread case is the same)
+  T.set([Y, { ...X, x: 3 }], 8);
+  assert.equal(T.shotHit(T.tag(seg(9, 10.5), 1)), true); assert.deepEqual(hits.pop(), { target: 0, deliberate: false }, 'X off its line: a stray');
+  // an untagged round, a round tagged for the last question: as ever (Y is simply hit)
+  assert.equal(T.shotHit(seg(9, 10.5)), true); assert.deepEqual(hits.pop(), { target: 0, deliberate: false });
+  const old = T.tag(seg(9, 10.5), 1); T.set([Y, X], 9);
+  assert.equal(T.shotHit(old), true); assert.deepEqual(hits.pop(), { target: 0, deliberate: false }, 'tagged for the last question');
+  // the shooter's arc (weapons.js: 34 m/s, straight 0.13 s, then 28 m/s² with drag 0.8): met at Y past its straight phase, the
+  // round's tangent still points above an X 1 m lower 9.5 m on — the drop it has yet to make brings it down there: blocked
+  const low = { ...X, y: 1.0, z: 20 };
+  T.set([Y, low], 10);
+  const arc = T.tag(seg(9, 10.5, 34, { grav: 28, drag: 0.8, straight: 0.13, age: 0.2 }), 1);
+  assert.ok(dropAhead(arc, 9.5) > 1 && dropAhead(arc, 9.5) < 1.6, 'about 1.35 m of drop over 9.5 m: ' + dropAhead(arc, 9.5).toFixed(2));
+  assert.equal(onPath(arc, 1, 0.09, T.spheres), true);
+  assert.equal(T.shotHit(arc), false, 'blocked: on its way down to X');
+  assert.equal(onPath({ ...arc, grav: 0 }, 1, 0.09, T.spheres), false, 'a round without gravity never comes down to it: a stray');
+  assert.equal(onPath({ ...arc, age: 0, straight: 0.5 }, 1, 0.09, T.spheres), false, 'still in its straight phase for the whole distance: a stray');
+  assert.equal(dropAhead({ ...arc, grav: 0 }, 9.5), 0); assert.equal(dropAhead({ ...arc, vel: { x: 0, y: 0, z: 0 } }, 9.5), 0);
+  assert.deepEqual(hits, [], 'no stray answer anywhere above');
+  // (a ball that gave way — burst, draining — is out of the way: segSpheres `only` and onPath skip inactive spheres)
+  T.set([{ ...Y, active: false }, X], 11);
+  assert.equal(T.shotHit(T.tag(seg(9, 10.5), 1)), false, 'Y gone: nothing met'); assert.equal(onPath(seg(9, 10.5), 0, 0.09, T.spheres), false);
+  assert.equal(segSpheres({ x: 0, y: 2, z: 9 }, { x: 0, y: 2, z: 15 }, 0.09, T.spheres, undefined, 1).index, 1, 'only X asked for: X');
+  assert.equal(segSpheres({ x: 0, y: 2, z: 9 }, { x: 0, y: 2, z: 15 }, 0.09, T.spheres, undefined, 0), null, 'only Y asked for: gone');
 });
 
 test('which items are ink targets — 单词选义 450 · 语法小测 138 · 发音小测 76 · 阅读题 60 (play-wire) of the three weeks; their reworded retry stays an ink target; every other item is another mechanism\'s', async () => {
