@@ -137,6 +137,33 @@ export function mergeEvidence(base, docs, M) {
   return { base: out || src, changed, added, already, skipped };
 }
 
+/* ───────────────────────────── her blob's text ───────────────────────────── */
+// blobText(o) === JSON.stringify(o), byte for byte (tests/learn/cpu.test.mjs) — but a top-level value, or a document of
+// `base`, that is the very object an earlier blobText serialized reuses that text. LEARN §52: every first answer's push
+// stringified her whole blob (megabytes) to change one week's document; the push's copy shares every other field and
+// document with the blob it read (Object.assign), so now only the documents the merge replaced are serialized. Sound
+// because nothing in the game modifies her parsed blob (herEv's read-only rule; every writer copies what it changes —
+// the test runs the game's ways over a deep-frozen blob).
+const _texts = new WeakMap();
+function partText(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  let t = _texts.get(v);
+  if (t === undefined) { t = JSON.stringify(v); if (t !== undefined) _texts.set(v, t); }
+  return t;
+}
+function objText(o, member) {   // JSON.stringify of a plain object, each member's text from member(value)
+  let s = '{', n = 0;
+  for (const k of keys(o)) {
+    const t = member(o[k]);
+    if (t === undefined) continue;   // (undefined / a function: left out, as JSON.stringify does)
+    s += (n++ ? ',' : '') + JSON.stringify(k) + ':' + t;
+  }
+  return s + '}';
+}
+export function blobText(o) {
+  return objText(o, (v) => (v === o.base && isObj(v) ? objText(v, partText) : partText(v)));
+}
+
 /* ───────────────────────────── writing ───────────────────────────── */
 // pushEvidence(ls, docs) → { ok, changed, added, already, skipped } | { ok: false, reason }
 //   reason: 'no-workbench' (no blob with a profile here: nothing is created), 'save' (setItem threw: storage full)
@@ -148,9 +175,9 @@ export function pushEvidence(ls, docs) {
   const res = { ok: true, changed: r.changed, added: r.added, already: r.already, skipped: r.skipped };
   if (!r.changed.length) return res;
   // a copy of her blob with base replaced: every other field, and every other document, is the same value, so the
-  // workbench's JSON.stringify text for them is unchanged too
+  // workbench's JSON.stringify text for them is unchanged too (blobText: and not serialized again)
   const o = Object.assign({}, b.o, { base: r.base });
-  const raw = JSON.stringify(o);
+  const raw = blobText(o);
   try { ls.setItem(DATA_KEY, raw); } catch (e) { return { ok: false, reason: 'save', added: 0, changed: [] }; }
   cache = { ls, raw, o, ev: null };
   return res;
@@ -322,8 +349,12 @@ function mirrorSend() {
   clearTimeout(mir.timer); mir.timer = 0;
   const h = nativeHandler(), text = get(ls, DATA_KEY);
   if (!h || typeof text !== 'string' || !text || text === mir.last) return false;
-  let o = null; try { o = JSON.parse(text); } catch (e) { return false; }
-  if (!isObj(o) || !isObj(o.profile)) return false;   // (the App's restore only takes a blob with a profile)
+  // (the App's restore only takes a blob with a profile: the one readBlob holds parsed — what the game wrote last, or
+  // read — has one; anything else is parsed to see. LEARN §52: it was parsed whole every time)
+  if (!(cache.ls === ls && cache.o && text === cache.raw)) {
+    let o = null; try { o = JSON.parse(text); } catch (e) { return false; }
+    if (!isObj(o) || !isObj(o.profile)) return false;
+  }
   try { h.postMessage({ type: 'mirror', text }); } catch (e) { return false; }
   mir.last = text;
   return true;

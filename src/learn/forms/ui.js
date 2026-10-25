@@ -105,11 +105,20 @@ export class FormsUi {
     if (text && !hold) this._noteT = setTimeout(() => this.note.classList.remove('is-on'), 2600);
   }
 
-  // ---- the race standings: [{ name, me, cp, total, finish }]
+  // ---- the race standings: [{ name, me, cp, total, finish }] — LEARN §52: twice a second they were emptied and built
+  // again; now the rows stay and only what changed is written (nothing at all while the standings stand)
   setRank(rows) {
-    this.rank.innerHTML = '';
-    if (!rows) return;
-    rows.forEach((r, i) => this.rank.appendChild(h('div', { class: r.me ? 'is-me' : '' }, h('i', null, String(i + 1)), h('span', null, r.name), h('small', null, r.finish != null ? ' 到了' : ` ${r.cp}/${r.total}`))));
+    const R = this.rank, n = rows ? rows.length : 0;
+    while (R.children.length > n) R.lastChild.remove();
+    for (let i = 0; i < n; i++) {
+      const r = rows[i];
+      let row = R.children[i];
+      if (!row) R.appendChild((row = h('div', null, h('i', null, String(i + 1)), h('span'), h('small'))));
+      const cls = r.me ? 'is-me' : '', name = String(r.name), tail = r.finish != null ? ' 到了' : ` ${r.cp}/${r.total}`;
+      if (row.className !== cls) row.className = cls;
+      if (row.children[1].textContent !== name) row.children[1].textContent = name;
+      if (row.children[2].textContent !== tail) row.children[2].textContent = tail;
+    }
   }
 
   // ---- the boss phase strip: [{ id, zh, state: 'done' | 'on' | '' }]

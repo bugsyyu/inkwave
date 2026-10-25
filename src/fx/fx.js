@@ -642,12 +642,16 @@ function withInstanceAttrs(base, cap, attrs) {
   return g;
 }
 // Upload only the live part of every dynamic attribute. Reuses one range object per attribute (no per-frame garbage).
-function markUpdated(geo, count) {
+// LEARN §52: an empty pool is not drawn (it was, in every pass: an instanced draw of none still sets its program and state
+// up) and has nothing to upload (it uploaded one).
+function markUpdated(geo, count, mesh) {
+  mesh.visible = count > 0;
+  if (!(count > 0)) return;
   const list = geo.userData.dyn;
   for (let i = 0; i < list.length; i++) {
     const a = list[i];
     const r = a._fxRange || (a._fxRange = { start: 0, count: 0 });
-    r.start = 0; r.count = Math.max(1, count) * a.itemSize;
+    r.start = 0; r.count = count * a.itemSize;
     a.updateRanges.length = 0;
     a.updateRanges.push(r);
     a.needsUpdate = true;
@@ -859,7 +863,7 @@ export class FX {
       aC[i4] = this.dC[i3]; aC[i4 + 1] = this.dC[i3 + 1]; aC[i4 + 2] = this.dC[i3 + 2]; aC[i4 + 3] = (A[i8 + 7] & F_MATTE) ? 0 : 1;
     }
     this.dGeo.instanceCount = this.dN;
-    markUpdated(this.dGeo, this.dN);
+    markUpdated(this.dGeo, this.dN, this.dMesh);
   }
 
   // ------------------------------------------------------------------ sprites (puffs = alpha, glows = additive)
@@ -930,7 +934,7 @@ export class FX {
       aM[i4] = X[x + 5]; aM[i4 + 1] = X[x + 11]; aM[i4 + 2] = t; aM[i4 + 3] = X[x + 9];
     }
     pool.geo.instanceCount = pool.n;
-    markUpdated(pool.geo, pool.n);
+    markUpdated(pool.geo, pool.n, pool.mesh);
   }
 
   // ------------------------------------------------------------------ rings (+ immediate-mode marks appended each frame)
@@ -1013,7 +1017,7 @@ export class FX {
     }
     M.n = 0;
     R.geo.instanceCount = n;
-    markUpdated(R.geo, n);
+    markUpdated(R.geo, n, R.mesh);
   }
 
   // ------------------------------------------------------------------ shells
@@ -1069,7 +1073,7 @@ export class FX {
       aA[i4] = S.A[i4]; aA[i4 + 1] = S.A[i4 + 1]; aA[i4 + 2] = S.A[i4 + 2]; aA[i4 + 3] = S.A[i4 + 3];
     }
     S.geo.instanceCount = S.n;
-    markUpdated(S.geo, S.n);
+    markUpdated(S.geo, S.n, S.mesh);
   }
 
   // ------------------------------------------------------------------ beams (+ immediate pillars)
@@ -1135,7 +1139,7 @@ export class FX {
     }
     Pl.n = 0;
     B.geo.instanceCount = n;
-    markUpdated(B.geo, n);
+    markUpdated(B.geo, n, B.mesh);
   }
 
   // ------------------------------------------------------------------ motes (GPU)

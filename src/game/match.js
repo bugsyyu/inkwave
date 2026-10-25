@@ -208,7 +208,12 @@ export class Match {
     this.events.push({ t: this.duration - this.time, victim, attacker, cause });
   }
 
-  update(dt) {
+  // dt: the frame's; sub: the physics' steps in it (main.js: 2 on a slow frame). LEARN §52: a slow frame ran all of this
+  // twice — the learning level, the bots' brains, every squidkid's pose / IK / hair — so a slow frame made the next one
+  // slower. Now the level, the clock and the brains run once a frame (as her own controller always has); moving,
+  // colliding, firing, the boss's fight and the soft push take the steps; the poses (and the boss's model) once, on the
+  // last step, for the whole frame. sub 1 (every frame under 1/45 s, the audits' frozen 1/60): the same order as before.
+  update(dt, sub = 1) {
     // the learning level ticks first, even while she has paused (its stations wait themselves; nothing else pauses a level)
     this.learn?.update(dt);
     if (this.paused) return;
@@ -249,10 +254,17 @@ export class Match {
         else { a.intent.move.set(0, 0, 0); a.intent.fire = a.intent.squid = a.intent.sub = a.intent.jump = a.intent.special = false; }
       }
     }
-    const nm = G.netm;
-    for (const a of this.actors) { if (a.remote && nm) nm.applyRemote(a, dt); else a.update(dt); }
-    this.bossMode?.update(dt);
-    // soft push between actors
+    const nm = G.netm, h = dt / sub;
+    for (let s = 0; s < sub; s++) {
+      const pose = s === sub - 1 ? dt : -1;   // (the frame's dt on its last step; -1: not posed yet — actor.js _finishFrame)
+      for (const a of this.actors) { if (a.remote && nm) nm.applyRemote(a, h); else a.update(h, pose); }
+      this.bossMode?.update(h, pose);
+      this._push();
+    }
+  }
+
+  // soft push between actors
+  _push() {
     for (let i = 0; i < this.actors.length; i++) for (let j = i + 1; j < this.actors.length; j++) {
       const a = this.actors[i], b = this.actors[j];
       if (!a.alive || !b.alive) continue;

@@ -30,6 +30,35 @@ export function rumble(actor, strong, weak, ms) {
 }
 
 const _dodgeV = new THREE.Vector3();
+
+// LEARN §52: a squidkid out of the camera's view was posed every frame all the same (pose, IK, hair). Now one that is
+// surely out of it (not her own) is posed at OFF_HZ, catching up by the whole time (the character's springs and hair take
+// any step), and at once the frame it may be on screen. "May": last frame's camera — the pose comes before the camera
+// moves — and its body's sphere grown by a turn of the camera in a frame (1.5 m + 12 % of the distance). And its shadow
+// (the review): with the sun's shadows on, a low sun lays a kid's far past that margin — the sunset's 15° about 6 m, into
+// the picture before the body — so the ground from its feet to the shadow's tip counts too (half of it + 2 m + 12 %).
+export const OFF_HZ = 15;
+const KID_H = 1.7;   // (the shadow's tip: a kid's height with the hair, laid along the sun)
+const _fr = new THREE.Frustum(), _frM = new THREE.Matrix4(), _frS = new THREE.Sphere(), _frP = new THREE.Vector3();
+let _frT = NaN, _frC = null, _shX = 0, _shZ = 0;
+export function maySee(pos, cam = G.camera) {
+  if (!cam || !cam.isPerspectiveCamera) return true;
+  if (_frT !== G.time || _frC !== cam) {
+    _frT = G.time; _frC = cam; _fr.setFromProjectionMatrix(_frM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); _frP.setFromMatrixPosition(cam.matrixWorld);
+    // half the shadow, feet → tip (the sun stands at uSunDir from the arena: environment.js _fitShadow); none, shadows off
+    const sm = G.renderer && G.renderer.shadowMap, U = sm && sm.enabled && G.env && G.env.U, u = U && U.uSunDir ? U.uSunDir.value : null;
+    const k = u && u.y > 0.05 ? (0.5 * KID_H) / u.y : 0;
+    _shX = -(u ? u.x : 0) * k; _shZ = -(u ? u.z : 0) * k;
+  }
+  _frS.center.set(pos.x, pos.y + 0.75, pos.z);
+  _frS.radius = 2.8 + 0.12 * Math.sqrt(_frS.center.distanceToSquared(_frP));
+  if (_fr.intersectsSphere(_frS)) return true;
+  if (!_shX && !_shZ) return false;
+  _frS.center.set(pos.x + _shX, pos.y, pos.z + _shZ);
+  _frS.radius = Math.hypot(_shX, _shZ) + 2 + 0.12 * Math.sqrt(_frS.center.distanceToSquared(_frP));
+  return _fr.intersectsSphere(_frS);
+}
+
 export class Actor {
   constructor({ team, name, weapon = 'shooter', sub = null, special = null, isLocal = false, isBot = false, style = { hair: 0, skin: 0 }, slot = 0, CharacterClass }) {
     this.team = team; this.name = name; this.isLocal = isLocal; this.isBot = isBot; this.slot = slot;
@@ -234,7 +263,9 @@ export class Actor {
   }
 
   // ------------------------------------------------------------------ update
-  update(dt) {
+  // pose: the dt the pose catches up by — Match.update's last physics step of a frame passes the frame's, an earlier one -1
+  // (moved, not posed: LEARN §52); a plain update(dt) poses as it always did
+  update(dt, pose = dt) {
     this.anim.time = G.time;
     // safety net: a non-finite position/velocity must never poison the camera or physics
     if (!Number.isFinite(this.pos.x + this.pos.y + this.pos.z + this.vel.x + this.vel.y + this.vel.z + this.yaw + this.smoothY)) {
@@ -271,10 +302,10 @@ export class Actor {
     this.aimDir.set(Math.sin(this.aimYaw) * cp, Math.sin(this.aimPitch), Math.cos(this.aimYaw) * cp);
 
     // ---- super jump / specials in progress own the body
-    if (this.superJumpState) { this._updateSuperJump(dt); this._finishFrame(dt); return; }
+    if (this.superJumpState) { this._updateSuperJump(dt); this._finishFrame(dt, pose); return; }
     const spx = this.specialActive;
-    if (spx && spx.body) { this._updateSpecial(dt); if (this.alive) this._finishFrame(dt); return; }
-    if (specialPressed && this.specialReady()) { this._startSpecial(); this._finishFrame(dt); return; }
+    if (spx && spx.body) { this._updateSpecial(dt); if (this.alive) this._finishFrame(dt, pose); return; }
+    if (specialPressed && this.specialReady()) { this._startSpecial(); this._finishFrame(dt, pose); return; }
 
     // ---- form: squid while the swim button is held. Swim + fire both held → the most recent press wins, so diving
     // mid-spray and popping out of the ink to shoot both work instantly (the pop-out shot is buffered, never lost).
@@ -367,7 +398,9 @@ export class Actor {
       pressed = firePressed || buffered;
       this.fireBuffer = 0;
     }
-    const winp = { fire, firePressed: pressed, sub: intent.sub && !isSquid, subReleased: subReleased && !isSquid };
+    // (one object an actor, every field written each step: LEARN §52 — it was a new one per actor per step)
+    const winp = this._winp || (this._winp = { fire: false, firePressed: false, sub: false, subReleased: false });
+    winp.fire = fire; winp.firePressed = pressed; winp.sub = intent.sub && !isSquid; winp.subReleased = subReleased && !isSquid;
     const inkBefore = this.ink;
     // specials that replace the main weapon (zooka, stamp, blower, crab …) take the trigger; others may take the sub
     if (!(spx && G.specials.weapon(this, spx, dt, winp))) this.weaponRunner.update(dt, winp);
@@ -385,7 +418,7 @@ export class Actor {
       return;
     }
 
-    this._finishFrame(dt);
+    this._finishFrame(dt, pose);
   }
 
   _nearCamera() {
@@ -970,7 +1003,8 @@ export class Actor {
   }
 
   // ------------------------------------------------------------------ visuals
-  _finishFrame(dt) {
+  // (pose: see update — -1 on a frame's earlier physics step: everything but the character's pose)
+  _finishFrame(dt, pose = dt) {
     const a = this.anim;
     const isSquid = this.form === 'squid';
     // online proxies arrive already facing the owner's way (net/netmatch.js applyRemote)
@@ -1012,7 +1046,10 @@ export class Actor {
     ch.root.position.y += this.smoothY + (this.specialActive?.seat || 0) + (this.learnSeat || 0);   // riding the crab tank / the 字弹 type rig (learn/play/type/rig.js)
     ch.root.rotation.y = this.yaw;
     ch.setHurt(Math.max(this.hurtFlash, 1 - this.hp / PLAYER.hp) * (this.hp < PLAYER.hp ? 1 : 0), G.teamColors[this.enemyTeam]);
-    ch.update(dt, a);
+    if (pose >= 0) {   // (out of view and not hers: OFF_HZ, the time it missed caught up — maySee)
+      this._poseAcc = (this._poseAcc || 0) + pose;
+      if (this.isLocal || this._poseAcc >= 1 / OFF_HZ - 1e-6 || maySee(this.pos)) { ch.update(this._poseAcc, a); this._poseAcc = 0; }
+    }
     this._events(a);
     // swim wake
     if (a.form === 'swim' && hs > 2 && G.fx) {

@@ -62,11 +62,12 @@ export class RunnerCam {
   }
   release(rig, actor) { this.on = false; if (rig && actor && rig.mode === 'path' && !rig.path) rig.follow(actor, true); }
 
+  // (one array a camera, filled again each call — LEARN §52: two new ones a frame; update reads it at once)
   frame(aspect) {
-    const k = smoothstep(0.62, 1.25, aspect);
-    const wide = WIDE.slice();
-    wide[4] = clamp((2 * Math.atan(Math.tan((WIDE_H * Math.PI) / 360) / Math.max(1, aspect)) * 180) / Math.PI, 34, 52);
-    return TALL.map((v, i) => v + (wide[i] - v) * k);
+    const k = smoothstep(0.62, 1.25, aspect), out = this._fr || (this._fr = [0, 0, 0, 0, 0]);
+    const w4 = clamp((2 * Math.atan(Math.tan((WIDE_H * Math.PI) / 360) / Math.max(1, aspect)) * 180) / Math.PI, 34, 52);
+    for (let i = 0; i < 5; i++) { const v = TALL[i], w = i === 4 ? w4 : WIDE[i]; out[i] = v + (w - v) * k; }
+    return out;
   }
 
   // a: her actor; T + s: the road and where she is on it; yawRoad: an override heading (a detour branch) or null;

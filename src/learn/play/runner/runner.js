@@ -51,6 +51,52 @@ const _p = {}, _q = {}, _pr = {}, _room = { left: 0, right: 0 }, _ry = {};
 const TAGS = ['A', 'B', 'C', 'D'];
 const FAR = new THREE.Vector3(1e6, 0, 1e6);
 
+// The cells a row's flood inks (_floodRow): on the blocks `ids`' upward live-turf faces, inside the quad `corners`
+// ([x, z] × 4, in order) and within y0 … y1. LEARN §52: it tested every cell of every such face (a stretch of road is
+// thousands) with a point-in-quad that destructured two arrays an edge, on every right answer. Now a face's cells only
+// over the quad carried into that face's (u, v) — x, z are affine in a cell's (u, v) and an upward face never stands
+// edge-on — with a cell to spare each side, and the same test without arrays: the same cells, in the same order
+// (tests/learn/cpu.test.mjs holds the old scan).
+export function rowCells(L, ids, corners, y0, y1) {
+  const x0 = corners[0][0], z0 = corners[0][1], x1 = corners[1][0], z1 = corners[1][1];
+  const x2 = corners[2][0], z2 = corners[2][1], x3 = corners[3][0], z3 = corners[3][1];
+  // (the edges as the old loop took them: (0, 3), (1, 0), (2, 1), (3, 2))
+  const inQuad = (x, z) => {
+    let ins = false;
+    if ((z0 > z) !== (z3 > z) && x < ((x3 - x0) * (z - z0)) / (z3 - z0) + x0) ins = !ins;
+    if ((z1 > z) !== (z0 > z) && x < ((x0 - x1) * (z - z1)) / (z0 - z1) + x1) ins = !ins;
+    if ((z2 > z) !== (z1 > z) && x < ((x1 - x2) * (z - z2)) / (z1 - z2) + x2) ins = !ins;
+    if ((z3 > z) !== (z2 > z) && x < ((x2 - x3) * (z - z3)) / (z2 - z3) + x3) ins = !ins;
+    return ins;
+  };
+  const cells = [];
+  for (const bid of ids) {
+    const b = L.blocks[bid];
+    for (let fi = 0; fi < 6; fi++) {
+      const f = b.faces[fi] >= 0 ? L.faces[b.faces[fi]] : null;
+      if (!f || !f.atlas || !f.turf || f.grid == null || f.n.y < 0.6) continue;
+      const o = f.origin, ux = f.u.x, uz = f.u.z, vx = f.v.x, vz = f.v.z, det = ux * vz - vx * uz;
+      let i0 = 0, i1 = f.nu - 1, j0 = 0, j1 = f.nv - 1;
+      if (Math.abs(det) > 1e-6) {
+        let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+        for (let k = 0; k < 4; k++) {
+          const dx = corners[k][0] - o.x, dz = corners[k][1] - o.z, su = (dx * vz - vx * dz) / det, sv = (ux * dz - dx * uz) / det;
+          if (su < a0) a0 = su; if (su > a1) a1 = su; if (sv < b0) b0 = sv; if (sv > b1) b1 = sv;
+        }
+        i0 = Math.max(0, Math.floor(a0 / f.cu - 0.5) - 1); i1 = Math.min(f.nu - 1, Math.ceil(a1 / f.cu - 0.5) + 1);
+        j0 = Math.max(0, Math.floor(b0 / f.cv - 0.5) - 1); j1 = Math.min(f.nv - 1, Math.ceil(b1 / f.cv - 0.5) + 1);
+      }
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const su = (i + 0.5) * f.cu, sv = (j + 0.5) * f.cv;
+        const x = o.x + f.u.x * su + f.v.x * sv, y = o.y + f.u.y * su + f.v.y * sv, z = o.z + f.u.z * su + f.v.z * sv;
+        if (y < y0 || y > y1 || !inQuad(x, z)) continue;
+        cells.push(f.grid + j * f.nu + i);
+      }
+    }
+  }
+  return cells;
+}
+
 // the 滑行段's hook (LEARN §20 「接口」): RunnerFlow.typed = async ({ items, gate, flow, row }) => { … } — the default is
 // glide.js (play-type's rig); a test or a lab may hand in its own. The stretch lasts at least LEARN.runner.glide m and
 // until it resolves.
@@ -155,12 +201,12 @@ export class RunnerFlow extends RaceFlow {
   // and the scaling is undone before anyone else updates. After her update: where she is on the road (crossings, camera).
   _install(a) {
     const self = this, orig = a.update;
-    a.update = function runnerUpdate(dt) {
+    a.update = function runnerUpdate(dt, pose = dt) {   // (pose: Actor.update's — the frame's dt on its last physics step)
       const P = PLAYER, s0 = P.swimSpeed, d0 = P.swimDecel;
       P.swimSpeed = s0 * self.swimK;
       if (self.slowT > 0) P.swimDecel = P.enemyInkDecel;
-      try { orig.call(this, dt); } finally { P.swimSpeed = s0; P.swimDecel = d0; }
-      self._after(dt);
+      try { orig.call(this, dt, pose); } finally { P.swimSpeed = s0; P.swimDecel = d0; }
+      self._after(dt, pose);
     };
     this._uninstall = () => { if (a.update !== orig) delete a.update; };
   }
@@ -236,8 +282,9 @@ export class RunnerFlow extends RaceFlow {
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
     if (!this.started) { this._start(); this.prepS?.update(dt); this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
     this.clock += dt;
-    const txt = `圈 ${fmtClock(this.clock)}`;
-    if (txt !== this._clockTxt && G.hud?.timerTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; }
+    // (the clock's text is a function of the second it shows: built when that changes — LEARN §52, it was every frame)
+    const sec = Math.max(0, Math.round(this.clock));
+    if ((sec !== this._clockS || !this._clockTxt) && G.hud?.timerTxt) { this._clockS = sec; const txt = `圈 ${fmtClock(this.clock)}`; if (txt !== this._clockTxt) { this._clockTxt = txt; G.hud.timerTxt.textContent = txt; } }
     for (const r of this.racers) { this._botLap(r, dt); if (this.fairK < 1 && r.state === 'run') r.a.intent.move.multiplyScalar(this.fairK); }   // (fair: the bots slow with her on a 滑行段 / by the boards)
     if ((this._rankT -= dt) <= 0) { this._rankT = 0.5; this.me.progress = this.cum[this.pathIndexAt(Math.max(0, this.sNow))]; this._rank(); }
     this.glide.update(dt);
@@ -467,12 +514,14 @@ export class RunnerFlow extends RaceFlow {
   }
 
   // ---------------------------------------------------------------------------------------------- after her update
-  _after(dt) {
+  // (pose: Actor.update's — her progress on every physics step; the camera, the prop bag and the marker once a frame, for
+  // all of it: a slow frame's earlier step only moved her — Match.update, LEARN §52)
+  _after(dt, pose = dt) {
     const a = this.match.local;
     if (!a || !a.alive) return;
     const T = this.T;
     this.sPrev = this.sNow;
-    if (a.superJumpState) { this.cam.update(dt, a, T, this.sNow, this._aspect()); return; }
+    if (a.superJumpState) { if (pose >= 0) this.cam.update(pose, a, T, this.sNow, this._aspect()); return; }
     if (this.leapS != null) { this.sNow = this.sPrev = project(T, a.pos.x, a.pos.z, this.leapS, 8, 8, _pr).s; this.leapS = null; this.paintS = Math.max(this.paintS, this.sNow - 2); }
     let yawRoad = null;
     const D = this.detour;
@@ -496,6 +545,7 @@ export class RunnerFlow extends RaceFlow {
       // (the last 3 m for 2 s — against the deck's edge, sliding along it: she is at the line)
       else if (this.phase === 'final' && this.finish.s - this.sNow < 3) { if ((this._lineT = (this._lineT || 0) + dt) > 2) this._finishDone(); }
     }
+    if (pose < 0) return;
     const row = this._shown();
     let focus = null;
     if (row && row.centers && !yawRoad) {   // frame the row being asked (fades out over its last metres)
@@ -507,7 +557,7 @@ export class RunnerFlow extends RaceFlow {
       focus.top = this.stripBottom();   // (the band under the strip: cam.js keeps the row out from under it)
     }
     // a station's pose: the typing rig's frame on a 滑行段, the framed board on a 看板段 (springs in and out: cam.js)
-    this.cam.update(dt, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
+    this.cam.update(pose, a, T, this.sNow, this._aspect(), yawRoad, focus, this.glide.active ? this.glide.pose : (this.prepS && this.prepS.pose) || this.bw.framing);
     this.ui.aside(this.glide.active || !!(this.prepS && this.prepS.pose) || !!this.bw.framing);   // (the prop bag off the right edge while a station frames: LEARN §30)
     this.mark.update(this.glide.active ? null : a, Math.atan2(a.vel.x, a.vel.z));
     if (row && row.view) row.view.focus = laneOf(this.dNow, row.lanes, this.RR.laneW, row.c, this.RR.gap);
@@ -634,21 +684,8 @@ export class RunnerFlow extends RaceFlow {
     const corners = [[-2.5, -half], [3.5, -half], [3.5, half], [-2.5, half]].map(([f, l]) => [_p.x + _p.tx * f + _p.rx * (c + l), _p.z + _p.tz * f + _p.rz * (c + l)]);
     const xs = corners.map((q) => q[0]), zs = corners.map((q) => q[1]);
     const y0 = _p.y - 1.2, y1 = _p.y + 1.2;
-    const cells = [], ids = L.queryBlocks(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), this._qb || (this._qb = []));
-    const inPoly = (x, z) => { let ins = false; for (let i = 0, j = 3; i < 4; j = i++) { const [xi, zi] = corners[i], [xj, zj] = corners[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) ins = !ins; } return ins; };
-    for (const bid of ids) {
-      const b = L.blocks[bid];
-      for (let fi = 0; fi < 6; fi++) {
-        const f = b.faces[fi] >= 0 ? L.faces[b.faces[fi]] : null;
-        if (!f || !f.atlas || !f.turf || f.grid == null || f.n.y < 0.6) continue;
-        for (let j = 0; j < f.nv; j++) for (let i = 0; i < f.nu; i++) {
-          const su = (i + 0.5) * f.cu, sv = (j + 0.5) * f.cv;
-          const x = f.origin.x + f.u.x * su + f.v.x * sv, y = f.origin.y + f.u.y * su + f.v.y * sv, z = f.origin.z + f.u.z * su + f.v.z * sv;
-          if (y < y0 || y > y1 || !inPoly(x, z)) continue;
-          cells.push(f.grid + j * f.nu + i);
-        }
-      }
-    }
+    const ids = L.queryBlocks(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), this._qb || (this._qb = []));
+    const cells = rowCells(L, ids, corners, y0, y1);
     const cx = _p.x + _p.rx * row.centers[lane], cz = _p.z + _p.rz * row.centers[lane];
     if (cells.length) P.flood({ cells: Int32Array.from(cells), polys: [corners], y0, y1 }, 0, { center: [cx, cz], y: _p.y, reach: half * 2 + 3, dur: 0.45 });
     else P.splat(_v.set(cx, _p.y + 0.1, cz), 2.2, 0, { kind: 'blast' });

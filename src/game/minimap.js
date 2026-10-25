@@ -190,6 +190,7 @@ export class Minimap {
   }
 
   _drawBase() {
+    this._dirty = true;   // (the next compose has something new to show)
     const W = this.w, H = this.h, N = W * H, hgt = this.hgt, top = this.topBlock, nrm = this.nrm, lvl = this.level, s = this.s;
     const img = this.bctx.createImageData(W, H), d = img.data;
     const theme = G.game?.theme || G.game?.mapDef?.theme || 'day';
@@ -338,6 +339,7 @@ export class Minimap {
     this.ictx.putImageData(this.inkImg, 0, 0, 0, y0, W, y1 - y0);
     this.fctx.putImageData(this.flashImg, 0, 0, 0, y0, W, y1 - y0);
     if (flashes && !this._quiet) this.flashT = 0;
+    this._dirty = true;
   }
 
   // ------------------------------------------------------------------------------------------ per frame
@@ -369,9 +371,48 @@ export class Minimap {
     // 189 ms peak on an Adreno 730) and, crucially, it runs AFTER main.js stops its perf.sim / perf.render timers —
     // which is why every earlier probe missed it while 3D scene objects kept measuring free.
     // dt is accumulated rather than dropped so the compose's own time-based effects keep their real speed.
+    // LEARN §52: and only when the picture would change — new ink / base, a flash still fading (one more to clear it),
+    // anything the live layer moves, blinks or fades (_moving: and one more once it is gone, to take it off — a sensor
+    // cloud, a curtain, a bubble ends with no ink and no mark); a still map (the spawn pads alone) is left as it is: no
+    // blit, no upload. (The dt still accumulates: the next compose's effects keep their real speed.)
     this._cAcc = (this._cAcc || 0) + dt;
     this._cN = (this._cN || 0) + 1;
-    if (this._cN >= MAP_COMPOSE_EVERY) { this._cN = 0; const acc = this._cAcc; this._cAcc = 0; this._compose(acc); }
+    if (this._cN >= MAP_COMPOSE_EVERY) {
+      this._cN = 0;
+      const mv = this._moving();
+      if (this._dirty || this.flashT < 0.45 || this._flashOn || mv || this._mvOn) {
+        const acc = this._cAcc; this._cAcc = 0; this._dirty = false; this._mvOn = mv;
+        this._compose(acc);
+        this.composed = (this.composed || 0) + 1;
+      } else this._cAcc = 0;
+    }
+  }
+
+  // Not on the screen this frame (main.js _updateHud: the corner map off in the settings, a learning level's is-nomap):
+  // nothing is drawn — LEARN §52, the ink bands, the compose and the canvas's upload ran for a map nobody saw. Its marks
+  // still age; the first frame it is shown again redraws the whole ink at once, quietly (no flash for what changed
+  // meanwhile), and composes.
+  idle(dt) {
+    for (let i = fxList.length - 1; i >= 0; i--) { const f = fxList[i]; f.t += dt; if (f.t >= f.life) fxList.splice(i, 1); }
+    this.version = -1; this.timer = 0; this._band = 0; this._cN = MAP_COMPOSE_EVERY - 1; this._cAcc = 0;
+    this.flashT = 9;
+  }
+
+  // what the live layer draws that moves, blinks or fades (_compose: the zones' outlines, transient marks, tempest clouds,
+  // bombs, devices, specials, the strike cursor, super jumps); the spawn pads are still
+  _moving() {
+    if (fxList.length) return true;
+    const m = G.match;
+    if (!m || m.attract) return false;
+    if (m.zones) return true;
+    const P = G.projectiles, S = G.subs, me = this.viewerTeam ?? 0;
+    if (P && ((P.clouds && P.clouds.length) || (P.bombs && P.bombs.length))) return true;
+    if (S && S.items) for (const it of S.items) if (it.state !== 'dead' && it.state !== 'fly' && !((it.state === 'beacon' || it.state === 'mine') && it.team !== me)) return true;
+    if (G.specials && G.specials.world && G.specials.world.length) return true;
+    const sp = G.local && G.local.specialActive;
+    if (sp && sp.id === 'strike' && sp.aiming) return true;
+    for (const a of m.actors) if (a.superJumpState) return true;
+    return false;
   }
 
   _compose(dt) {
@@ -379,7 +420,8 @@ export class Minimap {
     c.globalAlpha = 1;
     c.drawImage(this.base, 0, 0);
     c.drawImage(this.inkC, 0, 0);
-    if (this.flashT < 0.45) { c.globalAlpha = (1 - this.flashT / 0.45) * 0.85; c.drawImage(this.flashC, 0, 0); c.globalAlpha = 1; }
+    this._flashOn = this.flashT < 0.45;   // (on the canvas now: one more compose takes it off — update)
+    if (this._flashOn) { c.globalAlpha = (1 - this.flashT / 0.45) * 0.85; c.drawImage(this.flashC, 0, 0); c.globalAlpha = 1; }
     const hex = G.teamHex || ['#ff8a14', '#2f5bff'];
     const t = this.time;
     // Zone Control: every zone's outline — the operational objective in its holder's ink (white while neutral), the

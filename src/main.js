@@ -1516,8 +1516,7 @@ class Game {
     const setUp = !!this.showcase?.fullFrame;
     if (m && !(setUp && m.attract)) {
       m.updateController(dt);
-      const sub = dt > 1 / 45 ? 2 : 1; // substep physics on slow frames
-      for (let i = 0; i < sub; i++) m.update(dt / sub);
+      m.update(dt, dt > 1 / 45 ? 2 : 1);   // substep physics on slow frames (only the physics: Match.update, LEARN §52)
       if (!m.paused) { G.projectiles.update(dt); G.subs.update(dt); G.specials.update(dt); }
       if (m.attract) this._updateAttract(dt);
       else if (m.state === 'playing' && m.local?.alive && this.rig.mode !== 'follow' && this.rig.mode !== 'path') this.rig.follow(m.local, true);
@@ -1749,7 +1748,11 @@ class Game {
   _updateHud(dt) {
     const m = this.match, a = m.local, cam = G.camera;
     const tmm = performance.now();
-    this.minimap.update(dt);
+    // the map on the screen: the corner map (the setting; a learning level's is-nomap hides it, LEARN §48) or the strike
+    // map — else nothing of it is drawn, nor its dots placed (Minimap.idle, LEARN §52)
+    const strikeAim = !!(a.specialActive && a.specialActive.id === 'strike' && a.specialActive.aiming);
+    const mapOn = (this.settings.minimap !== false || strikeAim) && !this.hud.el?.classList.contains('is-nomap');
+    if (mapOn) this.minimap.update(dt); else this.minimap.idle(dt);
     // The minimap is timed on its own as well as inside `tail`: it is the one part of the frame that was found to cost
     // more than everything else on a phone, so it is worth being able to see separately from the HUD around it.
     if (this.perf) this.perf.minimap += (performance.now() - tmm - this.perf.minimap) * 0.05;
@@ -1760,7 +1763,7 @@ class Game {
     const spread = w.kind === 'roller' ? 28 : w.kind === 'brush' ? 22 : Math.min(90, (Math.tan((coneDeg * Math.PI) / 180) / Math.tan(vHalf)) * (innerHeight / 2));
     const players = [];
     const t = { x: 0, y: 0 };
-    for (const o of m.actors) {
+    if (mapOn) for (const o of m.actors) {
       if (!o.alive) continue;
       const tracked = o.team !== a.team && o.status.track > 0 && o.status.trackTeam === a.team;
       if (o.team !== a.team && !o.isLocal) {
@@ -1809,7 +1812,6 @@ class Game {
     }
     if (m.practice && m.state === 'playing' && a.alive && this._hintT < 7) prompt = 'Practice · L to change loadout · ESC for the practice menu';
     if (m.learn) prompt = null;   // 关卡学习: the learn layer carries its own (Chinese) hints; the turf-war ones do not apply
-    const strikeAim = !!(a.specialActive && a.specialActive.id === 'strike' && a.specialActive.aiming);
     // "Yeah!" cheers → screen positions over the cheering player (anyone on screen)
     const cheers = [];
     for (const c of G.specials.cheers) {
@@ -1850,7 +1852,7 @@ class Game {
       twin: w.kind === 'twins' ? { planted: !!a.weaponRunner.turret, rolls: a.weaponRunner.rollsLeft() } : null,
       crosshair: { spread, onTarget: m.controller?.onTarget ? 'enemy' : null, inRange: m.controller ? m.controller.inRange !== false : true },
       // corner minimap follows the setting; the TAB map (needed for super jumps) is always available
-      map: (this.settings.minimap !== false || strikeAim) ? { canvas: this.minimap.canvas, expanded: strikeAim, strike: strikeAim, players } : null,
+      map: mapOn ? { canvas: this.minimap.canvas, expanded: strikeAim, strike: strikeAim, players } : null,
       markers,
       cheers,
       deaths,

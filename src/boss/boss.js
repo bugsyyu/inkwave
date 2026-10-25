@@ -97,7 +97,9 @@ export class Boss {
   live() { return this.match.state === 'playing' && !this.dead; }
 
   // ---------------------------------------------------------------------------------------------- per frame
-  update(dt) {
+  // (pose: the dt the models catch up by — the fight on every physics step of a slow frame, the boss's and the crablets'
+  // models once, on its last: Match.update, LEARN §52; -1 on the earlier step)
+  update(dt, pose = dt) {
     if (this.match.state === 'init') { this.model.root.visible = false; return; }   // loading: the clock starts with the intro
     const bt0 = this.bt;
     if (this.sim) this.brain.update(dt);
@@ -109,9 +111,9 @@ export class Boss {
     this._paintBt = this.bt;
     this.hz.update(dt, this.bt, { live });
     this._events();
-    this._crabVisuals(dt);
+    if (pose >= 0) this._crabVisuals(pose);
     if (live) this._pushActors();
-    this._modelUpdate(dt);
+    if (pose >= 0) this._modelUpdate(pose);
     this._flushRain(dt);
   }
 
