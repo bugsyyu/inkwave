@@ -338,7 +338,9 @@ export class PlayRun {
       if (look) { Fr.on = false; Fr.looked = true; } else if (Fr.t > M.frameFor || (near && Fr.t > 0.25)) Fr.on = false;
       else { rig.yaw = dampAngle(rig.yaw, Fr.yaw, M.frameRate, dt); rig.pitch = damp(rig.pitch, Fr.pitch, M.frameRate, dt); }
     }
-    if (!C.placed && !(Fr && Fr.on) && (this._settled() || (Fr && Fr.t > M.frameFor + 0.6))) this._place();
+    // (the fallback counts from the question: Fr.t stops once the easing ends at frameFor, so frameFor + 0.6 was never reached —
+    // a lens that never settled kept the objects down for good; LEARN §48 review)
+    if (!C.placed && !(Fr && Fr.on) && (this._settled() || C.t > M.frameFor + 0.6)) this._place();
     if (!C.placed) return;
     this._drift(dt);
     // desktop: fire pressed with the crosshair on an object is the same shot as a tap

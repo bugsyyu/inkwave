@@ -109,6 +109,8 @@ export class PlayHost {
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
+    // (and the touch layer says so: 跳 / 潜墨 dimmed while a station holds her — the beat pads' 「跳上去」 is a tap on a pad; LEARN §48 review)
+    const still = !!(a && S && S.still); if (this._stillKeys !== still) { this._stillKeys = still; G.touch?.el?.classList?.toggle('is-still', still); }
     // between questions the boards / the exit area take the taps on their hotspots (a question's station sets its own)
     if (!this.kind) G.playTap = this.boards.tapApi || this.exit.tapApi || null;
     // the lens: the station's pose, else a framed board on the walk (or an exit station), else back to following her
@@ -317,6 +319,7 @@ export class PlayHost {
   dispose() {
     if (typeof window !== 'undefined') { window.removeEventListener('keydown', this._onKey, true); window.removeEventListener('resize', this._onResize); window.removeEventListener('orientationchange', this._onResize); }
     this._clearStation();
+    if (this._stillKeys) { this._stillKeys = false; G.touch?.el?.classList?.remove('is-still'); }
     this.cam.release(G.rig, this.match.local);
     this._crosshair(false);
     this.type.dispose(); this.beat.dispose(); this.flip.dispose(); this.boards.dispose(); this.exit.dispose();

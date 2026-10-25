@@ -72,7 +72,8 @@ export class BeatStation {
     this.cur = { g, item, p, labels, t: 0, answered: false, verdict: null };
     // the labels in the prompt's order (a reshuffled retry reuses the gate's atlas cells); the word on the next bar line
     const r = B.ask({ key: g.id, labels, now: G.time });
-    H.strip?.show({ text: p.text, zh: p.zh || (n === 2 ? '听完，下一拍跳上去' : '下一拍跳上去'), tts: p.tts }, { replay: p.tts ? () => this._speak(1) : null });
+    // (the pads are tapped, swiped towards or keyed — the 「跳」 key does nothing at a station, she is held still: LEARN §48 review)
+    H.strip?.show({ text: p.text, zh: p.zh || (n === 2 ? '听完，下一拍点你选的台子' : '下一拍点你选的台子'), tts: p.tts }, { replay: p.tts ? () => this._speak(1) : null });
     H.strip?.fit(H.m1._topKeys());
     this.log.push({ t: +this.flow.t.toFixed(2), ev: 'ask', item: item.id, n, W: +r.W.toFixed(2), D: +r.D.toFixed(2) });
     return true;
@@ -101,10 +102,14 @@ export class BeatStation {
   _defer() {
     const C = this.cur; if (!C) return;
     const { g, item } = C;
-    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'defer', item: item.id });
+    // (no answer for two bars: to the end of this gate, nothing written — PLAY §1 rule 4; LEARN §48 review: that had no end, a
+    // question she never answers came round for ever and the gate never opened — as the runner does, twice to the back, then
+    // left for another day)
+    const k = g.id + '|' + item.id, n = (this._defers || (this._defers = new Map())).set(k, (this._defers.get(k) || 0) + 1).get(k);
+    this.log.push({ t: +this.flow.t.toFixed(2), ev: 'defer', item: item.id, n });
     this.cur = null;
-    g.queue.push(item);   // (to the end of this gate, nothing written — PLAY §1 rule 4)
-    this.host.strip?.verdict({ ok: false, head: '这题放到后面再来', why: '' });
+    if (n <= 2) { g.queue.push(item); this.host.strip?.verdict({ ok: false, head: '这题放到后面再来', why: '' }); }
+    else { this.flow._emit('learn:skip', { itemId: item.id, gate: g.id, type: 'beat', why: 'noanswer' }); this.host.strip?.verdict({ ok: false, head: '没选 — 这一题留到下次', why: '' }); }
     this.flow._askNext(g);
   }
   _next(C) {

@@ -1515,6 +1515,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 }
 /* (upright, under the HUD's top row where it reaches lower — the boss's bar and its phase tag: hud-learn framed(info.top)) */
 @media (orientation: portrait) and (max-width: 640px) { .iw-learn.is-framed .iw-learn__walk { top: max(calc(var(--hudtop, 58px) + var(--iw-sat)), var(--iw-keys-top, 0px)); } }
+/* (a station holding her still — the beat pads, the typewriter, the flip deck: play/host.js is-still — 跳 / 潜墨 do nothing then:
+   dimmed, still in their places; LEARN §48 review) */
+.iw-touch.is-learn.is-still .iw-touch__btn:nth-child(2), .iw-touch.is-learn.is-still .iw-touch__btn:nth-child(3) { opacity: .32; transition: opacity .2s; }
 /* (no 地图 key and no corner map in a level — hud-learn start(); the keys left close up: touch.js _layout) */
 .iw-touch.is-learn.is-nomap .iw-touch__btn:nth-child(6) { display: none; }
 .iw-hud.is-learn.is-nomap .iw-map { display: none !important; }
