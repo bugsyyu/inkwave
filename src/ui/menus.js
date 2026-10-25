@@ -31,7 +31,7 @@ import { appToday, BOOK_URL } from '../learn/app.js';   // 游戏为主体: her 
 import { FORM_ZH, planFor, SYLLABUS_MECHANICS } from '../learn/design.js';   // 关卡学习: the four forms' names (docs/LEVELS.md §2); a day's table (gf-weeks: a loaded week's own)
 import { courseWeeks } from '../learn/weeks.js';   // gf-weeks (LEARN §44): every week of her course — her packs, content/, the ones still to come
 import { courseMap, weekShare, mapLayout } from '../learn/course-map.js';   // 游戏为主体 第二期 (LEARN §34): the course map
-import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage, makeAsker } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages; 老师 asks the page (§46)
+import { BOOK_TABS, NATIVE_PAGES, bookTab, nativeOf, pageUrl, flipDir, sameOrigin, pageMessage, makeAsker, inLearn } from '../learn/book.js';   // 第三期第一步 (LEARN §37): 课本; 第二步 (§43): its own pages; 老师 asks the page (§46)
 import { openCheckin, checkinFor } from './checkin-card.js';   // 第二期 打卡 (LEARN §39): the lesson page's check-in, a card of the game's own
 import { quizFor, examFor, examLine, examPill, examAria } from '../learn/exam-view.js';   // 第二期 今日小考 · 周考的进度 (LEARN §41): the page's exam records
 import { LEARN_KINDS } from '../learn/forms/index.js';   // (main.js has it already: the 复习 button exists only once kind 'review' does)
@@ -1095,8 +1095,9 @@ export class Menus {
     const extra = (it) => fly(this._btn({ ...it, cls: (it.cls || 'iw-btn--menu') + ' iw-pick__extra' }));
     const quiz = today ? this._quizItem(T) : null;   // (or once the week has brought her clock, below)
     if (quiz) more.appendChild(extra(quiz));
-    // (双人: the session module is in and the device is online — the room screen says the rest)
-    if (G.net && typeof G.net.on === 'function' && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    // (双人: the session module is in and the device is online — the room screen says the rest; not in the learning version,
+    // ?in=learn: the artifact's CSP is connect-src 'self', the relay is out of its reach — LEARN §51)
+    if (G.net && typeof G.net.on === 'function' && !(typeof navigator !== 'undefined' && navigator.onLine === false) && !inLearn(typeof location !== 'undefined' ? location.search : '')) {
       more.appendChild(extra({ id: 'duo', label: '双人', sub: '和朋友联机 · 双人联机赛 · 双人合作赛', icon: GLYPHS.users, sound: 'ui_confirm', accept: () => this._go('online') }));
     }
     const home = () => { safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench()); location.href = BOOK_URL; };

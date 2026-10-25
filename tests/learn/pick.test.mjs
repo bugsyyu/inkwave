@@ -71,14 +71,15 @@ test('the cards: one per form, each starts that day in that form (startLearn({ w
   assert.match(PICK, /plan && plan\.review \? '复习日：这一周的内容串成一整圈 · 选一种玩法'/);
 });
 
-test('what else the day holds: 复习 K 个 (what reviewPlan asks, about how long), 今日小考 for her today only (LEARN §41), 双人 with the session and a network', () => {
+test('what else the day holds: 复习 K 个 (what reviewPlan asks, about how long), 今日小考 for her today only (LEARN §41), 双人 with the session and a network — never in the learning version (?in=learn: its CSP keeps the relay out of reach)', () => {
   assert.match(PICK, /const R = reviewSize\(wk, due\);\n\s*if \(R\.n > 0 && !more\.querySelector\('\.iw-btn--review'\)\) \{/);
   assert.match(PICK, /label: `复习 \$\{R\.n\} 个`/);
   assert.match(PICK, /` · 约 \$\{Math\.max\(1, Math\.round\(R\.minutes\)\)\} 分钟`/);
   assert.match(PICK, /this\._startLearn\(\{ week: at\.week, day: at\.day, kind: 'review' \}, rb\)/);
   assert.match(PICK, /const quiz = today \? this\._quizItem\(T\) : null;/);
   assert.match(PICK, /if \(today && !more\.querySelector\('\.iw-btn--quiz'\)\) \{\n\s*const q = this\._quizItem\(T\);/, 'or once the week has brought her clock');
-  assert.match(PICK, /if \(G\.net && typeof G\.net\.on === 'function' && !\(typeof navigator !== 'undefined' && navigator\.onLine === false\)\) \{\n[^\n]*id: 'duo', label: '双人'[^\n]*accept: \(\) => this\._go\('online'\)/);
+  assert.match(PICK, /if \(G\.net && typeof G\.net\.on === 'function' && !\(typeof navigator !== 'undefined' && navigator\.onLine === false\) && !inLearn\(typeof location !== 'undefined' \? location\.search : ''\)\) \{\n[^\n]*id: 'duo', label: '双人'[^\n]*accept: \(\) => this\._go\('online'\)/);
+  assert.match(M, /import \{[^}]*\binLearn\b[^}]*\} from '\.\.\/learn\/book\.js';/);
   // DOM writes on the pick that is up, nothing once it has moved on
   assert.match(PICK, /if \(this\._pickTok !== tok \|\| this\.current !== 'main'\) return;/);
 });
