@@ -18,7 +18,7 @@ import {
   mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock, LEARN,
 } from '../config.js';
 import * as LOOK from '../game/character-style.js';
-import { G } from '../core/ctx.js';
+import { G, on } from '../core/ctx.js';
 import {
   computeAwards, medalMarkup, awardBadge, awardIcon, rankEmblem, rankTier, RANK_TIERS, inkBurst, InkWipe, createPreview,
   sweepEdge, sweepClip, splatClip, splatCover, skinSwatch, irisSwatch, outfitIcon, tagArt, inkBand, dripsSVG, computeBossAwards,
@@ -50,6 +50,10 @@ const FROM_APP = typeof location !== 'undefined' && new URLSearchParams(location
 // 双人合作赛 only. One switch: config LEARN.appLearnOnly (false gives the App the whole menu back); the web and ?lang=en (the
 // original INKWAVE, even inside the App) never change.
 const APP_LEARN = FROM_APP && isZh && LEARN.appLearnOnly !== false;
+// 选游戏方式 (LEARN §49; the owner 10-21: 「原来的界面跟流程就蛮好的 现在的游戏很好，我觉得可以给游戏加一个单独入口，我们可以点进去之后
+// 选择游戏方式」): in her App the first screen after the title is the pick (_scr_pick, on the 'main' screen). One switch: config
+// LEARN.appPick (false: the game-first main menu of 10-17); ?lang=en is the original INKWAVE as before
+const APP_PICK = FROM_APP && isZh && LEARN.appPick !== false;
 // 游戏为主体（IELTS-Base docs/GAME-FIRST.md 第一期）: her App opens here — her course's today from the lesson page (learn/app.js);
 // the book's 老师 page moves it on after she imports the week her course goes on to (LEARN §46: the lesson page says it again)
 let APP_TODAY = typeof location !== 'undefined' ? appToday(location.search) : null;
@@ -72,6 +76,19 @@ function reviewK(wk, due) {
   if (!REVIEW_OK || typeof learnApi.reviewPlan !== 'function' || !due.length) return 0;
   try { const r = learnApi.reviewPlan(wk, due); return Math.max(0, (r && r.reviewOf && +r.reviewOf.n) | 0); } catch (e) { return 0; }
 }
+// 选游戏方式 (LEARN §49): the review card says how many and about how long — reviewPlan's own reviewOf ({ n: 0 }: no card)
+function reviewSize(wk, due) {
+  if (!REVIEW_OK || typeof learnApi.reviewPlan !== 'function' || !due.length) return { n: 0, minutes: 0 };
+  try { const o = (learnApi.reviewPlan(wk, due) || {}).reviewOf || {}; return { n: Math.max(0, +o.n | 0), minutes: Math.max(0, +o.minutes || 0) }; } catch (e) { return { n: 0, minutes: 0 }; }
+}
+// the pick's three cards: what each way to play is like, in a line (LEVELS §2.1–§2.3), with the time it really keeps — a day's
+// content is the same in all three (the course's own minutes, said once on the pick's head)
+const PICK_FORMS = [
+  { id: 'puzzle', icon: GLYPHS.key, what: '一个人走，一道门一道门地答，答对门就开', pace: '不计时，慢慢来' },
+  { id: 'race', icon: GLYPHS.bolt, what: `和 ${LEARN.race.bots} 个机器人游一圈，游进答对的那道墨幕`, pace: '钟只记圈时间，没有「时间到」' },
+  { id: 'duel', icon: GLYPHS.swords, what: `${LEARN.duel.allies + 1} 对 ${LEARN.duel.enemies} 抢区域，答对一题泼一片墨`, pace: `一道门一轮，每轮 ${LEARN.duel.roundMin / 60}–${LEARN.duel.roundMax / 60} 分钟` },
+];
+const hmZh = (m) => (m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}` : `${m} 分钟`);
 // room codes (the session generates them from this set: no O/0, I/1)
 const CODE_ABC = 'BCEFGHJKLMNPQRTUVXYZ23456789';   // as session.js: no O/0, I/1, and no W/A/S/D (menu keys)
 const TEAM_LABEL = [t('lb.alpha'), t('lb.bravo')];
@@ -305,6 +322,7 @@ export class Menus {
     this._raf = requestAnimationFrame(this._loop);
     if (NETMOCK) import('../net/mock.js').then((m) => { this._mockMod = m; }, (e) => console.error('[menus] netmock', e));
     this._news = new WhatsNew(this);   // "What's New" launch cards (src/ui/news.js): once per update, on the first main menu
+    if (APP_PICK) on('learn:done', () => this._pickResults());   // (选游戏方式, LEARN §49: the results card's 换一种玩法 · 回到工作台)
   }
 
   // ================================================================ public API
@@ -927,6 +945,7 @@ export class Menus {
 
   // ================================================================ SCREEN: main
   _scr_main() {
+    if (APP_PICK) return this._scr_pick();   // (her App: 选游戏方式, LEARN §49 — the menu below is the web's, and the App's with LEARN.appPick false)
     const prof = this._profile();
     const lo = this._loadout();
     const W = this._weapons()[lo.weapon];
@@ -1025,6 +1044,127 @@ export class Menus {
       },
       onBack: () => { this._sfx('ui_back'); this.show('title', { back: true }); },
     };
+  }
+
+  // ================================================================ SCREEN: main in her App — 选游戏方式 (LEARN §49)
+  // The App opens on the workbench again (the owner 10-21); its 游戏 entry comes here (?from=app&today=wXdY). One day's content
+  // — her today, or the day the last level played (a level's 换一种玩法 comes back to it) — and a card per way to play it: the
+  // three forms (every day plays as any of them: design.js alt), the planned one in her ink and marked 推荐; then what else the
+  // day holds: 复习 K 个 once its week has loaded, 今日小考 when the lesson page offers one today (LEARN §41), 双人 when the room
+  // can be reached; under them 选别的一天 · 课程地图 · 回到工作台. The panel is the main menu's own glass (.iw-main__menu);
+  // its layout is §49's section at the end of ui.css. 课本 and 今天的打卡 are not here: the workbench has them (code kept).
+  _scr_pick() {
+    const T = APP_TODAY && APP_TODAY.inGame ? APP_TODAY : null;
+    const CW = courseWeeks(), s = this._settings();
+    const P0 = this._pickAt && CW.has(this._pickAt.week) ? this._pickAt : null;
+    const at = P0 ? { week: P0.week, day: P0.day } : T ? { week: T.week, day: T.day } : { week: CW.has(+s.learnWeek) ? +s.learnWeek : 1, day: clamp(+s.learnDay || 1, 1, LEARN.days) };
+    // (today: the day is her course's today; with done=1 the lesson page has finished today's and names the next day — 下一天)
+    const today = !!(T && at.week === T.week && at.day === T.day), next = today && T.done;
+    const tok = (this._pickTok = {});
+    let plan = planFor(at.week, at.day), rec = (plan && plan.form) || 'puzzle';
+    const lead1 = h('span', { class: 'iw-pick__lead1' }), lead2 = h('span', { class: 'iw-pick__lead2' });
+    let prog = null;   // (the day's scored items she has answered, once the week has loaded: store.progress)
+    const setLead = () => {
+      lead1.textContent = next ? '今天的课学完了 · 想提前学下一天，就选一种玩法' : plan && plan.review ? '复习日：这一周的内容串成一整圈 · 选一种玩法' : '选一种玩法：三种学的都是这一天的全部内容';
+      lead2.textContent = [next ? '想再练学过的：选别的一天' : '', prog && prog.total > 0 ? `答过 ${prog.done} / ${prog.total} 题` : '', plan && plan.minutes ? `课程约 ${hmZh(plan.minutes)}` : ''].filter(Boolean).join(' · ');
+    };
+    setLead();
+    const lead = h('div', { class: 'iw-pick__lead' }, lead1, lead2);
+    const title = h('div', { class: 'iw-pick__title iw-display' }, '…');
+    const head = h('header', { class: 'iw-pick__head iw-in iw-in--down' },
+      h('div', { class: 'iw-pick__eyebrow' }, (next ? '下一天 · ' : today ? '今天 · ' : '') + `第 ${at.week} 周 · 第 ${at.day} 天`), title, lead);
+    const fly = (b) => { b.classList.add('iw-in', 'iw-in--left'); return b; };
+    // (a day that is not her today — the last level's, from 选关 or the map: one tap back to today)
+    if (T && !today) head.appendChild(this._btn({ id: 'pick-today', label: '回到今天的内容', icon: GLYPHS.sun, cls: 'iw-btn--menu iw-pick__totoday', sound: 'ui_click',
+      accept: () => { this._pickAt = null; this.show('main', { force: true }); } }));
+    const cards = PICK_FORMS.map((f) => {
+      const sub = [h('span', { class: 'iw-pick__what' }, f.what), h('span', { class: 'iw-pick__pace' }, f.pace)];
+      const b = fly(this._btn({ id: 'pick-' + f.id, label: FORM_ZH[f.id], sub, icon: f.icon, cls: 'iw-btn--menu iw-btn--xl iw-pick__form', sound: 'ui_confirm',
+        accept: () => this._startLearn({ week: at.week, day: at.day, kind: f.id }, b) }));
+      b.dataset.form = f.id;
+      return b;
+    });
+    const mark = (form) => cards.forEach((b) => {
+      const hit = b.dataset.form === form, r = b.querySelector('.iw-pick__rec');
+      b.classList.toggle('iw-btn--primary', hit); b.classList.toggle('is-rec', hit);
+      if (hit && !r) b.appendChild(h('span', { class: 'iw-pick__rec' }, today && !next ? '今天推荐' : '推荐'));
+      else if (!hit && r) r.remove();
+    });
+    mark(rec);
+    const more = h('div', { class: 'iw-pick__more' });
+    const extra = (it) => fly(this._btn({ ...it, cls: (it.cls || 'iw-btn--menu') + ' iw-pick__extra' }));
+    const quiz = today ? this._quizItem(T) : null;   // (or once the week has brought her clock, below)
+    if (quiz) more.appendChild(extra(quiz));
+    // (双人: the session module is in and the device is online — the room screen says the rest)
+    if (G.net && typeof G.net.on === 'function' && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      more.appendChild(extra({ id: 'duo', label: '双人', sub: '和朋友联机 · 双人联机赛 · 双人合作赛', icon: GLYPHS.users, sound: 'ui_confirm', accept: () => this._go('online') }));
+    }
+    const home = () => { safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench()); location.href = BOOK_URL; };
+    const row = h('div', { class: 'iw-pick__row' },
+      fly(this._btn({ id: 'learn', label: '选别的一天', icon: GLYPHS.flag, cls: 'iw-btn--menu iw-pick__sec', accept: () => this._go('learn') })),
+      fly(this._btn({ id: 'map', label: '课程地图', icon: GLYPHS.map, cls: 'iw-btn--menu iw-pick__sec', sound: 'ui_confirm', accept: () => this._go('map') })),
+      fly(this._btn({ id: 'home', label: '回到工作台', icon: GLYPHS.exit, cls: 'iw-btn--menu iw-pick__sec', sound: 'ui_confirm', accept: home })));
+    const corner = h('div', { class: 'iw-pick__corner iw-in iw-in--down' },
+      this._btn({ id: 'locker', label: t('main.locker'), icon: GLYPHS.hanger, cls: 'iw-btn--menu iw-pick__mini', accept: () => this._go('locker') }),
+      this._btn({ id: 'settings', label: t('main.settings'), icon: GLYPHS.gear, cls: 'iw-btn--menu iw-pick__mini', accept: () => this._go('settings') }));
+    const menu = h('nav', { class: 'iw-main__menu iw-pick__menu', 'aria-label': '选游戏方式' }, head, h('div', { class: 'iw-pick__forms' }, cards), more, row);
+    const el = h('div', { class: 'iw-screen iw-main iw-pick' },
+      h('div', { class: 'iw-scrim-left' }),
+      h('div', { class: 'iw-main__logo iw-in iw-in--down', html: logoMarkup(GAME_TITLE, t('logo.sub'), 'sm') }),
+      corner, menu,
+      this._prompts([['Enter', 'A', t('p.select')], ['Esc', 'B', t('p.title')]]));
+    // the week: the day's title, its planned form (a pack's week knows it only now), 复习 K 个, 今日小考 (its clock) — DOM writes
+    // on the pick that is up, nothing once it has moved on
+    loadWeek(at.week).then((wk) => {
+      if (this._pickTok !== tok || this.current !== 'main') return;
+      const d = (wk.days || []).find((x) => x.d === at.day || Number(x.n) === at.day);
+      title.textContent = (d && d.title) || wk.title || `第 ${at.week} 周`;
+      restartAnim(title, 'is-in');
+      try { prog = learnStore.progress(wk, at.day); } catch (e) { prog = null; }
+      const P = planFor(at.week, at.day);
+      if (P) plan = P;
+      setLead();
+      if (P && P.form !== rec) {
+        const was = cards.find((b) => b.dataset.form === rec);
+        rec = P.form; mark(rec);
+        const now = cards.find((b) => b.dataset.form === rec);
+        if (now && this._focus === was) this._setFocus(now, { snap: true });
+      }
+      let due = []; try { due = learnStore.due(wk); } catch (e) { due = []; }
+      const R = reviewSize(wk, due);
+      if (R.n > 0 && !more.querySelector('.iw-btn--review')) {
+        const rb = extra({ id: 'review', label: `复习 ${R.n} 个`, sub: '这一周该复习的词 · 一关清掉' + (R.minutes ? ` · 约 ${Math.max(1, Math.round(R.minutes))} 分钟` : ''), icon: GLYPHS.reset,
+          cls: 'iw-btn--menu iw-btn--review', sound: 'ui_confirm', accept: () => this._startLearn({ week: at.week, day: at.day, kind: 'review' }, rb) });
+        more.prepend(rb);
+      }
+      if (today && !more.querySelector('.iw-btn--quiz')) {
+        const q = this._quizItem(T);
+        if (q) { const qb = extra(q), r = more.querySelector('.iw-btn--review'); if (r) r.after(qb); else more.prepend(qb); }
+      }
+    }).catch(() => { if (this._pickTok === tok) title.textContent = '这一周的课还没接上'; });
+    return {
+      el, wrap: true, initial: () => cards.find((b) => b.dataset.form === rec) || cards[0],
+      // (a short phone: the panel scrolls — the focused card stays in it)
+      onFocus: (f) => { if (f && menu.contains(f) && menu.scrollHeight > menu.clientHeight + 1) f.scrollIntoView({ block: 'nearest' }); },
+      onBack: () => { this._sfx('ui_back'); this.show('title', { back: true }); },
+    };
+  }
+
+  // 选游戏方式 (LEARN §49): a level's results card in her App — 再来一关 as it is, 回到菜单 says 换一种玩法 (it is quitToMenu:
+  // back on the pick, the same day), and 回到工作台 under them. Written after the card is (the forms fill it right after
+  // learn:done); never on a two-player room's card (coop2 / versus2 word their own)
+  _pickResults() {
+    setTimeout(() => {
+      const H = G.hud && G.hud.learn, m = G.match;
+      const btns = H && H.results_ && H.results_.querySelector('.iw-learn__rbtns');
+      if (!btns || !H.rMenu || G.netm || !m || !m.learn) return;
+      const lab = H.rMenu.querySelector('span');
+      if (lab) lab.textContent = '换一种玩法';
+      if (btns.querySelector('.iw-learn__home')) return;
+      const b = h('button', { class: 'iw-learn__btn iw-learn__big is-dim iw-learn__home', type: 'button' }, h('i', { html: GLYPHS.exit }), h('span', null, '回到工作台'));
+      b.addEventListener('click', () => { this._sfx('ui_confirm'); safeCall(() => learnStore.flushWorkbench && learnStore.flushWorkbench()); location.href = BOOK_URL; });
+      btns.appendChild(b);
+    }, 0);
   }
 
   // ================================================================ SCREEN: mode (offline Play: Turf War | Zone Control | Boss Battle)
@@ -1401,10 +1541,10 @@ export class Menus {
     if (ciBtn) {
       ciPaint(); this._fx(ciBtn);
       this._bind(ciBtn, { id: 'cmap-checkin', accept: () => {
+        // (the map that is up when it closes says it: a turn of the phone while the card was open draws a new one, LEARN §49)
         openCheckin({ week: T.week, day: T.day, from: 'map', onClose: (r) => {
-          if (!r || !r.saved || this._scr !== scr) return;
-          ciPaint(); paint(); restartAnim(ciBtn, 'is-stamp');
-          const k = T.week === st.week ? nodes[T.day - 1] : null; if (k) restartAnim(k, 'is-cistamp');
+          const s = this._scr;
+          if (r && r.saved && this.current === 'map' && s && typeof s.ciSaved === 'function') s.ciSaved();
         } });
       } });
     }
@@ -1434,6 +1574,8 @@ export class Menus {
     if (mq && mq.addEventListener) mq.addEventListener('change', turn);
     scr = {
       el, initial: first,
+      // (today's 打卡 saved over this map: the pill, today's node and its sticker, the stamp)
+      ciSaved: ciBtn ? () => { ciPaint(); paint(); restartAnim(ciBtn, 'is-stamp'); const k = T.week === st.week ? nodes[T.day - 1] : null; if (k) restartAnim(k, 'is-cistamp'); } : null,
       onNav: (dir) => {
         if (dir === 'tab_prev' || dir === 'tab_next') { weekSeg.adjust(dir === 'tab_prev' ? -1 : 1); return true; }
         return false;
@@ -1647,16 +1789,23 @@ export class Menus {
   _startLearn(st, from = null) {
     if (this._starting) return;
     this._starting = true;
+    // (选游戏方式, LEARN §49: the pick comes back on the day a level played — 换一种玩法 is that day in another form)
+    if (st.kind !== 'boss') this._pickAt = { week: st.week, day: st.day };
     if (this._scr) {
       this._scr.el.classList.add('is-launch');
       this._burstAt(from || this._scr.el.querySelector('.iw-btn--start, .iw-btn--today'), { count: 18, dist: 11, size: 1.4, ring: true });   // (from: the map's node, the 复习 button)
       this._sfx('splat_big');
     }
+    const from0 = this.current;
     this._runWipe(() => {
       this._starting = false;
-      safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
-      if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关)
+      const run = safeCall(() => this.api.startLearn && this.api.startLearn({ week: st.week, day: st.day, kind: st.kind }));
+      if (this.current === 'learn' || this.current === 'main') this.show(null, { instantLeave: true });   // (main: 游戏为主体's 开始今天的关, the pick's cards)
       else if (this.current === 'map') this.show(null, { instantLeave: true });   // (第二期: a node of the course map)
+      // (a level that cannot be built — its week does not load, a day without a plan: main.js toasts why and starts nothing.
+      // The screen she came from comes back instead of leaving her on the bare stage, LEARN §49)
+      const back = () => { if (G.mode !== 'match' && this.current === null && !this._starting) this.show(['learn', 'map'].includes(from0) ? from0 : 'main'); };
+      Promise.resolve(run).then(back, back);
     });
   }
 

@@ -119,7 +119,9 @@ test('no English UI strings left on her path (the screens of menus.js she sees, 
   const mod = menus.slice(menus.indexOf('const SETTINGS_TABS'), menus.indexOf('const durLabel'));   // the settings rows / blurbs
   const screens = ['_scr_loading', '_scr_title', '_scr_main', '_scr_learn', '_scr_pause', '_scr_pauseLearn', '_learnSnapshot', '_scr_settings', '_controlsList', '_scr_howto', '_scr_credits', '_toggle', '_slider', '_seg', '_header', '_btn',
     // I (LEARN §17): every other screen reachable from the App's main menu — the online hub, the room, a lost room
-    '_scr_online', '_scr_lobby', '_roomGone', '_nameRow', '_scr_loadout', '_scr_locker', '_lockerSlots', '_scr_results'];
+    '_scr_online', '_scr_lobby', '_roomGone', '_nameRow', '_scr_loadout', '_scr_locker', '_lockerSlots', '_scr_results',
+    // 选游戏方式 (LEARN §49): her App's first screen in the game, and what it adds to a level's results card
+    '_scr_pick', '_pickResults'];
   const parts = [['menus.js settings rows', mod], ['menus.js MENU_DESC', menus.slice(menus.indexOf('const MENU_DESC'), menus.indexOf('const pctFmt'))], ...screens.map((n) => [`menus.js ${n}`, method(menus, n)])];
   // the module's word tables those screens read: team labels, emotes, room-code errors (the splashtag titles' English list
   // stays as the data: its Chinese is i18n.js TITLE_ZH, index for index), times of day, modes, stat names
