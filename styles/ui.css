@@ -27,8 +27,8 @@
   --fs-s: max(12px, calc(var(--u) * .95));
   --fs-m: max(13.5px, calc(var(--u) * 1.1));
   --fs-l: max(16px, calc(var(--u) * 1.4));
-  --a: #ff8a14; --a-rgb: 255,138,20; --a-dark: #b8620f; --a-deep: #6a3a12; --a-light: #ffc48a; --a-ink: #15121c;
-  --b: #2f5bff; --b-rgb: 47,91,255; --b-dark: #2442b4; --b-deep: #1d2766; --b-light: #98b0ff; --b-ink: #ffffff;
+  --a: #ff8a14; --a-rgb: 255,138,20; --a-dark: #b8620f; --a-deep: #6a3a12; --a-light: #ffc48a; --a-ink: #15121c; --a-hi: #ffbf7d; --a-on: #15121c;
+  --b: #2f5bff; --b-rgb: 47,91,255; --b-dark: #2442b4; --b-deep: #1d2766; --b-light: #98b0ff; --b-ink: #ffffff; --b-hi: #bbcaff; --b-on: #ffffff;
   position: absolute; inset: 0;
   font-family: 'Rubik', system-ui, sans-serif; font-weight: 500;
   color: #fff; line-height: 1.2;
@@ -3469,7 +3469,7 @@ html.iw-glass .iw-seg { background: rgba(0, 0, 0, .42); box-shadow: inset 0 0 0 
 html.iw-glass .iw-seg__hl { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, var(--a-light) -40%, var(--a) 45%);
   box-shadow: var(--g-line), var(--g-edge-on), inset 0 -4px 6px rgba(0, 0, 0, .2), 0 0 14px rgba(var(--a-rgb), .4); }
 html.iw-glass .iw-seg__opt { letter-spacing: .02em; color: rgba(255, 255, 255, .9); }
-html.iw-glass .iw-seg__opt.is-sel { color: var(--a-ink); }
+html.iw-glass .iw-seg__opt.is-sel { color: var(--a-on, var(--a-ink)); }   /* (on her ink: bubblegum's white was 3.3 : 1, LEARN §53) */
 html.iw-glass .iw-seg__opt.is-wait:not(.is-sel) { color: rgba(255, 255, 255, .5); }
 
 /* ---- the loading screen: the bar a glass tube with its fill lit, the tip a glass strip, its tag a label */
@@ -3495,7 +3495,7 @@ html.iw-glass .iw-book__rings i { box-shadow: var(--g-line), inset 0 1px 0 #fff,
 html.iw-glass .iw-book__tab { border-radius: var(--r-2) var(--r-2) 4px 4px; filter: none; color: var(--k);
   background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 86%, rgba(255, 255, 255, .9)), color-mix(in srgb, var(--c) 90%, transparent));
   box-shadow: var(--g-line), var(--g-edge), inset 0 -10px 12px -8px rgba(0, 0, 0, .25); }
-html.iw-glass .iw-book__tab:not(.is-on) { opacity: .9; }
+html.iw-glass .iw-book__tab:not(.is-on) { opacity: .96; }   /* (.9 let a dusk stage through: 考试's dark text 4.49 : 1, LEARN §53) */
 html.iw-glass .iw-book__tab.is-on { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c) 70%);
   box-shadow: var(--g-line), var(--g-edge-on), 0 -4px 18px color-mix(in srgb, var(--c) 55%, transparent); }
 html.iw-glass .iw-book__tab:active { box-shadow: var(--g-btn-down); }
@@ -3511,8 +3511,8 @@ html.iw-glass :is(.iw-bp-btn, .iw-bp-tab, .iw-bp-chip, .iw-bp-del, .iw-book__tab
    panels and rows are glass lying on the page's glass (no blur of their own: they scroll) */
 html.iw-glass .iw-bp { font-family: var(--f-text); }
 html.iw-glass .iw-bp-btn { border-radius: 999px; background: var(--gb-milk); box-shadow: var(--g-btn-l); transition: transform .45s var(--spring2); }
-html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save) { --gh: var(--a-rgb); color: var(--a-ink, var(--k));
-  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .86), rgba(var(--gh), .94)); }
+html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save) { --gh: var(--a-rgb); color: var(--a-on, var(--k));
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .9), rgba(var(--gh), .96)); }   /* (≥ .88: bubblegum's black text keeps 4.5 : 1 over the darkest page) */
 html.iw-glass :is(.iw-bp-btn--ghost, .iw-ci__later) { color: #fff; background: var(--gb-dark); box-shadow: var(--g-btn); }
 html.iw-glass .iw-bp-btn.is-down, html.iw-glass :is(.iw-ci__save, .iw-ci__later).is-down { transform: translateY(3px) scale(1.03, .92); transition-duration: 0s; box-shadow: var(--g-btn-down); }
 html.iw-glass :is(.iw-bp-btn, .iw-ci__save):disabled { opacity: .55; filter: saturate(.4); box-shadow: var(--g-line), var(--g-edge); }
@@ -3539,6 +3539,13 @@ html.iw-glass .iw-bp-note::before { box-shadow: none; border-radius: 0 4px 4px 0
 html.iw-glass :is(.iw-bp-note__ex, .iw-bt-notes, .iw-bg-prompt__t) { border-radius: var(--r-1); background: rgba(10, 7, 20, .34); }
 html.iw-glass .iw-bp-note__en { font-family: var(--f-text); font-weight: 600; text-shadow: none; }
 html.iw-glass :is(.iw-bp-sec, .iw-bp-day__d, .iw-bt-pack__t) { font-weight: 600; }
+/* her ink as small text on the glass — the English kickers over the titles and the sections, the log's days, 老师's pills:
+   a dark ink lifted toward white to a floor of luminance (colorVars --a-hi; tangerine, bubblegum went under 4.5 : 1 on the
+   cards' lit top), on a faint dark halo (soft, no offset); text on a face of her ink is --a-on (LEARN §53) */
+html.iw-glass :is(.iw-bp__kicker, .iw-bp-sec small, .iw-bp-day__n, .iw-bp-day__t, .iw-bt-pill) { color: var(--a-hi, var(--a-light)); text-shadow: 0 0 2px rgba(10, 7, 20, .6), 0 0 10px rgba(10, 7, 20, .7); }
+/* (the tapes of 记一条 and 打卡 stay stickers; their ink-black words on her ink down to the ink itself, not its dark: bubblegum's
+   --a-dark under 记一条 was 4.17 : 1) */
+html.iw-glass :is(.iw-bps__tape, .iw-ci__tape) { background: linear-gradient(180deg, var(--a-light), var(--a) 55%); }
 html.iw-glass .iw-bp-del::before { box-shadow: inset 0 0 0 1.5px rgba(240, 138, 122, .55), inset 0 1px 0 rgba(255, 255, 255, .18); background: rgba(240, 138, 122, .08); }
 html.iw-glass .iw-bp-del.is-armed::before { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, rgba(255, 179, 165, .95), rgba(240, 138, 122, .92) 55%, rgba(216, 112, 95, .94));
   box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 14px rgba(240, 138, 122, .5); }
@@ -3582,8 +3589,8 @@ html.iw-glass :is(.iw-bps, .iw-ci).is-reduced.is-in :is(.iw-bps__vp, .iw-ci__vp)
 html.iw-glass :is(.iw-bps, .iw-ci).is-reduced.is-out :is(.iw-bps__vp, .iw-ci__vp) { opacity: 0; }
 /* 打卡: the moods are glass tiles (the picked one in her hue, lit), the face a milky bead */
 html.iw-glass .iw-ci__mood { border-radius: var(--r-3); rotate: 0deg; background: var(--gb-dark); box-shadow: var(--g-btn); }
-html.iw-glass .iw-ci__mood.is-on { --gh: var(--a-rgb); color: var(--a-ink, var(--k)); transform: translateY(-3px);
-  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .82), rgba(var(--gh), .92));
+html.iw-glass .iw-ci__mood.is-on { --gh: var(--a-rgb); color: var(--a-on, var(--k)); transform: translateY(-3px);
+  background: var(--glass-streak), var(--gb-sheen), linear-gradient(172deg, rgba(var(--gh), .9), rgba(var(--gh), .96));
   box-shadow: var(--g-line), var(--g-edge-on), var(--clay), var(--g-drop), 0 0 22px rgba(var(--a-rgb), .5); }
 html.iw-glass .iw-ci__mood.is-down { transform: translateY(2px) scale(1.03, .93); box-shadow: var(--g-btn-down); transition-duration: 0s; }
 html.iw-glass .iw-ci__mood b { text-shadow: none; }

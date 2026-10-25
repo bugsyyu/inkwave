@@ -8,7 +8,8 @@
 //   const keys = new PlayKeys(root, { mode: 'word' | 'sentence', color: '#ff8a14', replay: true })
 //   keys.onKey = (k) => {}        a typed character ('a'…'z', ' ', "'", '-', '.', ',', '?')
 //   keys.onBackspace = () => {}   ⌫
-//   keys.onSubmit = (text) => {}  射 / Enter with what was typed (never empty)
+//   keys.onSubmit = (text) => {}  射 / Enter with what was typed (never empty: with nothing typed the keyboard shakes once
+//                                 and says what to do instead — LEARN §53)
 //   keys.onHint = () => {}        提示 (the flow records H, per the host's rules)
 //   keys.onReplay = () => {}      ▶
 //   keys.show() · keys.hide() · keys.setMode(mode) · keys.setColor(hex) · keys.setText(text) · keys.clear()
@@ -18,7 +19,7 @@
 //                 from the top of the screen to the bottom (the typing frame goes there: src/learn/play/type/split.js)
 //   PlayKeys.owns(event) — true for a pointer event on the keyboard (the touch layer must skip those, see §19)
 // Nothing here knows an answer: no key, no text, no colour depends on whether anything is right (PLAY §1.3).
-import { h, prefersReducedMotion } from './ui-util.js';
+import { h, prefersReducedMotion, restartAnim } from './ui-util.js';
 import { safeInsets } from './safe-area.js';
 import { keyboardLayout, keyLabel, keyOfEvent, keysFor } from '../learn/play/type/keys.js';
 
@@ -62,6 +63,15 @@ const CSS = `
 .iw-pk__strip i { display: inline-block; width: 3px; height: 24px; margin-left: 3px; border-radius: 2px; background: var(--self); animation: iw-pk-caret 1s steps(1) infinite; }
 .iw-pk__strip b { font-weight: 400; }
 .iw-pk__strip.is-empty b { color: rgba(255,255,255,.35); font-family: 'Rubik', 'PingFang SC', system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0; }
+/* 射 with nothing typed (LEARN §53): the keyboard shakes once (transform only; never with reduced motion) and the strip says
+   what to do until she types — on a turned phone, where there is no strip, a tip over the pad that holds 射 */
+.iw-pk__panel.is-nope { animation: iw-pk-nope .34s linear; }
+@keyframes iw-pk-nope { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+.iw-pk__strip.is-nope { justify-content: flex-start; }
+.iw-pk__strip.is-nope b { color: #ffd76a; font-size: 13px; line-height: 1.3; white-space: pre-line; }
+.iw-pk__tip { position: absolute; display: none; max-width: 300px; padding: 8px 12px; border-radius: 14px; translate: 0 -100%; pointer-events: none; white-space: pre-line;
+  background: rgba(17,15,24,.94); box-shadow: 0 0 0 2px #15121c, inset 0 1px 0 rgba(255,255,255,.12); color: #ffd76a; font: 600 14px / 1.35 'Rubik', 'PingFang SC', system-ui, sans-serif; }
+.iw-pk__tip.is-nope { display: block; }
 @keyframes iw-pk-caret { 50% { opacity: 0; } }
 .iw-pk.is-off .iw-pk__strip i { animation-play-state: paused; }   /* (the keyboard away: the caret stops blinking — LEARN §50) */
 .iw-pk.is-landscape .iw-pk__k { font-size: 21px; border-radius: 10px; }
@@ -77,7 +87,7 @@ const CSS = `
 .iw-pk.is-split.is-off .iw-pk__half, .iw-pk.is-split.is-off .iw-pk__k, .iw-pk.is-split.is-off .iw-pk__b { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .iw-pk__panel { transition: opacity .2s; } .iw-pk.is-off .iw-pk__panel { transform: none; opacity: 0; }
-  .iw-pk__k, .iw-pk__k.is-pop { transition: none; animation: none; } .iw-pk__strip i { animation: none; } }
+  .iw-pk__k, .iw-pk__k.is-pop { transition: none; animation: none; } .iw-pk__strip i { animation: none; } .iw-pk__panel.is-nope { animation: none; } }
 `;
 
 const ICON = {
@@ -92,6 +102,8 @@ function ensureCss() {
   cssDone = true;
   document.head.appendChild(h('style', { id: 'iw-pk-css' }, CSS));
 }
+// the strip's words while it is empty, and after a 射 with nothing typed (two short lines; 提示 is on every layout: keys.js)
+export const EMPTY = '打字，按「射」发射', NOPE = '先打几个字母，再按「射」\n不会就按「提示」', NOPE_MS = 3200;
 
 // (env(safe-area-inset-*) in px: the page's own variables, src/ui/safe-area.js — LEARN §48)
 
@@ -109,8 +121,10 @@ export class PlayKeys {
     // (play-7: the split's two pads, behind the keys; shown only in landscape)
     this.halfEls = [h('div', { class: 'iw-pk__half is-l' }), h('div', { class: 'iw-pk__half is-r' })];
     for (const el of this.halfEls) this.panel.appendChild(el);
-    this.strip = h('div', { class: 'iw-pk__strip is-empty', 'aria-live': 'polite' }, h('b', null, '打字，按「射」发射'), h('i'));
+    this.strip = h('div', { class: 'iw-pk__strip is-empty', 'aria-live': 'polite' }, h('b', null, EMPTY), h('i'));
     this.panel.appendChild(this.strip);
+    this.tip = h('div', { class: 'iw-pk__tip', 'aria-live': 'polite' });
+    this.panel.appendChild(this.tip);
     this.keyEls = new Map(); this.btnEls = new Map();
     // every key either mode can need, built once; a layout only places / hides them
     for (const k of keysFor('sentence')) {
@@ -197,14 +211,34 @@ export class PlayKeys {
   setText(text) {
     this.text = String(text || '');
     const b = this.strip.querySelector('b');
+    this._nopeOff();
     this.strip.classList.toggle('is-empty', !this.text);
-    b.textContent = this.text || '打字，按「射」发射';
+    b.textContent = this.text || EMPTY;
     return this;
   }
   clear() { return this.setText(''); }
   setHintUsed(used) { this.btnEls.get('hint').classList.toggle('is-used', !!used); return this; }
   show() { this.visible = true; this.el.classList.remove('is-off'); return this; }
-  hide() { this.visible = false; this.el.classList.add('is-off'); this._stopRepeat(); return this; }
+  hide() { this.visible = false; this.el.classList.add('is-off'); this._stopRepeat(); this._nopeOff(); return this; }
+
+  // 射 with nothing typed: it did nothing at all (she could not tell it was heard). Now the keyboard shakes once — reduced
+  // motion: it does not — and the strip (turned: a tip over the pad that holds 射) says what to do, until she types or
+  // NOPE_MS; nothing is sent
+  _nope() {
+    const L = this._layout, fire = L && L.keys.find((r) => r.key === 'fire'), pad = L && L.halves && fire ? L.halves.find((r) => fire.x >= r.x && fire.x < r.x + r.w) : null;
+    if (pad) {
+      const st = this.tip.style;
+      st.left = 'auto'; st.right = Math.max(8, innerWidth - fire.x - fire.w) + 'px'; st.top = (pad.y - L.top - 8) + 'px';   // (over the pad, flush with 射)
+      this.tip.textContent = NOPE; this.tip.classList.add('is-nope');
+    } else { this.strip.querySelector('b').textContent = NOPE; this.strip.classList.add('is-nope'); }
+    if (!prefersReducedMotion()) restartAnim(this.panel, 'is-nope');
+    clearTimeout(this._nopeT);
+    this._nopeT = setTimeout(() => { if (!this.text) this.setText(''); else this._nopeOff(); }, NOPE_MS);
+  }
+  _nopeOff() {
+    clearTimeout(this._nopeT); this._nopeT = 0;
+    this.panel.classList.remove('is-nope'); this.strip.classList.remove('is-nope'); this.tip.classList.remove('is-nope');
+  }
 
   _flash(el) {
     if (!el) return;
@@ -221,7 +255,7 @@ export class PlayKeys {
       return;
     }
     if (k === 'fire') {
-      if (!this.text.trim()) return;
+      if (!this.text.trim()) { this._nope(); return; }
       const t = this.text;
       this.onSubmit && this.onSubmit(t);
       return;
@@ -243,7 +277,7 @@ export class PlayKeys {
   _stopRepeat() { clearTimeout(this._rt); clearInterval(this._ri); this._repeatId = null; }
 
   destroy() {
-    this._stopRepeat();
+    this._stopRepeat(); clearTimeout(this._nopeT);
     removeEventListener('keydown', this._kd, true); removeEventListener('resize', this._rs); removeEventListener('orientationchange', this._rs);
     removeEventListener('pointerup', this._up, true); removeEventListener('pointercancel', this._up, true);
     this.el.remove();
