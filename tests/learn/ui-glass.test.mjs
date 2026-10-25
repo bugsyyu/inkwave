@@ -296,3 +296,27 @@ test('the bookmarks: the ink-black name on every bookmark\'s colour ≥ 4.5 : 1 
     assert.ok(c >= 4.5, `${b.label} ${b.c}: ${c.toFixed(2)} : 1`);
   }
 });
+
+// 10-25 (main session, after LEARN §53): the pages' small grey words — --muted #c3bdd6: a day's 「周日」 in the log's 60 days,
+// counts, dates, captions, hints, the chart's days — measured 4.12 : 1 on a card's lit top over a bright stage (bubblegum, a
+// book-only run of IELTS-Base tools/game/ui-glass-shots.mjs); they get the faint halo her ink's small text has (none on the
+// chart's today, dark words on her ink)
+test('the book pages\' small grey words (--muted) are on the same faint halo under the glass — every one of them', () => {
+  const GREY = 'html.iw-glass :is(.iw-bp__count, .iw-bp-note__d, .iw-bp-muted, .iw-bp-cap, .iw-bp-bar__l, .iw-bp-day__w, .iw-bp-field__hint)';
+  const r = R.find((x) => x.sel === GREY);
+  assert.ok(r, 'the rule');
+  const halo = decl(r.body, 'text-shadow');
+  for (const s of halo.split(/,(?![^(]*\))/)) assert.match(s.trim(), /^0 0 \d+px rgba\(10, 7, 20, \.\d+\)$/, 'a soft halo, no offset: ' + s);
+  const today = R.find((x) => x.sel === 'html.iw-glass .iw-bp-bar.is-today .iw-bp-bar__l');
+  assert.equal(today && decl(today.body, 'text-shadow'), 'none', 'not on the chart\'s today (dark words on her ink)');
+  const covered = GREY.slice(GREY.indexOf('(') + 1, -1).split(', ');
+  const rest = CSS.replace(SEC, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  let n = 0;
+  for (const m of rest.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim(), c = /(?:^|;)\s*color:\s*([^;]+)/.exec(m[2]);
+    if (!/^\.iw-bp[-_]/.test(sel) || !c || c[1].trim() !== 'var(--muted)') continue;
+    n++; assert.ok(covered.includes(sel), 'a small grey word on the book\'s pages, under the halo too: ' + sel);
+  }
+  assert.ok(n >= 7, 'found the grey words (' + n + ')');
+});
+
