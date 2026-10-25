@@ -364,7 +364,11 @@ export class LearnFlow {
     this.asking = { gate: g, item, p };   // (the live question: the forms and the audits read it)
     this.asked++;
     this._emit('learn:question', { itemId: item.id, gate: g.id, type: p.type, form: item._form || 'normal' });
-    if (this.play && this.play.canAsk(g, item, p)) { this.play.ask(g, item, p); return; }   // a thing on the stage: the world runs on
+    if (this.play && this.play.canAsk(g, item, p)) {   // a thing on the stage: the world runs on
+      // (LEARN §48 review: a station that throws — its stage geometry, a spot it cannot find — left the level on an empty question
+      // for good: nothing on the screen, no way on. It goes the way a question with no station goes — passed over, never a card)
+      try { this.play.ask(g, item, p); return; } catch (e) { console.error('[learn] station ask', item.id, e); this._emit('learn:skip', { itemId: item.id, gate: g.id, type: p.type, why: 'error' }); this._askNext(g); return; }
+    }
     // (every prompt a gate of the three weeks can ask has a station — tests/learn/play-wire.test.mjs; one without would
     // be passed over, never asked as a card)
     console.warn('[learn] no station for', item.id, p.type);

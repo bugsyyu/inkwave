@@ -5,6 +5,8 @@
 //     runner does; the touch layer dims 跳 / 潜墨 while a station holds her still
 //   · the ink targets: the fallback that lets them up when the lens never settles counted on the framing's clock, which
 //     stops at frameFor — it could never fire; it counts from the question now
+//   · a station whose ask() throws left the level on an empty question (K): it is passed over now, as a question with no
+//     station is, and the gate asks on
 // 用法：node --test tests/learn/*.test.mjs
 import { register } from 'node:module';
 register(new URL('./three-hook.mjs', import.meta.url));
@@ -14,6 +16,9 @@ import { readFileSync } from 'node:fs';
 
 const src = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
 const { BeatStation } = await import('../../src/learn/play/wire/beat.js');
+const { LearnFlow } = await import('../../src/learn/flow.js');
+const { loadWeek } = await import('../../src/learn/content.js');
+const { planDay } = await import('../../src/learn/design.js');
 
 test('the beat pads: a question she leaves unanswered goes to the back of the gate twice, then is left for another day — nothing written, the gate goes on', () => {
   const asked = [], skips = [], verdicts = [];
@@ -56,4 +61,23 @@ test('the ink targets: when the lens never settles they come up frameFor + 0.6 s
   assert.match(R, /if \(!C\.placed && !\(Fr && Fr\.on\) && \(this\._settled\(\) \|\| C\.t > M\.frameFor \+ 0\.6\)\) this\._place\(\);/);
   assert.doesNotMatch(R, /Fr\.t > M\.frameFor \+ 0\.6/, 'the framing clock stops at frameFor: that test could never pass');
   assert.match(R, /C\.t \+= dt;/, 'the question\'s clock runs every update');
+});
+
+test('a station whose ask() throws: the question is passed over (learn:skip, why error) and the gate asks on — no empty question for good', async () => {
+  const W = await loadWeek(2), P = planDay(W, 3, 'puzzle'), g0 = P.gates.find((g) => g.items.length >= 3);
+  const g = { ...g0, queue: g0.items.slice(0, 3).map((it) => ({ ...it, _tries: 0, _form: null })) };
+  const emitted = [], opened = [], asked = [];
+  let n = 0;
+  const F = Object.assign(Object.create(LearnFlow.prototype), {
+    asked: 0, level: P, _emit: (name, d) => emitted.push([name, d]), _open: (gg) => opened.push(gg),
+    play: { canAsk: () => true, ask: (gg, item) => { asked.push(item.id); if (++n <= 2) throw new Error('no spot on this stage'); } },
+  });
+  const err = console.error; console.error = () => {};
+  try { F._askNext(g); } finally { console.error = err; }
+  const skips = emitted.filter(([k]) => k === 'learn:skip').map(([, d]) => d);
+  assert.equal(skips.length, 2, 'the two that threw are passed over');
+  assert.ok(skips.every((d) => d.why === 'error' && d.gate === g.id));
+  assert.equal(asked.length, 3, 'the gate asked on: the third question is up');
+  assert.equal(F.asking.item.id, asked[2]);
+  assert.equal(opened.length, 0, 'not opened: a question is up');
 });
