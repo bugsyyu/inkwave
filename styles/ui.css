@@ -3543,6 +3543,9 @@ html.iw-glass :is(.iw-bp-sec, .iw-bp-day__d, .iw-bt-pack__t) { font-weight: 600;
    a dark ink lifted toward white to a floor of luminance (colorVars --a-hi; tangerine, bubblegum went under 4.5 : 1 on the
    cards' lit top), on a faint dark halo (soft, no offset); text on a face of her ink is --a-on (LEARN §53) */
 html.iw-glass :is(.iw-bp__kicker, .iw-bp-sec small, .iw-bp-day__n, .iw-bp-day__t, .iw-bt-pill) { color: var(--a-hi, var(--a-light)); text-shadow: 0 0 2px rgba(10, 7, 20, .6), 0 0 10px rgba(10, 7, 20, .7); }
+/* (the tapes of 记一条 and 打卡 stay stickers; their ink-black words on her ink down to the ink itself, not its dark: bubblegum's
+   --a-dark under 记一条 was 4.17 : 1) */
+html.iw-glass :is(.iw-bps__tape, .iw-ci__tape) { background: linear-gradient(180deg, var(--a-light), var(--a) 55%); }
 html.iw-glass .iw-bp-del::before { box-shadow: inset 0 0 0 1.5px rgba(240, 138, 122, .55), inset 0 1px 0 rgba(255, 255, 255, .18); background: rgba(240, 138, 122, .08); }
 html.iw-glass .iw-bp-del.is-armed::before { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, rgba(255, 179, 165, .95), rgba(240, 138, 122, .92) 55%, rgba(216, 112, 95, .94));
   box-shadow: var(--g-line), var(--g-edge-on), var(--clay), 0 0 14px rgba(240, 138, 122, .5); }

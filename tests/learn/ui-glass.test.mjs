@@ -266,6 +266,10 @@ test('her ink as small text on the glass ≥ 4.5 : 1 in all six team inks — li
   // (the map's 换周: the week picked stands on a solid face of her ink)
   assert.equal(decl(R.find((r) => r.sel === 'html.iw-glass .iw-seg__opt.is-sel').body, 'color'), 'var(--a-on, var(--a-ink))');
   for (const ink of INKS) assert.ok(cr(rgb(U.inkFace(ink)), rgb(ink)) >= 4.5, `${ink}: ${U.inkFace(ink)} on the ink itself`);
+  // (the tapes of 记一条 / 打卡: ink-black words on a gradient of her ink, its stops read off the rule — none darker than the ink)
+  const tape = decl(R.find((r) => r.sel === 'html.iw-glass :is(.iw-bps__tape, .iw-ci__tape)').body, 'background');
+  assert.deepEqual([...tape.matchAll(/var\((--a[\w-]*)\)/g)].map((m) => m[1]), ['--a-light', '--a'], tape);
+  for (const ink of INKS) for (const stop of [U.shade(ink, 0.45), ink]) assert.ok(cr(rgb('#15121c'), rgb(stop)) >= 4.5, `${ink}: the tape at ${stop}`);
   // the page's defaults (before the menus set her ink) are colorVars' own for the default ink
   for (const [n, hex] of [['a', '#ff8a14'], ['b', '#2f5bff']]) {
     assert.match(CSS, new RegExp(`--${n}-hi: ${U.inkLift(hex)};`), `--${n}-hi default`);
