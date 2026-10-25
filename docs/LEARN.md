@@ -2675,3 +2675,37 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 看了、没改、记下的：（合了 `wf-softlock` 以后）学习关里藏着的小地图开局照样建一次栅格和底图（`_build()`：构造时的空闲回调、开局的 `setViewerTeam`；Node 量的 8 张图每张 50–285 ms），在黑场里，不在玩的时候；要省，得等它第一次露面再建，又牵扯 `wf-softlock` 的 `is-nomap` 什么时候挂上——没做。`frameFor` 记的答案满 48 个整个清空（墨字帧的词框差不多每题一个新键，几十题就清一次，当时那一带的打字帧也跟着重算一次——现在一次只要几毫秒），换成按最近用的淘汰更好——不是错，没改。
 - **复查（第四轮，10-25 主会话核完）**：10-22 第三次重启后的复查子代理读到——她的 iPhone（Safari 26 / WebKit 7622 起）上 JavaScriptCore 的 `Math.hypot` 换成了 `std::hypot`，不是 Kahan 归一的形式（上面「拿不准的」1 读源码的那一句是旧版本的）；主会话没再核 WebKit 的源码，下面的修法两种引擎都对。修补写了一半就被「立刻停止」打断（`wip/wf-perf-cpu-review4-1022` `27e38eb`，没跑测试）：`hyp2 / hyp3` 先探一次引擎（1 024 组随机数，和 Kahan 形式逐位比），是 Kahan 就用 JS 里的那份（V8：不装箱），不是就用引擎自己的 `Math.hypot`——取景搜索在两种引擎上都和改前逐位相同。`type-frame.test` 那一条换一个非 Kahan 的 `Math.hypot`（逐项平方和再开方）重新载入模块：探针认出来、`hyp2 / hyp3` 和它逐位相同、`frameFor` 和改前一样。主会话 10-25 把它并进开发分支（`6f2db1b`，提交说明还写着「未验证」——推送过的历史不改），合并后的开发分支 `test:learn` 503 / 503。
 - **合并后主会话另修的**（10-25，交接里列的）：跑酷每答对一题的 flood，这一行的 region 是一次性的（每答一题建一个新的），它的四边形和轮廓原来一直留在 `_floodPrep` 里、到关卡 reset 才清——现在 `runner.js` 给它带 `once: true`，`paint.js _floodStep` 在这一场 flood 结束、没有别的 flood 还在这个 region 上时还掉；区域赛自己的 region 照旧留着（`cpu.test` 加一条，没修时失败）。
+
+## 54. wf-logic 交付（2026-10-25，子代理，分支 `wf-logic`：玩法逻辑那一批——她点的球被同一题的另一颗挡住就永远不算答；Boss 的节奏；竖屏没有摇杆时的「走近」「躲一下」）
+
+**先读了什么**：主会话的任务书（`common-1025.md`、`logic.md`）、排查 X1 的 J / Q 两条（主会话草稿 `audits-1021/deadends/report.md`）、`src/learn/play/hit.js`、`run.js`、`arena/run.js`（对抗赛 / Boss 的点射子弹本来就穿过别的球，46–54 行）、`forms/boss.js`、`boss/bossBrain.js`（出招的冷却：一招结束 `cool = 1.05–1.85 s × pace`；闲着时 `cool ≤ 0` 就计划下一招）、`core/touch.js`（竖屏学习关里左半屏按下去才有摇杆，平时看不见）、`tools/learn/tap-walk.mjs` 的「15 s 什么都没发生」怎么数（关卡自己在走、没在问、屏上没有可点的路，签名 = 答题数 | 门 | 题 | 阶段 不变超过 15 s 游戏时间）、PLAY §1 第 5 条和 §3 M5、§48「没做的 5」（Boss 15 段）、§50 的 perf-probe 交接。
+
+**先定的**：
+1. **「挡住」和「打偏」怎么分**（J）：她点了 X，这颗带标记（这一题、这一颗）的子弹碰到的却是同一题的另一颗 Y——**X 还在这颗子弹的前路上**就是「挡住」：X 的球心在子弹前方，离子弹的切线不超过 X 的半径 + pad（+ 0.1 m），再算上子弹还要掉下去的那截（`dropAhead`：shooter 34 m/s、直飞 0.13 s 后 28 m/s² 带阻力——`_ballistic` 为了落到 X 把枪口抬高了，子弹在直飞段碰到 Y 时切线还在 X 上方，弧线只往下弯，所以把 X 的球心抬 0 / ½ / 1 个 drop 各试一次）。挡住 → 子弹**穿过 Y 接着飞**，不溅、不收，碰到 X 才算答 X；同一步里就同时碰到 Y 和 X（Y 在 X 正前面、两球相叠）→ 当场算答 X。X 不在前路上（在子弹后面、或离线太远）就是「打偏」→ 照旧：溅在 Y 上，`deliberate` 为 false，不算答（`play.test.mjs`「打偏到另一颗不算答」那条原样过）。偏向「挡住」：解谜里带标记的子弹一律是从枪口零散布瞄着 X 的球心射出的，多判成「挡住」的代价只是少溅一下，少判的代价是永远收不到答。为什么是穿过不是绕开：对抗赛 / Boss 的 `ArenaRun` 从 play-9 起就让点射子弹穿过别的球（它把别的球暂时设成 inactive 再查），画面上早就是这样；解谜的题物不动、子弹不修正，所以能查「X 还在前路上」，流弹的溅照旧留着。两条规矩并存：Arena 的包在外层，先把别的球关掉，所以 Arena 里走不到新分支。
+2. **Boss 的节奏**：题的时间（`askT`）**不管 Boss 在不在出招都走**（它上场、没在吼、她没被溅倒时）；题本身还是在**两招之间**出；一到点（`askT ≤ 0`）起每帧 `_holdBoss`（冷却顶在 `bossHold` 0.6 s）——下一招不再先开；Boss 正在出招就等**这一招结束的那一帧**出题。所以两题之间最多一招：答对 → 结果 → Boss 自由出一招（原来就这样：出题时冷却顶在 0.6 s，题一收它 0.6 s 内就出招）→ 招一完题就来；答错 → `_bossMove` 强制一招，`askT = dodge`（3 s；原来 `dodge + 2` 要攒 5 s 的**空档**），这一招就是她的躲，招一完题就来。原来的 15 段：`askT` 和 `_nearWait` 只在 Boss 闲着时才减，一招之后的空档只有 1–1.85 s，答错后的 5 s 要攒两三招，离得远时的 8 s 要攒四到八招（分散在一分钟里）。压力没减：Boss 还是每答一题出一招（强制的或自由的），只是不会连出两招让题干等。
+3. **竖屏 = 没有看得见的摇杆**（Q）：`landscape.js noStick()` = 触屏（`G.input.touch.active`）且 `innerHeight > innerWidth`。那时 Boss **不等她走近**（`_canWalk()` 为假就跳过 `bossWait` 那段等待），选项直接做成对抗赛那种题簇朝 Boss 飘过来（原来 8 s 后的那条路，`ArenaRun._place` 的 `bossNear(1.5)` 分支），不说「走近 Boss——答案挂在它的弱点上」；「答错了 — 躲一下！」换成「答错了 — Boss 要出招了」。横屏 / 桌面照旧等她最多 `bossWait` 8 s——现在是**真的 8 秒**（不是 8 秒空档），等的时候扣住出招（请她走近、同时打她，说不通）。
+
+**改了什么**（inkwave，`8906dd2` 起；IELTS-Base 没动）：
+- `071b712` `src/learn/play/hit.js`：`ShotTargets.shotHit` 的挡住 / 打偏分支；`onPath(p, target, pad, spheres)`、`dropAhead(p, dist)` 新（纯函数，Node 测）；`segSpheres(…, out, only)` 多一个 `only`（只查某个选项的球）。`tests/learn/play.test.mjs` 新一条（没修时第一个断言就失败：溅在 Y 上、X 永远不收）。`docs/PLAY.md` §1 第 5 条旁加一句（只加）。
+- `75a4f00` `src/learn/forms/boss.js`：`update()` 出题那段按「先定的 2 / 3」重写；`_canWalk()` 新；`_bossMove` 的 `askT` 和说法。`src/learn/play/landscape.js noStick()` 新。`src/config.js` `LEARN.boss.askGap / dodge` 的注释照实改（数没变）。`tests/learn/boss-pace.test.mjs` 新（5 条：竖屏远处马上出题、横屏等 8 s / 她走近就出 / 等完照出、出招中到点则招完那一帧出且扣住下一招、吼 / 上场前 / 被溅倒时不走表、答错 `askT = dodge` 和两种说法；换回旧 `boss.js` 时 4 条失败）。
+
+**核过的（排查写的 ↔ 实际）**：J 说「`run.js:357` 要过 1.4 s 才让她再点」不对——`shoot()` 不查 `this.shot`，再点照样转身开枪，1.4 s 只是 `shot` 记录的寿命（给 `_drift` 和 Arena 的重放用）；卡死在于几何不变、每一发都被同一颗挡——现在不挡了，`run.js` 没改。J 的 `hit.js:93-101`「只认最近的那颗」对。Q 的 `boss.js:162 / :247` 对。「8 s 后选项会自己飘过来」只在 Boss 闲着的时间累计到 8 s 时才对（见先定的 2）。
+
+**测试**：`npm run test:learn` 503 → **509** 全过（+1 `play`、+5 `boss-pace`）；`npm run check` 320 个文件 syntax ok（测试文件不计）；证据快照改前 / 改后逐字节相同（`cmp`），sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`、128 270 个情形（hit.js 不在判分路上，照任务书跑了）；浏览器只跑 1 次：`tap-walk --learn w2d3 --kind boss --view portrait --keep`（下面）。
+
+**tap-walk（Boss，竖屏 390 × 844，iPhone 安全区）**：改前（§48，合并后的 `8906dd2`）15 段「关卡自己在走、15 s 什么都没发生」；改后 **0 段**，而且在 15 分钟的预算内把周考**打完了**（`until met: done`：三个阶段都开、`done`，关卡时钟 443.5 s、墙钟 827 s 含加载；466 次采样、43 题、494 次点按、没有一刻没路走、页面错误 0、4xx 0；`--keep`，`fails: []`）。同一台机器、同时另有子代理在跑。命令：`flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/tap-walk.mjs --learn w2d3 --kind boss --view portrait --keep --shots <草稿目录>/shots-boss --out <草稿目录>/tapwalk-boss-after.json`。两张截图（回声亭的板框住、看全文条）看过已删；看的时候注意到 S 段回声亭的板在竖屏里被舞台的一根缆绳横着挡了一行字（w2d3 的舞台，板立在她面前 2.6 m 处）——不是这一批的活，记在这里。
+
+**拿不准的（自己定了）**：
+1. 「竖屏 = 不能走」按 §48 / `flow.js` 的说法（竖屏没有摇杆，自动走代替）定的；其实 `touch.js` 在竖屏学习关里左半屏按下去也是摇杆，只是没有任何东西告诉她。要是以后竖屏画出摇杆，`noStick()` 改一处就行。
+2. 答错后的 `askT = dodge`（3 s）：招多半比 3 s 长，所以题几乎总是「招一完就来」；`dodge` 只在 Boss 没能出招（没有目标）时起作用。要是业主觉得招一完马上出题太紧，加回 `askGap` 即可（`_bossMove` 一行）。
+3. 答对后 Boss 的那一招照旧「自由」（原来就有，LEVELS §2.5 写的是「只在她答完以后出招」，没说答对不出）；没改成「答对不出招」，怕把压力拿掉。
+4. 挡住时让子弹「穿过」Y 而不是绕开：和 Arena 一致、改动最小；穿过去的那一瞬 Y 不溅不闪，看起来像子弹从它前面飞过——真机上要看一眼。
+5. `dropAhead` 用一阶的阻力修正（`T *= 1 + ½·drag·T`），不是 `_ballistic` 的逐步积分——只用来放宽「在前路上」的判断，误差朝「挡住」那边。
+6. 答错后的强制一招有可能被取消：`_bossMove` 后 `askT = dodge`（3 s），瞄准类的招要先转过来对着她（最多 2.4 s，转不过来就 `cool = 0.3` 重想）；要是 3 s 内还没开出来，到点的 `_holdBoss` 会把 `plan` 清掉，题就来了、这一招没出。原来 5 s 空档很少碰上。多半是对的结果（不卡死比一招重要），写下来给业主定：要不要把 `dodge` 加大到盖住一次转身。
+
+**没做的**：
+- 第 3 条 perf-probe 其余场景前后：没时间（tap-walk 一次要 15 分钟）。命令照 §50 交接：`node tools/learn/perf-probe.mjs --frames 8 --real 6 --scene runner|duel|review|menu|boot [--query '&rung=2'] --json <文件>`，改前在 `/home/user/inkwave/.claude/worktrees/k-base`（`088c6dd`，只读）、改后在 `wf-logic` 头上，各一次。
+- 没在真机上看「穿过 Y」的画面和竖屏 Boss 的新节奏。
+- 对抗赛的 `askNear / askWait`（她离区域远时等 6 s）没动——不在任务书里，而且那里本来就在等满后照出题。
+
+**交接**：inkwave 分支 `wf-logic`（从 `8906dd2` 建）；IELTS-Base 没有改动（`app/game` 由主会话同步，合并后八个游戏 e2e 由主会话跑）。改到的文件：`src/learn/play/hit.js`、`src/learn/forms/boss.js`、`src/learn/play/landscape.js`、`src/config.js`（只有 `LEARN.boss` 两行注释）、`docs/PLAY.md`（§1 第 5 条一句）、`tests/learn/play.test.mjs`、`tests/learn/boss-pace.test.mjs`（新）、`docs/LEARN.md`（只有这一节）。和 `wf-ui-polish`（`styles/*.css`、`forms/ui.js`、`play-keys.js`、`type/shot.js`、书页）不重叠；`docs/LEARN.md` 末尾会冲突（§53 / §54 的先后，主会话排）。

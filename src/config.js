@@ -625,8 +625,10 @@ export const LEARN = {
   boss: {
     phaseTime: { L: 840, R: 840, W: 600, S: 360 },   // s per phase (EXAM: 14 / 14 / 10 / 6 min)
     squad: 3,                 // squad bots beside her (they fight for show; only she hurts the boss)
-    askGap: 2.0,              // s after a verdict before the next question (the boss is between moves)
-    dodge: 3,                 // s she gets to dodge after a wrong answer's move before the next question
+    askGap: 2.0,              // s after a verdict before the next question is due (it comes between moves — LEARN §54: due
+                              // mid-move, it comes the frame the move ends; once due, no further move starts before it)
+    dodge: 3,                 // s from a wrong answer's move being called before the next question is due (the move itself is
+                              // her dodge: the question comes the frame it is over, at the earliest this long on — §54)
     stunStreak: 5,            // a streak this long stuns the boss once
   },
   quiz: { n: 8, minutes: 6 }, // 今日小考: one duel round after the exit (days 1–6)

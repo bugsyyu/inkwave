@@ -27,7 +27,7 @@ import { judgeRecord } from '../play/judge.js';   // the one judging path (play-
 import { FormsUi } from './ui.js';
 import { ArenaHost } from '../play/arena/host.js';
 import { arenaAltPrompt } from '../play/arena/alt.js';
-import { landscapePhone } from '../play/landscape.js';
+import { landscapePhone, noStick } from '../play/landscape.js';
 
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const WEAK = ['eyeL', 'eyeR', 'belly'];
@@ -153,19 +153,27 @@ export class BossFlow extends LearnFlow {
       }
       this._phaseDone(g, 'cleared'); return;
     }
-    // between its moves: idle, visible, no roar / intro running → the next question
-    const idle = b.visible && !b.move && b.anim === 0 && !b.invuln;
-    if (idle && (!this.arena || (m.local && m.local.alive))) {   // (题即玩法: never while she is splatted — the camera is not hers)
-      this.askT -= dt;
-      if (this.askT <= 0) {
-        // (题即玩法: a choice hangs on its weak points — the boss waits up to LEARN.arena.bossWait s for her to come within
-        // bossNear m, once saying so; then the options come towards it within her shot)
-        if (g.phase !== 'S' && this.arena && this._farFromBoss() && (this._nearWait += dt) < this.A.bossWait) { if (!this._nearSaid) { this._nearSaid = true; this.ui.say('走近 Boss——答案挂在它的弱点上'); } return; }
-        this._nearWait = 0; if (this._nearSaid) { this._nearSaid = false; this.ui.say(''); }
-        if (g.phase === 'S') this._card(g); else this._ask(g);
-      }
-    }
+    // the next question comes between its moves (idle: no move, no roar). Its time (askT) runs whatever the boss is doing —
+    // a move included — once it is on stage and not roaring, and never while she is splatted (题即玩法: the camera is not
+    // hers). LEARN §54: it used to run only while the boss idled, so 「躲一下」's seconds took two or three more moves to run
+    // out, and a far-off player waited through 8 s of idle gaps spread over a minute; now a question that falls due
+    // mid-move comes the frame that move ends, and from the moment it is due the brain is held (_holdBoss) so no further
+    // move slips in first — at most one move between two questions
+    if (!b.visible || b.anim !== 0 || (this.arena && !(m.local && m.local.alive))) return;
+    this.askT -= dt;
+    if (this.askT > 0) return;
+    this._holdBoss();
+    if (b.move || b.invuln) return;
+    // (题即玩法: a choice hangs on its weak points — the boss waits up to LEARN.arena.bossWait s for her to come within
+    // bossNear m, once saying so; then the options come towards it within her shot. §54: not when she has nothing to walk
+    // with — a touch screen held upright shows no stick — then the options come towards it at once, nothing asked of her)
+    if (g.phase !== 'S' && this.arena && this._canWalk() && this._farFromBoss() && (this._nearWait += dt) < this.A.bossWait) { if (!this._nearSaid) { this._nearSaid = true; this.ui.say('走近 Boss——答案挂在它的弱点上'); } return; }
+    this._nearWait = 0; if (this._nearSaid) { this._nearSaid = false; this.ui.say(''); }
+    if (g.phase === 'S') this._card(g); else this._ask(g);
   }
+  // can she walk towards it / out of its way? Not on a touch screen held upright (LEARN §54): no stick is shown there, so
+  // 「走近」 and 「躲一下」 are not hers to do — the boss asks nothing of her that she cannot see how to do
+  _canWalk() { return !noStick(); }
 
   // ---------------------------------------------------------------------------------------------- questions (L / R / W)
   // (题即玩法: the boss's brain runs after the learn layer in a frame — match.update — so a question asked this frame must
@@ -240,12 +248,14 @@ export class BossFlow extends LearnFlow {
     else this.askT = this.B.askGap;
   }
   // a wrong answer: the boss gets a move of its phase (telegraphed ≥ 0.6 s); she dodges, then the next question
+  // (LEARN §54: the move itself is her dodge — the next question is due LEARN.boss.dodge s from here and comes the frame the
+  // move is over; before, dodge + 2 s counted only while the boss idled, which took two or three more moves to run out)
   _bossMove(g) {
     const b = this.boss, moves = (g.moves && g.moves.length ? g.moves : ['slam']).filter((id) => id !== 'crablets' || b.phase >= 2).filter((id) => id !== 'frenzy' || b.phase >= 3);
     const id = moves[(this.rnd() * moves.length) | 0] || 'slam';
     if (b.brain) { b.brain.force = id; b.brain.cool = 0; b.brain.plan = null; }
-    this.askT = this.B.dodge + 2.0;
-    this.ui.say('答错了 — 躲一下！', { coral: true });
+    this.askT = this.B.dodge;
+    this.ui.say(this._canWalk() ? '答错了 — 躲一下！' : '答错了 — Boss 要出招了', { coral: true });
     this._emit('learn:bossMove', { move: id });
   }
   // a weak-point hit (her answer): through applyDamage so the bar, chip, numbers and phases are the boss's own

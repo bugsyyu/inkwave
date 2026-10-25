@@ -19,17 +19,22 @@
 //                           round; only a deliberate one — tagged for this very object and this serial — may answer.
 //                           Splash, blasts' bursts, bombs, specials and trail drips never come here (they are not
 //                           rounds along a segment): only a direct hit can answer.
+//                           挡住 is not 打偏 (LEARN §54; PLAY §1 rule 5): the live question's tagged round meeting ANOTHER
+//                           object of the same question is let through (false, no splat) while its own object still lies
+//                           ahead on its path — the one she tapped stands behind this one as seen from her muzzle — and
+//                           answers when it reaches it (in this very step too: onPath / segSpheres `only`); a tagged round
+//                           whose own object is behind it or off its line is a stray: it splats where it hit, answers nothing
 //     through(p) → bool     a round tagged for the live question: weapons.js lets it through the world (scenery between
 //                           her muzzle and the object never eats a tap-shot; only reaching the object answers)
 //     clear()
 const _out = { t: 0, index: -1, dist: 0, point: { x: 0, y: 0, z: 0 } };
 
-export function segSpheres(a, b, pad, spheres, out = _out) {
+export function segSpheres(a, b, pad, spheres, out = _out, only = -1) {   // (only ≥ 0: that target's spheres alone)
   let best = null, bi = -1, bt = 0;
   const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z, L2 = abx * abx + aby * aby + abz * abz || 1e-9;
   for (let i = 0; i < spheres.length; i++) {
     const h = spheres[i];
-    if (h.active === false) continue;
+    if (h.active === false || (only >= 0 && h.target !== only)) continue;
     let t = ((h.x - a.x) * abx + (h.y - a.y) * aby + (h.z - a.z) * abz) / L2;
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     const px = a.x + abx * t - h.x, py = a.y + aby * t - h.y, pz = a.z + abz * t - h.z;
@@ -77,10 +82,45 @@ export function plankSpheres(c, ax, w, h, target, out, k = 0) {
   return k;
 }
 
+// the drop a round still makes before it is `dist` m further along its path: its tangent now passes above where it will
+// be by at most this (weapons.js _step: straight for p.straight s from launch, then p.grav down with p.drag — the drag only
+// keeps it in the air a little longer, first order here). 0 for a round without gravity.
+export function dropAhead(p, dist) {
+  const v = p.vel, sp = v ? Math.hypot(v.x, v.y, v.z) : 0;
+  if (!(sp > 0.01) || !(p.grav > 0)) return 0;
+  let T = dist / sp; T *= 1 + 0.5 * (p.drag || 0) * T;
+  const fall = Math.max(0, T - Math.max(0, (p.straight || 0) - (p.age || 0)));
+  return 0.5 * p.grav * fall * fall;
+}
+
+// does a sphere of `target` still lie ahead of the round on its path? Its tangent from p.pos (p.vel, else the step's
+// direction) passes within the sphere's radius + pad of its centre — or of the centre lifted by the drop the round still
+// makes over that distance (the arc only bends down: a blocker met early in the flight is met while the tangent still
+// points above the ball she tapped). A sphere behind the round never counts.
+export function onPath(p, target, pad, spheres) {
+  const v = p.vel && Math.hypot(p.vel.x, p.vel.y, p.vel.z) > 0.01 ? p.vel : { x: p.pos.x - p.prev.x, y: p.pos.y - p.prev.y, z: p.pos.z - p.prev.z };
+  const sp = Math.hypot(v.x, v.y, v.z); if (!(sp > 1e-6)) return false;
+  const dx = v.x / sp, dy = v.y / sp, dz = v.z / sp;
+  for (let i = 0; i < spheres.length; i++) {
+    const h = spheres[i];
+    if (h.target !== target || h.active === false) continue;
+    const ox = h.x - p.pos.x, oy = h.y - p.pos.y, oz = h.z - p.pos.z;
+    if (ox * dx + oy * dy + oz * dz <= 0) continue;   // behind it
+    const R = h.r + pad + 0.1, drop = dropAhead(p, Math.hypot(ox, oy, oz));
+    for (let s = 0; s <= 2; s++) {
+      const ly = oy + drop * s * 0.5, al = ox * dx + ly * dy + oz * dz;
+      const px = ox - dx * al, py = ly - dy * al, pz = oz - dz * al;
+      if (px * px + py * py + pz * pz <= R * R) return true;
+    }
+  }
+  return false;
+}
+
 export class ShotTargets {
   constructor() {
     this.spheres = []; this.serial = 1; this.onHit = null;
     this._h = { t: 0, index: -1, dist: 0, point: { x: 0, y: 0, z: 0 } };
+    this._h2 = { t: 0, index: -1, dist: 0, point: { x: 0, y: 0, z: 0 } };
   }
   set(spheres, serial) { this.spheres = spheres || []; if (serial != null) this.serial = serial; }
   clear() { this.spheres = []; }
@@ -92,9 +132,18 @@ export class ShotTargets {
   through(p) { return !!(p && p.playTag) && this.spheres.length > 0 && ((p.playTag - 1) >> 4) === this.serial; }
   shotHit(p) {
     if (!this.spheres.length || !p || p.ghost) return false;
-    const h = segSpheres(p.prev, p.pos, (p.size || 0.15) * 0.6, this.spheres, this._h);
+    const pad = (p.size || 0.15) * 0.6;
+    const h = segSpheres(p.prev, p.pos, pad, this.spheres, this._h);
     if (!h) return false;
     const target = this.spheres[h.index].target;
+    if (p.playTag && p.playTag !== this.tagOf(target) && this.through(p)) {
+      // 挡住 / 打偏 (LEARN §54): another object of this question stands where her tap-shot flies. Her own object further
+      // along this same step: that one answers now. Her own object still ahead on its path: the round flies on through
+      // this one (no splat, no answer yet). Her own object behind it or off its line — a stray: it splats here, answers nothing
+      const own = (p.playTag - 1) % 16, h2 = segSpheres(p.prev, p.pos, pad, this.spheres, this._h2, own);
+      if (h2) { this.onHit?.(own, h2.point, true, p); return true; }
+      if (onPath(p, own, pad, this.spheres)) return false;
+    }
     const deliberate = !!p.playTag && p.playTag === this.tagOf(target);
     this.onHit?.(target, h.point, deliberate, p);
     return true;
