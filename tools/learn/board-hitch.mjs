@@ -10,8 +10,12 @@
 // on the walks between (software GL at DPR 3 takes seconds a frame; nothing of the boards happens there); each drawn frame
 // keeps what it drew (triangles, draw calls) and where the lens was — a drawn frame's time is mostly the software GL's.
 // Not a pass / fail: the numbers go into LEARN §48 (> 200 ms in one frame is what item 6 splits).
+// ms is the main thread's _frame only. On software GL the GPU is the bottleneck (seconds a drawn frame at DPR 3) and the main
+// thread waits for its backlog either between frames or inside a GL call once the command buffer is full — so ms alone can
+// differ 1000× where the GPU's work does not (LEARN §48 review, 10-25). Each frame also keeps wall (the step's round trip) and,
+// with --fence, gpu (a fence after the frame, polled until done: its own GPU cost, no backlog); compare those across builds.
 //   node tools/learn/board-hitch.mjs [--cpu 4] [--dpr 3] [--learn w2d3] [--gate 0] [--view portrait|landscape] [--json <file>]
-//        [--profile] (a CPU profile of the walk after gate 2: the functions that took the time)
+//        [--profile] (a CPU profile of the walk after gate 2: the functions that took the time) [--fence]
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/board-hitch.mjs …
 import http from 'node:http';
 import fs from 'node:fs';
@@ -85,15 +89,20 @@ const PROFILE = args.includes('--profile');
 say('playing; CPU', CPU + '×');
 // one stepped, drawn frame: its main-thread time, and the board costs inside it
 const frames = [];
+const FENCE = args.includes('--fence');
 async function step(n = 1, what = '', draw = true) {
   for (let i = 0; i < n; i++) {
-    const r = await ev((dr) => {
+    const w0 = Date.now();
+    const r = await ev(async ([dr, fence]) => {
       const H = window.__bh, k = H.up.length, t = performance.now(); __inkwave._skipRender = !dr;
       try { __inkwave._frame(1 / 30); } finally { __inkwave._skipRender = false; }
       const ms = performance.now() - t, F = __inkwave.match.learn, W = F && F.play && F.play.boards && F.play.boards.walk, inf = __G.renderer.info.render;
-      return { ms, parts: H.up.slice(k).map((u) => [u[0], u[1], +u[2].toFixed(1)]), tris: dr ? inf.triangles : 0, calls: dr ? inf.calls : 0, lens: __inkwave.rig && __inkwave.rig.mode, framed: W ? W.framed : -1, auto: !!(F && F.auto), phase: F && F.phase };
-    }, draw);
-    frames.push({ what, ms: +r.ms.toFixed(1), parts: r.parts, drawn: draw, tris: r.tris, calls: r.calls, lens: r.lens, framed: r.framed, auto: r.auto, phase: r.phase });
+      const out = { ms, parts: H.up.slice(k).map((u) => [u[0], u[1], +u[2].toFixed(1)]), tris: dr ? inf.triangles : 0, calls: dr ? inf.calls : 0, lens: __inkwave.rig && __inkwave.rig.mode, framed: W ? W.framed : -1, auto: !!(F && F.auto), phase: F && F.phase };
+      // (--fence: the frame's GL work done on the GPU — a fence after it, polled)
+      if (fence && dr) { const gl = __G.renderer.getContext(), s = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); while (gl.getSyncParameter(s, gl.SYNC_STATUS) !== gl.SIGNALED) await new Promise((ok) => setTimeout(ok, 1)); gl.deleteSync(s); out.gpu = performance.now() - t; }
+      return out;
+    }, [draw, FENCE]);
+    frames.push({ what, ms: +r.ms.toFixed(1), wall: Date.now() - w0, gpu: r.gpu != null ? +r.gpu.toFixed(1) : null, parts: r.parts, drawn: draw, tris: r.tris, calls: r.calls, lens: r.lens, framed: r.framed, auto: r.auto, phase: r.phase });
   }
 }
 const state = () => ev(() => { const F = __inkwave.match.learn, H = F.play, W = H.boards.walk; return { phase: F.phase, cur: F.cur, auto: F.auto, framed: W ? W.framed : -1, boards: W ? W.list.length : 0, read: W && W.framed >= 0 ? W.read(W.framed) : null, strip: W ? W.strip.isOpen : false }; });
@@ -167,7 +176,7 @@ const worst = frames.slice().sort((a, b) => b.ms - a.ms).slice(0, 6).map((f) => 
 // the boards' own work in one frame: painting, the strip, their faces' uploads (1024-px canvases) — not the world's
 const isBoard = (p) => p[0] === 'paint' || p[0] === 'strip' || ((p[0] === 'tex' || p[0] === 'sub') && /Canvas[^:]*:1024x/.test(p[1]));
 const boardMs = frames.map((f) => f.parts.filter(isBoard).reduce((a, p) => a + p[2], 0)), pathMs = frames.map((f) => f.parts.filter((p) => p[0] === 'path').reduce((a, p) => a + p[2], 0));
-for (const [k, b] of Object.entries(summary)) { const fr = frames.filter((f) => f.what === k); b.tris = pct(fr.map((f) => f.tris || 0), 0.5); b.lens = [...new Set(fr.map((f) => f.lens))].join(','); b.framed = fr.some((f) => f.framed >= 0); }
+for (const [k, b] of Object.entries(summary)) { const fr = frames.filter((f) => f.what === k); b.tris = pct(fr.map((f) => f.tris || 0), 0.5); b.lens = [...new Set(fr.map((f) => f.lens))].join(','); b.framed = fr.some((f) => f.framed >= 0); b.wall50 = pct(fr.map((f) => f.wall), 0.5); if (FENCE) b.gpu50 = pct(fr.filter((f) => f.gpu != null).map((f) => f.gpu), 0.5); }
 const out = { cpu: CPU, dpr: DPR, view: V, learn: LEARN_Q, gate: GATE, one, prof, summary, worst, boardsInOneFrameMax: +Math.max(...boardMs).toFixed(1), pathInOneFrameMax: +Math.max(0, ...pathMs).toFixed(1), longTasks: { n: lt.length, over200: lt.filter((x) => x[1] > 200).length, max: lt.reduce((m, x) => Math.max(m, x[1]), 0) }, errors: errs };
 console.log('[board-hitch] ' + JSON.stringify(out, null, 1));
 if (OUT) fs.writeFileSync(OUT, JSON.stringify({ ...out, frames }, null, 1));
