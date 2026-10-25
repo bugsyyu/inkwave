@@ -1518,7 +1518,10 @@ export class HUD {
   _drawTank(dt, sub, low, nosub) {
     const T = this._tank, c = this.tankCtx, cv = this.tankCanvas;
     const dpr = Math.min(2, devicePixelRatio || 1);
-    const cw = cv.clientWidth || 18, chh = cv.clientHeight || 74;
+    // (its CSS size read again only after a resize, or a second on: a layout read here — after the HUD's own writes of this
+    // frame — forced a layout every frame the tank drew; LEARN §50)
+    if (!this._tankCW || this._t - this._tankAt > 1) { this._tankCW = cv.clientWidth; this._tankCH = cv.clientHeight; this._tankAt = this._t; }
+    const cw = this._tankCW || 18, chh = this._tankCH || 74;
     const W = Math.round(cw * dpr), H = Math.round(chh * dpr);
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
     const L = this._L;
@@ -2002,6 +2005,7 @@ export class HUD {
 
   // ---------------------------------------------------------------- damage smears (fallback when ScreenFX is absent)
   _resizeCanvas() {
+    this._tankCW = 0;   // (the ink tank measures itself again: _drawTank)
     const s = 0.6;
     const w = Math.max(2, Math.round(innerWidth * s)), hh = Math.max(2, Math.round(innerHeight * s));
     if (this.canvas.width !== w || this.canvas.height !== hh) { this.canvas.width = w; this.canvas.height = hh; }

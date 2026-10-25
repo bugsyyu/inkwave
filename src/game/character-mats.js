@@ -1650,6 +1650,18 @@ export function getPlasticMaterial() {
   }
   return _plastic;
 }
+/** The same plastic for an InstancedMesh (LEARN §50): three rebuilds a material's program parameters each time it switches
+ *  between instanced and plain meshes — the typewriter's instanced bars among its plain hull did that ~10 times a frame.
+ *  Same shader, same cache key: the program is shared. */
+let _plasticInst = null;
+export function getPlasticInstMaterial() {
+  if (!_plasticInst) {
+    const p = getPlasticMaterial(), m = p.clone();
+    m.name = 'iw-plastic-inst'; m.onBeforeCompile = p.onBeforeCompile; m.customProgramCacheKey = p.customProgramCacheKey;
+    _plasticInst = m;
+  }
+  return _plasticInst;
+}
 const _inkCache = new Map();
 /** Glossy team ink for weapon parts, cached by hex. */
 export function getInkMaterial(color) {

@@ -1744,6 +1744,7 @@ circle.iw-ico-cut { fill: var(--cut, #fff); }
   inset: auto; left: 12%; right: 46%; top: calc(100% - var(--u) * .1); height: calc(var(--u) * 1.25); border-radius: 0; opacity: 1;
   background: var(--drips-hv) 0 0 / calc(var(--u) * 3.1) 100% repeat-x; transform-origin: 50% 0; animation: iw-hv-drip 2.4s ease-in-out infinite; }
 .iw-cursor.is-nodrip .iw-cursor__glow { opacity: 0 !important; }
+.iw-cursor:not(.is-on) .iw-cursor__ring, .iw-cursor:not(.is-on) .iw-cursor__glow { animation-play-state: paused; }   /* (no focus shown: nothing ticks — LEARN §50) */
 @keyframes iw-hv-drip { 0%, 100% { transform: scaleY(.55); } 55% { transform: scaleY(1); } }
 @keyframes iw-squish { 0% { scale: .92 1.08; } 35% { scale: 1.07 .94; } 65% { scale: .98 1.02; } 100% { scale: 1; } }
 @keyframes iw-wobble { 0%, 100% { rotate: -1.6deg; } 50% { rotate: 1.6deg; } }

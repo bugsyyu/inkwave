@@ -5,7 +5,7 @@ import { Renderer } from './core/renderer.js';
 import { Input } from './core/input.js';
 import { TouchControls, shouldUseTouch, isTouchDevice } from './core/touch.js';
 import { deviceInfo } from './core/device.js';
-import { RENDER_STEPS, RENDER_START, startStep, afterMatch, shouldCap, hotPower, govReadout, loadGov, saveGov } from './core/render-gov.js';
+import { RENDER_STEPS, RENDER_START, RENDER_LIVE, LiveGov, liveReadout, startStep, afterMatch, hotPower, loadGov, saveGov } from './core/render-gov.js';
 import { glassClasses, applyGlass } from './ui/ui-glass.js';
 import { mapTheme,
   DEFAULT_SETTINGS, QUALITY, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, WEAPONS, WEAPON_ORDER, WEAPON_SUCCESSOR, ZONES, SUB, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER,
@@ -158,6 +158,19 @@ class Game {
     // renderer / scene
     this.R = new Renderer(app, this.settings);
     G.renderer = this.R.renderer;
+    this._liveInit();   // (her App's live ladder, LEARN §50: the step's rungs, the session starting at 60)
+    // A match's compile() with no target bound compiles for the composer's HDR buffer (LEARN §50): three keys a program by the
+    // target bound when it compiles (the canvas: sRGB, tone-mapped; any render target: linear, none), and the learning
+    // stations' warm-ups bind none — so they built the canvas's programs and the first real frame built the right ones again.
+    {
+      const r = this.R.renderer, compile = r.compile.bind(r);   // (compileAsync calls this.compile: one wrapper covers both)
+      r.compile = (scene, camera, target) => {
+        const rt = G.mode === 'match' && r.getRenderTarget() === null ? this.R.composer?.readBuffer : null;
+        if (!rt) return compile(scene, camera, target);
+        r.setRenderTarget(rt);
+        try { return compile(scene, camera, target); } finally { r.setRenderTarget(null); }
+      };
+    }
     // Device capability probe. Reported before anything heavy runs so it arrives even when a later step dies, and it
     // is the only way to see a phone's real limits without a console on that phone.
     try {
@@ -319,7 +332,9 @@ class Game {
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
     await progress(0.93, t('boot.warm'));
     await settle(G.renderer, { beat: () => window.__gfBeat?.(), pause: nextFrame });
+    this.R.warmPasses(true);   // (every pass the step has: a rung that turns one on later builds nothing — LEARN §50)
     for (let i = 0; i < 3; i++) { this._frame(1 / 60); window.__gfBeat?.(); await nextFrame(); }   // (the post passes and the shadow pass build here)
+    this.R.warmPasses(false);
     await progress(1, t('boot.ready'));
     await new Promise((r) => setTimeout(r, 250));
 
@@ -622,6 +637,7 @@ class Game {
     if ('shadows' in partial) this.settings.shadowsChosen = true;
     saveJSON('inkwave.settings', this.settings);
     if ('quality' in partial || 'shadows' in partial || 'bloom' in partial) this.R?.applySettings(this.settings);
+    if (this.R && !!this.R.q.rungs !== !!this.live) this._liveInit();   // (a tier of her own: no ladder; the step's tier again: the ladder anew)
     if ('fullscreen' in partial && window.inkwaveNative) window.inkwaveNative.setFullScreen(!!partial.fullscreen);
     if ('master' in partial || 'music' in partial || 'sfx' in partial) this._applyAudioVolumes();
     if ('colorblind' in partial && G.mode !== 'match') this._setPalette(this._pickPalette());
@@ -959,9 +975,17 @@ class Game {
     if (params.has('lazycompile')) return;
     this._warming = true;
     try {
+      // (a puzzle's stations — the typewriter, the beat pads, the flip deck, the first gates' boards — built and compiled here
+      // behind the black, not on the level's first frames during the fade-in: its host warms once, at its _warmT — LEARN §50)
+      const P = this.match?.learn?.play;
+      if (P && P._warmT > 0 && typeof P._warmAll === 'function') { P._warmT = 0; try { P._warmAll(); } catch (e) { console.warn('[inkwave] stations warm-up', e); } }
+      this.R.checkCasters();   // (the stage's shadow casters into their depth kinds now: its first frames draw with them — LEARN §50)
       await warmScene(G.renderer, G.scene, G.camera, { target: this.R.composer?.readBuffer || warmTarget(), pause: nextFrame });
       await this._warmPaint({ pause: nextFrame });   // (a level's world has its own ink atlas: its drying pass came after the fade-in, §42)
-      this._frame(1 / 60);
+      // (with every pass the step has, as at boot: the AO's normal pass draws this stage's own kinds of mesh — a rung that
+      // turns it on mid-level builds nothing then — LEARN §50)
+      this.R.warmPasses(true);
+      try { this._frame(1 / 60); } finally { this.R.warmPasses(false); }
     } catch (e) { console.warn('[inkwave] stage warm-up', e); } finally { this._warming = false; }
   }
 
@@ -1315,8 +1339,9 @@ class Game {
   _loop(ts) {
     requestAnimationFrame((t) => this._loop(t));
     this._trackVsync(ts);
-    const cap = this.settings.fpsCap || this._autoCap || 0;   // (_autoCap: a 120 Hz screen held at 60 — _dynRes, _onPower)
+    const cap = this.settings.fpsCap || this._autoCap || 0;   // (_autoCap: her App's live ladder — 60 until 120 is earned, _liveFrame; else the heat, _onPower)
     if (cap && ts !== undefined && this._lastTs !== undefined && ts - this._lastTs < 1000 / cap - 2) return;
+    const iv = ts !== undefined && this._lastTs !== undefined ? ts - this._lastTs : 0;   // (vsync to vsync since the last drawn frame)
     this._lastTs = ts;
     this.timer.update(ts); let dt = Math.max(0, this.timer.getDelta());
     if (this.frozen || this._building || this._bookHold) return;
@@ -1324,13 +1349,12 @@ class Game {
     this.fpsAcc += dt; this.fpsN++;
     if (this.fpsAcc > 0.5) {
       this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0;
-      // 显示帧率 with her App's render step in effect: the density and the step too, for checking on her phone (render-gov.js)
-      const st = this.R?.q?.step;
-      this.fpsNote = this.settings.showFps && st != null ? govReadout(this.fps, this.R.renderer.getPixelRatio(), st, !!this._autoCap) : undefined;
+      this._liveNote();   // (显示帧率 with her App's live ladder: what it is doing, on every screen — LEARN §50)
     }
     this._dynRes(dt);
     dt = Math.min(dt, 1 / 24);
     this._frame(dt);
+    if (this.live) this._liveFrame(iv);
   }
 
   // Display refresh estimate: 10th percentile of raw rAF intervals (rAF fires every vsync while frames keep up, and
@@ -1359,7 +1383,7 @@ class Game {
   // at the target, and a down-step re-arms that allowance — see below.
   _dynRes(dt) {
     if (dt <= 0 || dt > 0.25) return;
-    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0, slow: 0, cap: 0 });
+    const d = this._dyn || (this._dyn = { acc: 0, n: 0, t: 0, fast: 0, ups: 0, slow: 0, ln: 0, ll: 0 });
     d.acc += dt; d.n++; d.t += dt;
     if (d.t < 4) return;
     const avg = d.acc / d.n, win = d.t;
@@ -1369,8 +1393,16 @@ class Game {
     if (this._gs && (this._gs.m !== m || m.state !== 'playing')) this._govEnd();
     if (this.settings.quality === 'ultra' || document.hidden || !m || m.attract || m.state !== 'playing') { d.fast = 0; return; }
     if (this._capM !== m) this._matchPower(m);
+    // her App's live ladder (LEARN §50) moves the density, the bloom, the AO and the cap frame by frame (_liveFrame); this
+    // window only keeps the match's record for the next launch's step: its late frames' share, at the floor, at the top rung
+    const L = this.live;
+    if (L) {
+      const n = L.nAll - d.ln, late = n > 0 ? (L.lateAll - d.ll) / n : 0;
+      d.ln = L.nAll; d.ll = L.lateAll;
+      this._govWin(m, win, avg, this._frameTarget() / 1000, late >= RENDER_LIVE.down60, L.rung <= 0, L.rung >= L.ceil);
+      return;
+    }
     const s = this.R.dynScale || 1, tgt = this._frameTarget() / 1000;
-    const floor = this.R.dynFloor(), atFloor = s <= floor + 0.01, slow = avg > tgt * 1.12, shed = !this.R.bloom?.enabled;
     // `ups` caps how many times the scale may climb back, so the image never pumps between sizes (re-sizing every
     // couple of seconds read as flicker). It is deliberately NOT a lifetime budget: a down-step means the device's
     // conditions actually changed, so it re-arms the allowance. Without that, one transient spike (another tab, a
@@ -1386,32 +1418,64 @@ class Game {
       if (avg < tgt * 1.04 && s < 1 && d.ups < 2 && this._capWhy !== 'hot') { if (++d.fast >= 3) { this.R.setDynamicScale(s + 0.125); d.fast = 0; d.ups++; } }
       else d.fast = 0;
     }
-    // 自动 60: past the floor density and the bloom shed, a 120 Hz screen still missing two windows in a row is held at a steady
-    // 60 (judder between 8 and 16 ms reads worse than 60 even) — with her App's render step only (render-gov.js shouldCap). The
-    // dynamic scale may climb again from there (it has the headroom now: ups re-armed). The next launch runs one step lower.
-    d.cap = slow && atFloor && shed ? d.cap + 1 : 0;
-    if (this.R.q.step != null && shouldCap({ s, floor, shed, slowWindows: d.cap, targetMs: this._vs?.ms || 0, cap: this.settings.fpsCap || this._autoCap })) {
-      this._autoCap = 60; this._capWhy = 'slow'; d.cap = 0; d.ups = 0; d.fast = 0;
+  }
+
+  // ---- her App's live ladder (LEARN §50; config.js RENDER_RUNGS / RENDER_LIVE, src/core/render-gov.js LiveGov) --------------
+  // only with the step in effect (her App named the device, the tier is the step's): its rungs, the session starting at 60
+  _liveInit() {
+    const q = this.R.q, D = this.device;
+    // (?rung=N: pinned on rung N of the step's — a look at one rung, the audits' way to measure it; nothing moves)
+    const pin = params.has('rung') ? clamp(+params.get('rung') | 0, q.rungs ? q.rungs[0] : 0, q.rungs ? q.rungs[1] : 0) : null;
+    this.live = q.rungs && D ? new LiveGov({ start: pin ?? this.R.rung ?? q.rungs[0], ceil: q.rungs[1], hz120: false, pin: pin != null }) : null;
+    this._hz120 = !!(D && D.highRefresh && D.maxFps >= 110);   // (her App turned WebKit's 60 clamp off on a 120 Hz screen)
+    if (this.live) { this._autoCap = this.live.cap; this._capWhy = null; this.R.setRung(this.live.rung); }
+    else if (this._autoCap && this._capWhy !== 'hot') this._autoCap = 0;
+  }
+  // every drawn frame: its interval, its main-thread ms (_frame) and the interval it was paced for — the cap's, or the display's
+  // own but never read as slower than 60 Hz (a 60 Hz phone that draws every frame a vsync late pulls _trackVsync's estimate
+  // down to 30 Hz, and those frames would then read as on time); a move goes to the renderer (the rung) and the pacing
+  // (_autoCap) at once. 120 only where her App unlocked it, the screen is one and she set no cap.
+  _liveFrame(iv) {
+    const L = this.live, vs = this._vs ? this._vs.ms : 1000 / 60, cap = this.settings.fpsCap || this._autoCap || 0;
+    L.hz120 = this._hz120 && !this.settings.fpsCap && vs < 10;
+    if (L.frame(document.hidden ? 0 : iv, this._ftMs || 0, Math.max(Math.min(vs, 1000 / 60), cap ? 1000 / cap : 0))) this._liveApply();
+  }
+  _liveApply() {
+    this.R.setRung(this.live.rung);
+    this._autoCap = this.live.cap;
+  }
+  // 显示帧率 with the live ladder: a box in the corner over every screen (the menus too: the stage behind them is the same
+  // render) — fps · step · rung · density · pixels, the drawn frames' interval p50 / p95, the JS p95, the cap, the last move
+  _liveNote() {
+    const on = !!(this.settings.showFps && this.live);
+    this.fpsNote = on ? liveReadout(this.fps, this.R.q.step, this.live, this.R.renderer.getPixelRatio(), this.R._w || innerWidth, this.R._h || innerHeight) : undefined;   // (the renderer's size of the window: no layout read)
+    if (!on) { if (this._noteEl) { this._noteEl.remove(); this._noteEl = null; } return; }
+    let el = this._noteEl;
+    if (!el) {
+      el = this._noteEl = document.createElement('div');
+      el.className = 'iw-govnote';
+      el.style.cssText = 'position:fixed;left:max(8px,env(safe-area-inset-left));top:calc(env(safe-area-inset-top) + 4px);z-index:2147483000;pointer-events:none;'
+        + 'white-space:pre;font:600 10px/1.3 ui-monospace,Menlo,monospace;color:#9fffc0;background:rgba(10,8,18,.72);padding:3px 6px;border-radius:6px';
+      document.body.appendChild(el);
     }
-    this._govWin(m, win, avg, tgt, slow, atFloor);
+    if (el.textContent !== this.fpsNote) el.textContent = this.fpsNote;
   }
 
   // ---- her App's render step (config.js RENDER_STEPS, src/core/render-gov.js): one record per match, judged when it ends
-  _govWin(m, secs, avg, tgt, slow, atFloor) {
+  _govWin(m, secs, avg, tgt, slow, atFloor, atCeil) {
     if (this.R.q.step == null || this._govDone || !this.device) return;
-    const g = this._gs && this._gs.m === m ? this._gs : (this._gs = { m, secs: 0, ms: 0, n: 0, slow: 0, floor: 0, tgt: 0, shed: false, capped: false, hot: false });
+    const g = this._gs && this._gs.m === m ? this._gs : (this._gs = { m, secs: 0, ms: 0, n: 0, slow: 0, floor: 0, ceil: 0, tgt: 0, hot: false });
     g.secs += secs; g.ms += avg * 1000; g.n++; g.tgt = tgt * 1000;
     if (slow) g.slow++;
     if (atFloor) g.floor++;
-    if (this.R.bloomShed) g.shed = true;
-    if (this._capWhy === 'slow') g.capped = true;
-    if (this._capWhy === 'hot') g.hot = true;
+    if (atCeil) g.ceil++;
+    if (this._capWhy === 'hot' || this.live?.hot) g.hot = true;
   }
   _govEnd() {
     const g = this._gs; this._gs = null;
     const st = this.R.q.step;
     if (!g || !g.n || st == null || this._govDone || !this.device) return;
-    const stats = { secs: g.secs, targetMs: g.tgt, avgMs: g.ms / g.n, slowFrac: g.slow / g.n, floorFrac: g.floor / g.n, shed: g.shed, capped: g.capped, hot: g.hot };
+    const stats = { secs: g.secs, targetMs: g.tgt, avgMs: g.ms / g.n, slowFrac: g.slow / g.n, floorFrac: g.floor / g.n, ceilFrac: g.ceil / g.n, hot: g.hot };
     const base = this.gov && this.gov.model === this.device.model ? this.gov : { v: 1, model: this.device.model, good: 0, bad: 0, at: 0 };
     const r = afterMatch({ ...base, step: st }, stats, RENDER_START[this.device.cls] ?? 0);
     this.govLast = { step: r.step, changed: r.changed, why: r.why, stats };   // (for a look from the console: __inkwave.govLast)
@@ -1421,8 +1485,10 @@ class Game {
     if (r.changed) this._govDone = true;
   }
   // her phone's power (index.html window.__iwNative: thermal serious / critical, Low Power Mode): held at 60 and the floor
-  // density at once; let go at the start of the next match once it is back to nominal / fair
+  // density at once; let go at the start of the next match once it is back to nominal / fair. With the live ladder: 60 and a
+  // rung under the start at once, climbing again once she is cool (LiveGov.setHot)
   _onPower(p) {
+    if (this.live) { if (this.live.setHot(hotPower(p))) this._liveApply(); return; }
     if (!hotPower(p)) return;
     this._autoCap = 60; this._capWhy = 'hot';
     if (this.R && this.settings.quality !== 'ultra') this.R.setDynamicScale(this.R.dynFloor());
@@ -1430,6 +1496,7 @@ class Game {
   _matchPower(m) {
     this._capM = m;
     const p = window.__iwNative?.power;
+    if (this.live) { if (this.live.setHot(hotPower(p))) this._liveApply(); return; }
     if (hotPower(p)) this._onPower(p);
     else if (this._capWhy === 'hot') { this._autoCap = 0; this._capWhy = null; }
   }
@@ -1543,6 +1610,7 @@ class Game {
     const tD = performance.now();
     ps.tail += (tD - tC - ps.tail) * 0.05;
     this.ftSampler?.push(tD - tA);   // (debug.frameTimes: off unless an audit started it)
+    this._ftMs = tD - tA;            // (her App's live ladder reads it: _liveFrame)
     // Worst-frame statistics, and only once play has settled. The first frame after the world is built, and again the
     // first after new content appears, take seconds — every shader compiles and every texture uploads on them — and
     // letting one into the maximum pins the reading at the boot cost forever, hiding the spikes the number exists to
@@ -1705,7 +1773,7 @@ class Game {
     // ally markers
     const markers = [];
     const v = this._mv || (this._mv = new THREE.Vector3());
-    const W = innerWidth, H = innerHeight;
+    const W = this.R._w || innerWidth, H = this.R._h || innerHeight;   // (the renderer's size of the window: no layout read here — LEARN §50)
     for (const o of m.actors) {
       const tracked = o.team !== a.team && o.alive && o.status.track > 0 && o.status.trackTeam === a.team;
       if (!tracked && (o.isLocal || o.team !== a.team || !o.alive)) continue;
@@ -1789,8 +1857,7 @@ class Game {
       // a Super Jump planned on the TAB map while splatted ({ kind, target, name } | null): shown on the splat screen
       jumpQueue: !a.alive ? m.controller?.jumpQueue || null : null,
       prompt,
-      fps: this.settings.showFps && this.fps ? this.fps : undefined,
-      fpsNote: this.settings.showFps ? this.fpsNote : undefined,   // (帧率 · 密度 · 档位 with her App's render step: _loop)   // 0 while the page is hidden: show nothing rather than a stale or zero reading
+      fps: this.settings.showFps && this.fps && !this.live ? this.fps : undefined,   // 0 while the page is hidden: show nothing rather than a stale or zero reading (her App's live ladder has its own box on every screen: _liveNote)
       // Zone Control: counts / penalties / the operational objective (HUD counters, objective chip, banners)
       zones: m.zones ? { ...m.zones.state(), viewer: a.team } : undefined,
     };

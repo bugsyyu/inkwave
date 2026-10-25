@@ -5,8 +5,9 @@
 //   node tools/learn/parity-shots.mjs --out <dir> [--dpr 3] [--views landscape,portrait] [--quality high] [--secs 8] [--native iphone16]
 // --native <device>: her App's page as the App leaves it (a made-up window.__IELTS_NATIVE with display / device, no message
 // handlers, so nothing is ever posted to a native side) plus &applegpu — the render step that device gets (src/core/render-gov.js).
-// --probe (with --native): after the shot, 显示帧率 on until the readout 「帧 · 密度 · 档」 shows (≤ 40 s), then a made-up 'power' event (thermal
-// serious) through window.__iwNative.on — the game should hold 60 and drop to the floor density at once.
+// --probe (with --native): after the shot, 显示帧率 on until the readout shows (≤ 40 s: 「N 帧 · 第 S 档 · R/C 级 · D× · P MP」 over
+// 「间隔 … · JS … · 稳 60 · …」, LEARN §50), then a made-up 'power' event (thermal serious) through window.__iwNative.on — the
+// game should hold 60 at once and drop to the rung below its start (held there while hot).
 // One PNG per view: <dir>/original-<view>[-<quality>].png, after --secs of play (the bots ink the stage).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -50,12 +51,13 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
   page.on('pageerror', (e) => errs.push(e.message));
   const q = `?autostart=180&nofullscreen` + (QUAL ? `&quality=${QUAL}` : '') + (NAT ? '&applegpu' : '');
   await page.goto(base + 'index.html' + q, { waitUntil: 'load', timeout: 180000 });
-  await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.state === 'playing', null, { timeout: 240000, polling: 250 }).catch(() => errs.push('never playing'));
+  // (and the stage's warm-up done: until then the black fade is still over it — a shot taken then is one flat colour)
+  await page.waitForFunction(() => window.__inkwave && __inkwave.match && __inkwave.match.state === 'playing' && !__inkwave._warming, null, { timeout: 900000, polling: 250 }).catch(() => errs.push('never playing'));
   await page.evaluate(() => __inkwave.debug.freeze());
   for (let s = 0; s < SECS * 2; s++) await page.evaluate(() => __inkwave.debug.step(500));
   const info = await page.evaluate(() => { const R = __inkwave.R, cv = R && R.renderer && R.renderer.domElement; const q = (R && R.q) || {}; return { quality: __inkwave.settings.quality, shadows: __inkwave.settings.shadows, pr: R && R.renderer.getPixelRatio(), buf: cv ? cv.width + 'x' + cv.height : '', dpr: devicePixelRatio, touch: !!__inkwave.touchMode, step: q.step, density: q.pixelRatio, ao: !!(R && R.gtao), bloom: !!(R && R.bloom && R.bloom.enabled), shadowMap: !!(R && R.renderer.shadowMap.enabled), shadowSize: q.shadowSize, particles: q.particles }; });
   const f = path.join(OUT, `original-${vn}${QUAL ? '-' + QUAL : ''}${NAT ? '-' + opt('native') : ''}.png`);
-  await page.screenshot({ path: f });
+  await page.screenshot({ path: f, timeout: 300000 });   // (SwiftShader at 3×: a frame can take longer than the 30 s default)
   console.log(`[parity] ${vn} ${JSON.stringify(info)} → ${f}${errs.length ? ' · errors: ' + errs.join(' | ').slice(0, 300) : ''}`);
   if (PROBE) {
     const pb = await page.evaluate(async () => {
@@ -65,14 +67,17 @@ for (const vn of opt('views', 'landscape,portrait').split(',')) {
       // 3 s wait saw only the stale rate: wait for the readout itself, up to 40 s)
       for (let t = 0; t < 40 && !g.fpsNote; t++) await new Promise((r) => setTimeout(r, 1000));
       o.note = g.fpsNote; o.hud = (document.querySelector('.iw-fps') || {}).textContent;
-      o.before = { cap: g._autoCap || 0, pr: R.renderer.getPixelRatio() };
+      const L = g.live;
+      o.before = { cap: g._autoCap || 0, pr: R.renderer.getPixelRatio(), rung: L ? L.rung : null };
       const N = window.__iwNative; N.power = { lowPower: false, thermal: 'serious' }; N.on({ type: 'power' });
-      o.after = { cap: g._autoCap, why: g._capWhy, dyn: R.dynScale, floor: R.dynFloor(), pr: R.renderer.getPixelRatio() };
+      o.after = { cap: g._autoCap, pr: R.renderer.getPixelRatio(), live: L ? { hot: L.hot, rung: L.rung, start: L.start, why: L.why } : null };
       g.settings.showFps = false;
       return o;
     });
     console.log(`[parity] probe ${JSON.stringify(pb)}`);
-    if (!(pb.after.cap === 60 && pb.after.dyn === pb.after.floor && /帧 · .+× · 第 \d 档/.test(pb.note || ''))) { code = 1; console.log('[parity] probe FAIL'); }
+    const lv = pb.after.live;
+    if (!(pb.after.cap === 60 && lv && lv.hot && lv.why === 'hot' && lv.rung <= Math.max(0, lv.start - 1)
+      && /^\d+ 帧 · 第 \d 档 · \d\/\d 级 · [\d.]+× · [\d.]+ MP\n间隔 [\d.]+ \/ [\d.]+ ms · JS [\d.]+ ms · (稳 60|120)/.test(pb.note || ''))) { code = 1; console.log('[parity] probe FAIL'); }
   }
   if (errs.length) code = 1;
   await ctx.close();

@@ -62,6 +62,7 @@ const CSS = `
 .iw-pk__strip b { font-weight: 400; }
 .iw-pk__strip.is-empty b { color: rgba(255,255,255,.35); font-family: 'Rubik', 'PingFang SC', system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0; }
 @keyframes iw-pk-caret { 50% { opacity: 0; } }
+.iw-pk.is-off .iw-pk__strip i { animation-play-state: paused; }   /* (the keyboard away: the caret stops blinking — LEARN §50) */
 .iw-pk.is-landscape .iw-pk__k { font-size: 21px; border-radius: 10px; }
 /* play-7: the landscape split — the panel is only a frame for two pads docked to the sides; the column between them is
    the world's (no background, no touches: they go on to the game) */

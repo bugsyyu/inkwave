@@ -283,6 +283,7 @@ export class PaintSystem {
     this.ripP = new Float32Array(RIP_N * 4);
     this._ripS = new Float32Array(RIP_N);
     this._dryAcc = 0;
+    this._dryLeft = 0;         // dry steps (1/255 each) until the wettest ink is dry: 255 when ink lands, 0 = nothing to dry
     this._floods = [];         // region floods in progress (flood())
     this._floodPrep = new Map();   // region → its cells sorted by distance from the front's centre + atlas quads
     this._initGPU();
@@ -442,6 +443,7 @@ export class PaintSystem {
     if (this.growing) this.growing.length = 0;
     if (this.rip) { for (let i = 0; i < RIP_N; i++) { this.rip[i * 4 + 3] = -99; this.ripP[i * 4 + 3] = 0.01; this._ripS[i] = 0; } }
     this._dryAcc = 0;
+    this._dryLeft = 0;
     this._floods.length = 0;
     for (const p of this._floodPrep.values()) p.geo.dispose();
     this._floodPrep.clear();
@@ -690,14 +692,15 @@ export class PaintSystem {
       }
       this._emitGrowth(g, Math.min(tn, 3), dT, bodyDone);
     }
-    // drying: 1/255 of wetness every 1/40 s (≈ 6.4 s from landing to dry), applied in steps of ≥ 2
+    // drying: 1/255 of wetness every 1/40 s (≈ 6.4 s from landing to dry), applied in steps of ≥ 2 — only while some ink is
+    // still wet (255 steps after the last landed everything reads 0: the pass, and the atlas's mip rebuild after it, would
+    // change nothing; LEARN §50)
     this._dryAcc += dt;
     const n = Math.floor(this._dryAcc * 40);
     if (n >= 2) {
       const k = Math.min(n, 12);
       this._dryAcc -= k / 40;
-      this._dryU.uDry.value = k / 255;
-      this.dryMesh.visible = true;
+      if (this._dryLeft > 0) { this._dryLeft -= k; this._dryU.uDry.value = k / 255; this.dryMesh.visible = true; }
     }
     const floods = this._floods.length > 0;
     if (floods) { this._floodSettle(); this.texture.generateMipmaps = false; }   // (one mip rebuild: after the floods)
@@ -836,6 +839,7 @@ export class PaintSystem {
       if (done) this._floods.splice(k--, 1);
     }
     if (!drew) { this._floodMesh.visible = false; r.render(this._floodScene, this.cam); this._floodMesh.visible = true; }   // (mips)
+    else this._dryLeft = 255;   // (a flood's ink lands wet too)
     r.setRenderTarget(prev);
     r.autoClear = ac;
     if (changed) this.version++;
@@ -845,6 +849,7 @@ export class PaintSystem {
     if (!this.quads && !this.dryMesh.visible) return;
     const g = this.geo, n = this.quads * 4;
     if (n) {
+      this._dryLeft = 255;   // (fresh ink lands wet: G = 1)
       for (const name of ['aPos', 'aLocal', 'aSplat', 'aStretch', 'aGrow']) {
         const at = g.attributes[name];
         at.clearUpdateRanges(); at.addUpdateRange(0, n * at.itemSize); at.needsUpdate = true;
