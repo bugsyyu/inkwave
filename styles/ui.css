@@ -3495,7 +3495,7 @@ html.iw-glass .iw-book__rings i { box-shadow: var(--g-line), inset 0 1px 0 #fff,
 html.iw-glass .iw-book__tab { border-radius: var(--r-2) var(--r-2) 4px 4px; filter: none; color: var(--k);
   background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 86%, rgba(255, 255, 255, .9)), color-mix(in srgb, var(--c) 90%, transparent));
   box-shadow: var(--g-line), var(--g-edge), inset 0 -10px 12px -8px rgba(0, 0, 0, .25); }
-html.iw-glass .iw-book__tab:not(.is-on) { opacity: .9; }
+html.iw-glass .iw-book__tab:not(.is-on) { opacity: .96; }   /* (.9 let a dusk stage through: 考试's dark text 4.49 : 1, LEARN §53) */
 html.iw-glass .iw-book__tab.is-on { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c) 70%);
   box-shadow: var(--g-line), var(--g-edge-on), 0 -4px 18px color-mix(in srgb, var(--c) 55%, transparent); }
 html.iw-glass .iw-book__tab:active { box-shadow: var(--g-btn-down); }

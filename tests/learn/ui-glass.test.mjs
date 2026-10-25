@@ -269,3 +269,23 @@ test('her ink as small text on the glass ≥ 4.5 : 1 in all six team inks — li
     assert.match(CSS, new RegExp(`--${n}-on: ${U.inkFace(hex)};`), `--${n}-on default`);
   }
 });
+
+// LEARN §53: the bookmarks not open are a little see-through (.9 let the dusk stage through: 考试 4.49 : 1 at dusk, turned) —
+// their ink-black text on each bookmark's colour over a black stage, the face and the tab's opacity read off the rules
+test('the bookmarks: the ink-black name on every bookmark\'s colour ≥ 4.5 : 1 over the darkest stage, open or not', async () => {
+  const { BOOK_TABS } = await import('../../src/learn/book.js');
+  const U = await import('../../src/ui/ui-util.js');
+  const tab = R.find((r) => r.sel === 'html.iw-glass .iw-book__tab').body, off = +decl(R.find((r) => r.sel === 'html.iw-glass .iw-book__tab:not(.is-on)').body, 'opacity');
+  assert.equal(decl(tab, 'color'), 'var(--k)');
+  // the face's bottom stop is the thinnest: color-mix(in srgb, var(--c) N%, transparent)
+  const thin = +(/color-mix\(in srgb, var\(--c\) (\d+)%, transparent\)/.exec(decl(tab, 'background')) || [])[1] / 100;
+  assert.ok(thin > 0.5 && off > 0.5, 'read: ' + thin + ' / ' + off);
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const L = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const k = U.hexToRgb('#15121c');
+  for (const b of BOOK_TABS) {
+    const face = U.hexToRgb(b.c).map((v) => v * thin * off), text = k.map((v) => v * off);   // (over black: the stage at its darkest)
+    const c = (L(face) + 0.05) / (L(text) + 0.05);
+    assert.ok(c >= 4.5, `${b.label} ${b.c}: ${c.toFixed(2)} : 1`);
+  }
+});
