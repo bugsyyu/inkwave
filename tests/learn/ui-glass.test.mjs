@@ -263,6 +263,9 @@ test('her ink as small text on the glass ≥ 4.5 : 1 in all six team inks — li
   }
   for (const s of ['html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save)', 'html.iw-glass .iw-ci__mood.is-on'])
     assert.equal(decl(R.find((r) => r.sel === s).body, 'color'), 'var(--a-on, var(--k))', s);
+  // (the map's 换周: the week picked stands on a solid face of her ink)
+  assert.equal(decl(R.find((r) => r.sel === 'html.iw-glass .iw-seg__opt.is-sel').body, 'color'), 'var(--a-on, var(--a-ink))');
+  for (const ink of INKS) assert.ok(cr(rgb(U.inkFace(ink)), rgb(ink)) >= 4.5, `${ink}: ${U.inkFace(ink)} on the ink itself`);
   // the page's defaults (before the menus set her ink) are colorVars' own for the default ink
   for (const [n, hex] of [['a', '#ff8a14'], ['b', '#2f5bff']]) {
     assert.match(CSS, new RegExp(`--${n}-hi: ${U.inkLift(hex)};`), `--${n}-hi default`);

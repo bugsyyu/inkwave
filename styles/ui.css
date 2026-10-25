@@ -3469,7 +3469,7 @@ html.iw-glass .iw-seg { background: rgba(0, 0, 0, .42); box-shadow: inset 0 0 0 
 html.iw-glass .iw-seg__hl { background: var(--glass-streak), var(--gb-sheen), linear-gradient(180deg, var(--a-light) -40%, var(--a) 45%);
   box-shadow: var(--g-line), var(--g-edge-on), inset 0 -4px 6px rgba(0, 0, 0, .2), 0 0 14px rgba(var(--a-rgb), .4); }
 html.iw-glass .iw-seg__opt { letter-spacing: .02em; color: rgba(255, 255, 255, .9); }
-html.iw-glass .iw-seg__opt.is-sel { color: var(--a-ink); }
+html.iw-glass .iw-seg__opt.is-sel { color: var(--a-on, var(--a-ink)); }   /* (on her ink: bubblegum's white was 3.3 : 1, LEARN §53) */
 html.iw-glass .iw-seg__opt.is-wait:not(.is-sel) { color: rgba(255, 255, 255, .5); }
 
 /* ---- the loading screen: the bar a glass tube with its fill lit, the tip a glass strip, its tag a label */
