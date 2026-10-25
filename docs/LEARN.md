@@ -2693,7 +2693,7 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 
 **测试**：`npm run test:learn` 503 → **509** 全过（+1 `play`、+5 `boss-pace`）；`npm run check` 320 个文件 syntax ok（测试文件不计）；证据快照改前 / 改后逐字节相同（`cmp`），sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`、128 270 个情形（hit.js 不在判分路上，照任务书跑了）；浏览器只跑 1 次：`tap-walk --learn w2d3 --kind boss --view portrait --keep`（下面）。
 
-**tap-walk（Boss，竖屏 390 × 844，iPhone 安全区）**：改前（§48，合并后的 `8906dd2`）15 段「关卡自己在走、15 s 什么都没发生」；改后 __TAPWALK__。
+**tap-walk（Boss，竖屏 390 × 844，iPhone 安全区）**：改前（§48，合并后的 `8906dd2`）15 段「关卡自己在走、15 s 什么都没发生」；改后 **0 段**，而且在 15 分钟的预算内把周考**打完了**（`until met: done`：三个阶段都开、`done`，关卡时钟 443.5 s、墙钟 827 s 含加载；466 次采样、43 题、494 次点按、没有一刻没路走、页面错误 0、4xx 0；`--keep`，`fails: []`）。同一台机器、同时另有子代理在跑。命令：`flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/tap-walk.mjs --learn w2d3 --kind boss --view portrait --keep --shots <草稿目录>/shots-boss --out <草稿目录>/tapwalk-boss-after.json`。两张截图（回声亭的板框住、看全文条）看过已删；看的时候注意到 S 段回声亭的板在竖屏里被舞台的一根缆绳横着挡了一行字（w2d3 的舞台，板立在她面前 2.6 m 处）——不是这一批的活，记在这里。
 
 **拿不准的（自己定了）**：
 1. 「竖屏 = 不能走」按 §48 / `flow.js` 的说法（竖屏没有摇杆，自动走代替）定的；其实 `touch.js` 在竖屏学习关里左半屏按下去也是摇杆，只是没有任何东西告诉她。要是以后竖屏画出摇杆，`noStick()` 改一处就行。
@@ -2701,6 +2701,7 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 3. 答对后 Boss 的那一招照旧「自由」（原来就有，LEVELS §2.5 写的是「只在她答完以后出招」，没说答对不出）；没改成「答对不出招」，怕把压力拿掉。
 4. 挡住时让子弹「穿过」Y 而不是绕开：和 Arena 一致、改动最小；穿过去的那一瞬 Y 不溅不闪，看起来像子弹从它前面飞过——真机上要看一眼。
 5. `dropAhead` 用一阶的阻力修正（`T *= 1 + ½·drag·T`），不是 `_ballistic` 的逐步积分——只用来放宽「在前路上」的判断，误差朝「挡住」那边。
+6. 答错后的强制一招有可能被取消：`_bossMove` 后 `askT = dodge`（3 s），瞄准类的招要先转过来对着她（最多 2.4 s，转不过来就 `cool = 0.3` 重想）；要是 3 s 内还没开出来，到点的 `_holdBoss` 会把 `plan` 清掉，题就来了、这一招没出。原来 5 s 空档很少碰上。多半是对的结果（不卡死比一招重要），写下来给业主定：要不要把 `dodge` 加大到盖住一次转身。
 
 **没做的**：
 - 第 3 条 perf-probe 其余场景前后：没时间（tap-walk 一次要 15 分钟）。命令照 §50 交接：`node tools/learn/perf-probe.mjs --frames 8 --real 6 --scene runner|duel|review|menu|boot [--query '&rung=2'] --json <文件>`，改前在 `/home/user/inkwave/.claude/worktrees/k-base`（`088c6dd`，只读）、改后在 `wf-logic` 头上，各一次。
