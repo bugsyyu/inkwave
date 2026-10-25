@@ -2675,3 +2675,30 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 看了、没改、记下的：（合了 `wf-softlock` 以后）学习关里藏着的小地图开局照样建一次栅格和底图（`_build()`：构造时的空闲回调、开局的 `setViewerTeam`；Node 量的 8 张图每张 50–285 ms），在黑场里，不在玩的时候；要省，得等它第一次露面再建，又牵扯 `wf-softlock` 的 `is-nomap` 什么时候挂上——没做。`frameFor` 记的答案满 48 个整个清空（墨字帧的词框差不多每题一个新键，几十题就清一次，当时那一带的打字帧也跟着重算一次——现在一次只要几毫秒），换成按最近用的淘汰更好——不是错，没改。
 - **复查（第四轮，10-25 主会话核完）**：10-22 第三次重启后的复查子代理读到——她的 iPhone（Safari 26 / WebKit 7622 起）上 JavaScriptCore 的 `Math.hypot` 换成了 `std::hypot`，不是 Kahan 归一的形式（上面「拿不准的」1 读源码的那一句是旧版本的）；主会话没再核 WebKit 的源码，下面的修法两种引擎都对。修补写了一半就被「立刻停止」打断（`wip/wf-perf-cpu-review4-1022` `27e38eb`，没跑测试）：`hyp2 / hyp3` 先探一次引擎（1 024 组随机数，和 Kahan 形式逐位比），是 Kahan 就用 JS 里的那份（V8：不装箱），不是就用引擎自己的 `Math.hypot`——取景搜索在两种引擎上都和改前逐位相同。`type-frame.test` 那一条换一个非 Kahan 的 `Math.hypot`（逐项平方和再开方）重新载入模块：探针认出来、`hyp2 / hyp3` 和它逐位相同、`frameFor` 和改前一样。主会话 10-25 把它并进开发分支（`6f2db1b`，提交说明还写着「未验证」——推送过的历史不改），合并后的开发分支 `test:learn` 503 / 503。
 - **合并后主会话另修的**（10-25，交接里列的）：跑酷每答对一题的 flood，这一行的 region 是一次性的（每答一题建一个新的），它的四边形和轮廓原来一直留在 `_floodPrep` 里、到关卡 reset 才清——现在 `runner.js` 给它带 `once: true`，`paint.js _floodStep` 在这一场 flood 结束、没有别的 flood 还在这个 region 上时还掉；区域赛自己的 region 照旧留着（`cpu.test` 加一条，没修时失败）。
+
+## 53. wf-ui-polish 交付（2026-10-25，子代理，分支 `wf-ui-polish`：界面那一批——书页上她队色的英文小字在各队色下的对比度、「选游戏方式」进样张、关卡里的道具格 / 名次避开安全区、空着按「射」的反馈）
+
+（主会话的任务书：10-21 那五条分支合并（bugsyyu/IELTS-Base#208）以后剩下的小活——IELTS-Base BACKLOG「界面升级」里的一条，只读排查 X1 的 N、P 两条。标准照旧是业主 10-17 的「所有你们自己新开发的游戏组件，都要和原风格一样融合，而且要比原风格都更精细」和 §47 的配方：一样东西一种材质、中文不描边、字不出框、对比度 ≥ 4.5 : 1、带模糊的元素自己不动。）
+
+**先读了什么**：任务书和共同规矩；本文件 §47（玻璃的配方、对比度的量法）、§48（安全区变量 `--iw-sa*`、`safe-area.js`）、§49（选游戏方式、`_scr_pick`）；代码：`styles/ui.css` 的玻璃一节和四个原生页的样式、`ui-util.js` `colorVars` / `inkOn`、`config.js` `TEAM_PALETTES` / `COLORBLIND_PALETTE`、`main.js` `_pickPalette` / `_setPalette`、`menus.js` `_scr_pick` / `_quizItem` / `setAccent`、`forms/ui.js`、`play-keys.js`、`type/keys.js`、`type/shot.js`、`wire/type.js` / `arena/type.js` / `runner/glide.js` 的 `_submit`；测试 `ui-glass.test`、`softlock.test`（「HUD 顶排避开安全区」那几条）、`ui-sticker.test`；IELTS-Base `tools/game/ui-glass-shots.mjs`。
+
+**先定的**：
+1. **六套队色**是 `TEAM_PALETTES` 的五套（她的墨是每套的 `a`：橙 tangerine、粉 bubblegum、黄 lemon、青 aqua、绿 lime）加 `COLORBLIND_PALETTE`（设置里开了色盲友好时她的墨：太阳色 sun）。开机时 `_pickPalette` 随机挑一套；§47 起一直用的 seed 7 落在亮的那几套，所以以前量不出来。
+2. **量法照 `ui-glass-shots` 自己的**（藏起字形、留光晕，字框里亮度 10% / 90% 分位的像素和字色 × 透明度合成算 WCAG 比，取低的）。换队色走游戏自己的路：`__inkwave._setPalette(P)`（开一局时的那条：`menus.setAccent` → `colorVars`），再画一帧，冻住的舞台也换上这一套的墨（玻璃后面模糊的就是它）；一次启动、每个量的地方六套轮一遍（`--ink all`）。
+3. **她队色的小字**（书页的英文小标题 `.iw-bp__kicker`、面板的英文小标题 `.iw-bp-sec small`、日志里的「完成 N 项任务」和时长、老师页的胶囊）——照 §47 的配方，不加墨描边、不加硬投影，两样一起：
+   - 队色**按亮度往白里提**：`colorVars` 多写一个 `--a-hi`（`ui-util.js` `inkLift`：比 0.6 暗的墨往白里混，混到亮度刚好 0.6；亮的原样）。橙 #ff8a14 → #ffbf7d（正好是它自己的 `--a-light`：游戏里「她的墨当小字」本来就是这个亮度）、粉 #ff3f9e → #ffb7da、青 #10d2e6 → #4fdeed；黄、绿、太阳色不变。和白混，色相不变，不是白字。
+   - 一圈**很淡的暗光晕**：`text-shadow: 0 0 2px rgba(10, 7, 20, .6), 0 0 10px rgba(10, 7, 20, .7)`（只有模糊、没有偏移）。
+   - 为什么是 0.6：单元测试的模型照 §47 那条（舞台最亮 = 白，书的遮罩、书页的玻璃、顶边的高光和镜面，沿书页从上到下取最亮的一处），再叠一层卡片的玻璃（它的底色、白的那层、顶边最亮处），光晕按外圈透明度的 1/4 当一层暗色（一个大写字母大约占它字框的 1/4–1/3）——最亮的底要字的亮度 ≥ 0.59。门槛是浏览器量的数，模型只是它的近似（白舞台比真的港口亮）。
+4. **她的墨做底的按钮上的字**（记一条 · 补记一条 · 记录 · 打卡的存和选中的心情）：原来是 `--a-ink`（`inkOn`：亮度 > 0.36 黑字，否则白字），粉色落在白字那边——白字 3.25 : 1、墨黑 5.69 : 1。`colorVars` 多写一个 `--a-on`（白和墨黑里对比高的那个），只在玻璃下这几颗用；`inkOn` 本身不改（全游戏的贴纸都在用：改了粉、樱桃红、品红队到处的字都会变，不在这一批）。这几颗的底从 .86 / .94（心情 .82 / .92）实到 .9 / .96（粉色的墨黑字在最暗的书页上要 ≥ .88）。
+5. **没翻开的书签**：.9 的透明让黄昏的舞台透出来，「考试」（#ff5f8f）上的墨黑字横屏黄昏 4.49 : 1——改成 .96。
+6. **「选游戏方式」**：任务书说脚本「不拍它、不量它」——不对：App 里 `'main'` 屏就是它（§49 先定的 1），脚本一直拍 `main-portrait` / `main-landscape`、量 `.iw-main__menu, .iw-pick__corner`（§49 的测试里有数）。真缺的是：①面板放不下时自己滚（`overflow: hidden auto`），量对比度只量滚动框里看得见的，面板下面的部分从没量过——现在滚到底再拍、再量（`pick-*-end`）；②不是今天的那一天（头上多一颗「回到今天的内容」）没拍过（`pick-other-portrait`）；③黄昏没跑过（§49 排队时容器重启）；④只量过一套队色。镜头名照旧叫 `main-*`（文档和二分脚本都这么叫），新加的叫 `pick-*`。
+7. **安全区**用 §48 的变量，写成 `var(--iw-sar, 0px)`（带 0 的退路，和 `strip.js` 一样）：道具格 `right` 加右 inset，让开时（`is-aside`）滑出去的距离也加上它（不加的话横屏里停在离边 39 px 的地方，露出一截）；名次 `left` 加左 inset；名次、Boss 段条的 `top` 加上顶 inset（HUD 顶排自己就往下挪了这么多，§48）。
+8. **空着按「射」**：键盘整块抖一下（`.iw-pk__panel` 的 transform，.34 s 一次；减少动态时不抖），输入条的字换成两行「先打几个字母，再按「射」/ 不会就按「提示」」（13 px、提示键的黄），她一打字就回到她打的字，3.2 s 后自己回到「打字，按「射」发射」；横屏分开的键盘没有输入条，就在「射」那半边上面出同样一句（和「射」右对齐，在世界上、不压键，点得穿）。什么也不发（`onSubmit` 照旧只在有字时叫；`shot.js` 的 `submit()` 空着返回 null 不用改——三个站点的 `_submit` 都只从 `keys.onSubmit` 来）。字没用任务书举的「不会就随便打，会换个问法」：解密闯关、跑酷、对抗赛答错是会换个问法（「答错不扣分：门上多一道锁，换个问法再来一次」、`retries: 1`），今日小考里会不会没核实；「提示」键每种布局都有（`keys.js`），这句在哪儿都对。
+
+**改了什么**（inkwave，从 `8906dd2` 起）：
+- `src/ui/ui-util.js`：`contrast`、`TEXT_LUM`、`inkLift`、`inkFace`；`colorVars` 多写 `--<名>-hi`、`--<名>-on`（每套墨只算一次）。
+- `styles/ui.css`：默认值 `--a-hi` / `--a-on` / `--b-hi` / `--b-on`（colorVars 给默认墨算出来的）；玻璃一节：她队色小字那一条（`--a-hi` + 光晕）、记一条那几颗和打卡心情的字 `--a-on`、底 .9 / .96、没翻开的书签 .96。
+- `src/learn/forms/ui.js`：道具格、名次、段条的位置带上 `--iw-sa*`（见先定的 7）。
+- `src/ui/play-keys.js`：`EMPTY` / `NOPE` / `NOPE_MS`、`_nope()` / `_nopeOff()`、提示条 `.iw-pk__tip`、抖的关键帧；`setText` / `hide` / `destroy` 收掉提示。
+- 测试：`tests/learn/forms-inset.test.mjs`（新，1 条）、`tests/learn/type-nope.test.mjs`（新，2 条，带一个小 DOM）、`tests/learn/ui-glass.test.mjs`（+2：六套队色的小字和按钮上的字、书签）、`tests/learn/ui-sticker.test.mjs` 一条断言照新的写（见测试）。
+- IELTS-Base（分支 `wf-ui-polish`，只改 `tools/game/ui-glass-shots.mjs`）：`--ink <队色>|all`、`--only book`（课本的四个原生页：积累本、学习日志、学习方法（新加的，原来不拍）、老师，竖屏和横屏）、每套队色在书页上最低的那一行（`[ink] …`）、选游戏方式滚到底再量、不是今天的那一天。
