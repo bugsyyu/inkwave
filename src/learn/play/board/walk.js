@@ -2,12 +2,14 @@
 // characters), the word boards (5 words a board), the sounds, the grammar lesson's lines, the reading passage. She walks
 // (or is walked) up to a board and the camera springs round to frame it; while she stands there it stays framed; walking
 // on lets go — that is the page turn, there is no 下一页. On the board itself: a row replays its word, 「跟读」 plays them
-// with gaps to say them after, 「听全文」 plays the passage, 「读全文」 opens the reading strip (strip.js: the lower half,
+// with gaps to say them after, 「听全文」 plays the passage, 「看全文」 opens the reading strip (strip.js: the lower half,
 // scrolls, the world runs on; ✕ or walking on closes it; never while a question is up). Nothing comes at her in a board
-// zone (inZone() — the race's bots and the duel ask it).
+// zone (inZone() — the race's bots and the duel ask it). LEARN §48: the HUD's board keys (hud-learn framed()) read
+// keysOf(i) — 看全文 as a DOM key, the same strip — and 继续 is the station's own way on.
 //
 //   const W = new BoardWalk({ scene, camera, color, reduced, root })
 //   W.prepare(key, specs) → entries          paint a gate's boards ahead (2 gates before it); W.free(key)
+//   W.prepareSoon(key, specs)                LEARN §48: the same, a board a frame (update) — place() paints what is still owed
 //   W.place(key, spots)                      they rise at spots [{ x, y, z, yaw }] (frame.js boardSpots(route, n))
 //   W.update(dt, herPos, { aspect, speed })  zones and framing; per frame
 //   W.framing → { pos, look, fov } | null    the camera pose to spring to (world); null = back to following her
@@ -16,12 +18,18 @@
 //                                            phones have no stick — the 「自动走」 button walks her on)
 //   W.inZone(pos) → bool
 //   W.questionUp = bool                      a question is up: the strip closes and will not open
+//   W.here = bool                            LEARN §48: frame the (nearest) board wherever she stands — the boss's booth, which
+//                                            rises in front of her on a phone with no stick to walk into its ring with
 //   W.bandFor = (aspect, W, H, slab) → band | null   play-7: the framing band (frame.js boardBand's shape) when the screen's top
 //                                            holds more than the default allows for (the boss's HP bar: arena/host.js)
 //   W.tapApi { down(x, y, id) → bool, up(x, y, id, cancel) }   taps on the framed board's hotspots (touch.js G.playTap)
-//   W.on = { speak(text, { slow, onEnd }), framed(i), read(i), more(i), hotspot(id, board, data) }
+//   W.keysOf(i) → { key, more, read, onMore() } | null   what the HUD's board keys need (LEARN §48)
+//   W.pass(i)                                LEARN §48: 继续 › — board i counts as read now, and the ones before it (she
+//                                            walked past them): the auto-walk goes on from here, never back
+//   W.on = { speak(text, { slow, onEnd }), framed(i), unframed(i), read(i), more(i), hotspot(id, board, data) }
 //   W.clear() · W.dispose() · W.warm(renderer, camera)
 import * as THREE from 'three';
+import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { BoardSet } from './set.js';
 import { ReadStrip } from './strip.js';
@@ -30,6 +38,8 @@ import { pickHotspot } from './hotspot.js';
 
 const BD = LEARN.board;
 const _v = new THREE.Vector3();
+// the frame now: the game's clock moves once a frame, before the match's sub-steps (NaN without one: every update a frame)
+const frameNow = () => (typeof G.time === 'number' ? G.time : NaN);
 
 export class BoardWalk {
   constructor({ scene, camera, color = '#ff8a14', reduced = false, root = null, max = 6 } = {}) {
@@ -39,19 +49,44 @@ export class BoardWalk {
     this.entries = new Map();
     this.list = [];           // placed: [{ b, spot, read, t, view: Vector3 }]
     this.framed = -1; this.framing = null; this._aspect = 0;
-    this.on = {}; this.bandFor = null;
-    this._q = false; this._tap = null; this._seq = 0;
+    this.on = {}; this.bandFor = null; this.here = false;
+    this._q = false; this._tap = null; this._seq = 0; this._owed = [];
     this.tapApi = { down: (x, y, id) => this._down(x, y, id), up: (x, y, id, cancel) => this._up(x, y, id, cancel) };
     this.strip.onClose = () => { this.on.stripClosed?.(); };
   }
 
   prepare(key, specs) {
     if (this.entries.has(key)) return this.entries.get(key);
+    if (this._owe(key)) return this.entries.get(key);
     const list = (specs || []).map((s) => this.set.paint(s));
     this.entries.set(key, list);
     return list;
   }
+  // LEARN §48: the gates ahead a board a frame — painting a gate's six word boards as the gate before opened was one long
+  // task (layout + text on six 1024-px canvases) on her phone
+  prepareSoon(key, specs) {
+    if (this.entries.has(key) || this._owed.some((o) => o.key === key)) return;
+    if (specs && specs.length) this._owed.push({ key, specs: specs.slice(), list: [] });
+  }
+  // what is still owed for key, painted now (it is needed now: place, prepare) → whether there was any
+  _owe(key) {
+    const k = this._owed.findIndex((o) => o.key === key); if (k < 0) return false;
+    const o = this._owed[k]; this._owed.splice(k, 1);
+    if (o.list.length < o.specs.length) this._paintF = frameNow();   // (the queue waits a frame: this one has painted)
+    for (const s of o.specs.slice(o.list.length)) o.list.push(this.set.paint(s));
+    this.entries.set(key, o.list);
+    return true;
+  }
+  // (a board a frame — not one an update: a slow frame runs the match in two sub-steps, and her phone is slow just then)
+  _paintOne() {
+    const o = this._owed[0], f = frameNow(); if (!o || f === this._paintF) return;
+    this._paintF = f;
+    o.list.push(this.set.paint(o.specs[o.list.length]));
+    if (o.list.length >= o.specs.length) { this._owed.shift(); this.entries.set(o.key, o.list); }
+  }
   free(key) {
+    const ow = this._owed.findIndex((o) => o.key === key);
+    if (ow >= 0) { for (const e of this._owed[ow].list) e.dispose(); this._owed.splice(ow, 1); }
     const list = this.entries.get(key); if (!list) return;
     for (const L of this.list.slice()) if (list.includes(L.b.entry)) { this.set.remove(L.b); this.list.splice(this.list.indexOf(L), 1); }
     for (const e of list) e.dispose();
@@ -59,6 +94,7 @@ export class BoardWalk {
     if (this.framed >= this.list.length) this._unframe();
   }
   place(key, spots, o = {}) {
+    if (!this.entries.has(key)) this._owe(key);
     const list = this.entries.get(key) || [];
     spots.forEach((s, k) => {
       const e = list[k]; if (!e) return;
@@ -76,7 +112,16 @@ export class BoardWalk {
 
   inZone(pos) { for (const L of this.list) if (Math.hypot(pos.x - L.view.x, pos.z - L.view.z) < BD.zone) return true; return false; }
   read(i) { return !!(this.list[i] && this.list[i].read); }
+  // LEARN §48: the HUD's keys for board i — whether it holds more than it shows (its 看全文 hotspot: the reading strip has
+  // the rest) and whether it counts as read; key: the same object while it is the same placed board
+  keysOf(i) {
+    const L = this.list[i]; if (!L) return null;
+    const hs = (L.b.entry.layout && L.b.entry.layout.hotspots) || [];
+    return { key: L, more: hs.some((h) => h.id === 'more'), read: L.read, onMore: () => { if (this.list[this.framed] === L) this.activate('more'); } };
+  }
   allRead() { return this.list.every((L) => L.read); }
+  // (LEARN §48: 继续 › pressed before BD.readS was a no-op — nextSpot() was this board's own spot, where she stood)
+  pass(i) { for (let k = 0; k <= i && k < this.list.length; k++) this.list[k].read = true; }
   nextSpot() {
     const i = this.list.findIndex((L) => !L.read);
     if (i < 0) return null;
@@ -85,6 +130,7 @@ export class BoardWalk {
   }
 
   update(dt, her, o = {}) {
+    if (this._owed.length) this._paintOne();
     this.set.update(dt);
     if (!her) return;
     const aspect = o.aspect || 16 / 9, speed = o.speed ?? 0;
@@ -96,7 +142,7 @@ export class BoardWalk {
     let best = -1, bd = Infinity;
     for (let i = 0; i < this.list.length; i++) {
       const L = this.list[i], d = Math.hypot(her.x - L.view.x, her.z - L.view.z), e = d + (L.read ? 0.6 : 0) - (i === this.framed ? 0.05 : 0);
-      const inside = d < BD.zone + (i === this.framed ? 0.4 : 0);
+      const inside = this.here || d < BD.zone + (i === this.framed ? 0.4 : 0);
       L.inT = inside ? L.inT + dt : 0;
       if (inside && e < bd && (i === this.framed || speed < 1.6 || L.inT > 0.35)) { best = i; bd = e; }
     }
@@ -180,5 +226,5 @@ export class BoardWalk {
   }
 
   warm(renderer, camera, target) { return this.set.warm(renderer, camera, target); }
-  dispose() { this.clear(); for (const k of [...this.entries.keys()]) this.free(k); this.set.dispose(); this.strip.dispose(); }
+  dispose() { this.clear(); for (const k of [...this.entries.keys(), ...this._owed.map((o) => o.key)]) this.free(k); this.set.dispose(); this.strip.dispose(); }
 }

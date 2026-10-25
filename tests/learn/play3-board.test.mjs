@@ -72,15 +72,15 @@ test('every board of the three weeks: every text ≥ the minimum font, inside th
       const a = L.hotspots[i], b = L.hotspots[j];
       assert.ok(a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1 || a.y + a.h <= b.y + 1 || b.y + b.h <= a.y + 1, `${tag}: ${a.id} / ${b.id} overlap`);
     }
-    // what a board needs: the word boards a row per word + 跟读; the echo booth its three; a cut text 读全文
+    // what a board needs: the word boards a row per word + 跟读; the echo booth its three; a cut text 看全文
     if (spec.kind === 'words') { assert.equal(L.hotspots.filter((h) => h.id.startsWith('row:')).length, spec.rows.length, tag); assert.ok(L.hotspots.some((h) => h.id === 'follow')); }
     if (spec.kind === 'echo') for (const id of ['replay', 'done', 'classic']) assert.ok(L.hotspots.some((h) => h.id === id), `${tag}: ${id}`);
     if (spec.kind === 'sign') assert.ok(L.hotspots.some((h) => h.id === 'classic'), tag);
-    if (L.cut) assert.ok(L.hotspots.some((h) => h.id === 'more') && L.full && L.full.length, `${tag}: cut, so 读全文`);
+    if (L.cut) assert.ok(L.hotspots.some((h) => h.id === 'more') && L.full && L.full.length, `${tag}: cut, so 看全文`);
   }
 });
 
-test('the long texts: the 200-character note and the passages show their start and 读全文; the strip gets all of it', () => {
+test('the long texts: the 200-character note and the passages show their start and 看全文; the strip gets all of it', () => {
   const notes = SPECS.filter(([, s]) => s.kind === 'note'), pas = SPECS.filter(([, s]) => s.kind === 'passage');
   const longest = notes.reduce((a, b) => (charsOf(b[1].blocks[0].text) > charsOf(a[1].blocks[0].text) ? b : a));
   assert.ok(charsOf(longest[1].blocks[0].text) >= 150, 'the longest teacher\'s note is long');
@@ -215,7 +215,7 @@ test('the walk: framed while she stands at a board, let go when she walks on; re
   assert.ok(W.framing.pos.distanceTo(p0) > 0.01);
 });
 
-test('the reading strip: 读全文 opens it at the board; it closes when she walks on; it never opens while a question is up', () => {
+test('the reading strip: 看全文 opens it at the board; it closes when she walks on; it never opens while a question is up', () => {
   const { W } = walkOf();
   const s1 = W.list[1].view, her = new THREE.Vector3(s1.x, 0, s1.z);
   for (let k = 0; k < 30; k++) W.update(1 / 60, her, { aspect: 1, speed: 0 });

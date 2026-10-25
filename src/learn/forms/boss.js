@@ -33,6 +33,7 @@ const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 const WEAK = ['eyeL', 'eyeR', 'belly'];
 
 export class BossFlow extends LearnFlow {
+  get walkBar() { return false; }   // (LEARN §48: no route to walk — the boss fight asks where she stands: no walk bar, hud-learn start())
   constructor(match, opts = {}) {
     super(match, opts);   // B: hud.start; _place() below makes the phases the gates
     this.form = 'boss';

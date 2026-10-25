@@ -1,7 +1,7 @@
 // 题即玩法 play-8 — the duel's 备战 between rounds as M6 boards (docs/PLAY.md §4 「课文 · 对抗赛：M6（备战时）」, §5.3; LEARN §24
 // 拿不准的 1, §27). Before a round (the 今日小考's one, the 回炉 round too) the step's boards come to her one at a time — a
 // board BD.view m in front of her, turned towards the zone, framed as it rises (BoardWalk: its rows replay their words,
-// 「读全文」 opens the reading strip) — and the strip says which round is next with 「下一块」 / 「开始这一轮」. Walking on
+// 「看全文」 opens the reading strip) — and the strip says which round is next with 「下一块」 / 「开始这一轮」. Walking on
 // (LEARN.duel.prepWalk m from where she stood) starts it too: the page turn, as on the puzzle's boards; on a keyboard
 // Enter is 「开始」 (the mouse is the camera's while she plays: the strip's buttons are for a finger). The match is
 // never paused — the form holds the clock and the zone and stands the bots (forms/duel.js); she walks as she likes.
@@ -64,6 +64,11 @@ export class PrepStation {
     const C = this.cur, S = this.host.strip; if (!S) return;
     const more = C.k < C.specs.length - 1, spec = C.specs[C.k];
     const acts = [];
+    // (LEARN §48: the board's 看全文 as a key on the strip too — the board's own hotspot on a 3D projection is not the only
+    // way into its reading strip; a tap on a strip key clears the keys, so it puts them back. Not beside 「下一块」: three
+    // keys took a second row upright, and the taller strip covered the board's title)
+    const B = this.board, bi = B && C.key ? B.list.findIndex((L) => L.key === C.key) : -1, keys = bi >= 0 ? B.keysOf(bi) : null;
+    if (keys && keys.more && !more) acts.push({ text: '看全文', onTap: () => { keys.onMore(); this._strip(); } });
     if (more) acts.push({ text: `下一块 ${C.k + 2} / ${C.specs.length}`, onTap: () => this._place(C.k + 1) });
     acts.push({ text: C.o.go || '开始这一轮', primary: true, onTap: () => this._go('tap') });
     const why = !C.board && spec ? [spec.title, ...(spec.blocks || []).map((b) => b.text || [b.en, b.zh].filter(Boolean).join(' ')), ...(spec.rows || []).map((r) => [r.en, r.zh].filter(Boolean).join(' '))].filter(Boolean).join(' · ').slice(0, 160) : (C.o.why || '');

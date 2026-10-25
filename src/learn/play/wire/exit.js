@@ -1,8 +1,9 @@
 // 题即玩法 play-wire — the exit area (docs/PLAY.md §3 M7 / 路标, §4; the booth and the signs are LEARN §21's,
 // src/learn/play/echo/booth.js, board/signs.js): after the last gate opens the day ends on the signs that stood here as
 // placeholders since B — the 回声亭 (口语: she steps onto its pad, the sample plays, she speaks along, steps off), the
-// 打卡垫 (踩上去 = 这一天走完了: the local star table, never evidence) and, on the review day, the 周报牌 / 入门小测牌
-// (their classic page). The write wall is not here: its sentences are a gate of their own (M4, flow._place).
+// 打卡垫 (踩上去 = 这一天走完了: the local star table, never evidence — LEARN §48: once it is the last stop) and, on the
+// review day, the 周报牌 / 入门小测牌 (their classic page). The write wall is not here: its sentences are a gate of their
+// own (M4, flow._place).
 // Nothing here is judged or recorded.
 // play-fix: the review day's 周报牌 / 入门小测牌 are stops of their own (the auto-walk stops at each, she reads it, 「自动走」
 // goes on; a day without a check-in pad ends once the booth is spoken and every board read — the check-in pad, where
@@ -21,6 +22,7 @@ import { LEARN } from '../../../config.js';
 import { EchoBooth } from '../echo/booth.js';
 import { Signs } from '../board/signs.js';
 import { openCheckin, checkinFor } from '../../../ui/checkin-card.js';   // 打卡 (LEARN §39): the check-in card on the pad
+import { keysBandNow } from '../landscape.js';
 
 const _v = new THREE.Vector3();
 
@@ -84,9 +86,11 @@ export class ExitStation {
       this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
       try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
       this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-      this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
+      // (LEARN §48: a timed note — on a phone held upright the strip stands where the walk bar is, and this one stayed up over
+      // 「自动走」 for the rest of the walk to the check-in pad)
+      this.echo.on.done = (d) => { this.spoke = true; this.log.push({ t: +F.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.verdict({ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' }, { ms: 2600 }); F._emit('learn:sign', { id: speak.id, kind: 'echo', how: d.how }); };
       this.echo.on.classic = () => this._classic('speak', speak);
-      this.echo.walk.on.framed = () => F.hud?.playMode?.(true); this.echo.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
+      this._keysOn(this.echo.walk);
       const at = spot(boards.length ? -2.4 : 0, -3.2);
       this.echoAt = at;
       this.echo.open({ key: speak.id, item, at: new THREE.Vector3(at.x, at.y, at.z), yaw: Math.atan2(fx, fz) });
@@ -98,7 +102,7 @@ export class ExitStation {
       this.signs.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
       this.signs.on.classic = (sg) => this._classic(sg.kind, sg);
       this.signs.on.checkin = (sg) => this._checkin(sg);
-      this.signs.walk.on.framed = () => F.hud?.playMode?.(true); this.signs.walk.on.unframed = () => { if (F.phase === 'exit') F.hud?.playMode?.(false); };
+      this._keysOn(this.signs.walk);
       const list = boards.map((s) => ({ id: s.id, kind: s.design.mechanic === 'checkin-pad' ? 'checkin' : s.design.mechanic === 'weekly-sign' ? 'weekly' : 'placement', title: s.title, text: s.items[0] && s.items[0].zh }));
       list.sort((x, y) => (x.kind === 'checkin') - (y.kind === 'checkin'));   // (the check-in pad last: stepping on it ends the day)
       this.signs.prepare('exit', list);
@@ -111,6 +115,28 @@ export class ExitStation {
     this.on = true;
     this.log.push({ t: +F.t.toFixed(2), ev: 'exit', spots: this.spots.map((s) => s.kind) });
     return true;
+  }
+  // LEARN §48: the booth's board, a sign framed → the walk bar turns into its keys (看全文, 继续 ›), framed in the band they
+  // leave clear. 继续 › always does something: in the booth it is 说完了, before it the auto-walk takes her in; at the
+  // check-in board it is the step onto the pad (the day ends); at the other signs the sign counts as read and the
+  // auto-walk goes on (before, pressed in the 1.2 s before a sign counted as read, or in front of the pad, it walked to
+  // the stop she stood at and stopped there)
+  _keysOn(W) {
+    const F = this.flow;
+    W.bandFor = keysBandNow;
+    const keys = (i) => { const k = W.keysOf(i); if (k) F.hud?.framed?.({ ...k, onGo: () => this._go(W, k.key) }); };
+    W.on.framed = (i) => keys(i);
+    W.on.unframed = () => F.hud?.framed?.(null);
+    W.on.read = (i) => { if (W.framed === i) keys(i); };
+  }
+  _go(W, L) {
+    const F = this.flow, i = W.list.indexOf(L);
+    this.log.push({ t: +F.t.toFixed(2), ev: 'go', kind: W === this.echo?.walk ? 'echo' : (L && L.sign && L.sign.kind) || '?' });
+    if (W === this.echo?.walk) { if (this.echo.state === 'in') this.echo._done('button'); F.autoWalk(true); return; }
+    // (the check-in board: the step onto the pad once it is the last stop left; before that the walk goes to the next one)
+    if (L && L.sign && L.sign.kind === 'checkin') { const n = this.nextSpot(); if (n && n.kind === 'checkin' && this.signs.checkIn()) return; F.autoWalk(true); return; }
+    if (i >= 0) W.pass(i);
+    F.autoWalk(true);
   }
   _checkin(sg) {
     this.checked = true;
@@ -170,6 +196,9 @@ export class ExitStation {
   update(dt) {
     if (!this.on) return;
     const a = this.match.local, t = G.time, o = { aspect: innerWidth / innerHeight, speed: a ? Math.hypot(a.vel?.x || 0, a.vel?.z || 0) : 0 };
+    // (LEARN §48: the pad counts only as the last stop — the write wall's gate stands at the route's end, and on w2d3 the
+    // pad came to lie where she stood as it opened: the day ended at once, the booth never spoken)
+    if (this.signs) { const n = this.nextSpot(); this.signs.armed = !!(n && n.kind === 'checkin'); }
     this.echo?.update(dt, t, a ? a.pos : null, o);
     this.signs?.update(dt, t, a ? a.pos : null, o);
     this._reach(dt);

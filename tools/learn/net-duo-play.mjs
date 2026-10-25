@@ -17,7 +17,7 @@
 //            q2 the host right, the guest wrong → the host inks; the flood agrees on both; each first answer in its own store;
 //            the host calls the match; INKWAVE's results with the answers strip on both.
 //   coop2:   both auto-walk onto their pads; the host declares the gate; the clue screen has a board (or the strip) and
-//            NOTHING to answer with (no objects registered, no keyboard, no card; the board's hotspots only 再听 / 读全文),
+//            NOTHING to answer with (no objects registered, no keyboard, no card; the board's hotspots only 再听 / 看全文),
 //            the answering screen has the objects / the 打字蟹 and no ▶, no stem; the first answer wrong → both screens show
 //            the verdict, the item comes back reworded to the OTHER player; the gates open on both; the results card on both.
 // Screenshots (--shots): <mode>-<view>-<what>.png — the two screens side by side.

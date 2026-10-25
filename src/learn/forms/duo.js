@@ -253,7 +253,7 @@ export function duoMechanic(view) {
 }
 // coop2's clue side (PLAY §5.5): a board in front of her (M6 BoardWalk, src/learn/play/board/) with the stem, its Chinese,
 // what to do — and ▶ when there is a recording (played as the board comes up; the board's 「再听」 replays it). No
-// options, no input: its only hotspot is 'listen' (and 读全文 when the text runs over)
+// options, no input: its only hotspot is 'listen' (and 看全文 when the text runs over)
 export function clueSpec(view, partner = '队友') {
   const v = view || {}, blocks = [];
   if (v.text) blocks.push({ t: 'q', en: v.text, zh: v.zh && v.zh !== v.text ? v.zh : '' });

@@ -21,7 +21,9 @@ import { EchoBooth } from '../echo/booth.js';
 import { FlipStation } from '../wire/flip.js';
 import { PrepStation } from './prep.js';
 import { isFlipGate } from '../../forms/common.js';
-import { hudBand } from '../landscape.js';
+import { hudBand, keysBandNow, hudRowBottom } from '../landscape.js';
+import { KEYS } from '../board/frame.js';
+import { safeInsets } from '../../../ui/safe-area.js';
 
 const A = LEARN.arena;
 const _v = new THREE.Vector3();
@@ -37,10 +39,22 @@ class EchoStation {
     if (this.echo) return;
     const hex = G.teamHex?.[0] || '#ff8a14', root = (G.hud && G.hud.root) || document.body;
     this.echo = new EchoBooth({ scene: G.scene, camera: G.camera, color: hex, reduced: this.host.reduced, root });
-    this.echo.walk.bandFor = hudBand;   // (play-7: the board framed under the boss's HP bar and the clock, not behind them)
+    // (play-7: the board framed under the boss's HP bar and the clock, not behind them — LEARN §48: and clear of the HUD's
+    // board keys, the safe area)
+    // (upright the keys stand under the boss's bar and its phase tag — keysTop — and the board under the keys)
+    const keysTop = (w, h) => Math.max(58 + safeInsets().top, hudRowBottom(w, h) + 4);
+    this.echo.walk.bandFor = (aspect, w, h) => { const a = hudBand(aspect, w, h), k = keysBandNow(aspect, w, h); return { ...k, top: Math.max(a.top, k.top, aspect < 1 ? keysTop(w, h) + KEYS.row - 58 : 0) }; };
+    // LEARN §48: she is in the booth where she stands (a phone held upright has no stick to walk into its ring with — the
+    // S phase waited out its clock): the board framed at once, the sample after sampleGap, and the HUD's keys — 看全文,
+    // 继续 › = 说完了 — besides the board's own
+    this.echo.here = true;
+    const keys = (i) => { const k = this.echo.walk.keysOf(i); if (k) this.flow.hud?.framed?.({ ...k, top: innerWidth < innerHeight ? keysTop(innerWidth, innerHeight) : 0, onGo: () => this.echo?._done('button') }); };
+    this.echo.walk.on.framed = (i) => keys(i);
+    this.echo.walk.on.unframed = () => this.flow.hud?.framed?.(null);
+    this.echo.walk.on.read = (i) => { if (this.echo.walk.framed === i) keys(i); };
     try { this.echo.warm(G.renderer, G.camera, G.scene)?.catch?.(() => {}); } catch (e) { /* on first use */ }
     this.echo.on.speak = (text, o) => this.host.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
-    this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.show({ text: '说完了 — 很好', zh: '口语不计分；评分在经典页', tts: null }, {}); this.flow._echoDone?.(C.g, C.item, d); };
+    this.echo.on.done = (d) => { const C = this.cur; if (!C) return; this.log.push({ t: +this.flow.t.toFixed(2), ev: 'spoke', how: d.how }); this.host.strip?.verdict({ ok: true, head: '说完了 — 很好', why: '口语不计分；评分在经典页' }, { ms: 1400 }); this.flow._echoDone?.(C.g, C.item, d); };   // (LEARN §48: a timed note, gone before the next card comes 1.5 s on — upright it stood over that card's 继续)
     this.echo.on.classic = () => { this.flow._emit('learn:classic', { kind: 'speak', id: this.cur && this.cur.item.id }); G.game?.menus?.toast?.('口语评分在经典页（课本）'); };
   }
   warm() { this._ensure(); }
@@ -179,6 +193,7 @@ export class ArenaHost {
     if (xhOff !== !!this._xhOff) { this._xhOff = xhOff; const x = G.hud && G.hud.xh; if (x && x.style) x.style.visibility = xhOff ? 'hidden' : ''; }
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.echo?.update(dt); this.flip.update(dt); this.prepS.update(dt);
+    this.strip?.update?.(dt);   // (a timed note hides itself: the boss's 说完了 — LEARN §48)
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     // she fell while typing: the question comes back later, nothing written
     if (S === this.type && a && !a.alive && this.type.cur) { this.type.abort(); this.kind = null; this.cur = null; this.cam.release(G.rig, a); this.resized = false; return; }

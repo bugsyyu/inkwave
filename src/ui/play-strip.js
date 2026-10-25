@@ -84,7 +84,7 @@ const CSS = `
 .iw-ps__act.is-primary { background: var(--self); color: var(--self-ink); border-color: rgba(255, 255, 255, .4); rotate: -1.5deg; }
 .iw-ps__act:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 @media (orientation: portrait) and (max-width: 640px) {
-  .iw-ps__box { left: 10px; right: 10px; translate: none; width: auto; max-width: none; top: calc(var(--hudtop, 58px) + env(safe-area-inset-top)); }
+  .iw-ps__box { left: 10px; right: 10px; translate: none; width: auto; max-width: none; top: calc(var(--hudtop, 58px) + var(--iw-sat, env(safe-area-inset-top))); }
   .iw-ps__box.is-enter { animation-name: iw-ps-in-up; }
   @keyframes iw-ps-in-up { from { opacity: 0; translate: 0 -10px; } }
 }

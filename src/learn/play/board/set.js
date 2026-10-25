@@ -6,11 +6,14 @@
 //   S.paint(spec) → entry { spec, layout, canvas, tex }        draw a board now (ahead of time: 2 gates before); entry.dispose()
 //   S.add(entry, { x, y, z, yaw, w }) → board                  it rises out of the ground (pop); board = { i, w, h, bottom,
 //                                                              center (world), normal, yaw, group, hot: [{ id, data, rect }] }
-//   S.remove(board) · S.clear() · S.update(dt)
+//   S.remove(board) · S.clear() · S.update(dt)        LEARN §48: one face uploaded a frame (G.renderer.initTexture), the
+//                                                              board's rise begun once its face is up — a word gate's
+//                                                              six boards rising together uploaded six 1024-px canvases in one
 //   S.project(board, camera, W, H) → board.hot (rect: the hotspot's box on the screen, px)
 //   S.warm(renderer, camera, target) · S.dispose()
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
 import { layoutBoard, drawBoard } from './paint.js';
 import { canvasMeasure } from './text.js';
@@ -78,8 +81,11 @@ export class BoardSet {
     face.scale.set(w, h, 1); face.position.set(0, bottom + h / 2, 0.066); face.renderOrder = 2;
     group.add(face);
     this.group.add(group);
+    // (LEARN §48: its face waits for its upload — update() — when there is a renderer to upload to and a canvas to upload)
+    const up = !(G.renderer && G.renderer.initTexture && entry.canvas);
+    face.visible = up;
     const b = {
-      i: this.boards.length, entry, w, h, bottom, yaw, group, face, mat, pop: this.reduced ? 1 : 0, popT: this.reduced ? 9 : -0.08 * this.boards.length,
+      i: this.boards.length, entry, w, h, bottom, yaw, group, face, mat, up, pop: this.reduced ? 1 : 0, popT: this.reduced ? 9 : -0.08 * this.boards.length,
       center: new THREE.Vector3(x, y + bottom + h / 2, z), normal: new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), base: new THREE.Vector3(x, y, z),
       hot: L.hotspots.map((hs) => ({ id: hs.id, data: hs.data || null, local: canvasToBoard(hs, L, w, h), rect: { x: 0, y: 0, w: 0, h: 0 } })),
     };
@@ -98,7 +104,12 @@ export class BoardSet {
 
   update(dt) {
     let busy = false;
+    // one face up a frame (texImage2D + its mipmaps now, not on the first frame it is drawn), then it shows and rises —
+    // a frame, not an update (a slow frame runs the match in two sub-steps; NaN without a clock: every update)
+    const f = typeof G.time === 'number' ? G.time : NaN;
+    if (f !== this._upF) for (const b of this.boards) if (!b.up) { this._upF = f; try { G.renderer?.initTexture?.(b.entry.tex); } catch (e) { /* drawn the first time instead */ } b.up = true; b.face.visible = true; break; }
     for (const b of this.boards) {
+      if (!b.up) { busy = true; continue; }
       if (b.popT < 1) { b.popT += dt; b.pop = b.popT <= 0 ? 0.001 : b.popT >= 0.55 ? 1 : easeOutBack(b.popT / 0.55); busy = true; this.dirty = true; }
     }
     if (!this.dirty) return;

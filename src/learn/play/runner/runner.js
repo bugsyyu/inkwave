@@ -133,6 +133,9 @@ export class RunnerFlow extends RaceFlow {
     this.ui.el?.classList.add('is-runner');
     G.hud?.el?.classList.add('is-learn', 'is-runner');   // (hud-learn's start() did is-learn: the clock's width; is-runner: no crosshair)
     G.touch?.el?.classList.add('is-runner');       // only ⏸ of the thumb cluster (hud.js CSS)
+    // (LEARN §48: no corner map in a level — hud-learn's start() is not the runner's; and the keys the runner hides take no
+    // touch: the touch layer reads what is hidden as it lays out)
+    G.hud?.el?.classList.add('is-nomap'); G.touch?.relayout?.();
     const a = match.local;
     if (a) this._install(a);
     this._unsub = [
@@ -280,7 +283,9 @@ export class RunnerFlow extends RaceFlow {
     this._reap(dt);
     if (this.finishT >= 0) { this.finishT -= dt; this._steer(a, dt); if (this.finishT < 0) this._results(); return; }
     if (this.phase === 'done' || m.state !== 'playing' || !a) return;
-    if (!this.started) { this._start(); this.prepS?.update(dt); this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
+    // (LEARN §48: the start line's board takes its taps — 听全文 / 看全文 — through G.playTap, which the swipe hook asks first)
+    if (!this.started) { this._start(); this.prepS?.update(dt); G.playTap = (this.prepS && this.prepS.tapApi) || null; this.ui.aside(!!(this.prepS && this.prepS.pose)); this._steer(a, dt); return; }
+    if (this.prepS && G.playTap === this.prepS.board?.tapApi) G.playTap = null;
     this.clock += dt;
     // (the clock's text is a function of the second it shows: built when that changes — LEARN §52, it was every frame)
     const sec = Math.max(0, Math.round(this.clock));
@@ -1010,8 +1015,8 @@ export class RunnerFlow extends RaceFlow {
     this.bw.dispose(); this.prepS?.dispose();
     this.mark.dispose();
     stopVoice(); this.strip.dispose(); this.tips.end();
-    G.hud?.el?.classList.remove('is-learn', 'is-runner');
-    G.touch?.el?.classList.remove('is-runner');
+    G.hud?.el?.classList.remove('is-learn', 'is-runner', 'is-nomap');
+    G.touch?.el?.classList.remove('is-runner'); G.touch?.relayout?.();
     super.dispose();
   }
 }

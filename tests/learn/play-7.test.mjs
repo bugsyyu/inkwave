@@ -99,7 +99,8 @@ test('the stations frame landscape typing in the column; the strip leaves it; th
   }
   assert.match(src('src/learn/play/arena/type.js'), /classList\?\.remove\('is-typing'\)/, 'the arena strip leaves the corner when typing is over');
   const L = src('src/learn/play/landscape.js');
-  assert.match(L, /\.iw-ps\.is-typing \.iw-ps__box \{ left: calc\(env\(safe-area-inset-left\) \+ 8px\)/, 'the typing strip goes to the top-left corner');
+  // (LEARN §48: the left inset through the page's variable — env(safe-area-inset-left) on a phone, set by an audit)
+  assert.match(L, /\.iw-ps\.is-typing \.iw-ps__box \{ left: calc\(var\(--iw-sal, env\(safe-area-inset-left\)\) \+ 8px\)/, 'the typing strip goes to the top-left corner');
   assert.match(L, /max-height: 460px\) and \(orientation: landscape\)/, 'phones only: desktop keeps its layout');
   // hud.js: one method, the tags' own update untouched
   const hud = src('src/ui/hud.js');
@@ -110,5 +111,6 @@ test('the stations frame landscape typing in the column; the strip leaves it; th
   assert.match(host, /this\.mode === 'zone' && this\.kind === 'm1'/, 'the duel / the quiz (zone) yields only while its objects are up');
   assert.match(host, /this\.kind === 'echo' && /, '… and the boss while its booth board is framed');
   assert.match(host, /this\.kind === 'type' && !!this\.type\.cur/, '… and while the 打字蟹 is up');
-  assert.match(host, /walk\.bandFor = hudBand/, 'the boss booth board is framed under the top row');
+  // (LEARN §48: under the top row and clear of the HUD's board keys — hudBand's top, keysBandNow's sides)
+  assert.match(host, /walk\.bandFor = \(aspect, w, h\) => \{ const a = hudBand\(aspect, w, h\), k = keysBandNow\(aspect, w, h\); return \{ \.\.\.k, top: Math\.max\(a\.top, k\.top, aspect < 1 \? keysTop\(w, h\) \+ KEYS\.row - 58 : 0\) \}; \};/, 'the boss booth board is framed under the top row');
 });

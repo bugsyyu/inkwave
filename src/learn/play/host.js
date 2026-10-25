@@ -105,6 +105,7 @@ export class PlayHost {
     this.m1.update(dt);
     if (m.paused) { this.resized = false; return; }
     this.type.update(dt); this.beat.update(dt); this.flip.update(dt); this.boards.update(dt); this.exit.update(dt);
+    this.strip?.update?.(dt);   // (a timed note hides itself: the exit's 说完了 — LEARN §48)
     // standing still while a station needs her: her intents, after the controller wrote them, before she moves
     const S = this.kind && this.kind !== 'm1' ? this.stations[this.kind] : null;
     if (a && S && S.still) { const it = a.intent; it.move.set(0, 0, 0); it.jump = it.fire = it.squid = it.sub = it.special = false; }
@@ -175,6 +176,10 @@ export class PlayHost {
   exitSpot() { return this.exit.nextSpot(); }
   exitSkip(s) { this.exit.skip(s); }
   exitDone() { return this.exit.done; }
+
+  // LEARN §48: the auto-walk at a board's stop — is a board framed (−1: none) · pass board i (it counts as read)
+  boardFramed() { return this.boards.framed; }
+  boardPass(i) { this.boards.walk?.pass(i); }
 
   // ---------------------------------------------------------------------------------------------- shared helpers
   // the auto-walk's target on the way to gate g: the next unread board's viewing spot (she stops there), else null (the

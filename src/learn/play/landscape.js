@@ -17,11 +17,13 @@
 //     ResizeObserver on the clock keeps --iw-clock-half (half its width) on the page's root; the two sit that far plus
 //     8 px from the middle, never nearer than the 52 px they had
 // Desktop (no max-height: 460px) keeps every position as it was; the split keyboard still opens the column there.
-import { boardBand, frameBoard } from './board/frame.js';
+import { boardBand, frameBoard, keysBand } from './board/frame.js';
+import { G } from '../../core/ctx.js';
+import { safeInsets } from '../../ui/safe-area.js';
 
 const CSS = `@media (max-height: 460px) and (orientation: landscape) {
-  .iw-ps.is-typing .iw-ps__box { left: calc(env(safe-area-inset-left) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
-    width: max-content !important; max-width: max(150px, calc(var(--iw-pk-side, 300px) - env(safe-area-inset-left) - 14px)) !important; padding: 6px 12px !important; gap: 8px !important; border-radius: 16px !important; }
+  .iw-ps.is-typing .iw-ps__box { left: calc(var(--iw-sal, env(safe-area-inset-left)) + 8px) !important; right: auto !important; translate: none !important; top: 6px !important;
+    width: max-content !important; max-width: max(150px, calc(var(--iw-pk-side, 300px) - var(--iw-sal, env(safe-area-inset-left)) - 14px)) !important; padding: 6px 12px !important; gap: 8px !important; border-radius: 16px !important; }
   .iw-ps.is-typing .iw-ps__box.is-enter { animation-name: iw-ps-in-l7; }
   @keyframes iw-ps-in-l7 { from { opacity: 0; translate: 0 -8px; } }
   .iw-ps.is-typing .iw-ps__play { display: none !important; }
@@ -106,4 +108,17 @@ export function hudBand(aspect, W, H, board = null) {
     band = { ...band, top: t };
   }
   return band;
+}
+
+/** LEARN §48: how far down the HUD's top row reaches now (the clock, the boss's bar, its phase tag, the standings) over the
+ *  middle of the screen — px, 0 without a page */
+export function hudRowBottom(W, H) { return topOver(W * 0.15, W * 0.85, H, 0, ROW_SEL); }
+
+/** LEARN §48: the band a framed board fills while the HUD shows its keys (board/frame.js keysBand), on this screen now — the
+ *  safe area, and on a phone turned what the touch layer's live keys reach in from the right edge */
+export function keysBandNow(aspect, W, H) {
+  const T = G.touch;
+  let reach = 0;
+  if (aspect >= 1 && T && T.enabled) for (const b of T.buttons) if (!b.off) reach = Math.max(reach, W - (b.cx - b.r));
+  return keysBand(aspect, W, H, { ...safeInsets(), reach: Math.ceil(reach) });
 }

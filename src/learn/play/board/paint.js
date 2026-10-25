@@ -6,7 +6,7 @@
 //                               text) · passageSpec(passage) · echoSpec(item) · signSpec(kind, title, text)
 //   layoutBoard(spec, { measure, W, maxH }) → { W, H, ops, hotspots: [{ id, x, y, w, h, data }], cut, minFont, full }
 //       everything on a board is ≥ BOARD.minFont canvas px (≥ 17 px on a phone once the board is framed — frame.js);
-//       a board takes what fits — its title, the first paragraph — and when the text goes on, a 「读全文」 hotspot opens the
+//       a board takes what fits — its title, the first paragraph — and when the text goes on, a 「看全文」 hotspot opens the
 //       reading strip with all of it (`full`: the strip's blocks)
 //   drawBoard(ctx, layout, { ink, titan })   a sticker (LEARN §38: the §35 plates at a board's size — an ink outline, a
 //                                     solid drop, a pearl face), ink letters, the title in Titan One; her ink on the
@@ -78,6 +78,26 @@ export function signSpec(kind, title, text, button = '开经典页') {
 }
 
 /* ───────────────────────────── layout ───────────────────────────── */
+const MORE = { id: 'more', label: '看全文', icon: 'book' }, FOOT_SEP = 18, FOOT_GAP = 14;
+// the footer's buttons in rows → [[{ b, w, px }]]: one row, its pills and labels shrunk together to fit, while the labels
+// stay ≥ BOARD.minFont; past that (LEARN §48: the booth's four — 再听 · 说完了 · 评分 · 经典页 · 看全文 — shrank their pills
+// while their labels held at minFont and spilled over each other and off the board) as many rows as they need at minFont
+function footPlan(btns, measure, inner) {
+  if (!btns.length) return [];
+  const sum = (ws) => ws.reduce((a, b) => a + b, 0) + FOOT_SEP * (ws.length - 1);
+  const widths = btns.map((b) => Math.max(210, measure(b.label, BOARD.body, 800) + 130)), total = sum(widths);
+  const k = total > inner ? inner / total : 1;
+  if (BOARD.body * k >= BOARD.minFont) return [btns.map((b, i) => ({ b, w: widths[i] * k, px: Math.min(BOARD.body, BOARD.body * k) }))];
+  const rows = [];
+  let row = [];
+  for (const b of btns) {
+    const w = Math.min(inner, Math.max(210, measure(b.label, BOARD.minFont, 800) + 130));
+    if (row.length && sum(row.map((q) => q.w).concat(w)) > inner) { rows.push(row); row = []; }
+    row.push({ b, w, px: BOARD.minFont });
+  }
+  rows.push(row);
+  return rows;
+}
 export function layoutBoard(spec, o = {}) {
   const measure = o.measure || approxMeasure, W = o.W || BOARD.W, maxH = o.maxH || MAX_H, P = BOARD.pad, inner = W - P * 2;
   const ops = [], hotspots = [];
@@ -132,10 +152,11 @@ export function layoutBoard(spec, o = {}) {
   }
   if (spec.sub) { textLine(spec.sub, P, y + BOARD.body * 0.8, BOARD.body, 600, MUTED); y += BOARD.body * 1.3; }
   y += BOARD.gap * (isRows ? 0.6 : 1);
-  // the footer (buttons, and 读全文 when something did not fit) is placed last; reserve its height now
+  // the footer (buttons, and 看全文 when something did not fit) is placed last; reserve its height now
   const footBtns = isRows ? [] : (spec.buttons || []).slice();
-  const footH = (n) => (n ? BOARD.btnH + BOARD.gap * 1.5 : 0) + P * 0.45;
-  const room = () => maxH - footH(footBtns.length + (spec.full && !isRows ? 1 : 0)) - y;
+  const footN = footPlan(footBtns.concat(spec.full && !isRows ? [MORE] : []), measure, inner).length;
+  const footH = (footN ? footN * BOARD.btnH + (footN - 1) * FOOT_GAP + BOARD.gap * 1.5 : 0) + P * 0.45;
+  const room = () => maxH - footH - y;
   // rows: the whole row is its hotspot (≥ 44 pt tall once framed: ROW_MIN canvas px); a word board shows every word
   plan.forEach((q, i) => {
     const { r, h } = q, rx = P, rw = inner, tx = rx + 104;
@@ -182,22 +203,20 @@ export function layoutBoard(spec, o = {}) {
     y += BOARD.gap * 0.6;
     if (cl.cut) break;
   }
-  // footer: the buttons, and 读全文 when the board could not hold it all
-  if (cut && spec.full) footBtns.push({ id: 'more', label: '读全文', icon: 'book' });
-  if (footBtns.length) {
+  // footer: the buttons, and 看全文 when the board could not hold it all (LEARN §48: 读全文 read as 「read it aloud」 to her)
+  if (cut && spec.full) footBtns.push(MORE);
+  const rows = footPlan(footBtns, measure, inner);
+  if (rows.length) {
     y += BOARD.gap * 0.5;
-    const gap = 18, n = footBtns.length;
-    const widths = footBtns.map((b) => Math.max(210, measure(b.label, BOARD.body, 800) + 130));
-    const total = widths.reduce((a, b) => a + b, 0) + gap * (n - 1);
-    const k = total > inner ? inner / total : 1;
-    let x = P;
-    footBtns.forEach((b, i) => {
-      const w = widths[i] * k;
-      ops.push({ op: 'pill', x, y, w, h: BOARD.btnH, label: b.label, icon: b.icon, px: font(Math.max(BOARD.minFont, Math.min(BOARD.body, BOARD.body * k))), primary: !!b.primary });
-      hotspots.push({ id: b.id, x, y, w, h: BOARD.btnH });
-      x += w + gap;
+    rows.forEach((row, r) => {
+      let x = P;
+      for (const { b, w, px } of row) {
+        ops.push({ op: 'pill', x, y, w, h: BOARD.btnH, label: b.label, icon: b.icon, px: font(px), primary: !!b.primary });
+        hotspots.push({ id: b.id, x, y, w, h: BOARD.btnH });
+        x += w + FOOT_SEP;
+      }
+      y += BOARD.btnH + (r < rows.length - 1 ? FOOT_GAP : 0);
     });
-    y += BOARD.btnH;
   }
   const H = Math.ceil(Math.min(maxH, y + P * 0.45));
   return { W, H, ops, hotspots, cut, minFont: minFont === Infinity ? 0 : minFont, full: spec.full || null, kind: spec.kind };
