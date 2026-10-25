@@ -8,7 +8,7 @@
  * game answer is dated on the same day as one in the lesson (src/learn/workbench.js); phasePlan / dailyHours and the
  * tables they read give 学习方法 the sentence its {{PLAN}} says (src/learn/guides.js).
  * UMD like the other files here: Node → module.exports; browser → BaseEngine.Host. `window` inside fdUs is the UMD root
- * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: 62a9a305494c83d51b602330f1c31c41ae9e273c. */
+ * (globalThis in Node), where model.js registers BaseEngine.Model. Source commit: f2ed891b4ee8ce353400b8e389dc1d8e875e37d0. */
 (function (root, factory) {
   'use strict';
   var api = factory(root);
@@ -17,10 +17,10 @@
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function (root) {
   'use strict';
   var window = root;
-  // ── app/index.html L2493 ──
+  // ── app/index.html L2537 ──
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // ── app/index.html L7409–7419 ──
+  // ── app/index.html L7792–7802 ──
   // ---------- 听写: checking (the patrol's rules, app/base/drill.js → BaseEngine.Model.spellCheck) ----------
   // Without model.js a small copy of the same rule: letters compared without case, British = American for the common patterns.
   function fdUs(w) {
@@ -33,15 +33,15 @@
     return /(?:exercis|advis|surpris|promis|premis|wis|ris|nois|pois|rais|prais|cruis|revis|supervis|televis|devis|comprom|enterpris|expertis|franchis|merchandis|chastis|despis|disguis|excis|incis|precis|concis)(?:e|es|ed|ing|ation|ations)$/.test(v) ? v : v.replace(/is(e|es|ed|ing|ation|ations)$/, 'iz$1');
   }
 
-  // ── app/index.html L7932 ──
+  // ── app/index.html L8315 ──
   function toks(s) { return String(s).split(/\s+/).filter(Boolean); }
 
-  // ── app/index.html L7933–7935 ──
+  // ── app/index.html L8316–8318 ──
   // a word as written, compared: no case, no accents (café = cafe), any apostrophe (’ ‘ ʼ) as ', no other marks; an apostrophe at
   // either end is a quotation mark (‘Thank you,’ she said.), not part of the word
   function normTok(t) { return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘ʼ]/g, "'").replace(/[^a-z0-9']/g, '').replace(/^'+|'+$/g, ''); }
 
-  // ── app/index.html L7936–7946 ──
+  // ── app/index.html L8319–8329 ──
   function lcsOk(ref, hyp) {
     const n = ref.length, m = hyp.length;
     const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
@@ -54,17 +54,17 @@
     return ok;
   }
 
-  // ── app/index.html L8623–8624 ──
+  // ── app/index.html L9006–9007 ──
   // Speech recognisers write numbers as digits ("3", "50", "6:30", "21st"): turn them into words before comparing.
   const NUM_1 = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split(' ');
 
-  // ── app/index.html L8625 ──
+  // ── app/index.html L9008 ──
   const NUM_10 = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 
-  // ── app/index.html L8626 ──
+  // ── app/index.html L9009 ──
   const NUM_ORD = { one: 'first', two: 'second', three: 'third', five: 'fifth', eight: 'eighth', nine: 'ninth', twelve: 'twelfth' };
 
-  // ── app/index.html L8627–8637 ──
+  // ── app/index.html L9010–9020 ──
   function numWords(t) {
     const m = /^(\d{1,4})(st|nd|rd|th)?$/.exec(t);
     if (!m) return [t];
@@ -77,7 +77,7 @@
     return w;
   }
 
-  // ── app/index.html L7947–7956 ──
+  // ── app/index.html L8330–8339 ──
   // The reference words matched in what she typed. A token of punctuation only (a dash, "…") is not a word: it is shown
   // but not scored (ok[j] is null), so a perfect answer scores 100%.
   // The words a written token stands for. A number written as digits is the number's words, the way the speech check reads
@@ -89,7 +89,7 @@
       .split(/\s+/).map(normTok).filter(Boolean).reduce((a, x) => a.concat(/^\d+(st|nd|rd|th)?$/.test(x) ? numWords(x) : [fdUs(x)]), []);
   }
 
-  // ── app/index.html L7957–7965 ──
+  // ── app/index.html L8340–8348 ──
   function tokMarks(ref, hyp) {
     const refT = toks(ref), at = [], refW = [];
     refT.forEach((t, j) => dictWords(t).forEach((w) => { at.push(j); refW.push(w); }));
@@ -100,14 +100,14 @@
     return { n: marked.length, good: marked.filter(Boolean).length, html };
   }
 
-  // ── app/index.html L7966–7970 ──
+  // ── app/index.html L8349–8353 ──
   // One typed sentence against the reference: words right, percent, and the marked-up reference.
   function dictScore(ref, hyp) {
     const m = tokMarks(ref, hyp);
     return { pct: Math.round(m.good / Math.max(1, m.n) * 100), good: m.good, n: m.n, html: m.html };
   }
 
-  // ── app/index.html L5557–5591 ──
+  // ── app/index.html L5938–5972 ──
   // sentences (never split "1.5", "Mr.", "e.g."), long ones again at , ; : so no piece runs much past 170 characters
   function speechChunks(text) {
     const t = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
@@ -144,10 +144,10 @@
     return fin;
   }
 
-  // ── app/index.html L5715 ──
+  // ── app/index.html L6096 ──
   const CLIP_SILENT = 'data:audio/mpeg;base64,//M0xAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//M0xDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//M0xHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//M0xMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
-  // ── app/index.html L2506–2535 ──
+  // ── app/index.html L2550–2579 ──
   // ================= the clock (时区) =================
   // One wall clock for the whole workbench (WB.clock; docs/LIFE.md §4): the hour, the day and the weekday are read in her place's
   // zone — Singapore unless 设置 says another city or 「跟随这台设备」 — never in whichever zone this device happens to be. Instants
@@ -179,19 +179,19 @@
     ['hnl', 'Pacific/Honolulu', 21.3069, -157.8583, '檀香山', 'Honolulu'],
   ];
 
-  // ── app/index.html L2536 ──
+  // ── app/index.html L2580 ──
   const TZ_DEFAULT = 'sin', TZ_FMT = {};
 
-  // ── app/index.html L2537–2540 ──
+  // ── app/index.html L2581–2584 ──
   function tzFmt(zone) {
     if (TZ_FMT[zone] === undefined) { try { TZ_FMT[zone] = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }); } catch (e) { TZ_FMT[zone] = null; } }
     return TZ_FMT[zone];
   }
 
-  // ── app/index.html L2541 ──
+  // ── app/index.html L2585 ──
   function tzDevice() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } }
 
-  // ── app/index.html L2542–2550 ──
+  // ── app/index.html L2586–2594 ──
   // the wall-clock parts of an instant in a zone (null: this device's): { y, m: 1–12, d, h: 0–23, mi, s, ms, dow: 0 = Sunday }
   function tzParts(d, zone) {
     const f = zone ? tzFmt(zone) : null, o = { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), h: d.getHours(), mi: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds() };
@@ -202,7 +202,7 @@
     return o;
   }
 
-  // ── app/index.html L2566–2575 ──
+  // ── app/index.html L2610–2619 ──
   function tzPlaceOf(v) {
     const byZone = (z) => TZ_PLACES.find((p) => p[1] === z), device = v === 'device';
     let row = null, zone = '';
@@ -214,13 +214,13 @@
     return { id: device ? 'device' : row ? row[0] : zone, zone, tz: device ? null : zone, lat: row ? row[2] : 31.2, lon: row ? row[3] : null, zh: row ? row[4] : '', en: row ? row[5] : '', device };
   }
 
-  // ── app/index.html L1280 ──
+  // ── app/index.html L1324 ──
   const BLOCK_DEFS = { a: { name: '上午' }, b: { name: '下午' }, c: { name: '傍晚', light: true } };
 
-  // ── app/index.html L1282 ──
+  // ── app/index.html L1326 ──
   const T = (id, t, m, k, how) => ({ id, t, m, k, how });
 
-  // ── app/index.html L1299–1313 ──
+  // ── app/index.html L1343–1357 ──
   const MOCK_SAT = {
     note: '周六是全真模考日：在电脑上按考试顺序和时长来，结束后把成绩录进「模考记录」。晚上休息。',
     focus: { a: '模考：听力和阅读', b: '模考：写作和口语', c: '休息' },
@@ -237,7 +237,7 @@
     },
   };
 
-  // ── app/index.html L1315–1471 ──
+  // ── app/index.html L1359–1515 ──
   const PHASES = [
     {
       name: '启动诊断', weeks: 1, fixed: true, todoLabel: '这一周要完成的事',
@@ -396,22 +396,22 @@
     },
   ];
 
-  // ── app/index.html L2499 ──
+  // ── app/index.html L2543 ──
   const parseYmd = (s) => { const p = String(s).split('-').map(Number); return new Date(p[0], (p[1] || 1) - 1, p[2] || 1); };
 
-  // ── app/index.html L2500 ──
+  // ── app/index.html L2544 ──
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 
-  // ── app/index.html L2501 ──
+  // ── app/index.html L2545 ──
   const diffDays = (a, b) => Math.round((new Date(b.getFullYear(), b.getMonth(), b.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
 
-  // ── app/index.html L2503 ──
+  // ── app/index.html L2547 ──
   const toMin = (hm) => { const p = String(hm || '0:0').split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); };
 
-  // ── app/index.html L2594 ──
+  // ── app/index.html L2638 ──
   const fmtH = (min) => String(Math.round(min / 6) / 10);
 
-  // ── app/index.html L2941–2947 ──
+  // ── app/index.html L3302–3308 ──
   // ================= plan logic =================
   function activeBlocks(p) {
     return ['a', 'b', 'c'].filter((k) => k !== 'c' || p.eveningOn).map((k) => {
@@ -420,14 +420,14 @@
     });
   }
 
-  // ── app/index.html L2948–2952 ──
+  // ── app/index.html L3309–3313 ──
   function dailyHours(p) {
     let h = 0;
     activeBlocks(p).forEach((b) => { const d = Math.max(0, b.e - b.s) / 60; h += b.light ? Math.min(1.5, d * 0.5) : d; });
     return h;
   }
 
-  // ── app/index.html L2953–2963 ──
+  // ── app/index.html L3314–3324 ──
   function phasePlan(p) {
     const h = Math.max(0.5, dailyHours(p));
     const scale = Math.min(3, Math.max(0.7, 5 / h));
