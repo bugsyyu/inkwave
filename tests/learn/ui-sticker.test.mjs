@@ -85,7 +85,7 @@ test('the prop bag, the reading strip and the runner\'s hint are stickers too; t
   const B = jsCss('src/learn/forms/ui.js');
   sticker(B, '.iw-lf__slot', 'a bag slot');
   sticker(B, '.iw-lf__note', 'the forms\' note');
-  assert.match(rule(B, '.iw-lf.is-aside .iw-lf__bag'), /translate: calc\(100% \+ 24px\) -50%; opacity: 0; pointer-events: none;/, 'LEARN §30: the bag steps aside');
+  assert.match(rule(B, '.iw-lf.is-aside .iw-lf__bag'), /translate: calc\(100% \+ 24px \+ var\(--iw-sar, 0px\)\) -50%; opacity: 0; pointer-events: none;/, 'LEARN §30: the bag steps aside (past the right inset too, §53)');
   assert.ok(px(rule(B, '.iw-lf__slot'), 'width') >= 44, 'a slot is ≥ 44 pt');
   sticker(jsCss('src/learn/play/board/strip.js'), '.iw-read__box', 'the reading strip');
   sticker(jsCss('src/learn/play/runner/tips.js'), '.iw-run__hint', 'the runner\'s hint');

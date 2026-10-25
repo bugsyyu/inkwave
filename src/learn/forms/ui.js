@@ -13,14 +13,16 @@ const PROP_GLYPH = { leap: 'beacon', rain: 'storm', echo: 'sonar', shield: 'bubb
 // the game's own two-tone sub / special icons (ink = currentColor, as the HUD draws them); these names are not in GLYPHS,
 // so every slot used to fall back to the same drop
 const propIcon = (id) => { const n = PROP_GLYPH[id]; return SUB_ICONS[n] || SPECIAL_ICONS[n] || GLYPHS[n] || GLYPHS.drop; };
+// (the bag, the standings and the boss's strip keep out of the safe area — the notch / the Dynamic Island on a turned phone,
+// the HUD's top row moved down by it upright: the page's --iw-sa* variables, src/ui/safe-area.js, LEARN §48 / §53)
 const CSS = `
 .iw-lf { position: absolute; inset: 0; pointer-events: none; z-index: 17; font-family: 'Rubik', system-ui, sans-serif; color: #fff;
   --self: #ff8a14; --self-ink: #15121c; --k: #15121c; --k3: #2c2540; --lk: linear-gradient(170deg, rgba(40, 33, 60, .94), rgba(22, 18, 32, .94)); }
 .iw-lf.is-off { display: none; }
 .iw-lf * { box-sizing: border-box; }
 .iw-lf svg { display: block; width: 100%; height: 100%; }
-.iw-lf__bag { position: absolute; right: 16px; top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; transition: translate .28s var(--spring, cubic-bezier(.2,1.4,.4,1)), opacity .2s; }
-.iw-lf.is-aside .iw-lf__bag { translate: calc(100% + 24px) -50%; opacity: 0; pointer-events: none; }
+.iw-lf__bag { position: absolute; right: calc(16px + var(--iw-sar, 0px)); top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; transition: translate .28s var(--spring, cubic-bezier(.2,1.4,.4,1)), opacity .2s; }
+.iw-lf.is-aside .iw-lf__bag { translate: calc(100% + 24px + var(--iw-sar, 0px)) -50%; opacity: 0; pointer-events: none; }
 /* a slot is a little sticker (styles/hud.css): ink outline, a solid ink shadow under it, a light rim; a press sinks it */
 .iw-lf__slot { width: 56px; height: 56px; border-radius: 16px; border: 2px solid rgba(255,255,255,.22); background: var(--lk); color: #fff; display: grid; place-items: center; padding: 10px; cursor: pointer; position: relative;
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); transition: translate .08s, box-shadow .08s; -webkit-tap-highlight-color: transparent; }
@@ -35,11 +37,11 @@ const CSS = `
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 17px; font-weight: 800; letter-spacing: .02em; opacity: 0; transition: opacity .25s; white-space: nowrap; }
 .iw-lf__note.is-on { opacity: 1; }
 .iw-lf__note.is-coral { color: #f08a7a; border-color: #f08a7a; }
-.iw-lf__rank { position: absolute; left: 16px; top: 96px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; }
+.iw-lf__rank { position: absolute; left: calc(16px + var(--iw-sal, 0px)); top: calc(96px + var(--iw-sat, 0px)); display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; }
 .iw-lf__rank div { display: flex; gap: 8px; align-items: center; padding: 5px 10px; border-radius: 10px; background: rgba(21,18,28,.82); box-shadow: 0 0 0 1.5px var(--k); }
 .iw-lf__rank div.is-me { background: var(--self); color: var(--self-ink); box-shadow: 0 0 0 1.5px var(--k), 0 2px 0 1.5px var(--k); rotate: -2deg; }
 .iw-lf__rank i { width: 18px; text-align: center; font-family: 'Titan One', 'Rubik', sans-serif; font-weight: 400; font-style: normal; }
-.iw-lf__phase { position: absolute; left: 50%; top: 92px; translate: -50% 0; display: flex; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--lk); font-size: 13px; font-weight: 800;
+.iw-lf__phase { position: absolute; left: 50%; top: calc(92px + var(--iw-sat, 0px)); translate: -50% 0; display: flex; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--lk); font-size: 13px; font-weight: 800;
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); }
 /* (empty outside the boss: it drew a small dark pill under the clock in every other form) */
 .iw-lf__phase:empty { display: none; }
@@ -49,7 +51,7 @@ const CSS = `
 .iw-lf__extra { text-align: left; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .iw-lf__extra b { color: var(--self); }
 .iw-lf__stars { font-size: 30px; letter-spacing: 6px; color: #ffd21a; text-align: center; -webkit-text-stroke: 5px var(--k); paint-order: stroke fill; text-shadow: 0 3px 0 var(--k); }
-@media (max-width: 640px) { .iw-lf__bag { right: 10px; top: 36%; } .iw-lf__slot { width: 52px; height: 52px; } .iw-lf__rank { top: 84px; font-size: 13px; } }
+@media (max-width: 640px) { .iw-lf__bag { right: calc(10px + var(--iw-sar, 0px)); top: 36%; } .iw-lf__slot { width: 52px; height: 52px; } .iw-lf__rank { top: calc(84px + var(--iw-sat, 0px)); font-size: 13px; } }
 @media (prefers-reduced-motion: reduce) { .iw-lf__slot.is-new { animation: none; } .iw-lf__bag, .iw-lf__slot { transition: none; } }
 `;
 
