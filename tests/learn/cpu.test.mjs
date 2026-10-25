@@ -296,6 +296,35 @@ test('跑酷的 flood：and in a fraction of the time (same rows, same process, 
   assert.ok(now * 4 <= before, `30 rows: ${now.toFixed(1)} ms of CPU (the old scan: ${before.toFixed(1)} ms)`);
 });
 
+// (review, 10-25: a row is a one-off region — the runner makes a new one per answer — so its flood's quad and outline used to
+// stay in _floodPrep, a BufferGeometry a row, until the level reset)
+const { PaintSystem } = await import('../../src/world/paint.js');
+test('跑酷的 flood：a row is a one-off region — its quad and outline go once its flood is done; a region another flood still runs on, and a stage\'s own, stay', async () => {
+  const { readFileSync } = await import('node:fs');
+  const R = readFileSync(new URL('../../src/learn/play/runner/runner.js', import.meta.url), 'utf8');
+  assert.match(R, /P\.flood\(\{ cells: Int32Array\.from\(cells\), polys: \[corners\], y0, y1, once: true \}, 0,/, 'the runner says its row is a one-off');
+  const geo = () => ({ n: 0, dispose() { this.n++; } });
+  const prep = (g) => ({ geo: g, poly: null, part: null, parts: 0, y0: 0, y1: 1, order: new Int32Array(0), dist: new Float32Array(0), n: 0 });
+  const T = {
+    renderer: { autoClear: true, getRenderTarget: () => null, setRenderTarget() {}, render() {} },
+    _floodU: {}, _floodMesh: { visible: true }, _floodScene: {}, cam: {}, rt: {}, grid: new Uint8Array(4), counts: [0, 0], version: 0, _floods: [], _floodPrep: new Map(), _dryLeft: 0,
+  };
+  const job = (region, dur) => ({ region, prep: T._floodPrep.get(region), team: 0, t: 0, dur, r: -1, i: 0, reach: 3, ease: 'out', cx: 0, cz: 0 });
+  const row = { once: true }, row2 = { once: true }, zone = {}, g1 = geo(), g2 = geo(), g3 = geo();
+  T._floodPrep.set(row, prep(g1)); T._floodPrep.set(zone, prep(g2)); T._floodPrep.set(row2, prep(g3));
+  T._floods.push(job(row, 0.45), job(zone, 0.45), job(row2, 0.45), job(row2, 2));
+  const step = (dt) => PaintSystem.prototype._floodStep.call(T, dt);
+  step(0.2);
+  assert.equal(g1.n, 0); assert.ok(T._floodPrep.has(row), 'still running: kept');
+  step(0.3);
+  assert.equal(g1.n, 1, 'done: the row\'s geometry disposed'); assert.ok(!T._floodPrep.has(row), '… and gone from the map');
+  assert.equal(g2.n, 0); assert.ok(T._floodPrep.has(zone), 'a stage\'s own region (Zone Control) stays for its next flood');
+  assert.equal(g3.n, 0); assert.ok(T._floodPrep.has(row2), 'a one-off another flood still runs on stays until that one is done too');
+  step(2);
+  assert.equal(g3.n, 1); assert.ok(!T._floodPrep.has(row2));
+  assert.equal(T._floods.length, 0);
+});
+
 // ---------------------------------------------------------------------------------------------- 其余：听者、排名表
 const { AudioEngine } = await import('../../src/audio/audio.js');
 test('听者：the ears\' nine params are scheduled when they move or turn, not every frame they stand still', () => {

@@ -836,7 +836,12 @@ export class PaintSystem {
         drew = true;
       }
       J.r = rad;
-      if (done) this._floods.splice(k--, 1);
+      if (done) {
+        this._floods.splice(k--, 1);
+        // (a one-off region — the runner's row: a new region an answer — gives its quad and outline back once its flood is
+        // done, instead of one kept per row until the level resets; LEARN §52 review)
+        if (J.region.once && !this._floods.some((o) => o.region === J.region)) { P.geo.dispose(); this._floodPrep.delete(J.region); }
+      }
     }
     if (!drew) { this._floodMesh.visible = false; r.render(this._floodScene, this.cam); this._floodMesh.visible = true; }   // (mips)
     else this._dryLeft = 255;   // (a flood's ink lands wet too)

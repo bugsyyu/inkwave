@@ -687,7 +687,7 @@ export class RunnerFlow extends RaceFlow {
     const ids = L.queryBlocks(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), this._qb || (this._qb = []));
     const cells = rowCells(L, ids, corners, y0, y1);
     const cx = _p.x + _p.rx * row.centers[lane], cz = _p.z + _p.rz * row.centers[lane];
-    if (cells.length) P.flood({ cells: Int32Array.from(cells), polys: [corners], y0, y1 }, 0, { center: [cx, cz], y: _p.y, reach: half * 2 + 3, dur: 0.45 });
+    if (cells.length) P.flood({ cells: Int32Array.from(cells), polys: [corners], y0, y1, once: true }, 0, { center: [cx, cz], y: _p.y, reach: half * 2 + 3, dur: 0.45 });
     else P.splat(_v.set(cx, _p.y + 0.1, cz), 2.2, 0, { kind: 'blast' });
   }
 
