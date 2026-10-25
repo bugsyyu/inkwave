@@ -116,8 +116,21 @@ export function luminance(hex) {
 /** Text colour to put on top of a fill (black on light inks, white on dark ones). */
 export const inkOn = (hex) => (luminance(hex) > 0.36 ? '#15121c' : '#ffffff');
 export function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+/** WCAG contrast of two colours (1 … 21). */
+export const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+// the ink as small text on the menus' dark glass (LEARN §53): a dark ink — tangerine, bubblegum — lifted toward white just
+// enough for this luminance (it stays her hue: a mix with white), a light one as it is; and the text on a face of the ink —
+// ink-black or white, whichever reads better (inkOn's 0.36 gave bubblegum white at 3.3 : 1; black is 5.7)
+export const TEXT_LUM = 0.6;
+export function inkLift(hex, lum = TEXT_LUM) {
+  if (luminance(hex) >= lum) return toHex(hex);
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (luminance(shade(hex, m)) >= lum) hi = m; else lo = m; }
+  return shade(hex, hi);
+}
+export const inkFace = (hex) => (contrast(hex, '#15121c') >= contrast(hex, '#ffffff') ? '#15121c' : '#ffffff');
 
-/** Writes --name, --name-rgb, --name-dark, --name-deep, --name-light, --name-ink onto an element. */
+/** Writes --name, --name-rgb, --name-dark, --name-deep, --name-light, --name-ink, --name-hi, --name-on onto an element. */
 export function colorVars(el, name, color) {
   const hex = toHex(color);
   const s = el.style;
@@ -127,6 +140,8 @@ export function colorVars(el, name, color) {
   s.setProperty(`--${name}-deep`, shade(hex, -0.62));
   s.setProperty(`--${name}-light`, shade(hex, 0.45));
   s.setProperty(`--${name}-ink`, inkOn(hex));
+  s.setProperty(`--${name}-hi`, inkLift(hex));
+  s.setProperty(`--${name}-on`, inkFace(hex));
   return hex;
 }
 

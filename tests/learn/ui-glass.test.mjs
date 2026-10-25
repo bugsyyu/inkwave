@@ -200,3 +200,72 @@ test('the glass reads: white and the lead\'s grey on the page over the brightest
   }
   assert.ok(Number.isFinite(worst) && worst >= 4.5, 'the lead #cfc8e2 / white at ' + at.toFixed(2) + ': ' + worst.toFixed(2));
 });
+
+// LEARN §53: her ink as small text on the book's pages fell under 4.5 : 1 in some team inks (a run without a fixed seed drew
+// tangerine: NOTEBOOK 4.36, TWO WEEKS 3.13, HOW WE WORK 3.07; bubblegum down to 2.1). The browser measure (IELTS-Base
+// tools/game/ui-glass-shots.mjs --only book --ink all) is the gate; this is the model of it, in all six inks
+test('her ink as small text on the glass ≥ 4.5 : 1 in all six team inks — lifted to a luminance floor, on a faint halo; text on a face of her ink too', async () => {
+  const { TEAM_PALETTES, COLORBLIND_PALETTE } = await import('../../src/config.js');
+  const U = await import('../../src/ui/ui-util.js');
+  const INKS = [...TEAM_PALETTES, COLORBLIND_PALETTE].map((p) => p.a);
+  assert.equal(INKS.length, 6);
+  // every book-page rule (outside this section) that colours text with her ink is in the one glass rule (icons aside)
+  const LIST = 'html.iw-glass :is(.iw-bp__kicker, .iw-bp-sec small, .iw-bp-day__n, .iw-bp-day__t, .iw-bt-pill)';
+  const lift = R.find((r) => r.sel === LIST);
+  assert.ok(lift, 'the rule');
+  assert.equal(decl(lift.body, 'color'), 'var(--a-hi, var(--a-light))');
+  const halo = decl(lift.body, 'text-shadow');
+  for (const s of halo.split(/,(?![^(]*\))/)) assert.match(s.trim(), /^0 0 \d+px rgba\(10, 7, 20, \.\d+\)$/, 'a soft halo, no offset (not the sticker\'s hard shadow): ' + s);
+  const covered = LIST.slice(LIST.indexOf('(') + 1, -1).split(', ');
+  const rest = CSS.replace(SEC, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const m of rest.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim(), c = /(?:^|;)\s*color:\s*([^;]+)/.exec(m[2]);
+    if (!/^\.iw-b[ptg][-_]/.test(sel) || !c || !/var\(--a/.test(c[1]) || /__ic$/.test(sel)) continue;
+    assert.ok(covered.includes(sel), 'her ink as text, under the glass rule too: ' + sel);
+  }
+  // the model (the test above's, one layer on): the stage at its brightest (white) under the book's scrim and the page's glass
+  // down the page; a card's glass on that (its tint, its white wash, its lit top at the peak); the halo as a dark layer at a
+  // quarter of its wider ring's alpha (a cap fills about a quarter to a third of its box); her ink, lifted, on the brightest
+  const root = R.find((r) => r.sel === 'html.iw-glass' && !r.media).body, knob = (k) => +decl(root, k);
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const L = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const cr = (a, b) => (Math.max(L(a), L(b)) + 0.05) / (Math.min(L(a), L(b)) + 0.05);
+  const over = (top, bot) => bot.map((v, i) => top[3] * top[i] + (1 - top[3]) * v);
+  const mix = (x, y, t) => x.map((v, i) => v + (y[i] - v) * t);
+  const sc = [...decl(R.find((r) => r.sel === 'html.iw-glass .iw-book__scrim').body, 'background').matchAll(/rgba\(13, 10, 20, ([\d.]+)\)/g)].map((m) => +m[1]);
+  const a = knob('--glass-alpha'), rim = knob('--glass-rim'), spec = knob('--glass-spec');
+  const wide = Math.max(...[...halo.matchAll(/rgba\(10, 7, 20, ([\d.]+)\)/g)].map((m) => +m[1]));
+  let under = null, page = null, dim = null;
+  for (let t = 0; t <= 1.0001; t += 0.05) {
+    const p = over([255, 255, 255, spec * 0.35], over([255, 255, 255, t < 0.2 ? rim * 0.1 * (1 - t / 0.2) : 0], over(mix([42, 32, 72, a], [18, 13, 32, a + 0.16], t), over([13, 10, 20, sc[1] + (sc[0] - sc[1]) * t], [255, 255, 255]))));
+    const u = over([10, 7, 20, wide / 4], over([255, 255, 255, rim * 0.24], over([255, 255, 255, 0.1], over([30, 23, 52, a + 0.08], p))));
+    if (!under || L(u) > L(under)) under = u;
+    if (!page || L(p) > L(page)) page = p;
+    const q = over(mix([42, 32, 72, a], [18, 13, 32, a + 0.16], t), over([13, 10, 20, sc[1] + (sc[0] - sc[1]) * t], [0, 0, 0]));   // (a black stage: the darkest page)
+    if (!dim || L(q) < L(dim)) dim = q;
+  }
+  const rgb = (h) => U.hexToRgb(h), hue = (c) => { const [r, g, b] = c.map((v) => v / 255), M = Math.max(r, g, b), m = Math.min(r, g, b), d = M - m;
+    return d === 0 ? 0 : (M === r ? ((g - b) / d + 6) % 6 : M === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60; };
+  // (the faces' thinnest tint, read off their rules)
+  const faces = ['html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save)', 'html.iw-glass .iw-ci__mood.is-on'].map((s) => R.find((r) => r.sel === s));
+  const FACE = faces.map((r) => Math.min(...[...decl(r.body, 'background').matchAll(/rgba\(var\(--gh\), ([\d.]+)\)/g)].map((m) => +m[1])));
+  assert.ok(FACE.every(Number.isFinite), 'the faces\' tints: ' + FACE);
+  for (const ink of INKS) {
+    const hi = U.inkLift(ink);
+    assert.ok(cr(rgb(hi), under) >= 4.5, `${ink} → ${hi}: ${cr(rgb(hi), under).toFixed(2)} : 1 on the card's lit top`);
+    // still her colour: her hue, not white (a mix with white only as far as the floor needs)
+    assert.ok(Math.abs(hue(rgb(hi)) - hue(rgb(ink))) < 2, `${ink} → ${hi}: the hue kept`);
+    assert.ok(Math.min(...rgb(hi)) < 200 || U.luminance(ink) >= U.TEXT_LUM, `${ink} → ${hi}: not white`);
+    if (U.luminance(ink) >= U.TEXT_LUM) assert.equal(hi, ink, 'a light ink as it is');
+    // text on a face of her ink (记一条 · 补记一条 · 记录 · 打卡's save / mood): the face at its thinnest (.86) over the brightest
+    // and over the darkest page
+    for (const bg of [page, dim]) for (const al of FACE) { const face = over([...rgb(ink), al], bg), c = cr(rgb(U.inkFace(ink)), face); assert.ok(c >= 4.5, `${ink}: ${U.inkFace(ink)} on its face (${al}) ${c.toFixed(2)}`); }
+  }
+  for (const s of ['html.iw-glass :is(.iw-bp-btn--add, .iw-bp-btn--go, .iw-ci__save)', 'html.iw-glass .iw-ci__mood.is-on'])
+    assert.equal(decl(R.find((r) => r.sel === s).body, 'color'), 'var(--a-on, var(--k))', s);
+  // the page's defaults (before the menus set her ink) are colorVars' own for the default ink
+  for (const [n, hex] of [['a', '#ff8a14'], ['b', '#2f5bff']]) {
+    assert.match(CSS, new RegExp(`--${n}-hi: ${U.inkLift(hex)};`), `--${n}-hi default`);
+    assert.match(CSS, new RegExp(`--${n}-on: ${U.inkFace(hex)};`), `--${n}-on default`);
+  }
+});
