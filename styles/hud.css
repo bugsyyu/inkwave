@@ -1515,6 +1515,16 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 }
 /* (upright, under the HUD's top row where it reaches lower — the boss's bar and its phase tag: hud-learn framed(info.top)) */
 @media (orientation: portrait) and (max-width: 640px) { .iw-learn.is-framed .iw-learn__walk { top: max(calc(var(--hudtop, 58px) + var(--iw-sat)), var(--iw-keys-top, 0px)); } }
+/* ---- 桌面 (LEARN §55, hud-learn.js _key): with no touch layer (is-kbd) the board's keys are keys too — Enter 继续, R 看全文,
+   L the board's sound (its own DOM key there: 听全文 / 再听 / 跟读; under a finger the board's hotspot does it) — and each wears
+   its key's name: a small dark tag over its top-right corner, out of the flow (the keys keep their widths: KEYS.col), its own
+   flat colour (no ink rim, no dropped shadow; white on #15121c ≈ 18 : 1 whatever the key under it), Latin, never animated */
+.iw-learn__sound { display: none; padding: 0 14px; }
+.iw-learn.is-framed.is-kbd .iw-learn__sound:not([hidden]) { display: inline-flex; }
+.iw-learn.is-kbd .iw-learn__btn[data-kbd] { position: relative; }
+.iw-learn.is-kbd .iw-learn__btn[data-kbd]::after { content: attr(data-kbd); position: absolute; top: -9px; right: -6px; padding: 3px 6px; border-radius: 7px;
+  background: #15121c; color: #fff; font: 700 11px/1 'Rubik', system-ui, sans-serif; letter-spacing: .03em; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .32); }
 /* (a station holding her still — the beat pads, the typewriter, the flip deck: play/host.js is-still — 跳 / 潜墨 do nothing then:
    dimmed, still in their places; LEARN §48 review) */
 .iw-touch.is-learn.is-still .iw-touch__btn:nth-child(2), .iw-touch.is-learn.is-still .iw-touch__btn:nth-child(3) { opacity: .32; transition: opacity .2s; }

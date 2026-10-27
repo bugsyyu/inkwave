@@ -23,7 +23,8 @@
 //   W.bandFor = (aspect, W, H, slab) → band | null   play-7: the framing band (frame.js boardBand's shape) when the screen's top
 //                                            holds more than the default allows for (the boss's HP bar: arena/host.js)
 //   W.tapApi { down(x, y, id) → bool, up(x, y, id, cancel) }   taps on the framed board's hotspots (touch.js G.playTap)
-//   W.keysOf(i) → { key, more, read, onMore() } | null   what the HUD's board keys need (LEARN §48)
+//   W.keysOf(i) → { key, more, read, onMore(), sound, onSound() } | null   what the HUD's board keys need (LEARN §48; sound:
+//                                            { id, label } of its 听全文 / 再听 / 跟读, or null — LEARN §55, a desktop's L key)
 //   W.pass(i)                                LEARN §48: 继续 › — board i counts as read now, and the ones before it (she
 //                                            walked past them): the auto-walk goes on from here, never back
 //   W.on = { speak(text, { slow, onEnd }), framed(i), unframed(i), read(i), more(i), hotspot(id, board, data) }
@@ -37,6 +38,8 @@ import { frameBoard } from './frame.js';
 import { pickHotspot } from './hotspot.js';
 
 const BD = LEARN.board;
+// a board's sound button, the first of these it has (board/paint.js: the passage's 听全文, the booth's 再听, a word board's 跟读)
+const SOUND_IDS = ['listen', 'replay', 'follow'], SOUND_LABEL = { listen: '听全文', replay: '再听', follow: '跟读' };
 const _v = new THREE.Vector3();
 // the frame now: the game's clock moves once a frame, before the match's sub-steps (NaN without one: every update a frame)
 const frameNow = () => (typeof G.time === 'number' ? G.time : NaN);
@@ -117,7 +120,11 @@ export class BoardWalk {
   keysOf(i) {
     const L = this.list[i]; if (!L) return null;
     const hs = (L.b.entry.layout && L.b.entry.layout.hotspots) || [];
-    return { key: L, more: hs.some((h) => h.id === 'more'), read: L.read, onMore: () => { if (this.list[this.framed] === L) this.activate('more'); } };
+    // (LEARN §55: and its sound — 听全文 / 再听 / 跟读, the board's own button — for a desktop's L key and its DOM key: under
+    // pointer lock no hotspot on the board takes a click)
+    const snd = SOUND_IDS.find((id) => hs.some((h) => h.id === id)), btn = snd && ((L.b.entry.spec && L.b.entry.spec.buttons) || []).find((b) => b.id === snd);
+    return { key: L, more: hs.some((h) => h.id === 'more'), read: L.read, onMore: () => { if (this.list[this.framed] === L) this.activate('more'); },
+      sound: snd ? { id: snd, label: (btn && btn.label) || SOUND_LABEL[snd] } : null, onSound: () => { if (snd && this.list[this.framed] === L) this.activate(snd); } };
   }
   allRead() { return this.list.every((L) => L.read); }
   // (LEARN §48: 继续 › pressed before BD.readS was a no-op — nextSpot() was this board's own spot, where she stood)

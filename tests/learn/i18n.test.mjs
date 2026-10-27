@@ -98,6 +98,8 @@ const KEEP = new Set(['Enter', 'Esc', 'DPad', 'Start', 'View', 'SHIFT', 'SPACE',
   'Player', 'Sun', 'Sea',   // (the stored default profile name, compared not shown; the colour-blind palette's own names, shown through teamName)
   // I (LEARN §17): key names compared in the room-code field, a tag name, the line-up's VS splat, two class names
   'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace', 'Delete', 'NumpadEnter', 'Tab', 'INPUT', 'VS', 'is-on is-ready',
+  // LEARN §55: key codes the board's keys compare on a desktop (hud-learn.js _key: R 看全文, L 听全文) and a tag name — never shown
+  'KeyR', 'KeyL', 'TEXTAREA',
   // lookup keys, never shown: the session's own error / start-block messages that JOIN_ERR and BLOCK_KEY translate
   'Room not found', 'Room is full', 'Match in progress', 'Could not connect', 'Room code taken', 'Lost connection to the room',
   'Needs 2+ players — no bots on this stage', 'Needs a player on each team']);

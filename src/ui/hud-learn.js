@@ -9,8 +9,14 @@
 // always hit) and 「继续 ›」 (the station's way on: the auto-walk to the next board / the gate / the next stop, the booth's
 // 说完了). Once the board counts as read 继续 lights in her ink with one small hop. On a phone held upright the keys keep
 // the walk bar's place (the board is framed under them); turned, they stand in a column at the left, in the margin the
-// framing keeps clear (board/frame.js keysBand). framed(info | null): info { more, read, onMore, onGo, top? }; playMode(true)
-// (a question's strip and objects) hides the walk bar but never the board's keys.
+// framing keeps clear (board/frame.js keysBand). framed(info | null): info { more, read, onMore, onGo, top?, sound?, onSound? };
+// playMode(true) (a question's strip and objects) hides the walk bar but never the board's keys.
+// 桌面 (LEARN §55): on a desktop the mouse is the camera's (pointer lock) and the board's keys are DOM — reaching them meant
+// Esc, and Esc is the pause menu. So with no touch layer the keyboard has them: Enter = 继续 ›, R = 看全文, L = the board's sound
+// (听全文 / 再听 / 跟读 — a DOM key of its own there, hidden under a finger, which has the board's hotspot); each key wears
+// its key's name (data-kbd, drawn by the CSS only on a desktop: is-kbd). Not E (the sub weapon), Space, Shift, F / Q, C,
+// Tab / M, the digits, Esc / P. The typing keyboard and the duel's 备战 take their keys first (capture phase): this listens
+// on window's bubble phase. A mouse the page may not lock (the 学习版's sandbox, LEARN §51) clicks the same keys.
 //
 // 题即玩法 (docs/PLAY.md; play-8, LEARN §27): there is no question card any more — a question is a thing on the stage and
 // the strip (src/ui/play-strip.js) says it. What stays here: the walk bar (where the next gate is, 「自动走」), the
@@ -31,6 +37,7 @@ export class LearnHud {
     this.flow = null;
     this._L = {};        // last-written values (per-frame dirty checks)
     this._voice = null;
+    this._onKey = (e) => this._key(e);   // (LEARN §55: the board's keys on a keyboard — start() / end() add and remove it)
     this._build();
   }
 
@@ -44,11 +51,15 @@ export class LearnHud {
     this.autoBtn = h('button', { class: 'iw-learn__btn iw-learn__auto', type: 'button' }, h('i', { html: GLYPHS.play }), h('span', null, '自动走'));
     this.autoBtn.addEventListener('click', () => { if (this.flow) { this.flow.autoWalk(!this.flow.auto); this._snd('ui_click'); } });
     // ---- the board's keys (LEARN §48): 看全文 · 继续 ›, in the walk bar while a board is framed
-    this.moreBtn = h('button', { class: 'iw-learn__btn iw-learn__more is-dim', type: 'button', hidden: true }, h('i', { html: GLYPHS.eye }), h('span', null, '看全文'));
+    this.moreBtn = h('button', { class: 'iw-learn__btn iw-learn__more is-dim', type: 'button', hidden: true, data: { kbd: 'R' }, 'aria-keyshortcuts': 'R' }, h('i', { html: GLYPHS.eye }), h('span', null, '看全文'));
     this.moreBtn.addEventListener('click', () => { const f = this._fr; if (f && f.onMore) { this._snd('ui_click'); f.onMore(); } });
-    this.goBtn = h('button', { class: 'iw-learn__btn iw-learn__go', type: 'button' }, h('span', null, '继续'), h('i', { html: GLYPHS.next }));
+    this.goBtn = h('button', { class: 'iw-learn__btn iw-learn__go', type: 'button', data: { kbd: 'Enter' }, 'aria-keyshortcuts': 'Enter' }, h('span', null, '继续'), h('i', { html: GLYPHS.next }));
     this.goBtn.addEventListener('click', () => { const f = this._fr; this._snd('ui_confirm'); if (f && f.onGo) f.onGo(); else if (this.flow) this.flow.autoWalk(true); });
-    this.walk_ = h('div', { class: 'iw-learn__walk' }, this.arrow, h('span', { class: 'iw-learn__walkmain' }, this.walkTxt, this.walkDist), this.walkGate, this.autoBtn, this.moreBtn, this.goBtn);
+    // (LEARN §55: a desktop's key for the board's sound — 听全文 / 再听 / 跟读, the board's own label; framed() shows it only there)
+    this.soundTxt = h('span', null, '听全文');
+    this.soundBtn = h('button', { class: 'iw-learn__btn iw-learn__sound is-dim', type: 'button', hidden: true, data: { kbd: 'L' }, 'aria-keyshortcuts': 'L' }, h('i', { html: GLYPHS.play }), this.soundTxt);
+    this.soundBtn.addEventListener('click', () => { const f = this._fr; if (f && f.onSound) { this._snd('ui_click'); f.onSound(); } });
+    this.walk_ = h('div', { class: 'iw-learn__walk' }, this.arrow, h('span', { class: 'iw-learn__walkmain' }, this.walkTxt, this.walkDist), this.walkGate, this.autoBtn, this.moreBtn, this.soundBtn, this.goBtn);
 
     // ---- results card
     this.rTitle = h('div', { class: 'iw-learn__rtitle iw-display' }, '这一关走完了');
@@ -88,10 +99,13 @@ export class LearnHud {
     const nomap = !flow.mapKey;
     this.hud.el?.classList.toggle('is-nomap', nomap); G.touch?.el?.classList.toggle('is-nomap', nomap);
     G.touch?.relayout?.();
+    this.el.classList.toggle('is-kbd', !this._touch());
+    if (typeof window !== 'undefined' && window.addEventListener) { window.removeEventListener?.('keydown', this._onKey); window.addEventListener('keydown', this._onKey); }
     this._warmVoice();
   }
   end() {
     this.on = false; this.flow = null;
+    if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('keydown', this._onKey);
     if (this._cu) { cancelAnimationFrame(this._cu); this._cu = 0; }
     this.el.classList.add('is-off'); this.el.classList.remove('is-walk', 'is-done', 'is-play', 'is-framed'); this.playOn = false; this._fr = null;
     this.el.setAttribute('aria-hidden', 'true');
@@ -119,13 +133,39 @@ export class LearnHud {
     this.el.classList.toggle('is-framed', !!info);
     // (info.top: the HUD's top row reaches lower here — the boss's bar and its phase tag: upright the keys stand under it)
     if (info && info.top > 0) this.el.style.setProperty('--iw-keys-top', `${Math.round(info.top)}px`); else this.el.style.removeProperty?.('--iw-keys-top');
-    if (!info) { this.goBtn.classList.remove('is-ready', 'is-hop'); this.moreBtn.hidden = true; return; }
+    if (!info) { this.goBtn.classList.remove('is-ready', 'is-hop'); this.moreBtn.hidden = true; this.soundBtn.hidden = true; return; }
     this.moreBtn.hidden = !info.more;
+    // (LEARN §55: the board's sound as a key only with no touch layer — a finger has the board's own hotspot)
+    const kbd = !this._touch();
+    this.el.classList.toggle('is-kbd', kbd);
+    this.soundBtn.hidden = !(kbd && info.sound && info.onSound);
+    if (info.sound && info.sound.label && this.soundTxt.textContent !== info.sound.label) this.soundTxt.textContent = info.sound.label;
     const ready = !!info.read;
     this.goBtn.classList.toggle('is-ready', ready);
     // (one hop as it turns ready while she stands there; a board read before is ready from the start, and still)
     if (same && ready && !was.read && !prefersReducedMotion()) restartAnim(this.goBtn, 'is-hop');
     else if (!same) this.goBtn.classList.remove('is-hop');
+  }
+
+  // LEARN §55: the touch layer is in charge (a phone, a tablet; settings.touchControls) — no keyboard keys, no key names
+  _touch() { return !!(G.input && G.input.touch && G.input.touch.active); }
+  // the board's keys on a keyboard (window, bubble phase): Enter = 继续 ›, R = 看全文, L = its sound — while a board is framed,
+  // with no touch layer, no menu, no pause (the pause menu's Enter must not go on here too), no repeat, no modifier, not in a
+  // text field. A handled key's default is stopped: a DOM key she clicked keeps the focus, and Enter would press it again
+  _key(e) {
+    const f = this._fr;
+    if (!this.on || !f || this._touch() || G.menus?.current || G.match?.paused || e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.defaultPrevented) return false;
+    const a = typeof document !== 'undefined' ? document.activeElement : null;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return false;
+    const c = e.code;
+    let act = null;
+    if (c === 'Enter' || c === 'NumpadEnter') act = () => { this._snd('ui_confirm'); if (f.onGo) f.onGo(); else if (this.flow) this.flow.autoWalk(true); };
+    else if (c === 'KeyR' && f.more && f.onMore) act = () => { this._snd('ui_click'); f.onMore(); };
+    else if (c === 'KeyL' && f.sound && f.onSound) act = () => { this._snd('ui_click'); f.onSound(); };
+    if (!act) return false;
+    e.preventDefault?.();
+    act();
+    return true;
   }
 
   // ================================================================ walking
