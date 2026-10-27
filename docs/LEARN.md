@@ -2770,3 +2770,43 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 对抗赛的 `askNear / askWait`（她离区域远时等 6 s）没动——不在任务书里，而且那里本来就在等满后照出题。
 
 **交接**：inkwave 分支 `wf-logic`（从 `8906dd2` 建）；IELTS-Base 没有改动（`app/game` 由主会话同步，合并后八个游戏 e2e 由主会话跑）。改到的文件：`src/learn/play/hit.js`、`src/learn/forms/boss.js`、`src/learn/play/landscape.js`、`src/config.js`（只有 `LEARN.boss` 两行注释）、`docs/PLAY.md`（§1 第 5 条一句）、`tests/learn/play.test.mjs`、`tests/learn/boss-pace.test.mjs`（新）、`docs/LEARN.md`（只有这一节）。和 `wf-ui-polish`（`styles/*.css`、`forms/ui.js`、`play-keys.js`、`type/shot.js`、书页）不重叠；`docs/LEARN.md` 末尾会冲突（§53 / §54 的先后，主会话排）。
+
+## 55. wf-input 交付（2026-10-27，子代理，分支 `wf-input`：排查 X1 剩下的三条——桌面上展板的键按不到、versus2 的地图键在站点拿走镜头时没反应、coop2 队友挂机就一直等）
+
+**先读了什么**：主会话的任务书（`common-1025.md` 和这一条的）、排查 X1（10-21，主会话草稿 `audits-1021/deadends/report.md`）的 O / R / S 和第 4 节「她靠什么往前」、第 5 节「点了被吃掉」；本文件 §48（往前走：展板的键、关卡里只有 versus2 留地图键）、§51（学习版里锁不住鼠标）、§53、§54；代码：`core/input.js`（键盘、指针锁、`_noLock`）、`core/touch.js`（`G.playTap` 只在手指按下时问、地图键的 latch）、`game/player.js`（键位）、`main.js`（`_onKey`：Esc / P 暂停，L 只在练习模式开装备；`_loop` 里 pollPad / pollTouch → `m.update` → `endFrame` 的顺序；解锁 → `_onPointerUnlock` → 暂停）、`ui/hud-learn.js`、`ui/play-keys.js`（捕获阶段吞字母和 Enter）、`learn/play/board/walk.js`、`board/paint.js`（板上的按钮：听全文 / 跟读 / 再听 / 说完了 / 经典页）、`wire/boards.js`、`wire/exit.js`、`arena/host.js`（EchoStation；`PlayCam` 拿镜头）、`arena/prep.js`（备战：回车 = 开始）、`duo/coop.js`、`forms/versus2.js`、`forms/coop2.js`、`forms/duo.js`、`forms/ui.js`、`game/cameraRig.js`（俯瞰只从 follow / spectate 拉）、`styles/hud.css`、`styles/touch.css`；测试 `softlock.test.mjs`、`i18n.test.mjs`、`duo.test.mjs`。
+
+**核过的（排查写的 ↔ 现在的代码）**：O 对：`G.playTap` 只有 `touch.js _down`（pointerType 为 touch）问；桌面在指针锁定里，`input.js` 的 mousedown 只在 `_plock` 时记，DOM 键要先 Esc 解锁，而 Esc 是 `main.js _onKey` 的 `pause()`（解锁本身也走 `_onPointerUnlock → pause()`）。还有一处排查没写：锁不住鼠标时（§51 的 sandbox），鼠标是自由的，DOM 键能点，可**板上的热点**（听全文、跟读、再听、一行一行的重放）照样点不到——`touch.js` 只认手指，鼠标点画布没人接。R 对：`cameraRig.update` 里 `want = mapOpen && (follow || spectate)`，`PlayCam.take` 把 rig 设成 path（无 path）；打字机 / 翻牌期间地图键只翻 latch，键亮着、什么都没有，镜头一交回就升空。S 对：coop2 没有任何等待计时，只有房间的 leave 事件（`_partnerLeft`）。
+
+**先定的**：
+1. **O 用键盘，不用「准星对准热点再开火」**：展板框住时镜头在 path 模式，鼠标转不了视角，准星对不上热点；「继续 ›」也不是热点而是 DOM 键。键位：**Enter = 继续 ›**（和备战的「回车 = 开始」一致；小键盘的 Enter 也算）、**R = 看全文**、**L = 板上的声音**（听全文 / 再听 / 跟读，板上有的那一个）。没用 E：E 是副武器（学关的桌面上照样扔）。别的已经占了：WASD / 方向键走、Space 跳、Shift 潜墨、F / Q 特殊、C 加油、Tab / M 地图、1–4 / 5–0 超级跳、Esc / P 暂停；L 只在练习模式开装备（学关从来不是练习）。
+2. **只在没有触屏层时收**（`G.input.touch.active` 为假）：键名的小角标（按钮上的 `data-kbd`，CSS 只在 `.iw-learn.is-kbd` 时画）、多出来的那颗声音 DOM 键，都只在桌面上出。触屏上一切照旧（板上的热点、看全文、继续 ›）。平板接了键盘但开着触屏层：键盘不收（屏幕是手指的）。
+3. **监听挂在 window 的冒泡阶段**：打字机（`play-keys.js`）和备战（`prep.js`）都在捕获阶段，按到自己的键就 `stopImmediatePropagation` / `stopPropagation`——它们在时 Enter / R / L 归它们。菜单开着、暂停、按住的重复、⌘ / Ctrl / Alt、焦点在输入框里，都不收。收了的键 `preventDefault`：锁不住鼠标时她点过的 DOM 键留着焦点，原生的 Enter 会再按它一次。
+4. **桌面上多一颗声音的 DOM 键**：L 要有地方写「L」。板画在画布上，按设备画两套板不划算；走路条里多一颗和「看全文」同一种材质的键，字用板自己的（听全文 / 再听 / 跟读）。它也让锁不住鼠标的桌面能用鼠标点到声音（热点点不到）。键名角标绝对定位、不加宽键（转过来时那一列要在 `KEYS.col` 160 px 里），深底白字（#15121c 上的白 ≈ 18 : 1，不管下面是哪颗键），没有墨描边、没有硬投影、不动。
+5. **哪些板**：走 `hud.framed()` 的都有——解谜的展板、出口的回声亭和告示牌、Boss 的回声亭（Enter = 说完了）；备战和跑酷起跑线（`PrepStation`）原来就有回车，加 R / L，题条那句话写上「R 看全文 · L 听全文」；coop2 的线索板（`CoopPlay`）加 L = 再听、R = 看全文，板没地方立时 L 是题条的 ▶。
+6. **R：暗下去，按了说一句为什么**（不让它在那时能用）：要能用，得改 cameraRig「只从跟随镜头拉俯瞰」，而且打字时开俯瞰、点信标超级跳会把她从打字机前带走——不划算。现在 versus2 的 `mapHold` = 竞技场的镜头被拿着（`arena.cam.on`：打字机、翻牌）；`touch.js` 每帧读它：地图键 `is-held`（和「站着不动」时的跳 / 潜墨一样 .32 透明），上锁的地图松开（不再一交回镜头就升空），按下去不上锁，而是问 `mapWhy()`：「镜头正对着这道题 · 答完再看地图」（1.5 s 内只说一次）。这根手指还是这颗键的（不漏成看向或点射）。桌面上 Tab / M 也说这一句（打字时 M 是字母，打字机先拿走）。
+7. **S：只说，不踢**：`LEARN.coop2.partnerIdle = 60`（s，`config.js`）。「在等队友」= 走路阶段她站上了自己的墨垫、队友那块空着；或者答题阶段这一题的线索在她这边、队友还没答。按关卡自己的 dt 数（假时钟可测；`duo.js partnerWait`），过了 60 s 说一次「队友好像走开了 · 可以再等等，或按 ⏸ 离开这一关」（hold：不自己淡掉），等待一结束（队友站上 / 答了）就收；同一次等待只说一次；她自己答的题不算等。不发新消息、不踢人、不暂停（`_partnerLeft` 照旧管真的离开房间）。这句在 390 px 的手机上一行放不下（`.iw-lf__note` 是 nowrap），`FormsUi.say` 加一个 `wrap`：`is-wrap` 在屏宽减 16 px 边和安全区以内折两行（balance、圆角 22 px），别的提示照旧一行。
+
+**改了什么**（inkwave，`98ef043` 起；IELTS-Base 没动）：
+- `7b4c77c` O：`src/ui/hud-learn.js`（`_key`、`_touch`、`soundBtn` / `soundTxt`、三颗键的 `data-kbd` 和 `aria-keyshortcuts`，`start()` / `end()` 挂 / 摘监听；设备语音那一段一行没碰）、`src/learn/play/board/walk.js`（`keysOf` 多 `sound` / `onSound`）、`src/learn/play/arena/prep.js`（R / L、题条那句话、`_keys()`；回车那一句原样）、`styles/hud.css`（键名角标、声音键）、`tests/learn/inputs.test.mjs`（新）、`tests/learn/i18n.test.mjs`（英文扫描的 KEEP 加 `KeyR`、`KeyL`、`TEXTAREA`：比较用的键码和标签名，不在界面上——说的事没变，没有放宽）。
+- `641bed1` R：`src/core/touch.js`（`_holdMap`；`_press('map')`）、`src/learn/forms/versus2.js`（`mapHold`、`mapWhy`、Tab / M）、`styles/hud.css`（`.iw-touch.is-learn .iw-touch__btn.is-held`）。
+- `90d2599` S：`src/config.js`（`LEARN.coop2.partnerIdle`）、`src/learn/forms/duo.js`（`partnerWait`、`PARTNER_IDLE_LINE`）、`src/learn/forms/coop2.js`（`_waitPartner`，在 `_stylePads` 之后每帧）、`src/learn/forms/ui.js`（`say(…, { wrap })`、`.iw-lf__note.is-wrap`）。
+- `80b2af6` O 补：`src/learn/play/duo/coop.js`（线索的 L / R，`_key`；拿着线索时挂、放下就摘）。
+
+**测试**：`npm run test:learn` 515 → **528** 全过（+13，都在新的 `inputs.test.mjs`：O 8 条、R 2 条、S 3 条）；`npm run check` 320 个文件 syntax ok（测试文件不计）。没修时失败、修后通过：把 `src`、`styles` 换回改前（`git stash`）跑 `inputs.test.mjs`——O 那 8 条里 7 条失败（「桌面上没有办法按到继续」那条：按 Enter 什么都没发生，`did` 是空的）；「各种不收的情形」那条前后都过（它只说哪些时候不收）；「手指下一切照旧」那条**有意**前后都过（触屏的行为不变）；R 2 条、S 3 条改前全失败。证据快照：O / R / S 都不在判分 / 题的路上，照规矩还是在分支头上跑了一次（结果见交接）。浏览器 0 次（任务书）。
+
+**拿不准的（自己定了）**：
+1. Enter 当「继续 ›」：备战早就这样。出口打卡板的「继续 ›」是踩上打卡垫（这一天走完）——桌面上一按回车就走完这一天，和点那颗键一样（§48 定的），没加确认。
+2. 声音键只在桌面上出：触屏上走路条照旧两颗键。要是以后觉得手机上也该有一颗看得见的「听全文」DOM 键（3D 板上的热点比 DOM 键难点），放开只要一处（`framed()` 里 `soundBtn.hidden` 那句的 `kbd &&`）。
+3. 角标写「Enter」不写「回车」：键帽上印的是 Enter；备战那句话里原来写「回车」，照旧。
+4. R 那一句用 FormsUi 的提示（屏幕上方 18%）：对抗赛的打字取景本来就避开 `.iw-lf__note`（`arena/type.js`）；翻牌时会不会压到牌，没在浏览器里看。
+5. S 的「在等」不算两个人都没站上（谁也没在等谁），也不算队友在等她；60 s 按她这台屏幕自己的时间数（房主和客人各数各的）。等待里切到后台再回来（暂停菜单），这段时间照算——联机的关不停。
+6. coop2 线索板上的 L / R 没有键名提示（板是画布，题条在板立着时是收起的）；靠走路条里那一套键学会了以后用。
+
+**没做的**：
+- 浏览器：这条分支 0 次。键名角标、桌面上三颗键的那一列（横屏 / 桌面）、折两行的提示都没截图看过——合并后跑 e2e 时请看一眼桌面上框住展板那一屏。
+- 题条（`play-strip.js`）的按钮上没有角标：备战 / 起跑线是在那句话里写键名。
+- 板上一行一行的重放（`row:i`）和音标板没有键盘键；锁不住鼠标的桌面上，鼠标点画布上的热点还是没人接（要接得在 `touch.js` 之外加一条鼠标的路，没做）。
+- 「自动走」在桌面上没有键（不在 O 里；WASD 能走）。
+- 没有地图键的关（对抗赛、Boss）在桌面上按 Tab，跟随镜头时照样拉俯瞰——原来就这样，不在 R 里。
+
+**交接**：inkwave 分支 `wf-input`（从 `98ef043` 建，没推）；IELTS-Base 没有改动（`app/game` 由主会话同步）。改到的文件：`src/ui/hud-learn.js`（`_build` / `start` / `end` / `framed` 和新的 `_touch` / `_key`；`_warmVoice` 以下一行没碰）、`src/learn/play/board/walk.js`、`src/learn/play/arena/prep.js`、`src/learn/play/duo/coop.js`、`src/core/touch.js`、`src/learn/forms/versus2.js`、`src/learn/forms/coop2.js`、`src/learn/forms/duo.js`、`src/learn/forms/ui.js`、`src/config.js`（`LEARN.coop2` 一行）、`styles/hud.css`（两处新块，不改原有的行）、`tests/learn/inputs.test.mjs`（新）、`tests/learn/i18n.test.mjs`（KEEP 一行）、`docs/LEARN.md`（只有这一节）。和 `wf-voice-stage`（`hud-learn.js` 的设备语音、`audio.js`、`runner/tips.js`、舞台布景）：`hud-learn.js` 两边都改，但不在同一段（这边是构建 / start / end / framed / 新方法，那边是 `_device` 一带），应能自动合并；`docs/LEARN.md` 末尾会冲突（§55 / §56 / §57 的先后，主会话排）。
