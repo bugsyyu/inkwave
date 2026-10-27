@@ -28,7 +28,7 @@ import { prompt, store } from '../api.js';
 import { judgeAnswer, rightAnswerOf } from './common.js';
 import { judgeRecord } from '../play/judge.js';   // the one judging path (play-8)
 import { FormsUi } from './ui.js';
-import { rolesFor, splitPrompt, padNodes, padsHeld, validQ, duoAltPrompt, seedOf, sharedInk } from './duo.js';
+import { rolesFor, splitPrompt, padNodes, padsHeld, validQ, duoAltPrompt, seedOf, sharedInk, partnerWait, PARTNER_IDLE_LINE } from './duo.js';
 import { CoopPlay } from '../play/duo/coop.js';
 import { firstSentence } from '../play/m1.js';
 
@@ -50,6 +50,7 @@ export class Coop2Flow extends LearnFlow {
     this.mine = { asked: 0, right: 0, firsts: 0, firstRight: 0, clues: 0 };
     this.pairRight = 0; this.pairAsked = 0;
     this.heldT = 0; this.nextT = -1; this.left = false; this.lastQ = 0;
+    this.idle = { t: 0, warned: false };   // (LEARN §55: how long she has waited on the partner — duo.js partnerWait)
     this.tank = { last: null, out: 0, t: 0, vT: 0, sentAt: -1 }; this._inkIn = 0; this._inkV = null;   // one ink tank for two (play-9: duo.js sharedInk, 'lk')
     this._padsBuilt();
     // 题即玩法 (play-6): the questions are things on the stage — the clue side's board, the answering side's objects
@@ -144,6 +145,7 @@ export class Coop2Flow extends LearnFlow {
     if (!g) return;
     const ppl = this._people(), on = padsHeld(g.pads, ppl, this.C.padRadius);
     this._stylePads(on.on);
+    this._waitPartner(dt, on.on);
     if (this.phase === 'walk') {
       const a = m.local, pad = this._myPad(g);
       if (a && a.alive && pad) {
@@ -169,6 +171,17 @@ export class Coop2Flow extends LearnFlow {
       this.nextT -= dt;
       if (this.nextT < 0) { this.nextT = -1; this._hostNext(g); }
     }
+  }
+
+  // LEARN §55: a partner who walked off left her waiting for good (only ⏸ → 离开这一关 got her out). Waiting is her pad held
+  // and theirs empty (the walk), or this screen holding the clue and no answer in (the ask); past LEARN.coop2.partnerIdle s one
+  // line says so, until they are back. No kick, no new message on the wire: a room the partner left ends as before (_partnerLeft)
+  _waitPartner(dt, on) {
+    const mine = !!on && on.includes(this.myId), theirs = !!on && on.some((x) => x && x !== this.myId), q = this.q;
+    const waiting = this.duo.length === 2 && ((this.phase === 'walk' && mine && !theirs) || (this.phase === 'ask' && !!q && q.role !== 'hands' && !q.answered));
+    const said = partnerWait(this.idle, waiting, dt, this.C.partnerIdle);
+    if (said === 'warn') this.ui.say(PARTNER_IDLE_LINE, { hold: 1, wrap: true });
+    else if (said === 'clear') this.ui.say('');
   }
 
   // ---------------------------------------------------------------------------------------------- a gate's questions

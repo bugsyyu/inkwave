@@ -747,6 +747,8 @@ export const LEARN = {
     shortGates: 2,            // the audits' level (?short / lobby.learn.short): two gates, two questions each
     inkSync: 0.1,             // s between 'lk' messages: one ink tank for the two of us (play-9: duo.js sharedInk)
     inkReset: 5,              // ink a tank may gain in one frame; more is a reset (a respawn), kept off the shared tank
+    partnerIdle: 60,          // s she has waited on the partner (her pad held and theirs empty; the clue said and no answer
+                              // in) before one line says they seem to have walked off (LEARN §55: no kick, nothing on the wire)
   },
   // the bots' "answering" model per DIFFICULTY (they never see her question): correct chance, delay range (s), rubber
   // band (s per checkpoint ahead, capped), the duel cadence (s between enemy "answers") and flood (m), prop use chance

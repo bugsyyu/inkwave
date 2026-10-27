@@ -37,6 +37,7 @@ const CSS = `
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 17px; font-weight: 800; letter-spacing: .02em; opacity: 0; transition: opacity .25s; white-space: nowrap; }
 .iw-lf__note.is-on { opacity: 1; }
 .iw-lf__note.is-coral { color: #f08a7a; border-color: #f08a7a; }
+.iw-lf__note.is-wrap { white-space: normal; text-wrap: balance; text-align: center; width: max-content; max-width: calc(100vw - 32px - var(--iw-sal, 0px) - var(--iw-sar, 0px)); border-radius: 22px; line-height: 1.35; }
 .iw-lf__rank { position: absolute; left: calc(16px + var(--iw-sal, 0px)); top: calc(96px + var(--iw-sat, 0px)); display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; }
 .iw-lf__rank div { display: flex; gap: 8px; align-items: center; padding: 5px 10px; border-radius: 10px; background: rgba(21,18,28,.82); box-shadow: 0 0 0 1.5px var(--k); }
 .iw-lf__rank div.is-me { background: var(--self); color: var(--self-ink); box-shadow: 0 0 0 1.5px var(--k), 0 2px 0 1.5px var(--k); rotate: -2deg; }
@@ -99,10 +100,12 @@ export class FormsUi {
   }
 
   // ---- a one-line note over the stage (fades by itself unless hold)
-  say(text, { coral = false, hold = 0 } = {}) {
+  // (wrap: a line longer than a phone is wide — LEARN §55's — may take two lines, inside the screen; the others stay one line)
+  say(text, { coral = false, hold = 0, wrap = false } = {}) {
     clearTimeout(this._noteT);
     this.note.textContent = text || '';
     this.note.classList.toggle('is-coral', !!coral);
+    this.note.classList.toggle('is-wrap', !!(text && wrap));
     this.note.classList.toggle('is-on', !!text);
     if (text && !hold) this._noteT = setTimeout(() => this.note.classList.remove('is-on'), 2600);
   }

@@ -5,7 +5,7 @@
 //   versus2:  mergeDue(lists, cap) · spreadGates(gates, n) · buildQueue({ gates, due, has, n, dueShare }) · canRequeue(…)
 //             answerTime(p) · new Referee({ humans, botTeams, model, rnd, grace }) · tally(results, people)
 //   coop2:    rolesFor(players, k, hands) · splitPrompt(p, role) · padSpots(nodes, path, i, gap) · padNodes(nav, path, i) ·
-//             padsHeld(pads, people, r)
+//             padsHeld(pads, people, r) · partnerWait(w, waiting, dt, after) (LEARN §55)
 //   wire:     LEARN_WIRE (the payload kinds on the room's envelope) · validQ(d)
 //   题即玩法 play-6 (docs/PLAY.md §5.5, LEARN §25): seeded(seed) · seedOf(q, id) · duoAltPrompt(gates, item, seed, typedOf)
 //             (both screens build the same reworded question) · duoMechanic(view) (what a screen answers with) ·
@@ -26,6 +26,18 @@ import { canPlayArena } from '../play/arena/m1.js';
 //   lg  host → all    { g, s: 'ask' | 'open' | 'done', … }      coop2: a gate's state
 export const LEARN_WIRE = ['ls', 'ld', 'lq', 'la', 'lr', 'lc', 'lg', 'lk'];   // (lk: coop2's shared ink tank — play-9)
 export const validQ = (d) => !!d && typeof d === 'object' && LEARN_WIRE.includes(d.k) && (d.q == null || Number.isInteger(d.q));
+
+/* ───────────────────────────── coop2: a partner who walked off (LEARN §55) ───────────────────────────── */
+// How long this screen has waited on the partner — waiting: her pad held and theirs empty, or the clue said and no answer in
+// — counted in the level's own dt (a fake clock in the tests). → 'warn' the step the wait passes `after` s (once a wait),
+// 'clear' the step a warned wait ends, else null. w: { t, warned } (kept by the flow). Nothing is sent, nobody is kicked.
+export function partnerWait(w, waiting, dt, after = LEARN.coop2.partnerIdle) {
+  if (!waiting) { w.t = 0; if (w.warned) { w.warned = false; return 'clear'; } return null; }
+  w.t += Math.max(0, dt || 0);
+  if (!w.warned && w.t >= after) { w.warned = true; return 'warn'; }
+  return null;
+}
+export const PARTNER_IDLE_LINE = '队友好像走开了 · 可以再等等，或按 ⏸ 离开这一关';
 
 /* ───────────────────────────── coop2: one ink tank for two ───────────────────────────── */
 // LEARN §14 §4 「墨罐共用（一个人喷光了另一个人得去充）」: the two squidkids draw on one tank. Each screen keeps its own

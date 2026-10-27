@@ -349,3 +349,77 @@ test('R · versus2: mapHold is the arena\'s lens held; mapWhy says one line a pr
   // the overhead map still opens only from the follow camera (the rig is not changed: it is the key that says so now)
   assert.match(src('src/game/cameraRig.js'), /const inPlay = this\.mode === 'follow' \|\| this\.mode === 'spectate';/);
 });
+
+// ================================================================================================ S · coop2: a partner who walked off
+test('S · partnerWait (a fake clock): nothing for 59.5 s, one warning at 60 s (LEARN.coop2.partnerIdle), none again in the same wait; it clears when the wait ends', () => {
+  assert.equal(LEARN.coop2.partnerIdle, 60, 'about a minute, in config.js');
+  const w = { t: 0, warned: false }, out = [];
+  for (let k = 0; k < 119; k++) out.push(partnerWait(w, true, 0.5));
+  assert.ok(out.every((x) => x === null), '59.5 s: nothing yet');
+  assert.equal(partnerWait(w, true, 0.5), 'warn', '60 s: the line');
+  for (let k = 0; k < 200; k++) assert.equal(partnerWait(w, true, 0.5), null, 'once a wait');
+  assert.equal(partnerWait(w, false, 0.5), 'clear', 'the partner is back: the line goes');
+  assert.equal(partnerWait(w, false, 0.5), null);
+  // a wait broken before the minute starts again from 0
+  for (let k = 0; k < 100; k++) partnerWait(w, true, 0.5);
+  partnerWait(w, false, 0.5);
+  for (let k = 0; k < 100; k++) assert.equal(partnerWait(w, true, 0.5), null, '50 s after a break: nothing');
+  assert.equal(partnerWait(w, true, NaN), null, 'a bad dt counts nothing');
+});
+
+test('S · coop2: she waits on her pad with theirs empty, or holding the clue with no answer in — after a minute one line she understands; no kick, nothing on the wire; answering herself is no wait', () => {
+  const said = [];
+  const F = { duo: ['me', 'you'], myId: 'me', phase: 'walk', q: null, idle: { t: 0, warned: false }, C: LEARN.coop2, ui: { say: (t, o) => said.push([t, o || null]) } };
+  const step = (on, s) => { for (let k = 0; k < Math.round(s / 0.25); k++) Coop2Flow.prototype._waitPartner.call(F, 0.25, on); };
+  step([null, null], 120);
+  assert.deepEqual(said, [], 'nobody on a pad: she is not waiting on anyone');
+  step(['me', null], 59.5);
+  assert.deepEqual(said, [], 'her pad held for 59.5 s: nothing yet');
+  step(['me', null], 0.5);
+  assert.deepEqual(said, [[PARTNER_IDLE_LINE, { hold: 1, wrap: true }]], 'at a minute: the line, held, two lines on a phone');
+  assert.match(PARTNER_IDLE_LINE, /队友好像走开了/); assert.match(PARTNER_IDLE_LINE, /⏸ 离开这一关/);
+  step(['me', null], 120);
+  assert.equal(said.length, 1, 'once');
+  step(['me', 'you'], 0.25);
+  assert.deepEqual(said[1], ['', null], 'the partner on the other pad: the line goes');
+  step([null, 'you'], 120);
+  assert.equal(said.length, 2, 'the partner waiting on her: not her wait');
+  // the ask: the clue is hers, the answer is theirs
+  F.phase = 'ask'; F.q = { role: 'clue', answered: false };
+  step([null, null], 60);
+  assert.equal(said.length, 3, 'the clue said and no answer in for a minute: the line');
+  F.q.answered = true; step([null, null], 0.25);
+  assert.deepEqual(said[3], ['', null], 'the answer came: it goes');
+  F.q = { role: 'hands', answered: false }; step([null, null], 300);
+  assert.equal(said.length, 4, 'her own question to answer: no wait');
+  F.duo = ['me']; F.phase = 'walk'; F.q = null; step(['me', null], 300);
+  assert.equal(said.length, 4, 'no partner in the room (one human): nothing');
+  // wired in the level's frame, with the pads it reads; no message of its own, no kick, no pause, no hold
+  const c = src('src/learn/forms/coop2.js');
+  assert.match(c, /this\._stylePads\(on\.on\);\s*this\._waitPartner\(dt, on\.on\);/);
+  assert.match(c, /partnerWait\(this\.idle, waiting, dt, this\.C\.partnerIdle\)/);
+  const body = c.slice(c.indexOf('  _waitPartner(dt, on) {'), c.indexOf('  // ----', c.indexOf('  _waitPartner(dt, on) {')));
+  assert.ok(body.length > 0 && !/_bcast|tr\.|sendTo|broadcast|_partnerLeft|quitMatch|paused|\.hold\s*=/.test(body), 'nothing sent, nobody kicked, nothing paused');
+});
+
+test('S · the note may take two lines (wrap) inside a phone\'s width; every other note stays one line', () => {
+  G.hud = { root: new El('div') };
+  const U = new FormsUi(G.hud);
+  U.say(PARTNER_IDLE_LINE, { hold: 1, wrap: true });
+  assert.ok(U.note.classList.contains('is-wrap') && U.note.classList.contains('is-on'));
+  assert.equal(U.note.textContent, PARTNER_IDLE_LINE);
+  U.say('门开了！');
+  assert.ok(!U.note.classList.contains('is-wrap'), 'a short note: one line as before');
+  U.say('', {});
+  assert.ok(!U.note.classList.contains('is-on'));
+  const css = src('src/learn/forms/ui.js'), rule = css.match(/\.iw-lf__note\.is-wrap \{([^}]*)\}/);
+  assert.ok(rule, 'the wrap rule');
+  assert.match(rule[1], /white-space: normal;/);
+  assert.match(rule[1], /max-width: calc\(100vw - 32px - var\(--iw-sal, 0px\) - var\(--iw-sar, 0px\)\);/, 'inside the screen and its safe area, with the 16 px gutters');
+  assert.match(css, /\.iw-lf__note \{[^}]*white-space: nowrap;/, 'the others: one line');
+  // the line at 17 px: one line would be wider than a 390 px phone (that is why it wraps); each half fits
+  const chars = [...PARTNER_IDLE_LINE].length;
+  assert.ok(chars * 17 + 36 > 390 - 32, `one line: ${chars} characters × 17 px + the padding is past a phone\'s width`);
+  assert.ok(Math.ceil(chars / 2) * 17 + 36 <= 390 - 32, 'two lines fit');
+  U.end();
+});
