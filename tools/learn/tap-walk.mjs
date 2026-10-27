@@ -298,14 +298,16 @@ const inFront = () => ev(async () => {
     to.set(u * b.w / 2, b.bottom + b.h / 2 + v * b.h / 2, 0.07).applyMatrix4(b.group.matrixWorld);
     const dist = from.distanceTo(to); dir.copy(to).sub(from).normalize();
     rc.set(from, dir); rc.far = dist - 0.03; rays++;
+    // (every opaque thing on the ray, not only the nearest; what writes no depth — the sky dome round the lens, the blob
+    // shadows, the ink decals — hides nothing)
     for (const h of rc.intersectObject(scene, true)) {
       const o = h.object; if (!o.isMesh || ours(o) || !shown(o)) continue;
+      const mats = [].concat(o.material || []); if (!mats.length || mats.every((m) => !m || m.depthWrite === false || m.depthTest === false || m.transparent && m.opacity < 0.5)) continue;
       const k = o.uuid, e = hits.get(k) || { name: o.name || o.type, type: o.type, mat: [].concat(o.material || []).map((m) => m && (m.name || m.type)).join(','), parents: [], rays: 0, near: 99, at: null, rows: new Set() };
       if (!e.parents.length) for (let q = o.parent; q && e.parents.length < 4; q = q.parent) e.parents.push(q.name || q.type);
       e.rays++; e.rows.add(iy);
       if (h.distance < e.near) { e.near = +h.distance.toFixed(2); e.at = h.point.toArray().map((x) => +x.toFixed(2)); }
       hits.set(k, e);
-      break;   // (the nearest one on this ray)
     }
   }
   const A = F.arena && F.arena.echo && F.arena.echo.cur;
