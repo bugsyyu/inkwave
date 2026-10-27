@@ -215,6 +215,40 @@ test('the walk: framed while she stands at a board, let go when she walks on; re
   assert.ok(W.framing.pos.distanceTo(p0) > 0.01);
 });
 
+// LEARN §56 (w2d3's boss booth, upright: a cable of the stage across a line of the board's text, the board 2.6 m in
+// front of her): the framed board's face skips the depth test — drawn over whatever stands between the lens and it — and
+// only while it is framed; the other boards (and the shared slab / posts) keep theirs. This checks the mechanism; the
+// picture is tap-walk's (LEARN §56)
+test('§56: the framed board\'s face is drawn over the scenery in front of it (no depth test, after the other faces); the others keep theirs; let go → back', () => {
+  const { W } = walkOf();
+  const face = (i) => ({ test: W.list[i].b.mat.depthTest, order: W.list[i].b.face.renderOrder });
+  assert.deepEqual([face(0), face(1)], [{ test: true, order: 2 }, { test: true, order: 2 }], 'nothing framed: every face depth-tested');
+  const s0 = W.list[0].view, her = new THREE.Vector3(s0.x, 0, s0.z);
+  for (let k = 0; k < 90; k++) W.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
+  assert.equal(W.framed, 0);
+  assert.deepEqual(face(0), { test: false, order: 3 }, 'the framed face: over the cable');
+  assert.deepEqual(face(1), { test: true, order: 2 }, 'the other board: as it was');
+  assert.equal(W.set.slabMat.depthTest, true); assert.equal(W.set.postMat.depthTest, true);
+  // on to the other board: the lift moves with the lens
+  const s1 = W.list[1].view; her.set(s1.x, 0, s1.z);
+  for (let k = 0; k < 90; k++) W.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
+  assert.equal(W.framed, 1);
+  assert.deepEqual([face(0), face(1)], [{ test: true, order: 2 }, { test: false, order: 3 }]);
+  // walking on lets go: back to the depth test
+  her.set(0, 0, 60); W.update(1 / 60, her, { aspect: 390 / 844, speed: 4 });
+  assert.equal(W.framed, -1);
+  assert.deepEqual([face(0), face(1)], [{ test: true, order: 2 }, { test: true, order: 2 }]);
+  // the board taken away while framed (the gate opened): nothing left lifted, the next board placed is depth-tested
+  her.set(s1.x, 0, s1.z); for (let k = 0; k < 90; k++) W.update(1 / 60, her, { aspect: 390 / 844, speed: 0 });
+  assert.equal(W.framed, 1);
+  W.clear();
+  assert.equal(W._topB, null);
+  // the boss's booth: framed where she stands (here) — lifted at once
+  const B = walkOf().W; B.here = true;
+  B.update(1 / 60, new THREE.Vector3(5, 0, 5), { aspect: 390 / 844, speed: 0 });
+  assert.ok(B.framed >= 0); assert.equal(B.list[B.framed].b.mat.depthTest, false);
+});
+
 test('the reading strip: 看全文 opens it at the board; it closes when she walks on; it never opens while a question is up', () => {
   const { W } = walkOf();
   const s1 = W.list[1].view, her = new THREE.Vector3(s1.x, 0, s1.z);

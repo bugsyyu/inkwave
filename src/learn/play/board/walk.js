@@ -48,7 +48,7 @@ export class BoardWalk {
     this.strip = new ReadStrip(root, { ink: typeof color === 'string' ? color : '#' + new THREE.Color(color).getHexString() });
     this.entries = new Map();
     this.list = [];           // placed: [{ b, spot, read, t, view: Vector3 }]
-    this.framed = -1; this.framing = null; this._aspect = 0;
+    this.framed = -1; this.framing = null; this._aspect = 0; this._topB = null;
     this.on = {}; this.bandFor = null; this.here = false;
     this._q = false; this._tap = null; this._seq = 0; this._owed = [];
     this.tapApi = { down: (x, y, id) => this._down(x, y, id), up: (x, y, id, cancel) => this._up(x, y, id, cancel) };
@@ -92,6 +92,7 @@ export class BoardWalk {
     for (const e of list) e.dispose();
     this.entries.delete(key);
     if (this.framed >= this.list.length) this._unframe();
+    this._lift();
   }
   place(key, spots, o = {}) {
     if (!this.entries.has(key)) this._owe(key);
@@ -159,7 +160,21 @@ export class BoardWalk {
   _unframe() {
     if (this.framed >= 0) this.on.unframed?.(this.framed);
     this.framed = -1; this.framing = null;
+    this._lift();
     this.strip.close();
+  }
+  // LEARN §56: the framed board's face is drawn over whatever stands between the lens and it — a stage's cable, a string
+  // of lights, a lamp's arm (w2d3's boss booth: a cable across a line of its text). The stage is baked into one merged
+  // mesh per material (src/world/props.js), so the scenery in the way cannot be faded or left out piece by piece; the
+  // face (its own material per board: set.js add) skips the depth test instead while it is framed, and only then — the
+  // other boards, the slab and the posts (shared instanced meshes) keep theirs. No program changes (GL state only). Her
+  // viewing spot is under the board's lower edge (frame.js), so she is never the thing drawn over
+  _lift() {
+    const L = this.framed >= 0 ? this.list[this.framed] : null, b = L ? L.b : null;
+    if (b === this._topB) return;
+    if (this._topB) { this._topB.mat.depthTest = true; this._topB.face.renderOrder = 2; }
+    this._topB = b;
+    if (b) { b.mat.depthTest = false; b.face.renderOrder = 3; }
   }
   // the pose that frames board i (world): straight in front of it, the board filling the band
   frameOf(i, aspect, W, H) {
@@ -175,6 +190,7 @@ export class BoardWalk {
     this._aspect = aspect;
     const W = typeof innerWidth !== 'undefined' ? innerWidth : Math.round(844 * Math.min(aspect, 1)), H = typeof innerHeight !== 'undefined' ? innerHeight : 844;
     this.framing = this.frameOf(this.framed, aspect, W, H);
+    this._lift();
   }
 
   // ---------------------------------------------------------------------------------------------- taps on the board

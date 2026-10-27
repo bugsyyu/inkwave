@@ -17,6 +17,7 @@
 //        [--gate N] [--short] [--until gate:N | exit | done] [--budget 900] [--shots <dir>] [--out <file>]
 //        [--cpu 4] (CDP CPU throttling) [--dpr 1] [--no-inset] [--more] (tap 「看全文」 on every board that has it, not
 //        only the first) [--keep] (go on after a FAIL: the run then reports every stuck stretch it met) [--draw]
+//        [--until framed] (stop at the first framed board, once its picture and what stands in front of it are taken)
 //   views: portrait 390 × 844 (her App: ?from=app, insets top 59 / bottom 34 — a Dynamic Island iPhone), landscape
 //   844 × 390 (?from=app turned: insets left / right 59, bottom 21); both touch, isMobile.
 // Run browsers one at a time: flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/tap-walk.mjs …
@@ -276,8 +277,45 @@ async function answer(s) {
 }
 
 // ------------------------------------------------------------------------------------------------ the walk
+// LEARN §56: what stands between the lens and the framed board — rays from the camera through a grid on the board's face
+// against the scene (the boards' own group left out; meshes only, visible ones): per object the rays it stops, the nearest
+// hit, its material and parents — and whether the face is drawn over them (its depth test off while framed)
+const inFront = () => ev(async () => {
+  const THREE = await import('three');
+  const M = __inkwave.match, F = M && M.learn; if (!F) return null;
+  const X = F.play && F.play.exit;
+  const walks = [F.play && F.play.boards && F.play.boards.walk, X && X.echo && X.echo.walk, X && X.signs && X.signs.walk, F.arena && F.arena.echo && F.arena.echo.echo && F.arena.echo.echo.walk, F.arena && F.arena.prepS && F.arena.prepS.board, F.prepS && F.prepS.board, F.bw && F.bw.walk].filter(Boolean);
+  const fw = walks.find((w) => w.framed >= 0 && w.list[w.framed]); if (!fw) return null;
+  const b = fw.list[fw.framed].b, cam = __G.camera, scene = __G.scene;
+  b.group.updateMatrixWorld(true); cam.updateMatrixWorld(true);
+  const rc = new THREE.Raycaster(); rc.camera = cam; rc.params.Line.threshold = 0.01; rc.params.Points.threshold = 0.01;
+  const shown = (o) => { for (let q = o; q; q = q.parent) if (!q.visible) return false; return true; };
+  const ours = (o) => { for (let q = o; q; q = q.parent) if (q === fw.set.group) return true; return false; };
+  const from = cam.getWorldPosition(new THREE.Vector3()), to = new THREE.Vector3(), dir = new THREE.Vector3(), hits = new Map();
+  let rays = 0;
+  for (let iy = 0; iy < 9; iy++) for (let ix = 0; ix < 11; ix++) {
+    const u = -0.92 + (1.84 * ix) / 10, v = -0.92 + (1.84 * iy) / 8;
+    to.set(u * b.w / 2, b.bottom + b.h / 2 + v * b.h / 2, 0.07).applyMatrix4(b.group.matrixWorld);
+    const dist = from.distanceTo(to); dir.copy(to).sub(from).normalize();
+    rc.set(from, dir); rc.far = dist - 0.03; rays++;
+    for (const h of rc.intersectObject(scene, true)) {
+      const o = h.object; if (!o.isMesh || ours(o) || !shown(o)) continue;
+      const k = o.uuid, e = hits.get(k) || { name: o.name || o.type, type: o.type, mat: [].concat(o.material || []).map((m) => m && (m.name || m.type)).join(','), parents: [], rays: 0, near: 99, at: null, rows: new Set() };
+      if (!e.parents.length) for (let q = o.parent; q && e.parents.length < 4; q = q.parent) e.parents.push(q.name || q.type);
+      e.rays++; e.rows.add(iy);
+      if (h.distance < e.near) { e.near = +h.distance.toFixed(2); e.at = h.point.toArray().map((x) => +x.toFixed(2)); }
+      hits.set(k, e);
+      break;   // (the nearest one on this ray)
+    }
+  }
+  const A = F.arena && F.arena.echo && F.arena.echo.cur;
+  return { rays, faceDepthTest: b.mat.depthTest, faceOrder: b.face.renderOrder, cam: from.toArray().map((x) => +x.toFixed(2)), board: { center: b.center.toArray().map((x) => +x.toFixed(2)), w: +b.w.toFixed(2), h: +b.h.toFixed(2), bottom: b.bottom, yaw: +b.yaw.toFixed(3) }, booth: A ? A.at.toArray().map((x) => +x.toFixed(2)) : null, her: M.local ? M.local.pos.toArray().map((x) => +x.toFixed(2)) : null, view: [innerWidth, innerHeight],
+    inFront: [...hits.values()].map((e) => ({ ...e, rows: [...e.rows].sort((a, c) => a - c) })).sort((a, c) => c.rays - a.rays) };
+});
+let framedDone = false;
 const untilMet = (s) => {
   if (s.done) return true;
+  if (UNTIL === 'framed') return framedDone;
   const m = /^gate:(\d+)$/.exec(UNTIL);
   if (m) return s.opened >= +m[1];
   if (UNTIL === 'exit') return s.phase === 'exit';
@@ -338,7 +376,11 @@ try {
       if (go && s.framed) {
         // a framed board: she reads it (read counts after LEARN.board.readS), opens 「看全文」 once, then 继续
         if (!s.framed.read) { await sleep(700); continue; }
-        if (!firstBoardShot) { firstBoardShot = true; await shot('board-framed'); }
+        if (!firstBoardShot) {
+          firstBoardShot = true; await shot('board-framed');
+          try { report.inFront = await inFront(); say('in front of the framed board', JSON.stringify(report.inFront).slice(0, 1500)); } catch (e) { say('inFront failed', e.message); }
+          if (UNTIL === 'framed') { framedDone = true; continue; }
+        }
         report.boards.push({ t: s.t, i: s.framed.i, go: go.rect, ready: go.ready, more: s.more.map((m) => ({ rect: m.rect, ok: m.ok })) });
         const more = s.more.find((m) => m.ok);
         if (more && (MORE_ALL || !moreTapped) && !s.reading) {
