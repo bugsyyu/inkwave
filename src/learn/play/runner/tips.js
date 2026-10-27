@@ -16,17 +16,18 @@ const CSS = `
 .iw-run * { box-sizing: border-box; }
 .iw-run svg { display: block; width: 100%; height: 100%; }
 /* (INKWAVE's sticker look, styles/hud.css: an ink outline and a solid ink shadow under it) */
-.iw-run__hint { position: absolute; left: 50%; bottom: 28px; translate: -50% 0; padding: 10px 18px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
+.iw-run__hint { position: absolute; left: 50%; bottom: calc(28px + var(--iw-sab, 0px)); translate: -50% 0; padding: 10px 18px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 15px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity .4s; }
 .iw-run__hint.is-on { opacity: 1; }
-.iw-run__rotate { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
+.iw-run__rotate { position: absolute; left: 50%; bottom: calc(14px + var(--iw-sab, 0px)); translate: -50% 0; display: none; align-items: center; gap: 6px; padding: 0 0 0 16px; border-radius: 999px; background: var(--lk); border: 1.5px solid rgba(255,255,255,.2);
   box-shadow: 0 0 0 2px var(--k), 0 3px 0 2px var(--k); font-size: 15px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
 .iw-run__rotate.is-on { display: flex; }
-/* (both at the start upright: the controls hint stands above the rotate prompt, not on it) */
-.iw-run:has(.iw-run__rotate.is-on) .iw-run__hint { bottom: 76px; }
+/* (both at the start upright: the controls hint stands above the rotate prompt, not on it; LEARN §56: both above the
+   home bar — the safe area's bottom inset, styles/hud.css --iw-sab — the rotate prompt's ✕ sat on it 14 px up) */
+.iw-run:has(.iw-run__rotate.is-on) .iw-run__hint { bottom: calc(76px + var(--iw-sab, 0px)); }
 .iw-run__rotate i { font-style: normal; font-size: 18px; }
 .iw-run__rotate button { width: 44px; height: 44px; border: 0; background: none; color: #cfc9dc; padding: 13px; cursor: pointer; }
-@media (max-height: 460px) and (orientation: landscape) { .iw-run__hint { bottom: 14px; } }
+@media (max-height: 460px) and (orientation: landscape) { .iw-run__hint { bottom: calc(14px + var(--iw-sab, 0px)); } }
 /* the strip (play-strip.js) in the runner: under the standings upright, narrower than the standings' column in landscape */
 @media (max-width: 640px) and (orientation: portrait) { .iw-ps.is-runner .iw-ps__box { top: 122px; } .iw-lf.is-runner .iw-lf__rank { top: 84px; } .iw-lf.is-runner .iw-lf__rank div:not(.is-me) { display: none; } }
 @media (max-height: 460px) and (orientation: landscape) { .iw-ps.is-runner .iw-ps__box { max-width: min(560px, calc(100vw - 300px)); padding: 6px 12px 6px 6px; } .iw-ps.is-runner .iw-ps__q { font-size: 17px; } .iw-ps.is-runner .iw-ps__zh { font-size: 15px; } }

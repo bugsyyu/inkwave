@@ -43,3 +43,22 @@ test('the forms\' HUD pieces keep out of the safe area: the bag off the island\'
   for (const k of ['--iw-sat', '--iw-sar', '--iw-sal']) assert.match(CSS, new RegExp('var\\(' + k + ', 0px\\)'), k);
   assert.match(src('styles/hud.css'), /:root \{ --iw-sat: env\(safe-area-inset-top, 0px\); --iw-sar: env\(safe-area-inset-right, 0px\);/);
 });
+
+// ------------------------------------------------------------------------------------------------ the runner's tips
+// LEARN §56 (X1 §6): the runner's 「横过来更好玩」 prompt stood 14 px off the bottom edge — on the home bar upright, its ✕
+// (the one key there) under the swipe that goes home; the controls hint (28 px, 76 px over the prompt; 14 px turned) the same
+test('§56 the runner\'s tips keep above the home bar: the rotate prompt and its ✕, the controls hint (upright and turned)', () => {
+  const T = src('src/learn/play/runner/tips.js'), C = T.slice(T.indexOf('const CSS = `'), T.indexOf('`;', T.indexOf('const CSS = `')));
+  const base = C.slice(0, C.indexOf('@media'));
+  for (const [ins, what] of [[UP.ins, 'upright'], [TURNED.ins, 'turned']]) {
+    const bar = ins['--iw-sab'];
+    assert.ok(px(prop(base, '.iw-run__rotate', 'bottom'), ins) >= bar + 8, `${what}: the rotate prompt ${prop(base, '.iw-run__rotate', 'bottom')} clears the ${bar} px home bar`);
+    assert.ok(px(prop(base, '.iw-run__hint', 'bottom'), ins) >= bar + 8, `${what}: the hint`);
+  }
+  const over = /\.iw-run:has\(\.iw-run__rotate\.is-on\) \.iw-run__hint \{ bottom: ([^;]+); \}/.exec(C);
+  assert.ok(over); assert.ok(px(over[1], UP.ins) >= px(prop(base, '.iw-run__rotate', 'bottom'), UP.ins) + 44 + 8, 'the hint stands over the prompt (44 px tall), not on it');
+  const turned = /@media \(max-height: 460px\) and \(orientation: landscape\) \{ \.iw-run__hint \{ bottom: ([^;]+); \} \}/.exec(C);
+  assert.ok(turned); assert.ok(px(turned[1], TURNED.ins) >= TURNED.ins['--iw-sab'] + 8, 'turned: the hint over the home bar');
+  // (no inset — a desktop, or the page before the variables: as before)
+  assert.equal(px(prop(base, '.iw-run__rotate', 'bottom'), NONE), 14);
+});
