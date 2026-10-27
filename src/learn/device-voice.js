@@ -74,7 +74,7 @@ export function createDeviceVoice(env = {}) {
       u.onend = u.onerror = () => { if (cur === c) finish(c); };
       S.speak(u);
       c.cap = now() + 2 * c.est + CAP_EXTRA;
-      watch(c);
+      if (!c.over) watch(c);   // (refused at once — onerror inside speak(): already ended)
     } catch (e) { finish(c); }
   };
 

@@ -99,6 +99,15 @@ test('§56 the voice: no speechSynthesis (or no utterance class) — done at onc
   assert.equal(createDeviceVoice({ synth: () => fakeSynth(), Utterance: () => FakeU }).speak('', {}, () => done++), false); assert.equal(done, 3);
 });
 
+test('§56 the voice: refused inside speak() (onerror at once: not-allowed) — done once, no watchdog left behind', () => {
+  const { S, K, V } = voiceOf();
+  S.speak = (u) => { S.log.push(['speak', S.tick, u.text]); if (u.onerror) u.onerror({ error: 'not-allowed' }); };
+  let done = 0;
+  V.speak('Monday', {}, () => done++);
+  assert.equal(done, 1); assert.equal(V.live, null);
+  assert.equal(K.q.length, 0, 'no timer left for an utterance that has ended');
+});
+
 // ------------------------------------------------------------------------------------------------ the page's paths
 // audio.js say() (stop() first, then the caller's voice — hud-learn's _device — or the built-in one) on a page with a fake
 // engine. The order the old code made: cancel (stop) → cancel (_device) → speak, all in one tick, the utterance nowhere.
