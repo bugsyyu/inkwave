@@ -1528,6 +1528,9 @@ body.iw-dio-on .iw-xh, body.iw-dio-on .iw-mks, body.iw-dio-on .iw-map, body.iw-d
 /* (a station holding her still — the beat pads, the typewriter, the flip deck: play/host.js is-still — 跳 / 潜墨 do nothing then:
    dimmed, still in their places; LEARN §48 review) */
 .iw-touch.is-learn.is-still .iw-touch__btn:nth-child(2), .iw-touch.is-learn.is-still .iw-touch__btn:nth-child(3) { opacity: .32; transition: opacity .2s; }
+/* (LEARN §55: versus2's 地图 while a station holds the lens — the typewriter, a flip card — dimmed the same way: the overhead map
+   cannot open then; a press says why, touch.js _holdMap) */
+.iw-touch.is-learn .iw-touch__btn.is-held { opacity: .32; transition: opacity .2s; }
 /* (no 地图 key and no corner map in a level — hud-learn start(); the keys left close up: touch.js _layout) */
 .iw-touch.is-learn.is-nomap .iw-touch__btn:nth-child(6) { display: none; }
 .iw-hud.is-learn.is-nomap .iw-map { display: none !important; }

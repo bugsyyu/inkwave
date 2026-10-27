@@ -41,6 +41,16 @@ export class Versus2Flow extends LearnFlow {
   get walkBar() { return false; }   // (LEARN §48: no route to walk — a Zone Control match: no walk bar, hud-learn start())
   // (LEARN §48: a Zone Control match with a team — the HUD keeps its 地图 key and corner map here, hud-learn start())
   get mapKey() { return true; }
+  // LEARN §55: … but while a station holds the lens (the 打字蟹, a flip card: ArenaHost's PlayCam) the overhead map cannot
+  // open (cameraRig swoops only from the follow camera) — the key lit up and nothing came, and it sprang overhead the moment
+  // the lens came back. touch.js reads mapHold (the key dims, its latch drops) and asks mapWhy on a press; Tab / M on a
+  // desktop ask it too (update)
+  get mapHold() { return !!(this.arena && this.arena.cam && this.arena.cam.on); }
+  mapWhy() {
+    if (this.t - (this._mapWhyT ?? -Infinity) < 1.5) return;   // (one line a press, not a line a frame)
+    this._mapWhyT = this.t;
+    this.ui.say('镜头正对着这道题 · 答完再看地图');
+  }
   constructor(match, opts = {}) {
     super(match, opts);   // B: the level (the day's duel plan) and hud.start; _place() below: no route, no gates
     this.form = 'versus2';
@@ -130,6 +140,7 @@ export class Versus2Flow extends LearnFlow {
     const m = this.match;
     this.arena?.update(dt);   // (every frame: it waits itself while paused)
     if (m.state === 'playing') {
+      if (this.mapHold && G.input && (G.input.wasPressed('Tab') || G.input.wasPressed('KeyM'))) this.mapWhy();   // (LEARN §55)
       // a guest tells the host which of the week's items are due on its own store (shared queue, LEARN §4)
       if (!this._dueSent && !this.isHost && G.net?.tr) { this._dueSent = true; let due = []; try { due = store.due(this.level.weekRef || this.week); } catch (e) { due = []; } G.net.tr.sendTo(G.net.hostId, { k: 'ld', due: due.slice(0, 200) }); }
       if (this.isHost && !this._wasHost) this._becameHost();

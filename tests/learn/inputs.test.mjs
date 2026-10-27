@@ -281,3 +281,71 @@ test('O · the duel\'s 备战 and the runner\'s start line: R = 看全文, L = �
   P.dispose();
   assert.equal(KL.capture.length, 0, 'its listener comes off with it');
 }));
+
+// ================================================================================================ R · versus2's 地图 while the lens is held
+// (the touch layer: a window is already here; the safe area's probe and the keys' display read computed styles — every key shown)
+globalThis.visualViewport = { addEventListener() {}, removeEventListener() {} };
+globalThis.getComputedStyle = () => ({ display: 'grid', paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px' });
+const { TouchControls } = await import('../../src/core/touch.js');
+const { forgetInsets } = await import('../../src/ui/safe-area.js');
+const { Versus2Flow } = await import('../../src/learn/forms/versus2.js');
+const { Coop2Flow } = await import('../../src/learn/forms/coop2.js');
+const { partnerWait, PARTNER_IDLE_LINE } = await import('../../src/learn/forms/duo.js');
+const { FormsUi } = await import('../../src/learn/forms/ui.js');
+
+test('R · versus2: while a station holds the lens the 地图 key dims, drops its latch and a press says why — it latched a map that could not open, and sprang overhead when the lens came back', () => {
+  globalThis.innerWidth = 844; globalThis.innerHeight = 390; forgetInsets();
+  const input = { touch: { active: true, map: false, mx: 0, mz: 0, fingers: 0 }, mouse: { dx: 0, dy: 0 }, touchDown() {}, touchUp() {}, touchMapToggle() { this.touch.map = !this.touch.map; }, pressCode() {} };
+  const T = new TouchControls(input);
+  T.mount(new El('div'));
+  T.el.classList.add('is-learn'); T.relayout();
+  const why = [], V = { mapHold: false, mapWhy: () => why.push('why') };
+  G.mode = 'match'; G.menus = null; G.match = { learn: V, paused: false };
+  T.update();
+  const m = T.buttons.find((b) => b.name === 'map');
+  let id = 0;
+  const tap = () => { const e = { pointerType: 'touch', pointerId: ++id, clientX: m.cx, clientY: m.cy, target: new El('div'), type: 'pointerdown', preventDefault() {} }; T._down(e); T._up({ ...e, type: 'pointerup' }); };
+  tap();
+  assert.equal(input.touch.map, true, 'the follow camera: the key latches the map, as before');
+  // the 打字蟹 takes the lens: the key dims, the latch drops (it would swoop overhead the moment the lens came back)
+  V.mapHold = true; T.update();
+  assert.ok(m.el.classList.contains('is-held'), 'dimmed');
+  assert.equal(input.touch.map, false, 'the latch dropped');
+  assert.ok(!m.el.classList.contains('is-on'), 'not lit');
+  tap();
+  assert.equal(input.touch.map, false, 'a press does not latch a map that cannot open');
+  assert.deepEqual(why, ['why'], 'it says why');
+  assert.equal(T._btnAt(m.cx, m.cy)?.name, 'map', 'and the finger is the key\'s (no look, no tap-shot under it)');
+  // the lens back to her: the key as before
+  V.mapHold = false; T.update();
+  assert.ok(!m.el.classList.contains('is-held'));
+  tap();
+  assert.equal(input.touch.map, true);
+  // a level that never holds it (no mapHold) and the match ending: never dimmed
+  G.match = { learn: {}, paused: false }; T.update(); assert.ok(!m.el.classList.contains('is-held'));
+  V.mapHold = true; G.match = { learn: V, paused: false }; T.update(); assert.ok(m.el.classList.contains('is-held'));
+  G.mode = 'menu'; T.update();
+  assert.ok(!m.el.classList.contains('is-held'), 'out of the match: not dimmed');
+  // the CSS dims it as 跳 / 潜墨 are dimmed while a station holds her still
+  assert.match(src('styles/hud.css'), /\.iw-touch\.is-learn \.iw-touch__btn\.is-held \{ opacity: \.32; transition: opacity \.2s; \}/);
+  T.dispose();
+});
+
+test('R · versus2: mapHold is the arena\'s lens held; mapWhy says one line a press (not a line a frame); Tab / M on a desktop ask it too', () => {
+  const d = Object.getOwnPropertyDescriptor(Versus2Flow.prototype, 'mapHold');
+  assert.ok(d && d.get, 'versus2 says when the map is held');
+  assert.equal(d.get.call({ arena: { cam: { on: true } } }), true, 'a station holds the lens');
+  assert.equal(d.get.call({ arena: { cam: { on: false } } }), false, 'the follow camera');
+  assert.equal(d.get.call({ arena: null }), false);
+  const said = [], F = { t: 10, ui: { say: (s) => said.push(s) } };
+  Versus2Flow.prototype.mapWhy.call(F); F.t += 0.4; Versus2Flow.prototype.mapWhy.call(F);
+  assert.deepEqual(said, ['镜头正对着这道题 · 答完再看地图'], 'once for a press');
+  F.t += 1.2; Versus2Flow.prototype.mapWhy.call(F);
+  assert.equal(said.length, 2, 'a press later: again');
+  assert.match(src('src/learn/forms/versus2.js'), /if \(this\.mapHold && G\.input && \(G\.input\.wasPressed\('Tab'\) \|\| G\.input\.wasPressed\('KeyM'\)\)\) this\.mapWhy\(\);/);
+  // (the edge is read inside match.update: main.js polls the input before it and clears the edges after it)
+  const main = src('src/main.js'), loop = main.slice(main.indexOf('this.input.pollPad();'));
+  assert.ok(loop.indexOf('m.update(dt') > 0 && loop.indexOf('this.input.endFrame();') > loop.indexOf('m.update(dt'), 'endFrame after the match\'s update');
+  // the overhead map still opens only from the follow camera (the rig is not changed: it is the key that says so now)
+  assert.match(src('src/game/cameraRig.js'), /const inPlay = this\.mode === 'follow' \|\| this\.mode === 'spectate';/);
+});

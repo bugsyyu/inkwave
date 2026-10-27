@@ -307,7 +307,9 @@ export class TouchControls {
     this.input.touch.fingers = this.roles.size;
     switch (name) {
       case 'fire': this.input.touchDown('fire'); break;
-      case 'map': this.input.touchMapToggle(); this._syncMap(); break;
+      // (LEARN §55: while the level's lens is held — versus2's typewriter — the overhead map cannot open: the key is dim, and a
+      // press says why instead of latching a map that sprang open the moment the lens came back)
+      case 'map': if (this._mapHold) { G.match?.learn?.mapWhy?.(); break; } this.input.touchMapToggle(); this._syncMap(); break;
       case 'pause': this.input.onPause?.(); break;
       default:
         this.input.touchDown(name);
@@ -335,6 +337,12 @@ export class TouchControls {
 
   // Force the map latch off — a menu opening must not leave it latched, or it springs back open when the menu closes.
   clearMap() { this.input.touch.map = false; this._syncMap(); }
+  _holdMap(on) {
+    if (on === !!this._mapHold) return;
+    this._mapHold = on;
+    if (on) this.clearMap();
+    for (const b of this.buttons) if (b.name === 'map') b.el.classList.toggle('is-held', on);
+  }
 
   _showStick(ox, oy, kx, ky) {
     const st = this.stick, r = this.stickR;
@@ -368,6 +376,9 @@ export class TouchControls {
     // Guarded: this runs before the gate below, so an unguarded toggle here is a DOM write every frame of the match
     // whether or not anything changed. classList.toggle is cheap but it is not free, and it is not on the only path.
     if (armed !== this._armed) { this._armed = armed; this.rotateEl?.classList.toggle('is-armed', armed); }
+    // LEARN §55: a level whose lens a station holds (match.learn.mapHold — versus2 keeps INKWAVE's 地图 key) dims the key and
+    // drops its latch; a DOM write only when it changes
+    this._holdMap(live && learn && !!G.match.learn.mapHold);
     if (live === this.enabled) return;
     this.enabled = live;
     this.el.classList.toggle('is-live', live);
