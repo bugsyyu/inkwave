@@ -22,7 +22,7 @@ import { h, prefersReducedMotion, restartAnim, colorVars, splatSVG } from './ui-
 import { GLYPHS } from './ui-icons.js';
 import { LEARN } from '../config.js';
 import { G } from '../core/ctx.js';
-import { say as sayAudio, stop as stopAudio } from '../learn/audio.js';   // the course's recordings (LEARN §16), else the device voice below
+import { say as sayAudio, stop as stopAudio, deviceSpeak } from '../learn/audio.js';   // the course's recordings (LEARN §16), else the device voice below
 
 export class LearnHud {
   constructor(hud) {
@@ -171,16 +171,11 @@ export class LearnHud {
     if (!text) { done?.(); return; }
     sayAudio(text, { slow: !!(o && o.slow), onEnd: done, device: (t, end) => this._device(t, end) });
   }
+  // (LEARN §56: through the page's one device voice, src/learn/device-voice.js — it holds the utterance until it ends, cancels
+  // only what is being said, never speaks in the tick of a cancel, and ends it when no onend comes: iOS / Safari)
   _device(text, done) {
     if (!text || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') { done?.(); return; }
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US'; u.rate = LEARN.ui.ttsRate; u.pitch = 1;
-      const v = this._pickVoice(); if (v) u.voice = v;
-      u.onend = u.onerror = () => done?.();
-      speechSynthesis.speak(u);
-    } catch { done?.(); }
+    deviceSpeak(text, { lang: 'en-US', rate: LEARN.ui.ttsRate, pitch: 1, voice: this._pickVoice() }, () => done?.());
   }
 
   // ================================================================ results

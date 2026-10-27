@@ -36,11 +36,14 @@
 //   say(text, { slow, onEnd, device }) — device(): the caller's own device voice (hud-learn's), used when there is no recording
 //   stop()                             — stop whatever is playing (its onEnd fires)
 //   unlock()                           — call inside a tap (installed on the first tap / key anyway)
-//   status()                           — { on, base, loaded, accent, last: { text, how, set, pieces } } for audits
+//   status()                           — { on, base, loaded, accent, last: { text, how, set, pieces }, device } for audits
+//   deviceSpeak(text, { lang, rate, pitch, voice }, done) — the device's voice, the page's one (LEARN §56: device-voice.js —
+//                                        the utterance held, no speak in the tick of a cancel, a watchdog); deviceVoice
 //   createClips({ fetch, base, accent, chunks }) — the pure part (index, lookup, plan, bytes) for tests
 import { ieltsLoaded, ieltsNow } from './ielts.js';
 import * as WBK from './workbench.js';
 import { G } from '../core/ctx.js';
+import { createDeviceVoice } from './device-voice.js';
 
 const GAP = { normal: 220, slow: 320 };   // ms between pieces (Clips.try: 220, slow 320)
 const SLOW_NET = 2500;                    // the first bytes still not here: the device's voice (Clips.try's slowNet)
@@ -193,7 +196,7 @@ export function stop() {
   if (c) { clearTimeout(c.dog); clearTimeout(c.gap); }
   if (el) { el.onended = null; el.onerror = null; try { el.pause(); } catch (e) { /* ignore */ } }
   if (src) { const s = src; src = null; s.onended = null; try { s.stop(); } catch (e) { /* ignore */ } }
-  try { if (W && W.speechSynthesis) W.speechSynthesis.cancel(); } catch (e) { /* no synthesis */ }
+  deviceVoice.cancel();   // (LEARN §56: only when something is said — a speak straight after a cancel is dropped on iOS)
   if (c && c.onEnd) { try { c.onEnd(); } catch (e) { /* the caller's */ } }
 }
 
@@ -286,24 +289,26 @@ function outWA(ab, rate, g, done, fail) {
 // the game's music steps back while a word is said (INKWAVE's own duck; the sound effects stay)
 function duck(sec) { try { G.audio && G.audio.duck && G.audio.duck(0.45, Math.min(12, Math.max(1, sec || 2))); } catch (e) { /* ignore */ } }
 
+// the device's voice, the page's one (LEARN §56): every speak and cancel goes through it — stop() above, the built-in voice
+// below, hud-learn's own (_device) — so a cancel and the speak after it are seen together
+export const deviceVoice = createDeviceVoice({ synth: () => W && W.speechSynthesis, Utterance: () => W && W.SpeechSynthesisUtterance });
+export function deviceSpeak(text, o, done) { return deviceVoice.speak(text, o, done); }
+
 // the built-in device voice (a caller without its own): en-US, a little slow for a beginner, slower when asked
 let voice = null;
 function speakDevice(text, done, slow) {
-  const S = W && W.speechSynthesis, U = W && W.SpeechSynthesisUtterance;
-  if (!text || !S || typeof U !== 'function') { done(); return; }
+  const S = W && W.speechSynthesis;
   try {
-    if (!voice) { const vs = S.getVoices() || []; voice = vs.find((v) => /^en[-_]US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
-    const u = new U(text);
-    u.lang = 'en-US'; u.rate = slow ? 0.72 : 0.92; if (voice) u.voice = voice;
-    u.onend = u.onerror = () => done();
-    S.speak(u);
-  } catch (e) { done(); }
+    if (!voice && S) { const vs = S.getVoices() || []; voice = vs.find((v) => /^en[-_]US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
+  } catch (e) { voice = null; }
+  deviceSpeak(text, { lang: 'en-US', rate: slow ? 0.72 : 0.92, voice }, done);
 }
 
 export function status() {
   const c = clips;
   return { on: !!(c && !c.off), base: c ? c.idx ? 'loaded' : c.off ? 'off' : 'pending' : 'none', loaded: !!(c && c.idx), accent: WBK.accent(ls()), playing: !!cur, unlocked, inApp: inApp(), blobRefused,
-    fetched: c ? Object.assign({}, c.n, { range: c.range ? c.n.range : 'off', shards: c.shards.size, segs: c.segs.size }) : null, last: Object.assign({}, last) };
+    fetched: c ? Object.assign({}, c.n, { range: c.range ? c.n.range : 'off', shards: c.shards.size, segs: c.segs.size }) : null, last: Object.assign({}, last),
+    device: { live: !!deviceVoice.live, pending: deviceVoice.pending } };
 }
 
 // the page: unlock on the first tap / key (pointerup and touchend are the touch events Safari counts as a tap), stop when the
