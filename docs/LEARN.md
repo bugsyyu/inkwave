@@ -2770,3 +2770,45 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 对抗赛的 `askNear / askWait`（她离区域远时等 6 s）没动——不在任务书里，而且那里本来就在等满后照出题。
 
 **交接**：inkwave 分支 `wf-logic`（从 `8906dd2` 建）；IELTS-Base 没有改动（`app/game` 由主会话同步，合并后八个游戏 e2e 由主会话跑）。改到的文件：`src/learn/play/hit.js`、`src/learn/forms/boss.js`、`src/learn/play/landscape.js`、`src/config.js`（只有 `LEARN.boss` 两行注释）、`docs/PLAY.md`（§1 第 5 条一句）、`tests/learn/play.test.mjs`、`tests/learn/boss-pace.test.mjs`（新）、`docs/LEARN.md`（只有这一节）。和 `wf-ui-polish`（`styles/*.css`、`forms/ui.js`、`play-keys.js`、`type/shot.js`、书页）不重叠；`docs/LEARN.md` 末尾会冲突（§53 / §54 的先后，主会话排）。
+
+## 56. wf-voice-stage 交付（2026-10-27，子代理，分支 `wf-voice-stage`：设备语音在 iOS 上可能不响、跑酷「横过来」胶囊压着 Home 条、w2d3 竖屏 Boss 回声亭的板被舞台的缆绳挡了一行字）
+
+（主会话 10-27 的 workflow 派的；业主 10-27 的原话：「全力恢复推进，直到完全达到目标上线」。三条都是只读排查 X1 第 6 节「iOS 特有」和 §54 末尾 tap-walk 那段记下的。）
+
+**先读了什么**：任务书和共同规矩（`common-1025.md`）；X1 报告第 6 节（`speechSynthesis` 的 onend 不来、`cancel()` 后马上 `speak()`、utterance 只在局部变量里；「横过来」胶囊离底 14 px）、本文件 §16（录音和设备声音的顺序）、§48（安全区变量 `--iw-sa*`、`safe-area.js`、tap-walk）、§53（`forms-inset.test` 的量法）、§54 末尾（回声亭的板被缆绳挡）；代码：`src/ui/hud-learn.js` `_speak` / `_device`、`src/learn/audio.js`（`say` / `stop` / `speakDevice`）、各处 `strip.playing(true)` 的调用（coop、arena/host、host、run、runner）、`board/walk.js` / `set.js` / `frame.js`、`echo/booth.js`、`arena/host.js` `EchoStation`（竖屏 Boss 的 S 段：亭子立在她面前 `echoAhead` 处、`here` 框住）、`src/world/props.js` 头上那段（**整个舞台的静态部分按材质并成一个网格**，没有 BVH）、`runner/tips.js`、`tools/learn/tap-walk.mjs`。
+
+**先定的**：
+1. **设备语音一个实例、三条规矩**（新 `src/learn/device-voice.js`，纯工厂：引擎、utterance 类、计时器都传进来，Node 测）。`audio.js` 拥有页面上那一个（`deviceVoice` / `deviceSpeak`），它的 `stop()`、它自带的设备声音、hud-learn 的 `_device` 都走这一个——原来 `say()` → `stop()` 无条件 `cancel()` → `_device` 又 `cancel()` → 马上 `speak()`，同一拍里两次 cancel 一次 speak，「刚 cancel 过」这件事只有一个共用的实例才看得见。
+   - **utterance 拿着**（`live`）直到它的 onend / onerror（WebKit 会回收没人拿着的 utterance：onend 不来、说到一半停）；被下一句顶掉就放开。
+   - **只在真有东西时才 cancel**（我们拿着的、引擎说 `speaking` / `pending`）；**刚 cancel 过 50 ms 内的 speak 推迟 50 ms**（一帧多一点），等着的时候再来一句就把等着的那句丢掉（它的 `done` 照样回调；`audio.js` 的 `gen` 本来就让旧回调不起作用）。**没东西可 cancel 就当场 speak**——iOS 上一页的第一次 `speak()` 要在那一下点击里，所以冷启动的那一下不经过计时器；推迟只发生在「已经在说、她又点了 ▶ 再听」时，那时页面早已说过话。
+   - **onend 不来的兜底**：按文字长度和语速估一个时长（每个字符 75 ms ÷ 语速 + 1.5 s），到点引擎还说 `speaking` 就每 0.5 s 再看，最长到「两倍估计 + 6 s」，然后结束（`done` 一次，▶ 灭）。X1 说得明白：没有哪条流程等 onend（跟读、回声亭各有自己的计时），onend 不来唯一的症状是 ▶ 一直亮——所以兜底放在声音这一层。引擎说还在说就不提前结束。
+2. **跑酷的提示**：胶囊和它的 ✕（那里唯一的键）`bottom: calc(14px + var(--iw-sab, 0px))`——写法照 `forms/ui.js`（§53），`--iw-sab` 在 `:root` 上一直有定义（= `env(safe-area-inset-bottom)`，桌面 0）。操作提示的 28 px、压在胶囊上面那条的 76 px、横屏的 14 px 也在同一块 34 px 的 Home 条区域里，一起加上。
+3. **板被布景挡住：框住时板面画在挡着的布景上面**（通用的，所有框住的板——解谜的展板、出口的回声亭和牌子、Boss 的回声亭、对抗赛的备战板、跑酷起跑的板——都受益）。「挡着的那根淡掉 / 不画」做不到：舞台按材质并成一个网格（`props.js`：约 150 个道具 ≈ 9 个合并的 draw），那根缆绳只是 `paint` 网格里的一段顶点，藏它就是藏半个舞台；逐个物件淡掉要改所有舞台材质的着色器（编译卡顿，§40 的那种）。所以反过来：**框住的那块板的板面**（每块板自己的 `MeshBasicMaterial`，`set.js add()`）在框住期间 `depthTest = false`、`renderOrder` 2 → 3（排在别的板面之后），放开 / 换一块 / 板被拿走就复原。只是 GL 状态，不换着色器程序。不动板框（in 她队色的那圈）和柱子：它们是整组板共用的实例网格，关掉深度测试会让没框住的板、柱子穿墙、压在她和垫子上。她站的观看点在板的下沿下面（`frame.js`），所以她从来不是被盖住的那个。
+   - 代价（看得见的）：缆绳在板框那 7 cm 上照样露着，进了板面就「到了玻璃后面」；框住时从镜头和板之间走过的 Boss / 小人也画在板后面。比挡一行字好；舞台一样没改。
+   - 没选「挪这一块板」：Boss 的回声亭立在她当时站的地方前面（`EchoStation.ask`：她面朝的方向 `echoAhead` m、最近的可走节点），哪天、站在哪都可能有一根，挪一次只修这一次；也没有能快速查「镜头和板之间有没有东西」的东西（没有 BVH，全舞台 64 万三角形，一条射线在手机上要几十毫秒）。
+
+**改了什么**（inkwave，`98ef043` 起；IELTS-Base 没动）：
+- `0bacf1e` `src/learn/play/board/walk.js`：`_lift()`（`_frame` / `_unframe` / `free` 后调用）、`_topB`。`tests/learn/play3-board.test.mjs` 新一条（没修时失败：框住的板面还做深度测试）。`tools/learn/tap-walk.mjs`：`--until framed`（第一块框住的板拍完、量完就停）、`inFront()`（从镜头到板面 11 × 9 条射线打场景，只算看得见的网格、不算板自己那组：每个物件挡了几条、哪几行、最近的点和距离、材质、父级；板面的 `depthTest`、镜头、板、亭子、她的位置）进报告的 `inFront`。
+- `e32a36a` `src/learn/device-voice.js`（新）；`src/learn/audio.js`：`deviceVoice` / `deviceSpeak` 导出，`stop()` 走 `deviceVoice.cancel()`，`speakDevice` 走 `deviceSpeak`，`status().device`；`src/ui/hud-learn.js` `_device` 走 `deviceSpeak`（它自己的语速 `LEARN.ui.ttsRate`、音色 `_pickVoice`）。`tests/learn/device-voice.test.mjs`（新，6 条：假的 `speechSynthesis` 记下 speak / cancel 的顺序和那一拍、utterance 的引用；前四条测新模块，后两条走页面的路——`audio.say()` 经 hud-learn 的 `_device`、和自带的设备声音——换回旧 `audio.js` / `hud-learn.js` 时这两条失败：旧的先 cancel 两次再 speak、utterance 没人拿着、onend 不来就永远不结束）。
+- `715ebd4` `device-voice.js`：`speak()` 里当场被拒（onerror 同步来，iOS 的 not-allowed）时不再留下一个兜底计时；`device-voice.test` 第 7 条（没修时失败）。
+- `a001d7f` `tools/learn/tap-walk.mjs` 的 `inFront()`：不写深度的不算、每条射线上挡着的全记（见下面 tap-walk）。
+- `5e62479` `src/learn/play/runner/tips.js`：四处 `bottom` 加 `var(--iw-sab, 0px)`。`tests/learn/forms-inset.test.mjs` 新一条（竖屏 / 横屏胶囊和提示离底 ≥ Home 条 + 8 px、提示在胶囊上面不压着、没有安全区时照旧 14 px；没修时失败：14 px < 34 + 8）。
+
+**测试**：`npm run test:learn` 515 → **524** 全过（+1 `play3-board`、+7 `device-voice`、+1 `forms-inset`）；`npm run check` 320 → **321** 个文件 syntax ok（+1 `device-voice.js`）；证据快照改后 sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`、128 270 个情形，和任务书给的基线一样（三条都不在判分路上，照规矩跑了）。
+
+**tap-walk（Boss，竖屏 390 × 844，iPhone 安全区；任务书许两次，只跑了 1 次）**：`flock -w 9000 /tmp/ielts-browser.lock nice -n 10 node tools/learn/tap-walk.mjs --learn w2d3 --kind boss --view portrait --keep --until framed --budget 1200 --shots <草稿目录>/shots --out <草稿目录>/tw-1.json`，在 `0bacf1e` 上（板面的修法已在）。开机 249.7 s，墙钟 705 s 走到 S 段的回声亭（关卡时钟 392.5 s、开了 3 道门）：378 次采样、43 题、484 次点按、没有一刻没路走、页面错误 0、4xx 0、`fails: []`。框住时报告的 `inFront` 里板面 `depthTest: false`、`renderOrder: 3`。截图（板框住，看过已删）：板面干净，没有横过字的线。
+- **但这一次没复现那根缆绳**：她站在出生的凉廊上（她 (−0.6, 2.4, −41.0)、亭子 (−0.5, 2.4, −38.5)、板中心 (−0.41, 5.01, −36.15)、镜头 (−0.63, 5.74, −41.94)，离板 5.8 m）。离线把 tidewater 的 280 个摆放（19 401 块几何）用同样的 11 × 9 条射线打了一遍（草稿目录里的一次性脚本，不进仓库），镜头和板之间一个道具都没有。页面里的 `inFront` 那次被天穹盖住了：天穹是镜头周围半径约 1 m 的球（`SkyDome`，不写深度），每条射线最先碰到它，诊断只记了最近的那个——`a001d7f` 改了（不写深度的不算、每条射线上挡着的全记），这次改动没在浏览器里跑过。
+- 所以「先找出是哪个物件」**没找到**：亭子立在她当时站的地方前面，主会话 10-25 那次她站的地方多半和这次不一样。候选（没核实）：广场上两串彩旗的绳（`bunting`，4.4 / 4.5 m 高，`tidewater/props.js` 2058–2059 行和它们的镜像）、`D.cable` / 彩灯一类的细管、动态的东西（小人的滑索）。修法是通用的，不靠知道是哪一个。
+- 第 2 次没跑：时间到了，而且同样的走法多半还是站在凉廊上、复现不了。留给主会话合并后跑一次（命令同上），报告的 `inFront` 会列出挡着的东西和它在板上的哪几行。
+
+**拿不准的（自己定了）**：
+1. 推迟 50 ms：只在真 cancel 过之后。iOS 上「刚 cancel 紧跟 speak 会丢」是已知的 WebKit 行为，要推迟多久没有官方数字（常见做法一帧到 100 ms）；50 ms 她点 ▶ 再听时察觉不到。**真机没验**（这里没有 iPhone）。
+2. 兜底的估计偏宽（英语约每秒 13 个字符，再加 1.5 s 起声），而且引擎说还在说就不结束——宁可 ▶ 多亮一会儿，也不在她还在听时就灭、让等 onEnd 的地方（展板「听全文」、回声亭的波纹）提前走。
+3. 板面画在最上面时，GTAO（高画质才开）的深度里还是缆绳的深度，高画质下板面上可能有一道很淡的暗线；手机默认画质不开 GTAO。没为它多做。
+4. 板框那 7 cm 照样被挡（见先定的 3）；要彻底干净得把框住的那块板的板框单独拿出来画，现在的共用实例网格做不到，没做。
+
+**没做的**：
+- 真机：iOS 上设备语音的三条、跑酷提示离 Home 条的距离、框住的板面盖住缆绳的样子，都没在她的 iPhone 上看。
+- 顺带看到、不在任务书里：`strip.playing(true)` 之后 `H._speak` → `audio.say()` → `stop()` 会**同步**回调上一句的 `onEnd` → `playing(false)`，所以正在放时再点 ▶，新的那句放着 ▶ 却是灭的（和「一直亮」相反的毛病）。coop / arena host / host / run 四处同样的写法，没改。
+
+**交接**：inkwave 分支 `wf-voice-stage`（从 `98ef043` 建）；IELTS-Base 没有改动（`app/game` 由主会话同步）。改到的文件：`src/learn/device-voice.js`（新）、`src/learn/audio.js`、`src/ui/hud-learn.js`、`src/learn/play/runner/tips.js`、`src/learn/play/board/walk.js`、`tools/learn/tap-walk.mjs`、`tests/learn/device-voice.test.mjs`（新）、`tests/learn/play3-board.test.mjs`、`tests/learn/forms-inset.test.mjs`、`docs/LEARN.md`（只有这一节）。和 `wf-input`（`core/touch.js`、键盘输入、`game/cameraRig.js`、`forms/versus2.js` / `coop2.js`、`play/arena/host.js`）不重叠；`docs/LEARN.md` 末尾会和 §55 冲突（节的先后，主会话排）。
