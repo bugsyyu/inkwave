@@ -2792,7 +2792,7 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - `90d2599` S：`src/config.js`（`LEARN.coop2.partnerIdle`）、`src/learn/forms/duo.js`（`partnerWait`、`PARTNER_IDLE_LINE`）、`src/learn/forms/coop2.js`（`_waitPartner`，在 `_stylePads` 之后每帧）、`src/learn/forms/ui.js`（`say(…, { wrap })`、`.iw-lf__note.is-wrap`）。
 - `80b2af6` O 补：`src/learn/play/duo/coop.js`（线索的 L / R，`_key`；拿着线索时挂、放下就摘）。
 
-**测试**：`npm run test:learn` 515 → **528** 全过（+13，都在新的 `inputs.test.mjs`：O 8 条、R 2 条、S 3 条）；`npm run check` 320 个文件 syntax ok（测试文件不计）。没修时失败、修后通过：把 `src`、`styles` 换回改前（`git stash`）跑 `inputs.test.mjs`——O 那 8 条里 7 条失败（「桌面上没有办法按到继续」那条：按 Enter 什么都没发生，`did` 是空的）；「各种不收的情形」那条前后都过（它只说哪些时候不收）；「手指下一切照旧」那条**有意**前后都过（触屏的行为不变）；R 2 条、S 3 条改前全失败。证据快照：O / R / S 都不在判分 / 题的路上，照规矩还是在分支头上跑了一次（结果见交接）。浏览器 0 次（任务书）。
+**测试**：`npm run test:learn` 515 → **528** 全过（+13，都在新的 `inputs.test.mjs`：O 8 条、R 2 条、S 3 条）；`npm run check` 320 个文件 syntax ok（测试文件不计）。没修时失败、修后通过：把 `src`、`styles` 换回改前（`git stash`）跑 `inputs.test.mjs`——O 那 8 条里 7 条失败（「桌面上没有办法按到继续」那条：按 Enter 什么都没发生，`did` 是空的）；「各种不收的情形」那条前后都过（它只说哪些时候不收）；「手指下一切照旧」那条**有意**前后都过（触屏的行为不变）；R 2 条、S 3 条改前全失败。证据快照：O / R / S 都不在判分 / 题的路上，还是在分支头上跑了一次：128 270 个情形，sha256 `bae04357cce84ce7e99063b42daac9beeea48e1891152424fd543dcfc423c84f`，和 `98ef043` 的一样（逐字节相同）。浏览器 0 次（任务书）。
 
 **拿不准的（自己定了）**：
 1. Enter 当「继续 ›」：备战早就这样。出口打卡板的「继续 ›」是踩上打卡垫（这一天走完）——桌面上一按回车就走完这一天，和点那颗键一样（§48 定的），没加确认。
