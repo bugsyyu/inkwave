@@ -177,6 +177,19 @@ test('O · desktop: the keys wait for a menu, the pause, a repeat, a modifier, a
   press('Enter');
   assert.deepEqual(did, [], 'after the level: the listener is gone');
   assert.equal(KL.bubble.length + KL.capture.length, 0, 'nothing left on window');
+  // the same Enter that resumes from the pause menu: input.js's listener (added at boot, before this one) hands it to the
+  // menus, which resume — the menu is gone and the match runs again by the time it reaches here — but the menus stop its
+  // default (menus.js handleKey), and a key whose default is stopped is someone else's: one press is not 继续 and 继续 ›
+  G.menus = { current: 'pause' }; G.match.paused = true;
+  const boot = (e) => { if (G.menus && G.menus.current && e.code === 'Enter') { e.preventDefault(); G.menus = null; G.match.paused = false; } };
+  window.addEventListener('keydown', boot);
+  L.start(flowOf()); L.framed(framedInfo(did));
+  press('Enter');
+  assert.deepEqual(did, [], 'the menu\'s Enter resumed; it did not go on at the board too');
+  press('Enter');
+  assert.deepEqual(did, ['go'], 'the next Enter is the board\'s');
+  L.end(); window.removeEventListener('keydown', boot);
+  assert.match(src('src/ui/menus.js'), /const dir = byCode\[e\.code\] \|\| byKey\[e\.key\];\s*if \(!dir\) return false;\s*e\.preventDefault\(\);/, 'the menus stop the default of a key they take');
 });
 
 test('O · the typing keyboard and the duel\'s 备战 keep their keys: the board\'s keys listen on window\'s bubble phase, so a capture-phase owner that stops the key wins', () => {
