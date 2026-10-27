@@ -2770,3 +2770,11 @@ IELTS-Base 八个游戏 e2e 用这个分支的 dist（`fb1ec72`）全过：game-
 - 对抗赛的 `askNear / askWait`（她离区域远时等 6 s）没动——不在任务书里，而且那里本来就在等满后照出题。
 
 **交接**：inkwave 分支 `wf-logic`（从 `8906dd2` 建）；IELTS-Base 没有改动（`app/game` 由主会话同步，合并后八个游戏 e2e 由主会话跑）。改到的文件：`src/learn/play/hit.js`、`src/learn/forms/boss.js`、`src/learn/play/landscape.js`、`src/config.js`（只有 `LEARN.boss` 两行注释）、`docs/PLAY.md`（§1 第 5 条一句）、`tests/learn/play.test.mjs`、`tests/learn/boss-pace.test.mjs`（新）、`docs/LEARN.md`（只有这一节）。和 `wf-ui-polish`（`styles/*.css`、`forms/ui.js`、`play-keys.js`、`type/shot.js`、书页）不重叠；`docs/LEARN.md` 末尾会冲突（§53 / §54 的先后，主会话排）。
+
+## 57. wf-perf2 交付（2026-10-27，子代理，分支 `wf-perf2`：手机上很卡——§50 只量了 w2d3 解谜，这里补其余玩法的前后：跑酷、对抗赛、复习日、主菜单、加载）
+
+业主 10-21：「还有个问题，很卡，手机上真的很卡，你需要深入做体系化优化」；10-27：「全力恢复推进，直到完全达到目标上线」。§50 的「没做的 2」和「交接」：其余玩法只有改前的数（第一个子代理量的、量具早一版），合并后按交接那一行补。这一节就是补的那一次（量完补）。
+
+**先读了什么**：§50 全节（尤其「量具」「实测」「真机上要看什么」「交接」）、§48 里 walk3「慢帧」的结论（SwiftShader 上主线程的 ms 会被 GPU 的等待挪来挪去：比快慢比 GPU 用时（fence）或墙钟，别只比主线程的 ms；`gl-frames --fence` 那张表）、§52（CPU 那一半：慢帧子步、镜头外的小孩、小地图、跑酷的 flood）、§49（她 App 里的 `main` 现在是「选游戏方式」那一屏）；代码：`tools/learn/perf-probe.mjs` 全文（怎么找游戏：服务的根 = 它自己往上两层的目录）。
+
+（量完补：先定的 / 实测 / 每行结论 / 退回 / 测试 / 拿不准的 / 没做的 / 交接）
