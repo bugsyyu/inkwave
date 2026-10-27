@@ -73,6 +73,8 @@ const { BoardWalk } = await import('../../src/learn/play/board/walk.js');
 const { PrepStation } = await import('../../src/learn/play/arena/prep.js');
 const { passageSpec, wordsSpec, lessonSpec, echoSpec } = await import('../../src/learn/play/board/paint.js');
 const { boardSpots } = await import('../../src/learn/play/board/frame.js');
+const { clueSpec } = await import('../../src/learn/forms/duo.js');
+const CO = await import('../../src/learn/play/duo/coop.js');   // (coop2's play host: its clue's keys)
 
 // ------------------------------------------------------------------------------------------------ a window for key listeners
 // (capture listeners first, then bubble — in the order they were added; stopPropagation ends the dispatch after the current
@@ -280,6 +282,42 @@ test('O · the duel\'s 备战 and the runner\'s start line: R = 看全文, L = �
   assert.ok(!/L 听全文/.test(shown[shown.length - 1].why) && /点「出发！」/.test(shown[shown.length - 1].why));
   P.dispose();
   assert.equal(KL.capture.length, 0, 'its listener comes off with it');
+}));
+
+test('O · coop2\'s clue board on a desktop: L = its 再听, R = 看全文 (hotspots out of reach under pointer lock); the strip\'s ▶ when no board found room; under a finger, no', noDom(() => {
+  const { CoopPlay } = CO;
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(52, 1280 / 720, 0.1, 300);
+  const B = new BoardWalk({ scene, camera, max: 2 }), spoken = [];
+  B.on.speak = (t) => spoken.push(t);
+  const spec = clueSpec({ type: 'clue', text: 'What does "colleague" mean?', zh: '「colleague」是什么意思？', tts: 'colleague' }, '小林');
+  B.prepare('clue:w:colleague', [spec]);
+  const route = []; for (let z = 0; z <= 20; z++) route.push({ x: 0, y: 0, z });
+  B.place('clue:w:colleague', boardSpots(route, 1));
+  B.here = true;
+  for (let k = 0; k < 10; k++) B.update(1 / 60, new THREE.Vector3(0, 0, 0), { aspect: 16 / 9, speed: 0 });
+  assert.ok(B.framed >= 0);
+  assert.deepEqual(B.keysOf(B.framed).sound, { id: 'listen', label: '再听' });
+  const P = { clueOn: { key: 'clue:w:colleague', strip: false, tts: 'colleague' }, board: B, match: { paused: false }, say: (t) => spoken.push('strip:' + t) };
+  const ev = (code, o = {}) => ({ code, repeat: false, ctrlKey: false, altKey: false, metaKey: false, ...o, preventDefault() { this.dp = true; } });
+  desktop(); G.menus = null;
+  let e = ev('KeyL');
+  assert.equal(CoopPlay.prototype._key.call(P, e), true);
+  assert.deepEqual(spoken, ['colleague'], 'L: the clue\'s 再听');
+  assert.ok(e.dp, 'its default stopped');
+  assert.equal(CoopPlay.prototype._key.call(P, ev('KeyL', { repeat: true })), false, 'a held key: once');
+  G.menus = { current: 'pause' }; assert.equal(CoopPlay.prototype._key.call(P, ev('KeyL')), false, 'the pause menu: no'); G.menus = null;
+  // no board found room: the strip carries the clue, L is its ▶
+  const S = { clueOn: { key: null, strip: true, tts: 'colleague' }, board: B, match: { paused: false }, say: (t) => spoken.push('strip:' + t) };
+  CoopPlay.prototype._key.call(S, ev('KeyL'));
+  assert.deepEqual(spoken, ['colleague', 'strip:colleague']);
+  phone();
+  assert.equal(CoopPlay.prototype._key.call(P, ev('KeyL')), false, 'under a finger: the board\'s own 再听');
+  assert.equal(spoken.length, 2);
+  // on while she holds the clue, off with it
+  const c = src('src/learn/play/duo/coop.js');
+  assert.match(c, /if \(typeof window !== 'undefined' && window\.addEventListener\) \{ window\.removeEventListener\?\.\('keydown', this\._onKey\); window\.addEventListener\('keydown', this\._onKey\); \}/);
+  assert.match(c, /_clearClue\(\) \{\s*const C = this\.clueOn; if \(!C\) return;\s*this\.clueOn = null;\s*if \(typeof window !== 'undefined' && window\.removeEventListener\) window\.removeEventListener\('keydown', this\._onKey\);/);
+  B.dispose();
 }));
 
 // ================================================================================================ R · versus2's 地图 while the lens is held

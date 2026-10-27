@@ -20,6 +20,8 @@
 //   P.clue(g, item, view, { partner, alt })               the clue side · P.clueVerdict({ ok, head, why }, ms)
 //   P.prep(g) (the gate's label atlas) · P.prepClue(item, partner, alt) (a clue board painted ahead)
 //   P.clear() · P.gateOpened(g) · P.update(dt) · P.say(text, o) · P.facingYaw(g, a) · P.debug() · P.dispose()
+// On a desktop (LEARN §55) the clue's L = 再听, R = 看全文 while she holds it (_key: the hotspots and ▶ are out of reach under
+// pointer lock).
 import * as THREE from 'three';
 import { G } from '../../../core/ctx.js';
 import { LEARN } from '../../../config.js';
@@ -50,6 +52,7 @@ export class CoopPlay {
     this._onResize = () => { this._resizedAt = true; };
     if (typeof window !== 'undefined') { window.addEventListener('resize', this._onResize); window.addEventListener('orientationchange', this._onResize); }
     this._warmT = 0.05;   // (the rig and the board set compile under the match fade, not mid-question)
+    this._onKey = (e) => this._key(e);   // (LEARN §55: the clue's L / R on a desktop — on while she holds the clue)
   }
 
   // ---------------------------------------------------------------------------------------------- which mechanic
@@ -96,13 +99,14 @@ export class CoopPlay {
       this.painted.add(key);
       B.place(key, [spot], { w: bw });
       this.strip?.hide();
-      this.clueOn = { key, item, spot, strip: false };
+      this.clueOn = { key, item, spot, strip: false, tts: view.tts || '' };
     } else {
       // (no room for a board: the strip carries the clue — the stem, its Chinese, ▶ — and nothing to answer with)
       this.strip?.show({ text: view.text, zh: [view.zh, view.hint].filter(Boolean).join('　'), tts: view.tts }, { replay: () => this.say(view.tts) });
       this.strip?.fit(this.m1._topKeys());
-      this.clueOn = { key: null, item, spot: null, strip: true };
+      this.clueOn = { key: null, item, spot: null, strip: true, tts: view.tts || '' };
     }
+    if (typeof window !== 'undefined' && window.addEventListener) { window.removeEventListener?.('keydown', this._onKey); window.addEventListener('keydown', this._onKey); }
     if (view.tts) this.say(view.tts);
     this.log.push({ t: +F.t.toFixed(2), ev: 'clue', item: item.id, board: !!(spot && B), at: spot ? [spot.x, spot.y, spot.z].map((v) => +v.toFixed(1)) : null });
     return true;
@@ -144,9 +148,23 @@ export class CoopPlay {
     B.on.speak = (text, o) => this.say(text, { slow: !!(o && o.slow), onEnd: o && o.onEnd });
     return B;
   }
+  // LEARN §55: on a desktop the clue board's 再听 / 看全文 are hotspots and the strip's ▶ a DOM key — out of reach under pointer
+  // lock (Esc is the pause menu): L = 再听 (the board's, or the strip's when no board found room), R = 看全文. Window's bubble
+  // phase; not with a touch layer, a menu, the pause, a held key or a modifier
+  _key(e) {
+    const C = this.clueOn, B = this.board;
+    if (!C || (e.code !== 'KeyL' && e.code !== 'KeyR') || (G.input && G.input.touch && G.input.touch.active) || this.match.paused || (G.menus && G.menus.current) || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return false;
+    let f = null;
+    if (C.key && B && B.framed >= 0) { const k = B.keysOf(B.framed); f = k && (e.code === 'KeyR' ? k.more && k.onMore : k.sound && k.onSound); }
+    else if (C.strip && e.code === 'KeyL' && C.tts) f = () => this.say(C.tts);
+    if (!f) return false;
+    e.preventDefault?.(); f();
+    return true;
+  }
   _clearClue() {
     const C = this.clueOn; if (!C) return;
     this.clueOn = null;
+    if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('keydown', this._onKey);
     if (C.key && this.board) { this.board.free(C.key); this.painted.delete(C.key); }
     if (C.strip) this.strip?.hide();
     if (this.kind === 'clue') { this.kind = null; this.cur = null; }
