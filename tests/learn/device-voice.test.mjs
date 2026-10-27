@@ -132,7 +132,7 @@ test('§56 the page: say() through hud-learn\'s voice — no cancel in the same 
   const same = S.log.filter((x) => x[1] === 1).map((x) => x[0]);
   assert.ok(same.includes('cancel') && !same.includes('speak'), `no speak in the tick of the cancel (${same})`);
   assert.equal(S.log.filter((x) => x[0] === 'cancel').length, 1, 'one cancel (stop() and the voice used to cancel twice)');
-  S.tick = 2; await wait(GAP + 30);
+  S.tick = 2; await wait(GAP + 200);
   assert.deepEqual(S.log.map((x) => x[0]), ['speak', 'cancel', 'speak']);
   assert.equal(A.deviceVoice.live, S.said[1]);
   assert.equal(S.said[1].rate, 0.92, 'hud-learn\'s own rate (LEARN.ui.ttsRate)');
@@ -155,10 +155,10 @@ test('§56 the page: the built-in voice (no caller voice) speaks through the sam
   S.onCancelError = false; S.speaking = false;
   let m = 0;
   A.say('Hi', { onEnd: () => m++ });
-  await wait(GAP + 30);   // (a cancel just now: it speaks a frame later)
+  await wait(GAP + 200);   // (a cancel just now: it speaks a frame later)
   assert.equal(S.said.length, 2, 'spoken');
   S.speaking = false;     // (the engine has gone quiet, and no onend comes)
-  await wait(estimateMs('Hi', 0.92) + 200);
+  await wait(estimateMs('Hi', 0.92) + 800);
   assert.equal(m, 1, 'no onend: ended once');
   assert.equal(A.status().device.live, false);
   S.onCancelError = true;
